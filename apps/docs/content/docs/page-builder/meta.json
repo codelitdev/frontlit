@@ -1,0 +1,5 @@
+{
+    "title": "Page Builder",
+    "icon": "Blocks",
+    "pages": ["overview", "hero", "header", "footer", "pricing", "faq", "grid", "rich-text", "email-form", "page-builder"]
+}

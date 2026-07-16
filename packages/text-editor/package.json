@@ -1,0 +1,55 @@
+{
+    "name": "@frontlit/text-editor",
+    "version": "0.1.0",
+    "description": "A TipTap-based rich text editor and renderer for FrontLit",
+    "private": true,
+    "license": "MIT",
+    "type": "module",
+    "exports": {
+        ".": "./dist/index.js",
+        "./styles.css": "./dist/styles.css"
+    },
+    "types": "./dist/index.d.ts",
+    "scripts": {
+        "build": "tsup && node scripts/add-use-client.mjs && tailwindcss -i src/styles.css -o dist/styles.css",
+        "dev": "tsup --watch",
+        "clean": "rimraf dist",
+        "check-types": "tsc --noEmit"
+    },
+    "peerDependencies": {
+        "react": "^18.0.0 || ^19.0.0",
+        "react-dom": "^18.0.0 || ^19.0.0"
+    },
+    "dependencies": {
+        "@floating-ui/dom": "^1.6.0",
+        "@tiptap/core": "^3.0.0",
+        "@tiptap/extension-bubble-menu": "^3.10.4",
+        "@tiptap/extension-code-block-lowlight": "^3.0.0",
+        "@tiptap/extension-dropcursor": "^3.0.0",
+        "@tiptap/extension-gapcursor": "^3.0.0",
+        "@tiptap/extension-heading": "^3.0.0",
+        "@tiptap/extension-highlight": "^3.11.0",
+        "@tiptap/extension-image": "^3.0.0",
+        "@tiptap/extension-link": "^3.0.0",
+        "@tiptap/extension-placeholder": "^3.0.0",
+        "@tiptap/extension-table": "^3.10.7",
+        "@tiptap/react": "^3.0.0",
+        "@tiptap/starter-kit": "^3.0.0",
+        "@tiptap/static-renderer": "^3.10.7",
+        "clsx": "^2.1.1",
+        "highlight.js": "^11.10.0",
+        "lowlight": "^2.9.0",
+        "lucide-react": "^0.553.0",
+        "tailwind-merge": "^3.4.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "@types/react": "^19.0.0",
+        "@types/react-dom": "^19.0.0",
+        "@tailwindcss/cli": "^4.1.0",
+        "rimraf": "^5.0.0",
+        "tailwindcss": "^4.1.0",
+        "tsup": "^8.3.0",
+        "typescript": "^5.6.2"
+    }
+}

@@ -1,0 +1,16 @@
+# FrontLit Docker Compose Configuration
+services:
+    postgres:
+        image: pgvector/pgvector:pg16
+        restart: unless-stopped
+        environment:
+            POSTGRES_USER: frontlit
+            POSTGRES_PASSWORD: frontlit
+            POSTGRES_DB: frontlit
+        ports:
+            - "5432:5432"
+        volumes:
+            - frontlit-postgres-data:/var/lib/postgresql/data
+
+volumes:
+    frontlit-postgres-data:

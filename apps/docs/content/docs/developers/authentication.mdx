@@ -1,0 +1,36 @@
+---
+title: Authentication
+description: Authenticating REST and MCP requests against the FrontLit API.
+---
+
+The API accepts two kinds of authentication, resolved in this order:
+
+1. **Session cookie** — set by signing in through the web app (passwordless email OTP, via
+   [better-auth](https://www.better-auth.com)). Used by the dashboard itself; not applicable to server-to-server
+   callers.
+2. **API key** — a team-scoped secret, sent as the `x-frontlit-apikey` header (or `apikey` body field). Create one
+   from **Team settings → API keys** in the dashboard, or via `POST /teams/:teamId/keys`. The full secret is only
+   returned once, at creation time — store it securely.
+
+```bash
+curl https://api.frontlit.dev/pages \
+  -H "x-frontlit-apikey: fl_live_..."
+```
+
+## Team scope
+
+Session-authenticated requests resolve which team they act on via the `X-Frontlit-Team-Id` header (the dashboard
+sends this automatically once you've picked a team). If an account belongs to exactly one team, the header can be
+omitted. An API key always authenticates as exactly one, fixed team — no header needed.
+
+## MCP
+
+The MCP server is exposed at `POST /mcp` and authenticates the same way as REST — send the same
+`x-frontlit-apikey` header your MCP client is configured with. Tools mirror the REST API 1:1 (`list_pages`,
+`create_page`, `update_page`, `list_teams`, `create_api_key`, ...).
+
+## Provisioning
+
+`POST /provisioning/teams` is a separate, server-to-server-only endpoint for multi-tenant consumers. It's guarded
+by a shared secret (`X-Frontlit-Provisioning-Secret`), not an API key — see the [API Reference](/api-reference)
+for its request/response shape.

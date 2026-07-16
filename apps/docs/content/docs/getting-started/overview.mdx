@@ -1,0 +1,35 @@
+---
+title: Overview
+description: Run the FrontLit API and web app locally.
+---
+
+FrontLit is a pnpm monorepo with three apps and two packages:
+
+- `apps/api` — the REST/OpenAPI/MCP API (Express, ts-rest, better-auth, Drizzle/Postgres).
+- `apps/web` — the dashboard (Next.js), authenticated against `apps/api`.
+- `apps/docs` — this documentation site (fumadocs).
+- `packages/api-contract` — the shared ts-rest contract (Zod schemas + routes) consumed by all three.
+- `packages/page-builder` — the block-based page builder and renderer.
+
+## Run the API
+
+```bash
+docker compose up -d postgres
+cp apps/api/.env.example apps/api/.env
+pnpm --filter @frontlit/api-contract build
+pnpm --filter @frontlit/api db:push
+pnpm --filter @frontlit/api dev
+```
+
+The API listens on `http://localhost:4000` by default. `GET /health` confirms it's up, `GET /docs` serves an
+interactive Swagger UI, and `GET /openapi.json` serves the raw OpenAPI document.
+
+## Run the web app
+
+```bash
+cp apps/web/.env.example apps/web/.env
+pnpm --filter @frontlit/web dev
+```
+
+The dashboard listens on `http://localhost:3000`. Signing in sends a one-time code to your email (logged to the
+API's console in development instead of actually emailed).

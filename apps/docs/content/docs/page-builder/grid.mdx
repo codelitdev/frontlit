@@ -1,0 +1,16 @@
+---
+title: Grid
+description: A responsive grid of cards — features, team members, logos, etc.
+---
+
+<PageBuilderDemo demo="grid" />
+
+## Usage
+
+```tsx
+import { createWidgetInstance, PageRenderer, getDefaultTheme } from "@frontlit/page-builder";
+
+const layout = [createWidgetInstance("grid")];
+
+<PageRenderer layout={layout} theme={getDefaultTheme()} pageData={{ pageType: "landing" }} />;
+```

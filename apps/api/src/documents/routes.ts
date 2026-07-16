@@ -1,0 +1,85 @@
+import { Router } from "express";
+import { createExpressEndpoints, initServer } from "@ts-rest/express";
+import { requireAuth } from "../auth/middleware";
+import { requireTeam } from "../auth/require-team";
+import type { DocumentKind } from "../db/schema";
+import {
+    countDocuments,
+    createDocument,
+    deleteDocument,
+    deriveDocumentStatus,
+    discardDocumentDraft,
+    getDocumentByDocumentId,
+    listDocuments,
+    publishDocument,
+    updateDocument,
+} from "./queries";
+import { omitInternal, serializeDates } from "../utils/public";
+import { findTeamById } from "../team/queries";
+import { revalidateTeam } from "../services/revalidate";
+
+function toPublicDocument<T extends Record<string, unknown>>(doc: T) {
+    return serializeDates(omitInternal({ ...doc, status: deriveDocumentStatus(doc as any) }, "teamId", "kind"));
+}
+
+/**
+ * One implementation behind every kind-scoped document router (`/blogs`,
+ * `/docs`, `/changelogs` \u2014 architecture.md \u00a75.3). `contractRouter` is the
+ * ts-rest router produced by the matching `makeDocumentContract(...)` call;
+ * this function is the thin REST adapter over the shared `./queries.ts`
+ * functions, parameterized only by `kind`.
+ */
+export function createDocumentsRouter<T extends Record<string, unknown>>(kind: DocumentKind, contractRouter: T) {
+    const router = Router();
+    router.use(requireAuth);
+    router.use(requireTeam);
+
+    const s = initServer();
+
+    const impl: any = {
+        create: async ({ body, req }: any) => {
+            const doc = await createDocument(kind, { teamId: req.teamId, ...body });
+            return { status: 201, body: toPublicDocument(doc) };
+        },
+        list: async ({ query, req }: any) => {
+            const teamId = req.teamId;
+            const [items, total] = await Promise.all([
+                listDocuments(kind, { teamId, q: query.q, offset: query.offset, itemsPerPage: query.itemsPerPage }),
+                countDocuments(kind, { teamId, q: query.q }),
+            ]);
+            return { status: 200, body: { items: items.map((item: any) => toPublicDocument(item)), total } };
+        },
+        get: async ({ params, req }: any) => {
+            const doc = await getDocumentByDocumentId(kind, params.documentId);
+            if (!doc || doc.teamId !== req.teamId) return { status: 404, body: { error: "Not found" } };
+            return { status: 200, body: toPublicDocument(doc) };
+        },
+        update: async ({ params, body, req }: any) => {
+            const doc = await updateDocument(kind, req.teamId, params.documentId, body);
+            if (!doc) return { status: 404, body: { error: "Not found" } };
+            return { status: 200, body: toPublicDocument(doc) };
+        },
+        publish: async ({ params, req }: any) => {
+            const doc = await publishDocument(kind, req.teamId, params.documentId);
+            if (!doc) return { status: 404, body: { error: "Not found" } };
+            const team = await findTeamById(req.teamId);
+            if (team) revalidateTeam(team.teamId).catch(() => {});
+            return { status: 200, body: toPublicDocument(doc) };
+        },
+        discardDraft: async ({ params, req }: any) => {
+            const doc = await discardDocumentDraft(kind, req.teamId, params.documentId);
+            if (!doc) return { status: 404, body: { error: "Not found" } };
+            return { status: 200, body: toPublicDocument(doc) };
+        },
+        remove: async ({ params, req }: any) => {
+            const result = await deleteDocument(kind, req.teamId, params.documentId);
+            if (!result.ok) return { status: 404, body: { error: "Not found" } };
+            const team = await findTeamById(req.teamId);
+            if (team) revalidateTeam(team.teamId).catch(() => {});
+            return { status: 204, body: undefined };
+        },
+    };
+
+    createExpressEndpoints(contractRouter as any, s.router(contractRouter as any, impl), router);
+    return router;
+}

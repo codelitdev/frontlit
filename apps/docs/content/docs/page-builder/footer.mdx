@@ -1,0 +1,16 @@
+---
+title: Footer
+description: Site-wide footer links, pinned to the bottom of every page.
+---
+
+<PageBuilderDemo demo="footer" />
+
+## Usage
+
+```tsx
+import { createWidgetInstance, PageRenderer, getDefaultTheme } from "@frontlit/page-builder";
+
+const layout = [createWidgetInstance("footer")];
+
+<PageRenderer layout={layout} theme={getDefaultTheme()} pageData={{ pageType: "landing" }} />;
+```

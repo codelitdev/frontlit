@@ -1,0 +1,34 @@
+{
+    "name": "@frontlit/api-contract",
+    "private": true,
+    "version": "0.1.0",
+    "description": "Shared ts-rest contract (Zod schemas + route definitions) for the FrontLit API — single source of truth for server validation, the OpenAPI doc, and the typed web client",
+    "author": "FrontLit",
+    "license": "MIT",
+    "main": "dist/index.mjs",
+    "types": "dist/index.d.mts",
+    "files": ["dist"],
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.mts",
+            "import": "./dist/index.mjs",
+            "default": "./dist/index.mjs"
+        }
+    },
+    "scripts": {
+        "clean": "rimraf dist/",
+        "build": "tsup",
+        "dev": "tsup --watch",
+        "check-types": "tsc --noEmit"
+    },
+    "devDependencies": {
+        "@types/node": "^22.14.1",
+        "rimraf": "^5.0.0",
+        "tsup": "^8.3.0",
+        "typescript": "^5.6.2"
+    },
+    "dependencies": {
+        "@ts-rest/core": "^3.52.1",
+        "zod": "^3.25.76"
+    }
+}

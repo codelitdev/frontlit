@@ -1,0 +1,21 @@
+{
+  "name": "frontlit",
+  "version": "1.0.0",
+  "description": "The frontoffice of your SaaS",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter @frontlit/web dev",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "test": "pnpm -r run test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.22.0",
+  "type": "module"
+}

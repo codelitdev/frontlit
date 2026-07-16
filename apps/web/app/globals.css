@@ -1,0 +1,20 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@frontlit/page-builder/theme.css";
+
+@source "../../../packages/page-builder/src";
+@source "../../../packages/text-editor/src";
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+    body {
+        @apply bg-background text-foreground;
+    }
+}
+
+html,
+body {
+    height: 100%;
+}

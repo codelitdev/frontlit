@@ -1,0 +1,24 @@
+---
+title: PageBuilder
+description: The full WYSIWYG editor — add, remove, reorder and edit blocks, switch themes.
+---
+
+`PageBuilder` is the same component FrontLit customers use to design their own pages. It holds all editor state
+in memory and calls `onChange` on every edit — the host app decides how (and whether) to persist it.
+
+<PageBuilderDemo demo="page-builder" />
+
+## Usage
+
+```tsx
+import { PageBuilder, type PageBuilderState } from "@frontlit/page-builder";
+
+function Editor() {
+    function handleChange(state: PageBuilderState) {
+        // Persist state.layout / state.theme / state.seo, e.g. via
+        // `updatePage(pageId, { layout: state.layout, ... })`.
+    }
+
+    return <PageBuilder pageData={{ pageType: "landing" }} onChange={handleChange} />;
+}
+```

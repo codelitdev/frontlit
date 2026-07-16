@@ -1,0 +1,16 @@
+---
+title: FAQ
+description: An expandable list of frequently asked questions.
+---
+
+<PageBuilderDemo demo="faq" />
+
+## Usage
+
+```tsx
+import { createWidgetInstance, PageRenderer, getDefaultTheme } from "@frontlit/page-builder";
+
+const layout = [createWidgetInstance("faq")];
+
+<PageRenderer layout={layout} theme={getDefaultTheme()} pageData={{ pageType: "landing" }} />;
+```

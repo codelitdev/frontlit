@@ -1,0 +1,190 @@
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+import { pageSchema, pageTypes, successMessageSchema } from "@frontlit/api-contract";
+import {
+    countPages,
+    createPage,
+    deletePage,
+    derivePageStatus,
+    discardPageDraft,
+    getPageByPageId,
+    listPages,
+    publishPage,
+    updatePage,
+} from "../../pages/queries";
+import { AUTH_ERROR, INTERNAL_ERROR, NOT_FOUND, errorResult, jsonResult } from "./responses";
+import { getTeamId } from "./auth";
+import { omitInternal, serializeDates } from "../../utils/public";
+
+function toPublicPage<T extends Record<string, unknown>>(page: T) {
+    return serializeDates(omitInternal({ ...page, status: derivePageStatus(page as any) }, "teamId"));
+}
+
+export function registerPageTools(server: McpServer): void {
+    server.registerTool(
+        "list_pages",
+        {
+            description: "Lists pages for the current team, optionally filtered by type or a name search term.",
+            inputSchema: {
+                type: z.enum(pageTypes).optional(),
+                q: z.string().optional().describe("Search term matched against page name"),
+            },
+            outputSchema: z.object({ items: z.array(pageSchema), total: z.number() }),
+            annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+        },
+        async (args: any, extra: any) => {
+            const teamId = getTeamId(extra);
+            if (!teamId) return AUTH_ERROR;
+            try {
+                const [items, total] = await Promise.all([
+                    listPages({ teamId, type: args.type, q: args.q }),
+                    countPages({ teamId, type: args.type, q: args.q }),
+                ]);
+                return jsonResult({ items: items.map(toPublicPage), total });
+            } catch {
+                return INTERNAL_ERROR;
+            }
+        },
+    );
+
+    server.registerTool(
+        "create_page",
+        {
+            description: "Creates a new, empty page (no blocks yet) for the current team.",
+            inputSchema: {
+                name: z.string().min(1),
+                type: z.enum(pageTypes),
+                themeId: z.string().optional(),
+            },
+            outputSchema: pageSchema,
+            annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+        },
+        async (args: any, extra: any) => {
+            const teamId = getTeamId(extra);
+            if (!teamId) return AUTH_ERROR;
+            try {
+                const page = await createPage({ teamId, name: args.name, type: args.type, themeId: args.themeId });
+                return jsonResult(toPublicPage(page));
+            } catch {
+                return INTERNAL_ERROR;
+            }
+        },
+    );
+
+    server.registerTool(
+        "get_page",
+        {
+            description: "Fetches a single page by id, including its full block layout.",
+            inputSchema: { pageId: z.string() },
+            outputSchema: pageSchema,
+            annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+        },
+        async (args: any, extra: any) => {
+            const teamId = getTeamId(extra);
+            if (!teamId) return AUTH_ERROR;
+            try {
+                const page = await getPageByPageId(args.pageId);
+                if (!page || page.teamId !== teamId) return NOT_FOUND;
+                return jsonResult(toPublicPage(page));
+            } catch {
+                return INTERNAL_ERROR;
+            }
+        },
+    );
+
+    server.registerTool(
+        "update_page",
+        {
+            description: "Updates a page's metadata (name, SEO) and/or its block layout. Writes only the page's draft state — call publish_page to make changes live.",
+            inputSchema: {
+                pageId: z.string(),
+                name: z.string().optional(),
+                layout: z.array(z.record(z.any())).optional(),
+                themeId: z.string().nullable().optional(),
+                title: z.string().optional(),
+                description: z.string().optional(),
+                robotsAllowed: z.boolean().optional(),
+            },
+            outputSchema: pageSchema,
+            annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+        },
+        async (args: any, extra: any) => {
+            const teamId = getTeamId(extra);
+            if (!teamId) return AUTH_ERROR;
+            try {
+                const { pageId, ...patch } = args;
+                const page = await updatePage(teamId, pageId, patch);
+                if (!page) return NOT_FOUND;
+                return jsonResult(toPublicPage(page));
+            } catch {
+                return INTERNAL_ERROR;
+            }
+        },
+    );
+
+    server.registerTool(
+        "delete_page",
+        {
+            description: "Permanently deletes a page. Standard (non-deleteable) pages cannot be deleted.",
+            inputSchema: { pageId: z.string() },
+            outputSchema: successMessageSchema,
+            annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+        },
+        async (args: any, extra: any) => {
+            const teamId = getTeamId(extra);
+            if (!teamId) return AUTH_ERROR;
+            try {
+                const result = await deletePage(teamId, args.pageId);
+                if (!result.ok && result.reason === "not_found") return NOT_FOUND;
+                if (!result.ok && result.reason === "not_deleteable") {
+                    return errorResult("This is a standard page and can't be deleted.");
+                }
+                return jsonResult({ message: "Page deleted." });
+            } catch {
+                return INTERNAL_ERROR;
+            }
+        },
+    );
+
+    server.registerTool(
+        "publish_page",
+        {
+            description: "Publishes a page: copies its draft block layout and SEO fields into the published fields the public site renders.",
+            inputSchema: { pageId: z.string() },
+            outputSchema: pageSchema,
+            annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        },
+        async (args: any, extra: any) => {
+            const teamId = getTeamId(extra);
+            if (!teamId) return AUTH_ERROR;
+            try {
+                const page = await publishPage(teamId, args.pageId);
+                if (!page) return NOT_FOUND;
+                return jsonResult(toPublicPage(page));
+            } catch {
+                return INTERNAL_ERROR;
+            }
+        },
+    );
+
+    server.registerTool(
+        "discard_page_draft",
+        {
+            description: "Discards a page's draft changes, resetting the draft layout and SEO fields back to whatever is currently published.",
+            inputSchema: { pageId: z.string() },
+            outputSchema: pageSchema,
+            annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+        },
+        async (args: any, extra: any) => {
+            const teamId = getTeamId(extra);
+            if (!teamId) return AUTH_ERROR;
+            try {
+                const page = await discardPageDraft(teamId, args.pageId);
+                if (!page) return NOT_FOUND;
+                return jsonResult(toPublicPage(page));
+            } catch {
+                return INTERNAL_ERROR;
+            }
+        },
+    );
+}

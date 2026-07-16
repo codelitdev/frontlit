@@ -1,0 +1,18 @@
+---
+title: Hero
+description: The page's opening section — headline, subhead and a primary call to action.
+---
+
+<PageBuilderDemo demo="hero" />
+
+## Usage
+
+Add a hero block to a layout with `createWidgetInstance`:
+
+```tsx
+import { createWidgetInstance, PageRenderer, getDefaultTheme } from "@frontlit/page-builder";
+
+const layout = [createWidgetInstance("hero", { buttonAction: "/get-started" })];
+
+<PageRenderer layout={layout} theme={getDefaultTheme()} pageData={{ pageType: "landing" }} />;
+```
