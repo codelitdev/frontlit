@@ -16,7 +16,10 @@ function isSharedWidgetName(name: string): name is SharedWidgetName {
     return SHARED_WIDGET_NAMES.includes(name as SharedWidgetName);
 }
 
-function lockedPlaceholder(name: SharedWidgetName, widgetId = genId()): WidgetInstanceRow {
+function lockedPlaceholder(
+    name: SharedWidgetName,
+    widgetId = genId(),
+): WidgetInstanceRow {
     return {
         widgetId,
         name,
@@ -32,7 +35,9 @@ export function createRequiredSharedWidgetPlaceholders(): WidgetInstanceRow[] {
 
 /** Canonicalizes historical stored layouts without losing body blocks.
  * Existing placeholder ids are preserved so builder selection remains stable. */
-export function repairStoredLayout(layout: WidgetInstanceRow[]): WidgetInstanceRow[] {
+export function repairStoredLayout(
+    layout: WidgetInstanceRow[],
+): WidgetInstanceRow[] {
     const header = layout.find((widget) => widget.name === "header");
     const footer = layout.find((widget) => widget.name === "footer");
     const body = layout.filter((widget) => !isSharedWidgetName(widget.name));
@@ -52,7 +57,9 @@ export function splitSubmittedLayout(
     const headers = layout.filter((widget) => widget.name === "header");
     const footers = layout.filter((widget) => widget.name === "footer");
     if (headers.length !== 1 || footers.length !== 1) {
-        throw new InvalidPageLayoutError("Every page must contain exactly one header and one footer.");
+        throw new InvalidPageLayoutError(
+            "Every page must contain exactly one header and one footer.",
+        );
     }
 
     const header = headers[0];

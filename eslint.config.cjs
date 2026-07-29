@@ -88,6 +88,8 @@ module.exports = defineConfig([
         rules: {
             ...react.configs.recommended.rules,
             "react/react-in-jsx-scope": "off",
+            // Props are typed with TypeScript; PropTypes are not used.
+            "react/prop-types": "off",
             "react-hooks/rules-of-hooks": "error",
             "@typescript-eslint/no-explicit-any": "warn",
             "react/display-name": "off",

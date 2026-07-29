@@ -4,7 +4,11 @@
  * before serializing, to prevent script injection from user-authored
  * titles. */
 
-export function organizationAndWebsiteJsonLd(input: { siteName: string; logoUrl: string | null; canonicalHost: string }) {
+export function organizationAndWebsiteJsonLd(input: {
+    siteName: string;
+    logoUrl: string | null;
+    canonicalHost: string;
+}) {
     const url = `https://${input.canonicalHost}`;
     return [
         {
@@ -40,7 +44,9 @@ export function blogPostingJsonLd(input: {
         image: input.imageUrl ?? undefined,
         datePublished: input.publishedAt ?? undefined,
         dateModified: input.updatedAt ?? input.publishedAt ?? undefined,
-        author: input.authorName ? { "@type": "Person", name: input.authorName } : undefined,
+        author: input.authorName
+            ? { "@type": "Person", name: input.authorName }
+            : undefined,
         mainEntityOfPage: input.url,
     };
 }
@@ -76,7 +82,11 @@ export function techArticleJsonLd(input: {
     ];
 }
 
-export function changelogJsonLd(input: { siteName: string; url: string; entries: { name: string; url: string }[] }) {
+export function changelogJsonLd(input: {
+    siteName: string;
+    url: string;
+    entries: { name: string; url: string }[];
+}) {
     return {
         "@context": "https://schema.org",
         "@type": "WebPage",

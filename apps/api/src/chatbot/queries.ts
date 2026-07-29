@@ -22,7 +22,10 @@ export function normalizeVariant(raw: unknown): ChatbotWidgetVariant {
 }
 
 /** Shape returned to routes/MCP — style always fully defaulted. */
-export type NormalizedChatbotSettings = Omit<ChatbotSettingsRow, "variant" | "widgetStyle"> & {
+export type NormalizedChatbotSettings = Omit<
+    ChatbotSettingsRow,
+    "variant" | "widgetStyle"
+> & {
     variant: ChatbotWidgetVariant;
     widgetStyle: ChatbotWidgetStyle;
 };
@@ -35,13 +38,20 @@ function normalize(row: ChatbotSettingsRow): NormalizedChatbotSettings {
     };
 }
 
-export async function getChatbotSettings(teamId: string): Promise<NormalizedChatbotSettings> {
-    const existing = await db.query.chatbotSettings.findFirst({ where: eq(chatbotSettings.teamId, teamId) });
+export async function getChatbotSettings(
+    teamId: string,
+): Promise<NormalizedChatbotSettings> {
+    const existing = await db.query.chatbotSettings.findFirst({
+        where: eq(chatbotSettings.teamId, teamId),
+    });
     if (existing) return normalize(existing);
 
     // Settings are created lazily on first read, defaulting to disabled —
     // no dashboard visit is needed before a team can query its own defaults.
-    const [created] = await db.insert(chatbotSettings).values({ teamId }).returning();
+    const [created] = await db
+        .insert(chatbotSettings)
+        .values({ teamId })
+        .returning();
     return normalize(created);
 }
 
@@ -62,16 +72,25 @@ export async function updateChatbotSettings(
     const nextStyle =
         patch.widgetStyle === undefined
             ? existing.widgetStyle
-            : normalizeWidgetStyle({ ...existing.widgetStyle, ...patch.widgetStyle });
+            : normalizeWidgetStyle({
+                  ...existing.widgetStyle,
+                  ...patch.widgetStyle,
+              });
 
     const [updated] = await db
         .update(chatbotSettings)
         .set({
             ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
             ...(patch.name !== undefined ? { name: patch.name } : {}),
-            ...(patch.greeting !== undefined ? { greeting: patch.greeting } : {}),
-            ...(patch.accentColor !== undefined ? { accentColor: patch.accentColor } : {}),
-            ...(patch.escalationEnabled !== undefined ? { escalationEnabled: patch.escalationEnabled } : {}),
+            ...(patch.greeting !== undefined
+                ? { greeting: patch.greeting }
+                : {}),
+            ...(patch.accentColor !== undefined
+                ? { accentColor: patch.accentColor }
+                : {}),
+            ...(patch.escalationEnabled !== undefined
+                ? { escalationEnabled: patch.escalationEnabled }
+                : {}),
             ...(patch.variant !== undefined ? { variant: patch.variant } : {}),
             widgetStyle: nextStyle,
             updatedAt: new Date(),

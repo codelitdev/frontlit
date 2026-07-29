@@ -22,8 +22,16 @@ interface DocSuggestion {
 /** Documentation deflection (architecture.md §6.4/§11.2): searches the
  * team's published docs as the visitor types a subject, before they ever
  * submit a ticket. No-ops in isolated previews with no live team/API. */
-async function searchDocs(query: string, pageData: PageData): Promise<DocSuggestion[]> {
-    if (!pageData.teamId || !pageData.publicApiBaseUrl || query.trim().length < 3) return [];
+async function searchDocs(
+    query: string,
+    pageData: PageData,
+): Promise<DocSuggestion[]> {
+    if (
+        !pageData.teamId ||
+        !pageData.publicApiBaseUrl ||
+        query.trim().length < 3
+    )
+        return [];
 
     try {
         const res = await fetch(
@@ -32,7 +40,11 @@ async function searchDocs(query: string, pageData: PageData): Promise<DocSuggest
         if (!res.ok) return [];
         const body = (await res.json()) as { items: DocSuggestion[] };
         const seen = new Set<string>();
-        return body.items.filter((item) => (seen.has(item.documentId) ? false : (seen.add(item.documentId), true)));
+        return body.items.filter((item) =>
+            seen.has(item.documentId)
+                ? false
+                : (seen.add(item.documentId), true),
+        );
     } catch {
         return [];
     }
@@ -51,11 +63,14 @@ async function submitTicket(
     }
 
     try {
-        const res = await fetch(`${pageData.publicApiBaseUrl}/public/${pageData.teamId}/tickets`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ ...input, source: "form" }),
-        });
+        const res = await fetch(
+            `${pageData.publicApiBaseUrl}/public/${pageData.teamId}/tickets`,
+            {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ ...input, source: "form" }),
+            },
+        );
         return { success: res.ok };
     } catch {
         return { success: false };
@@ -80,8 +95,10 @@ export function SupportFormWidget({
     nextTheme,
 }: WidgetProps<SupportFormSettings>) {
     const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
-    overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
-    overriddenTheme.structure.section.padding.y = verticalPadding || theme.theme.structure.section.padding.y;
+    overriddenTheme.structure.page.width =
+        maxWidth || theme.theme.structure.page.width;
+    overriddenTheme.structure.section.padding.y =
+        verticalPadding || theme.theme.structure.section.padding.y;
 
     const [subject, setSubject] = useState("");
     const [message, setMessage] = useState("");
@@ -110,7 +127,10 @@ export function SupportFormWidget({
 
         setIsSubmitting(true);
         try {
-            const result = await submitTicket({ subject, message, email, name: name || undefined }, pageData);
+            const result = await submitTicket(
+                { subject, message, email, name: name || undefined },
+                pageData,
+            );
             if (result.success) {
                 setSuccess(true);
                 setSubject("");
@@ -127,12 +147,25 @@ export function SupportFormWidget({
     const isCentered = alignment === "center";
 
     return (
-        <Section theme={overriddenTheme} id={cssId} background={background} nextTheme={nextTheme}>
-            <div className={clsx("flex flex-col gap-4", isCentered ? "items-center text-center" : "items-start")}>
+        <Section
+            theme={overriddenTheme}
+            id={cssId}
+            background={background}
+            nextTheme={nextTheme}
+        >
+            <div
+                className={clsx(
+                    "flex flex-col gap-4",
+                    isCentered ? "items-center text-center" : "items-start",
+                )}
+            >
                 <Header1 theme={overriddenTheme}>{title}</Header1>
                 {description && (
                     <Subheader1 theme={overriddenTheme} component="span">
-                        <TextRenderer json={description} theme={overriddenTheme} />
+                        <TextRenderer
+                            json={description}
+                            theme={overriddenTheme}
+                        />
                     </Subheader1>
                 )}
             </div>
@@ -142,7 +175,10 @@ export function SupportFormWidget({
                     {successMessage}
                 </Text2>
             ) : (
-                <form onSubmit={onSubmit} className="mt-4 flex w-full max-w-lg flex-col gap-3">
+                <form
+                    onSubmit={onSubmit}
+                    className="mt-4 flex w-full max-w-lg flex-col gap-3"
+                >
                     <div className="flex flex-col gap-1 items-start">
                         <Label theme={overriddenTheme} htmlFor="subject">
                             Subject
@@ -164,7 +200,12 @@ export function SupportFormWidget({
                             <ul className="list-inside list-disc">
                                 {suggestions.map((doc) => (
                                     <li key={doc.documentId}>
-                                        <a href={`/docs/${doc.slug}`} target="_blank" rel="noreferrer" className="underline">
+                                        <a
+                                            href={`/docs/${doc.slug}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="underline"
+                                        >
                                             {doc.title ?? doc.slug}
                                         </a>
                                     </li>
@@ -222,7 +263,10 @@ export function SupportFormWidget({
                     <Button
                         theme={overriddenTheme}
                         type="submit"
-                        disabled={!editing && (isSubmitting || !subject || !message || !email)}
+                        disabled={
+                            !editing &&
+                            (isSubmitting || !subject || !message || !email)
+                        }
                         className="self-start"
                     >
                         {buttonCaption}

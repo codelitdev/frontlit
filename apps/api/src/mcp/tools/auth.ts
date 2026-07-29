@@ -11,6 +11,8 @@ export function getTeamId(extra: any): string | null {
  * API-key sessions (a key has no single owning account; a team can have
  * several members). Only used for account-level tools like team
  * management, never for team-scoped authorization. */
-export function getAuthAccount(extra: any): { id: string; email: string } | null {
+export function getAuthAccount(
+    extra: any,
+): { id: string; email: string } | null {
     return extra?.authInfo?.account || null;
 }

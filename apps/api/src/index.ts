@@ -19,7 +19,9 @@ checkConfig()
         app.listen(port, () => {
             logger.info(`FrontLit API running at ${port}`);
             logger.info(describeChatProvider());
-            logger.info(`embeddings=${resolveEmbeddingsProvider()} (Vercel AI SDK)`);
+            logger.info(
+                `embeddings=${resolveEmbeddingsProvider()} (Vercel AI SDK)`,
+            );
         });
         startOutboxWorker();
     })

@@ -30,7 +30,12 @@ import {
     updateMediaBodySchema,
 } from "./schemas/media";
 import { listDocumentsQuerySchema } from "./schemas/documents";
-import { blogMetaSchema, blogSchema, createBlogBodySchema, updateBlogBodySchema } from "./schemas/blogs";
+import {
+    blogMetaSchema,
+    blogSchema,
+    createBlogBodySchema,
+    updateBlogBodySchema,
+} from "./schemas/blogs";
 import {
     createDocBodySchema,
     createDocSectionBodySchema,
@@ -96,7 +101,11 @@ import {
     resolveHostResponseSchema,
     setTeamSubdomainBodySchema,
 } from "./schemas/domains";
-import { publicTeamSettingsSchema, teamSettingsSchema, updateTeamSettingsBodySchema } from "./schemas/settings";
+import {
+    publicTeamSettingsSchema,
+    teamSettingsSchema,
+    updateTeamSettingsBodySchema,
+} from "./schemas/settings";
 import {
     espConfigSchema,
     testEspConfigBodySchema,
@@ -138,7 +147,8 @@ const teamsContract = c.router(
             method: "DELETE",
             path: "/teams/:teamId",
             responses: { 204: c.noBody(), 403: errorSchema, 404: errorSchema },
-            summary: "Delete a team and everything scoped to it (pages, themes, ...)",
+            summary:
+                "Delete a team and everything scoped to it (pages, themes, ...)",
         },
         listKeys: {
             method: "GET",
@@ -206,7 +216,8 @@ const pagesContract = c.router(
             query: listPagesQuerySchema,
             responses: { 200: paginated(pageSchema), 400: errorSchema },
             summary: "List pages",
-            description: "Returns a paginated list of pages belonging to the current team.",
+            description:
+                "Returns a paginated list of pages belonging to the current team.",
         },
         get: {
             method: "GET",
@@ -218,7 +229,12 @@ const pagesContract = c.router(
             method: "PATCH",
             path: "/pages/:pageId",
             body: updatePageBodySchema,
-            responses: { 200: pageSchema, 400: errorSchema, 404: errorSchema, 409: errorSchema },
+            responses: {
+                200: pageSchema,
+                400: errorSchema,
+                404: errorSchema,
+                409: errorSchema,
+            },
             summary: "Update a page",
             description:
                 "Used for metadata edits and for persisting the builder's draft layout. Slug changes apply to the public URL immediately. Layouts must retain exactly one locked, team-shared header and footer.",
@@ -236,7 +252,8 @@ const pagesContract = c.router(
             body: c.noBody(),
             responses: { 200: pageSchema, 404: errorSchema },
             summary: "Publish a page",
-            description: "Copies the page's draft layout and SEO fields into the published fields the public site renders.",
+            description:
+                "Copies the page's draft layout and SEO fields into the published fields the public site renders.",
         },
         discardDraft: {
             method: "POST",
@@ -244,7 +261,8 @@ const pagesContract = c.router(
             body: c.noBody(),
             responses: { 200: pageSchema, 404: errorSchema },
             summary: "Discard a page's draft changes",
-            description: "Resets the draft layout and SEO fields back to whatever is currently published.",
+            description:
+                "Resets the draft layout and SEO fields back to whatever is currently published.",
         },
     },
     { metadata: { tag: "Pages" } },
@@ -305,7 +323,8 @@ const mediaContract = c.router(
             body: createMediaBodySchema,
             responses: { 201: mediaSchema, 500: errorSchema },
             summary: "Register an uploaded file in the team's media library",
-            description: "Seals the MediaLit upload (temp → permanent) and adds it to the team's library. Idempotent by `mediaLitId`.",
+            description:
+                "Seals the MediaLit upload (temp → permanent) and adds it to the team's library. Idempotent by `mediaLitId`.",
         },
         list: {
             method: "GET",
@@ -332,7 +351,8 @@ const mediaContract = c.router(
             path: "/media/:mediaId",
             responses: { 204: c.noBody(), 404: errorSchema },
             summary: "Delete a media item",
-            description: "Deletes the file from MediaLit and removes it from the team's library.",
+            description:
+                "Deletes the file from MediaLit and removes it from the team's library.",
         },
     },
     { metadata: { tag: "Media" } },
@@ -345,7 +365,13 @@ const mediaContract = c.router(
  * list stay self-describing for API consumers instead of exposing a
  * generic `/documents?kind=`.
  */
-function makeDocumentContract(resource: string, tag: string, schema: z.ZodTypeAny, createBody: z.ZodTypeAny, updateBody: z.ZodTypeAny) {
+function makeDocumentContract(
+    resource: string,
+    tag: string,
+    schema: z.ZodTypeAny,
+    createBody: z.ZodTypeAny,
+    updateBody: z.ZodTypeAny,
+) {
     const label = tag.toLowerCase();
     return c.router(
         {
@@ -373,7 +399,12 @@ function makeDocumentContract(resource: string, tag: string, schema: z.ZodTypeAn
                 method: "PATCH",
                 path: `/${resource}/:documentId`,
                 body: updateBody,
-                responses: { 200: schema, 400: errorSchema, 404: errorSchema, 409: errorSchema },
+                responses: {
+                    200: schema,
+                    400: errorSchema,
+                    404: errorSchema,
+                    409: errorSchema,
+                },
                 summary: `Update a ${label}`,
                 description:
                     "Writes content to draft fields (architecture.md §3). Slug changes apply to the public URL immediately; publish content changes separately.",
@@ -403,9 +434,27 @@ function makeDocumentContract(resource: string, tag: string, schema: z.ZodTypeAn
     );
 }
 
-const blogsContract = makeDocumentContract("blogs", "Blog", blogSchema, createBlogBodySchema, updateBlogBodySchema);
-const docsContract = makeDocumentContract("help-docs", "Doc", docSchema, createDocBodySchema, updateDocBodySchema);
-const baseChangelogsContract = makeDocumentContract("changelogs", "Changelog", changelogSchema, createChangelogBodySchema, updateChangelogBodySchema);
+const blogsContract = makeDocumentContract(
+    "blogs",
+    "Blog",
+    blogSchema,
+    createBlogBodySchema,
+    updateBlogBodySchema,
+);
+const docsContract = makeDocumentContract(
+    "help-docs",
+    "Doc",
+    docSchema,
+    createDocBodySchema,
+    updateDocBodySchema,
+);
+const baseChangelogsContract = makeDocumentContract(
+    "changelogs",
+    "Changelog",
+    changelogSchema,
+    createChangelogBodySchema,
+    updateChangelogBodySchema,
+);
 
 /** Changelog entries are documents (kind: "changelog") plus a GitHub
  * Releases importer (architecture.md §8.1). */
@@ -439,7 +488,10 @@ const changelogsContract = c.router(
             method: "POST",
             path: "/changelogs/import-github",
             body: c.noBody(),
-            responses: { 200: importGithubReleasesResponseSchema, 400: errorSchema },
+            responses: {
+                200: importGithubReleasesResponseSchema,
+                400: errorSchema,
+            },
             summary: "Import GitHub Releases as draft changelog entries",
             description:
                 "Lists Releases from the connected repo and creates one draft changelog entry per release, idempotent by meta.github.releaseId (architecture.md §8.1). Nothing is auto-published.",
@@ -486,7 +538,8 @@ const docSectionsContract = c.router(
             query: searchDocsQuerySchema,
             responses: { 200: itemsList(docSearchResultSchema) },
             summary: "Semantic search over the team's published docs",
-            description: "Embeds `q` and ranks the team's pgvector doc chunks by cosine similarity (architecture.md §6.4).",
+            description:
+                "Embeds `q` and ranks the team's pgvector doc chunks by cosine similarity (architecture.md §6.4).",
         },
     },
     { metadata: { tag: "Docs" } },
@@ -508,7 +561,8 @@ const publicContract = c.router(
             path: "/public/resolve-host",
             query: resolveHostQuerySchema,
             responses: { 200: resolveHostResponseSchema, 404: errorSchema },
-            summary: "Resolve a request Host to a team (apps/sites tenant middleware + TLS \"ask\")",
+            summary:
+                'Resolve a request Host to a team (apps/sites tenant middleware + TLS "ask")',
             description:
                 "Answers only for hosts it actually knows: a team's `<slug>.<PLATFORM_SITE_DOMAIN>` subdomain, or a verified custom domain (architecture.md §12.1/§12.2).",
         },
@@ -517,7 +571,8 @@ const publicContract = c.router(
             path: "/public/:teamId/settings",
             responses: { 200: publicTeamSettingsSchema, 404: errorSchema },
             summary: "Get a team's public branding + code-injection settings",
-            description: "Feeds the apps/sites site shell (architecture.md §12.5) — never leaks anything beyond what already ships in the page HTML.",
+            description:
+                "Feeds the apps/sites site shell (architecture.md §12.5) — never leaks anything beyond what already ships in the page HTML.",
         },
         getPageBySlug: {
             method: "GET",
@@ -528,26 +583,32 @@ const publicContract = c.router(
             query: z.object({ slug: z.string().optional() }),
             responses: { 200: publicPageSchema, 404: errorSchema },
             summary: "Get a team's published page layout by slug",
-            description: "Omit `slug` (or pass an empty string) to resolve the homepage.",
+            description:
+                "Omit `slug` (or pass an empty string) to resolve the homepage.",
         },
         getSitemap: {
             method: "GET",
             path: "/public/:teamId/sitemap",
             responses: { 200: sitemapResponseSchema, 404: errorSchema },
             summary: "List every published, robots-allowed URL for a team",
-            description: "Fully derived from what's published — feeds sitemap.xml and RSS generation (architecture.md §12.3). No authored/curated state.",
+            description:
+                "Fully derived from what's published — feeds sitemap.xml and RSS generation (architecture.md §12.3). No authored/curated state.",
         },
         getChatbotSettings: {
             method: "GET",
             path: "/public/:teamId/chatbot",
             responses: { 200: publicChatbotSettingsSchema, 404: errorSchema },
             summary: "Get a team's public chatbot widget settings",
-            description: "Lets apps/sites decide whether to mount the floating widget and how to skin it (architecture.md §7.3).",
+            description:
+                "Lets apps/sites decide whether to mount the floating widget and how to skin it (architecture.md §7.3).",
         },
         listBlogs: {
             method: "GET",
             path: "/public/:teamId/blogs",
-            query: z.object({ offset: z.coerce.number().int().min(1).optional(), itemsPerPage: z.coerce.number().int().min(1).optional() }),
+            query: z.object({
+                offset: z.coerce.number().int().min(1).optional(),
+                itemsPerPage: z.coerce.number().int().min(1).optional(),
+            }),
             responses: { 200: paginated(publicBlogSchema), 404: errorSchema },
             summary: "List a team's published blog posts",
         },
@@ -567,13 +628,21 @@ const publicContract = c.router(
             method: "GET",
             path: "/public/:teamId/docs/search",
             query: searchDocsQuerySchema,
-            responses: { 200: itemsList(docSearchResultSchema), 404: errorSchema, 429: errorSchema },
-            summary: "Semantic search over a team's published docs (deflection before ticket submission, §11.2)",
+            responses: {
+                200: itemsList(docSearchResultSchema),
+                404: errorSchema,
+                429: errorSchema,
+            },
+            summary:
+                "Semantic search over a team's published docs (deflection before ticket submission, §11.2)",
         },
         listDocs: {
             method: "GET",
             path: "/public/:teamId/docs",
-            query: z.object({ offset: z.coerce.number().int().min(1).optional(), itemsPerPage: z.coerce.number().int().min(1).optional() }),
+            query: z.object({
+                offset: z.coerce.number().int().min(1).optional(),
+                itemsPerPage: z.coerce.number().int().min(1).optional(),
+            }),
             responses: { 200: paginated(publicDocSchema), 404: errorSchema },
             summary: "List a team's published docs",
         },
@@ -586,8 +655,14 @@ const publicContract = c.router(
         listChangelogs: {
             method: "GET",
             path: "/public/:teamId/changelogs",
-            query: z.object({ offset: z.coerce.number().int().min(1).optional(), itemsPerPage: z.coerce.number().int().min(1).optional() }),
-            responses: { 200: paginated(publicChangelogSchema), 404: errorSchema },
+            query: z.object({
+                offset: z.coerce.number().int().min(1).optional(),
+                itemsPerPage: z.coerce.number().int().min(1).optional(),
+            }),
+            responses: {
+                200: paginated(publicChangelogSchema),
+                404: errorSchema,
+            },
             summary: "List a team's published changelog entries",
         },
         getChangelogBySlug: {
@@ -616,7 +691,12 @@ const publicContract = c.router(
             method: "POST",
             path: "/public/:teamId/leads",
             body: captureLeadBodySchema,
-            responses: { 200: captureLeadResponseSchema, 403: errorSchema, 404: errorSchema, 429: errorSchema },
+            responses: {
+                200: captureLeadResponseSchema,
+                403: errorSchema,
+                404: errorSchema,
+                429: errorSchema,
+            },
             summary: "Capture a lead from a page's email-form block",
             description:
                 "Enqueues a contact-sync job to SendLit and returns immediately — capture never depends on SendLit being reachable (architecture.md §10.2).",
@@ -625,22 +705,40 @@ const publicContract = c.router(
             method: "POST",
             path: "/public/:teamId/tickets",
             body: publicCreateTicketBodySchema,
-            responses: { 200: publicCreateTicketResponseSchema, 403: errorSchema, 404: errorSchema, 429: errorSchema },
-            summary: "Raise a support ticket (support-form block, chatbot escalation, or headless)",
-            description: "One of the three submission doors in architecture.md §11.2. Returns the magic-link token once.",
+            responses: {
+                200: publicCreateTicketResponseSchema,
+                403: errorSchema,
+                404: errorSchema,
+                429: errorSchema,
+            },
+            summary:
+                "Raise a support ticket (support-form block, chatbot escalation, or headless)",
+            description:
+                "One of the three submission doors in architecture.md §11.2. Returns the magic-link token once.",
         },
         getTicketThread: {
             method: "GET",
             path: "/public/:teamId/tickets/:ticketId/messages",
             query: publicTicketThreadQuerySchema,
-            responses: { 200: ticketWithMessagesSchema, 401: errorSchema, 404: errorSchema, 429: errorSchema },
+            responses: {
+                200: ticketWithMessagesSchema,
+                401: errorSchema,
+                404: errorSchema,
+                429: errorSchema,
+            },
             summary: "Read a ticket thread via its magic-link token",
         },
         replyToTicketThread: {
             method: "POST",
             path: "/public/:teamId/tickets/:ticketId/messages",
             body: publicReplyToTicketBodySchema,
-            responses: { 200: ticketWithMessagesSchema, 401: errorSchema, 403: errorSchema, 404: errorSchema, 429: errorSchema },
+            responses: {
+                200: ticketWithMessagesSchema,
+                401: errorSchema,
+                403: errorSchema,
+                404: errorSchema,
+                429: errorSchema,
+            },
             summary: "Reply on a ticket thread via its magic-link token",
         },
     },
@@ -664,7 +762,8 @@ const ticketsContract = c.router(
             path: "/tickets",
             body: createTicketBodySchema,
             responses: { 201: ticketWithMessagesSchema },
-            summary: "Create a ticket via the authed API/MCP surface (source: api)",
+            summary:
+                "Create a ticket via the authed API/MCP surface (source: api)",
         },
         get: {
             method: "GET",
@@ -744,7 +843,8 @@ const domainsContract = c.router(
             body: c.noBody(),
             responses: { 200: domainSettingsSchema, 404: errorSchema },
             summary: "Re-check DNS for the attached custom domain",
-            description: "Looks up the required TXT record and flips status to verified on a match. Re-runnable.",
+            description:
+                "Looks up the required TXT record and flips status to verified on a match. Re-runnable.",
         },
         removeCustomDomain: {
             method: "DELETE",
@@ -823,7 +923,8 @@ const settingsContract = c.router(
             body: updateTeamSettingsBodySchema,
             responses: { 200: teamSettingsSchema, 403: errorSchema },
             summary: "Update the team's branding and code-injection settings",
-            description: "Changing either code-injection field requires the caller to hold the team owner role.",
+            description:
+                "Changing either code-injection field requires the caller to hold the team owner role.",
         },
         esp: espSettingsContract,
     },
@@ -845,7 +946,11 @@ const contactsContract = c.router(
         get: {
             method: "GET",
             path: "/contacts/:contactId",
-            responses: { 200: contactSchema, 404: errorSchema, 409: errorSchema },
+            responses: {
+                200: contactSchema,
+                404: errorSchema,
+                409: errorSchema,
+            },
             summary: "Get a SendLit contact",
         },
         remove: {
@@ -858,13 +963,21 @@ const contactsContract = c.router(
             method: "POST",
             path: "/contacts/:contactId/tags/:tag",
             body: c.noBody(),
-            responses: { 200: contactSchema, 404: errorSchema, 409: errorSchema },
+            responses: {
+                200: contactSchema,
+                404: errorSchema,
+                409: errorSchema,
+            },
             summary: "Tag a contact",
         },
         removeTag: {
             method: "DELETE",
             path: "/contacts/:contactId/tags/:tag",
-            responses: { 200: contactSchema, 404: errorSchema, 409: errorSchema },
+            responses: {
+                200: contactSchema,
+                404: errorSchema,
+                409: errorSchema,
+            },
             summary: "Untag a contact",
         },
     },
@@ -890,7 +1003,11 @@ const segmentsContract = c.router(
             method: "PATCH",
             path: "/newsletter/segments/:segmentId",
             body: updateSegmentBodySchema,
-            responses: { 200: segmentSchema, 404: errorSchema, 409: errorSchema },
+            responses: {
+                200: segmentSchema,
+                404: errorSchema,
+                409: errorSchema,
+            },
             summary: "Update a saved segment",
         },
         remove: {
@@ -935,20 +1052,32 @@ const newsletterContract = c.router(
             method: "PATCH",
             path: "/newsletter/broadcasts/:broadcastId",
             body: updateBroadcastBodySchema,
-            responses: { 200: broadcastSchema, 404: errorSchema, 409: errorSchema },
+            responses: {
+                200: broadcastSchema,
+                404: errorSchema,
+                409: errorSchema,
+            },
             summary: "Update a broadcast (draft)",
         },
         sendBroadcast: {
             method: "POST",
             path: "/newsletter/broadcasts/:broadcastId/send",
             body: c.noBody(),
-            responses: { 200: z.object({ status: z.string() }), 404: errorSchema, 409: errorSchema },
+            responses: {
+                200: z.object({ status: z.string() }),
+                404: errorSchema,
+                409: errorSchema,
+            },
             summary: "Send a broadcast to its audience",
         },
         getBroadcastStats: {
             method: "GET",
             path: "/newsletter/broadcasts/:broadcastId/stats",
-            responses: { 200: z.record(z.any()), 404: errorSchema, 409: errorSchema },
+            responses: {
+                200: z.record(z.any()),
+                404: errorSchema,
+                409: errorSchema,
+            },
             summary: "Get delivery/open/click stats for a broadcast",
         },
     },

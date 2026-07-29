@@ -33,7 +33,8 @@ export function EmbedWidget({
     if (!content) return null;
 
     const isScript = contentType === "script";
-    const ratio = aspectRatio !== "default" ? aspectRatioMap[aspectRatio] : undefined;
+    const ratio =
+        aspectRatio !== "default" ? aspectRatioMap[aspectRatio] : undefined;
 
     const containerStyle: React.CSSProperties = ratio
         ? { position: "relative", paddingTop: `${100 / ratio}%` }

@@ -10,17 +10,34 @@ interface Props {
     params: Promise<{ teamId: string; slug: string }>;
 }
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata(
+    { params }: Props,
+    parent: ResolvingMetadata,
+): Promise<Metadata> {
     const { teamId, slug } = await params;
-    const [post, settings, previous] = await Promise.all([getBlogBySlug(teamId, slug), getSettings(teamId), parent]);
+    const [post, settings, previous] = await Promise.all([
+        getBlogBySlug(teamId, slug),
+        getSettings(teamId),
+        parent,
+    ]);
     if (!post) return {};
 
-    const seo = resolveSeo({ title: post.title, description: post.excerpt, image: post.featuredImage }, settings, previous.title?.absolute || "FrontLit site");
+    const seo = resolveSeo(
+        {
+            title: post.title,
+            description: post.excerpt,
+            image: post.featuredImage,
+        },
+        settings,
+        previous.title?.absolute || "FrontLit site",
+    );
 
     return {
         title: `${seo.title} | ${previous.title?.absolute}`,
         description: seo.description ?? undefined,
-        alternates: { canonical: `https://${await getCanonicalHost()}/blog/${slug}` },
+        alternates: {
+            canonical: `https://${await getCanonicalHost()}/blog/${slug}`,
+        },
         openGraph: {
             type: "article",
             title: seo.title,
@@ -51,7 +68,9 @@ export default async function BlogPostPage({ params }: Props) {
                         blogPostingJsonLd({
                             title: post.title ?? slug,
                             excerpt: post.excerpt,
-                            imageUrl: (post.featuredImage?.url as string | undefined) ?? null,
+                            imageUrl:
+                                (post.featuredImage?.url as
+                                    string | undefined) ?? null,
                             publishedAt: post.publishedAt,
                             updatedAt: post.updatedAt,
                             authorName: null,
@@ -63,8 +82,14 @@ export default async function BlogPostPage({ params }: Props) {
             <article>
                 <h1 className="text-3xl font-bold">{post.title}</h1>
                 {post.publishedAt && (
-                    <time dateTime={post.publishedAt} className="mt-2 block text-sm text-neutral-400">
-                        {new Date(post.publishedAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
+                    <time
+                        dateTime={post.publishedAt}
+                        className="mt-2 block text-sm text-neutral-400"
+                    >
+                        {new Date(post.publishedAt).toLocaleDateString(
+                            undefined,
+                            { year: "numeric", month: "long", day: "numeric" },
+                        )}
                     </time>
                 )}
                 {post.content && (

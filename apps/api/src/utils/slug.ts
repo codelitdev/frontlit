@@ -29,7 +29,11 @@ export function normalizeEditableSlug(value: string): string {
  * 23505. Drizzle may expose it directly or through `cause`. */
 export function isUniqueConstraintViolation(error: unknown): boolean {
     let current: unknown = error;
-    for (let depth = 0; depth < 3 && current && typeof current === "object"; depth += 1) {
+    for (
+        let depth = 0;
+        depth < 3 && current && typeof current === "object";
+        depth += 1
+    ) {
         if ("code" in current && current.code === "23505") return true;
         current = "cause" in current ? current.cause : undefined;
     }
@@ -40,7 +44,10 @@ export function isUniqueConstraintViolation(error: unknown): boolean {
  * free. Shared by pages and documents, whose uniqueness scopes differ
  * (`(teamId, slug)` vs `(teamId, kind, slug)`), so the caller supplies the
  * check rather than this helper owning any table knowledge. */
-export async function uniqueSlug(base: string, isTaken: (candidate: string) => Promise<boolean>): Promise<string> {
+export async function uniqueSlug(
+    base: string,
+    isTaken: (candidate: string) => Promise<boolean>,
+): Promise<string> {
     let candidate = base;
     let attempt = 1;
     while (await isTaken(candidate)) {

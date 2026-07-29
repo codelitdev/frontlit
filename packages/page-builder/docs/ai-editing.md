@@ -16,11 +16,11 @@ load time.
    state, never after.
 3. Custom blocks are first-class: a block registered by the host app is as
    editable by AI as a built-in one, with no changes to this package.
-4. The package stays backend-free. It ships everything *around* the model
+4. The package stays backend-free. It ships everything _around_ the model
    call (schemas, prompts, validation, state application); the host app owns
    the model call itself (API keys, provider choice, streaming).
 
-Non-goals (for now): AI-driven theme *creation*, image generation, multi-page
+Non-goals (for now): AI-driven theme _creation_, image generation, multi-page
 edits, and free-form generation of entire sites from scratch. The design
 leaves room for all of these but they are not covered here.
 
@@ -31,12 +31,12 @@ Everything below falls out of two observations about the current code:
 **1. Settings shapes are invisible at runtime.** A block's settings are a
 TypeScript interface (`HeroSettings`, `GridSettings`, …) that is erased at
 compile time. The AI needs a machine-readable description of every block's
-settings — both to know *what it can write* and so we can *validate what it
-wrote*. So blocks must start carrying a runtime schema.
+settings — both to know _what it can write_ and so we can _validate what it
+wrote_. So blocks must start carrying a runtime schema.
 
 **2. Whole-layout generation is the wrong output format.** Asking the model
 to re-emit the full `WidgetInstance[]` for every instruction is slow,
-expensive, and risky — one hallucinated field in an *untouched* block
+expensive, and risky — one hallucinated field in an _untouched_ block
 corrupts the page. Instead the AI emits a small list of **operations**
 (the same operations the builder UI already performs: update settings, add,
 move, remove) that are validated and applied atomically.
@@ -61,12 +61,12 @@ move, remove) that are validated and applied atomically.
 
 Four layers, from the inside out:
 
-| Layer | Lives in | Responsibility |
-| --- | --- | --- |
-| **Block AI contract** | each block (built-in or custom) | Runtime schema + prompt guidance for its settings |
-| **Operation model** | `@frontlit/page-builder/ai` | The edit vocabulary: typed ops, validation, atomic apply |
-| **Context & prompt assembly** | `@frontlit/page-builder/ai` | Turns builder state + registry into what the model sees |
-| **Transport & UI** | `PageBuilder` + host app | Prompt box, host-owned LLM call, diff preview, undo |
+| Layer                         | Lives in                        | Responsibility                                           |
+| ----------------------------- | ------------------------------- | -------------------------------------------------------- |
+| **Block AI contract**         | each block (built-in or custom) | Runtime schema + prompt guidance for its settings        |
+| **Operation model**           | `@frontlit/page-builder/ai`     | The edit vocabulary: typed ops, validation, atomic apply |
+| **Context & prompt assembly** | `@frontlit/page-builder/ai`     | Turns builder state + registry into what the model sees  |
+| **Transport & UI**            | `PageBuilder` + host app        | Prompt box, host-owned LLM call, diff preview, undo      |
 
 The `/ai` subpath export is **isomorphic and React-free** so a server route
 can import it without dragging in the component tree.
@@ -100,20 +100,22 @@ export interface WidgetAiDefinition<T extends WidgetDefaultSettings> {
     describeInstance?: (settings: T) => string;
 }
 
-export interface Widget<T extends WidgetDefaultSettings = WidgetDefaultSettings> {
+export interface Widget<
+    T extends WidgetDefaultSettings = WidgetDefaultSettings,
+> {
     metadata: WidgetMetadata;
     widget: ComponentType<WidgetProps<T>>;
     editor?: ComponentType<WidgetEditorProps<T>>;
     getDefaultSettings?: () => Partial<T>;
     layouts?: BlockLayout[];
-    ai?: WidgetAiDefinition<T>;          // ← new
+    ai?: WidgetAiDefinition<T>; // ← new
 }
 ```
 
 Why Zod rather than raw JSON Schema: authors get type-checking against their
 existing settings interface (`z.ZodType<HeroSettings>` fails to compile if
 the schema drifts from the type), and we get `safeParse` for validation for
-free. JSON Schema for the model is *derived* (via `z.toJSONSchema` /
+free. JSON Schema for the model is _derived_ (via `z.toJSONSchema` /
 `zod-to-json-schema`), never hand-written. Block authors who prefer plain
 JSON Schema can still supply it — the AI layer only needs
 `{ toJsonSchema(), validate(value) }` — but Zod is the documented path.
@@ -124,7 +126,7 @@ Shared pieces are defined once in the package and reused by every block:
 // @frontlit/page-builder/ai
 export const sectionBackgroundSchema: ZodType<SectionBackground>;
 export const mediaSchema: ZodType<Media>;
-export const richTextSchema: ZodType<TextEditorContent>;   // see "Rich text" below
+export const richTextSchema: ZodType<TextEditorContent>; // see "Rich text" below
 export const widgetDefaultSettingsSchema: ZodType<WidgetDefaultSettings>;
 
 // blocks/hero/ai.ts
@@ -135,7 +137,9 @@ export const heroAi: WidgetAiDefinition<HeroSettings> = {
         buttonCaption: z.string().optional(),
         buttonAction: z.string().optional(),
         // ...
-        layout: z.enum(["normal", "card", "centered", "media-below"]).optional(),
+        layout: z
+            .enum(["normal", "card", "centered", "media-below"])
+            .optional(),
     }),
     guidance:
         "The page's primary above-the-fold section. `buttonAction` and " +
@@ -195,7 +199,7 @@ that don't import React (the built-in blocks already split
 `metadata.ts` / `settings.ts` / `widget.tsx` this way), so the same modules
 work in both environments.
 
-**Graceful degradation:** a block *without* an `ai` definition is still
+**Graceful degradation:** a block _without_ an `ai` definition is still
 visible to the model — it appears in the layout outline (via
 `metadata.displayName` + `description`) and can be **moved, removed, or
 added with default settings**, but its settings are read-only to AI. The
@@ -221,7 +225,7 @@ export type AiOperation =
       }
     | {
           op: "add-block";
-          name: string;                       // registry key
+          name: string; // registry key
           /** "start" | "end" | widgetId to insert after. Default "end". */
           position?: string;
           settings?: Record<string, unknown>; // merged over getDefaultSettings()
@@ -270,8 +274,8 @@ export function validatePlan(
 export function applyPlan(
     state: PageBuilderState,
     plan: AiEditPlan,
-    registry: BlockRegistry,   // for getDefaultSettings on add-block
-): PageBuilderState;   // pure — never mutates, never throws on a validated plan
+    registry: BlockRegistry, // for getDefaultSettings on add-block
+): PageBuilderState; // pure — never mutates, never throws on a validated plan
 ```
 
 `validatePlan` checks, in order:
@@ -283,7 +287,7 @@ export function applyPlan(
    removed, and not moved into the body (reusing `LAYOUT_BLOCK_NAMES`);
    `deleteable: false` instances are not removed.
 3. **Semantic:** for each `update-settings`/`add-block`, the merge patch is
-   applied to a *copy* of the current settings and the **result** is run
+   applied to a _copy_ of the current settings and the **result** is run
    through the block's `ai.schema.safeParse`. Validating the merged result
    rather than the patch is what makes partial patches safe. Blocks without
    an `ai` schema reject settings patches here.
@@ -326,7 +330,7 @@ export function buildToolDefinitions(context: AiEditContext): ToolDefinition[];
    block's `describeInstance` digest. This is how "the hero area", "the
    section about pricing", or "the second FAQ" resolve to a `widgetId`.
    Plus the current theme's name/colors summary and the page's SEO basics.
-2. **Block catalog** (always included, small): for every *registered* block,
+2. **Block catalog** (always included, small): for every _registered_ block,
    `name`, `displayName`, `metadata.description`, and whether it is
    AI-editable — enough for the model to decide "this needs a new
    `email-form` block" without seeing any schemas.
@@ -378,13 +382,13 @@ owns the model. The seam is one function:
 ```ts
 export interface AiEditRequest {
     prompt: string;
-    context: AiEditContext;              // serializable
-    history?: AiTurn[];                  // prior prompts+plans this session
+    context: AiEditContext; // serializable
+    history?: AiTurn[]; // prior prompts+plans this session
 }
 
 export type AiEditResponse =
     | { type: "plan"; plan: AiEditPlan }
-    | { type: "message"; text: string }  // clarification / refusal
+    | { type: "message"; text: string } // clarification / refusal
     | { type: "error"; message: string };
 
 export interface PageBuilderProps {
@@ -416,7 +420,7 @@ Client-side flow in `PageBuilder`:
    AI was involved. The pre-edit state is pushed onto an undo stack
    (`applyPlan`'s purity makes undo = "restore previous state object").
 4. On `message`: render it in the prompt box thread; the user can answer
-   ("the *first* hero") and `history` carries the exchange.
+   ("the _first_ hero") and `history` carries the exchange.
 
 Human edits and AI edits interleave freely because they converge on the same
 state and the context is rebuilt from live state on every request — the AI
@@ -457,7 +461,7 @@ context assembly, so a configured block is indistinguishable from a static
 one everywhere downstream. One hard rule makes this safe:
 
 > **Handlers live in the block definition; persisted settings stay pure
-> JSON.** `WidgetInstance.settings` stores *references* (`productIds`,
+> JSON.** `WidgetInstance.settings` stores _references_ (`productIds`,
 > `{ query: "featured" }`); the widget resolves them through the injected
 > handler at render time. This preserves the invariant that everything AI
 > validation, persistence, and undo operate on is serializable data.
@@ -583,7 +587,7 @@ the same symmetry as AI operations mirroring builder UI actions.
 4. `validatePlan`: structure ✓, `abc123` exists ✓, merged settings pass
    `heroAi.schema` ✓. Preview updates; user clicks Apply; `onChange` fires.
 
-Had the user said "make the *site* green", the same pipeline emits
+Had the user said "make the _site_ green", the same pipeline emits
 `update-theme` patching the palette instead — same vocabulary, different op.
 
 ## Open questions / later phases
@@ -592,7 +596,7 @@ Had the user said "make the *site* green", the same pipeline emits
   JSON the model will get wrong often. `richTextSchema` should accept
   **markdown strings** from the model and convert to `TextEditorContent`
   during validation (a `z.transform` calling a markdown→TipTap converter in
-  `@frontlit/text-editor`), while serializing the *current* content back to
+  `@frontlit/text-editor`), while serializing the _current_ content back to
   markdown for context. This keeps the model in its native format and needs
   a small converter pair in the text-editor package.
 - **Media.** The model must never invent image URLs. Phase 1: it may only

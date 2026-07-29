@@ -3,8 +3,9 @@ import { Switch as ShadcnSwitch } from "./components/ui/switch";
 import { cn } from "./lib/utils";
 import type { ThemeStyle } from "../models";
 
-export interface SwitchProps
-    extends React.ComponentPropsWithoutRef<typeof ShadcnSwitch> {
+export interface SwitchProps extends React.ComponentPropsWithoutRef<
+    typeof ShadcnSwitch
+> {
     theme?: ThemeStyle;
 }
 

@@ -46,8 +46,7 @@ function resolveBackgroundLayerStyle(
             ? background.backgroundImageDark || background.backgroundImage
             : background.backgroundImage,
         backgroundSize: background.gradientBackgroundSize || "cover",
-        backgroundPosition:
-            background.gradientBackgroundPosition || "center",
+        backgroundPosition: background.gradientBackgroundPosition || "center",
         backgroundRepeat: background.gradientBackgroundRepeat || "no-repeat",
         backgroundAttachment: attachment,
         maskImage: background.gradientMaskImage,

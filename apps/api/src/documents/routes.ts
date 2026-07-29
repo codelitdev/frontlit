@@ -20,7 +20,13 @@ import { revalidateTeam } from "../services/revalidate";
 import { InvalidSlugError, SlugConflictError } from "../utils/slug";
 
 function toPublicDocument<T extends Record<string, unknown>>(doc: T) {
-    return serializeDates(omitInternal({ ...doc, status: deriveDocumentStatus(doc as any) }, "teamId", "kind"));
+    return serializeDates(
+        omitInternal(
+            { ...doc, status: deriveDocumentStatus(doc as any) },
+            "teamId",
+            "kind",
+        ),
+    );
 }
 
 /**
@@ -42,25 +48,45 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
 
     const impl: any = {
         create: async ({ body, req }: any) => {
-            const doc = await createDocument(kind, { teamId: req.teamId, ...body });
+            const doc = await createDocument(kind, {
+                teamId: req.teamId,
+                ...body,
+            });
             return { status: 201, body: toPublicDocument(doc) };
         },
         list: async ({ query, req }: any) => {
             const teamId = req.teamId;
             const [items, total] = await Promise.all([
-                listDocuments(kind, { teamId, q: query.q, offset: query.offset, itemsPerPage: query.itemsPerPage }),
+                listDocuments(kind, {
+                    teamId,
+                    q: query.q,
+                    offset: query.offset,
+                    itemsPerPage: query.itemsPerPage,
+                }),
                 countDocuments(kind, { teamId, q: query.q }),
             ]);
-            return { status: 200, body: { items: items.map((item: any) => toPublicDocument(item)), total } };
+            return {
+                status: 200,
+                body: {
+                    items: items.map((item: any) => toPublicDocument(item)),
+                    total,
+                },
+            };
         },
         get: async ({ params, req }: any) => {
             const doc = await getDocumentByDocumentId(kind, params.documentId);
-            if (!doc || doc.teamId !== req.teamId) return { status: 404, body: { error: "Not found" } };
+            if (!doc || doc.teamId !== req.teamId)
+                return { status: 404, body: { error: "Not found" } };
             return { status: 200, body: toPublicDocument(doc) };
         },
         update: async ({ params, body, req }: any) => {
             try {
-                const doc = await updateDocument(kind, req.teamId, params.documentId, body);
+                const doc = await updateDocument(
+                    kind,
+                    req.teamId,
+                    params.documentId,
+                    body,
+                );
                 if (!doc) return { status: 404, body: { error: "Not found" } };
                 if (body.slug !== undefined) {
                     const team = await findTeamById(req.teamId);
@@ -78,26 +104,43 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
             }
         },
         publish: async ({ params, req }: any) => {
-            const doc = await publishDocument(kind, req.teamId, params.documentId);
+            const doc = await publishDocument(
+                kind,
+                req.teamId,
+                params.documentId,
+            );
             if (!doc) return { status: 404, body: { error: "Not found" } };
             const team = await findTeamById(req.teamId);
             if (team) revalidateTeam(team.teamId).catch(() => {});
             return { status: 200, body: toPublicDocument(doc) };
         },
         discardDraft: async ({ params, req }: any) => {
-            const doc = await discardDocumentDraft(kind, req.teamId, params.documentId);
+            const doc = await discardDocumentDraft(
+                kind,
+                req.teamId,
+                params.documentId,
+            );
             if (!doc) return { status: 404, body: { error: "Not found" } };
             return { status: 200, body: toPublicDocument(doc) };
         },
         remove: async ({ params, req }: any) => {
-            const result = await deleteDocument(kind, req.teamId, params.documentId);
-            if (!result.ok) return { status: 404, body: { error: "Not found" } };
+            const result = await deleteDocument(
+                kind,
+                req.teamId,
+                params.documentId,
+            );
+            if (!result.ok)
+                return { status: 404, body: { error: "Not found" } };
             const team = await findTeamById(req.teamId);
             if (team) revalidateTeam(team.teamId).catch(() => {});
             return { status: 204, body: undefined };
         },
     };
 
-    createExpressEndpoints(contractRouter as any, s.router(contractRouter as any, impl), router);
+    createExpressEndpoints(
+        contractRouter as any,
+        s.router(contractRouter as any, impl),
+        router,
+    );
     return router;
 }

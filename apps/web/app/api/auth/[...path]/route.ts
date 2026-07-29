@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { API_URL } from "@/lib/config";
 
 async function proxyAuth(req: NextRequest, path: string[]) {
-    const upstreamUrl = new URL(`/api/auth/${path.map(encodeURIComponent).join("/")}`, API_URL);
+    const upstreamUrl = new URL(
+        `/api/auth/${path.map(encodeURIComponent).join("/")}`,
+        API_URL,
+    );
     req.nextUrl.searchParams.forEach((value, key) => {
         upstreamUrl.searchParams.append(key, value);
     });
@@ -17,7 +20,10 @@ async function proxyAuth(req: NextRequest, path: string[]) {
     // the IP the API's rate limiter (e.g. auth OTP attempts) keys on.
     headers.delete("x-forwarded-for");
 
-    const body = req.method === "GET" || req.method === "HEAD" ? undefined : await req.arrayBuffer();
+    const body =
+        req.method === "GET" || req.method === "HEAD"
+            ? undefined
+            : await req.arrayBuffer();
 
     const upstream = await fetch(upstreamUrl, {
         method: req.method,
@@ -29,7 +35,10 @@ async function proxyAuth(req: NextRequest, path: string[]) {
     const responseHeaders = new Headers(upstream.headers);
     const location = responseHeaders.get("location");
     if (location?.startsWith(API_URL)) {
-        responseHeaders.set("location", location.replace(API_URL, req.nextUrl.origin));
+        responseHeaders.set(
+            "location",
+            location.replace(API_URL, req.nextUrl.origin),
+        );
     }
 
     return new NextResponse(upstream.body, {

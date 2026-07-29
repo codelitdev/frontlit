@@ -3,4 +3,9 @@
  * RAG code keeps importing from here while all provider I/O lives under
  * `src/ai/` (Vercel AI SDK Core).
  */
-export { EMBEDDING_DIMENSIONS, getEmbedding, getEmbeddings, resolveEmbeddingsProvider } from "../ai/embeddings";
+export {
+    EMBEDDING_DIMENSIONS,
+    getEmbedding,
+    getEmbeddings,
+    resolveEmbeddingsProvider,
+} from "../ai/embeddings";

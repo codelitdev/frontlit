@@ -58,7 +58,9 @@ export function HeaderEditor({
                             <ToggleField
                                 label="Show as button"
                                 value={link.isButton}
-                                onChange={(isButton) => updateLink({ isButton })}
+                                onChange={(isButton) =>
+                                    updateLink({ isButton })
+                                }
                             />
                             <button
                                 type="button"

@@ -9,8 +9,14 @@ describe("decideHost", () => {
     });
 
     it("rewrites either known host to the tenant segment", () => {
-        const resolved = { teamId: "team_abc", canonicalHost: "acme.frontlit.app" };
-        expect(decideHost(resolved, url)).toEqual({ action: "rewrite", teamId: "team_abc" });
+        const resolved = {
+            teamId: "team_abc",
+            canonicalHost: "acme.frontlit.app",
+        };
+        expect(decideHost(resolved, url)).toEqual({
+            action: "rewrite",
+            teamId: "team_abc",
+        });
     });
 
     it("normalizes ports and casing before cache/API lookup", () => {
@@ -26,10 +32,16 @@ describe("createHostCache", () => {
 
     it("returns the cached value, including a cached null (known-unknown host), before expiry", () => {
         const cache = createHostCache(60_000);
-        cache.set("acme.frontlit.app", { teamId: "team_abc", canonicalHost: "acme.frontlit.app" });
+        cache.set("acme.frontlit.app", {
+            teamId: "team_abc",
+            canonicalHost: "acme.frontlit.app",
+        });
         cache.set("nowhere.example", null);
 
-        expect(cache.get("acme.frontlit.app")).toEqual({ teamId: "team_abc", canonicalHost: "acme.frontlit.app" });
+        expect(cache.get("acme.frontlit.app")).toEqual({
+            teamId: "team_abc",
+            canonicalHost: "acme.frontlit.app",
+        });
         expect(cache.get("nowhere.example")).toBeNull();
     });
 
@@ -37,7 +49,10 @@ describe("createHostCache", () => {
         vi.useFakeTimers();
         try {
             const cache = createHostCache(1_000);
-            cache.set("acme.frontlit.app", { teamId: "team_abc", canonicalHost: "acme.frontlit.app" });
+            cache.set("acme.frontlit.app", {
+                teamId: "team_abc",
+                canonicalHost: "acme.frontlit.app",
+            });
             vi.advanceTimersByTime(1_001);
             expect(cache.get("acme.frontlit.app")).toBeUndefined();
         } finally {

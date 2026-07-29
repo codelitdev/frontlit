@@ -5,7 +5,9 @@ import { widgetInstanceSchema } from "./pages";
 /** Published-only projection of a document, served by the unauthenticated
  * `/public/*` API group (architecture.md §5.4). Never includes `draft*`
  * fields or internal ids. */
-export function makePublicDocumentSchema<M extends z.ZodTypeAny>(metaSchema: M) {
+export function makePublicDocumentSchema<M extends z.ZodTypeAny>(
+    metaSchema: M,
+) {
     return z.object({
         documentId: z.string(),
         slug: z.string(),
@@ -41,7 +43,12 @@ export const publicPageSchema = z.object({
     updatedAt: z.string().nullable(),
 });
 
-export const sitemapEntryKindSchema = z.enum(["page", "blog", "doc", "changelog"]);
+export const sitemapEntryKindSchema = z.enum([
+    "page",
+    "blog",
+    "doc",
+    "changelog",
+]);
 
 export const sitemapEntrySchema = z.object({
     kind: sitemapEntryKindSchema,

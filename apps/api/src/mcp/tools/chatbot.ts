@@ -5,7 +5,10 @@ import {
     chatbotWidgetStylePatchSchema,
     chatbotWidgetVariantSchema,
 } from "@frontlit/api-contract";
-import { getChatbotSettings, updateChatbotSettings } from "../../chatbot/queries";
+import {
+    getChatbotSettings,
+    updateChatbotSettings,
+} from "../../chatbot/queries";
 import { AUTH_ERROR, INTERNAL_ERROR, jsonResult } from "./responses";
 import { getTeamId } from "./auth";
 import { omitInternal, serializeDates } from "../../utils/public";
@@ -21,7 +24,11 @@ export function registerChatbotTools(server: McpServer): void {
             description: "Gets the current team's chatbot settings.",
             inputSchema: {},
             outputSchema: chatbotSettingsSchema,
-            annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+            annotations: {
+                readOnlyHint: true,
+                idempotentHint: true,
+                openWorldHint: false,
+            },
         },
         async (_args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -50,7 +57,11 @@ export function registerChatbotTools(server: McpServer): void {
                 widgetStyle: chatbotWidgetStylePatchSchema.optional(),
             },
             outputSchema: chatbotSettingsSchema,
-            annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);

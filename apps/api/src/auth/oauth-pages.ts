@@ -1,9 +1,5 @@
 import { createOAuthPagesRouter } from "@codelitdev/oauth-server-kit";
-import {
-    auth,
-    oauthTeamSelectionAdapter,
-    webClientUrl,
-} from "./better-auth";
+import { auth, oauthTeamSelectionAdapter, webClientUrl } from "./better-auth";
 
 export default createOAuthPagesRouter({
     appName: "FrontLit",

@@ -17,12 +17,7 @@ export type BlendMode =
     | "luminosity";
 
 export type BackgroundRepeat =
-    | "no-repeat"
-    | "repeat"
-    | "repeat-x"
-    | "repeat-y"
-    | "space"
-    | "round";
+    "no-repeat" | "repeat" | "repeat-x" | "repeat-y" | "space" | "round";
 
 /**
  * CSS `background-attachment`.

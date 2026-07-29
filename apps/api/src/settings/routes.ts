@@ -21,7 +21,9 @@ router.use("/settings", requireAuth, requireTeam);
 const s = initServer();
 
 function toPublicSettings<T extends Record<string, unknown>>(settings: T) {
-    return serializeDates(omitInternal(settings, "teamId", "sharedWidgets", "draftSharedWidgets"));
+    return serializeDates(
+        omitInternal(settings, "teamId", "sharedWidgets", "draftSharedWidgets"),
+    );
 }
 
 const teamSettingsContract = {
@@ -40,11 +42,21 @@ const impl = s.router(teamSettingsContract, {
         // the owner role, same as team deletion. API-key callers are
         // already a team-scoped credential at that same trust level, so
         // only session auth is gated here.
-        const editsInjection = body.codeInjectionHead !== undefined || body.codeInjectionBody !== undefined;
+        const editsInjection =
+            body.codeInjectionHead !== undefined ||
+            body.codeInjectionBody !== undefined;
         if (editsInjection && (req as any).authKind === "session") {
-            const membership = await getTeamMembership((req as any).teamId, (req as any).accountId);
+            const membership = await getTeamMembership(
+                (req as any).teamId,
+                (req as any).accountId,
+            );
             if (membership?.role !== "owner") {
-                return { status: 403, body: { error: "Only the team owner can edit code injection" } };
+                return {
+                    status: 403,
+                    body: {
+                        error: "Only the team owner can edit code injection",
+                    },
+                };
             }
         }
         const settings = await updateTeamSettings((req as any).teamId, body);
@@ -66,9 +78,9 @@ const espImpl = s.router(contract.settings.esp, {
             (req as any).teamId,
             deleteEspConfig,
         );
-        return (result.status === 200
-            ? { status: 204, body: undefined }
-            : result) as any;
+        return (
+            result.status === 200 ? { status: 204, body: undefined } : result
+        ) as any;
     },
     test: async ({ body, req }) =>
         withSendlitKey((req as any).teamId, (apiKey) =>

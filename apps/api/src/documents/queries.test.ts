@@ -29,7 +29,10 @@ describe("documents engine (blog kind)", () => {
     });
 
     it("creates a document with an empty draft and no published state", async () => {
-        const doc = await createDocument("blog", { teamId, title: "Hello World" });
+        const doc = await createDocument("blog", {
+            teamId,
+            title: "Hello World",
+        });
 
         expect(doc.slug).toBe("hello-world");
         expect(doc.publishedAt).toBeNull();
@@ -41,7 +44,10 @@ describe("documents engine (blog kind)", () => {
 
     it("uniquifies slugs within a team and kind", async () => {
         const first = await createDocument("blog", { teamId, title: "Launch" });
-        const second = await createDocument("blog", { teamId, title: "Launch" });
+        const second = await createDocument("blog", {
+            teamId,
+            title: "Launch",
+        });
         const doc = await createDocument("doc", { teamId, title: "Launch" });
 
         expect(first.slug).toBe("launch");
@@ -51,7 +57,10 @@ describe("documents engine (blog kind)", () => {
     });
 
     it("normalizes an explicitly edited slug", async () => {
-        const doc = await createDocument("doc", { teamId, title: "Getting Started" });
+        const doc = await createDocument("doc", {
+            teamId,
+            title: "Getting Started",
+        });
 
         const updated = await updateDocument("doc", teamId, doc.documentId, {
             slug: "  Installation Guide  ",
@@ -65,20 +74,33 @@ describe("documents engine (blog kind)", () => {
         const second = await createDocument("doc", { teamId, title: "Second" });
 
         await expect(
-            updateDocument("doc", teamId, second.documentId, { slug: first.slug }),
+            updateDocument("doc", teamId, second.documentId, {
+                slug: first.slug,
+            }),
         ).rejects.toBeInstanceOf(SlugConflictError);
     });
 
     it("update writes only the draft columns, leaving published fields untouched", async () => {
-        const created = await createDocument("blog", { teamId, title: "Draft post" });
-
-        const updated = await updateDocument("blog", teamId, created.documentId, {
-            content: { type: "doc", content: [{ type: "paragraph" }] },
-            excerpt: "A short summary",
-            meta: { tags: ["announcement"] },
+        const created = await createDocument("blog", {
+            teamId,
+            title: "Draft post",
         });
 
-        expect(updated?.draftContent).toEqual({ type: "doc", content: [{ type: "paragraph" }] });
+        const updated = await updateDocument(
+            "blog",
+            teamId,
+            created.documentId,
+            {
+                content: { type: "doc", content: [{ type: "paragraph" }] },
+                excerpt: "A short summary",
+                meta: { tags: ["announcement"] },
+            },
+        );
+
+        expect(updated?.draftContent).toEqual({
+            type: "doc",
+            content: [{ type: "paragraph" }],
+        });
         expect(updated?.draftExcerpt).toBe("A short summary");
         expect(updated?.draftMeta).toEqual({ tags: ["announcement"] });
         expect(updated?.content).toBeNull();
@@ -87,8 +109,17 @@ describe("documents engine (blog kind)", () => {
     });
 
     it("meta patches shallow-merge instead of replacing the whole object", async () => {
-        const created = await createDocument("blog", { teamId, title: "Post", meta: { tags: ["a"] } });
-        const updated = await updateDocument("blog", teamId, created.documentId, { meta: { extra: true } });
+        const created = await createDocument("blog", {
+            teamId,
+            title: "Post",
+            meta: { tags: ["a"] },
+        });
+        const updated = await updateDocument(
+            "blog",
+            teamId,
+            created.documentId,
+            { meta: { extra: true } },
+        );
 
         expect(updated?.draftMeta).toEqual({ tags: ["a"], extra: true });
     });
@@ -99,18 +130,30 @@ describe("documents engine (blog kind)", () => {
             content: { type: "doc", content: [{ type: "paragraph" }] },
         });
 
-        const published = await publishDocument("blog", teamId, created.documentId);
+        const published = await publishDocument(
+            "blog",
+            teamId,
+            created.documentId,
+        );
 
         expect(published?.publishedAt).not.toBeNull();
         expect(published?.title).toBe("Post");
-        expect(published?.content).toEqual({ type: "doc", content: [{ type: "paragraph" }] });
+        expect(published?.content).toEqual({
+            type: "doc",
+            content: [{ type: "paragraph" }],
+        });
         expect(deriveDocumentStatus(published!)).toBe("published");
     });
 
     it("further draft edits after publish show published_with_changes", async () => {
         const created = await createDocument("blog", { teamId, title: "Post" });
         await publishDocument("blog", teamId, created.documentId);
-        const edited = await updateDocument("blog", teamId, created.documentId, { title: "Updated title" });
+        const edited = await updateDocument(
+            "blog",
+            teamId,
+            created.documentId,
+            { title: "Updated title" },
+        );
 
         expect(deriveDocumentStatus(edited!)).toBe("published_with_changes");
     });
@@ -118,19 +161,34 @@ describe("documents engine (blog kind)", () => {
     it("discard-draft resets the draft back to the published state", async () => {
         const created = await createDocument("blog", { teamId, title: "V1" });
         await publishDocument("blog", teamId, created.documentId);
-        await updateDocument("blog", teamId, created.documentId, { title: "V2 (unpublished)" });
+        await updateDocument("blog", teamId, created.documentId, {
+            title: "V2 (unpublished)",
+        });
 
-        const discarded = await discardDocumentDraft("blog", teamId, created.documentId);
+        const discarded = await discardDocumentDraft(
+            "blog",
+            teamId,
+            created.documentId,
+        );
 
         expect(discarded?.draftTitle).toBe("V1");
         expect(deriveDocumentStatus(discarded!)).toBe("published");
     });
 
     it("discard-draft is a no-op for a document that was never published", async () => {
-        const created = await createDocument("blog", { teamId, title: "Never published" });
-        await updateDocument("blog", teamId, created.documentId, { title: "Edited" });
+        const created = await createDocument("blog", {
+            teamId,
+            title: "Never published",
+        });
+        await updateDocument("blog", teamId, created.documentId, {
+            title: "Edited",
+        });
 
-        const result = await discardDocumentDraft("blog", teamId, created.documentId);
+        const result = await discardDocumentDraft(
+            "blog",
+            teamId,
+            created.documentId,
+        );
 
         expect(result?.draftTitle).toBe("Edited");
     });
@@ -139,12 +197,29 @@ describe("documents engine (blog kind)", () => {
         const created = await createDocument("blog", { teamId, title: "Post" });
         const { team: otherTeam } = await seedTeam(db, { name: "Other" });
 
-        expect(await updateDocument("blog", otherTeam.id, created.documentId, { title: "hijacked" })).toBeNull();
-        expect(await publishDocument("blog", otherTeam.id, created.documentId)).toBeNull();
-        expect(await discardDocumentDraft("blog", otherTeam.id, created.documentId)).toBeNull();
-        expect((await deleteDocument("blog", otherTeam.id, created.documentId)).ok).toBe(false);
+        expect(
+            await updateDocument("blog", otherTeam.id, created.documentId, {
+                title: "hijacked",
+            }),
+        ).toBeNull();
+        expect(
+            await publishDocument("blog", otherTeam.id, created.documentId),
+        ).toBeNull();
+        expect(
+            await discardDocumentDraft(
+                "blog",
+                otherTeam.id,
+                created.documentId,
+            ),
+        ).toBeNull();
+        expect(
+            (await deleteDocument("blog", otherTeam.id, created.documentId)).ok,
+        ).toBe(false);
 
-        const untouched = await getDocumentByDocumentId("blog", created.documentId);
+        const untouched = await getDocumentByDocumentId(
+            "blog",
+            created.documentId,
+        );
         expect(untouched?.draftTitle).toBe("Post");
     });
 
@@ -155,21 +230,35 @@ describe("documents engine (blog kind)", () => {
 
         const blogs = await listDocuments("blog", { teamId });
         expect(blogs).toHaveLength(2);
-        expect(blogs.map((b) => b.draftTitle).sort()).toEqual(["Blog A", "Blog B"]);
+        expect(blogs.map((b) => b.draftTitle).sort()).toEqual([
+            "Blog A",
+            "Blog B",
+        ]);
     });
 
     it("deletes a document", async () => {
-        const created = await createDocument("blog", { teamId, title: "Scratch" });
+        const created = await createDocument("blog", {
+            teamId,
+            title: "Scratch",
+        });
         const result = await deleteDocument("blog", teamId, created.documentId);
 
         expect(result.ok).toBe(true);
-        expect(await getDocumentByDocumentId("blog", created.documentId)).toBeUndefined();
+        expect(
+            await getDocumentByDocumentId("blog", created.documentId),
+        ).toBeUndefined();
     });
 
     describe("public reads", () => {
         it("only ever return published documents", async () => {
-            const draftOnly = await createDocument("blog", { teamId, title: "Unpublished" });
-            const published = await createDocument("blog", { teamId, title: "Published post" });
+            const draftOnly = await createDocument("blog", {
+                teamId,
+                title: "Unpublished",
+            });
+            const published = await createDocument("blog", {
+                teamId,
+                title: "Published post",
+            });
             await publishDocument("blog", teamId, published.documentId);
 
             const items = await listPublishedDocuments("blog", { teamId });
@@ -177,8 +266,20 @@ describe("documents engine (blog kind)", () => {
             expect(items[0].documentId).toBe(published.documentId);
             expect(await countPublishedDocuments("blog", { teamId })).toBe(1);
 
-            expect(await getPublishedDocumentBySlug("blog", teamId, draftOnly.slug)).toBeUndefined();
-            expect(await getPublishedDocumentBySlug("blog", teamId, published.slug)).toMatchObject({
+            expect(
+                await getPublishedDocumentBySlug(
+                    "blog",
+                    teamId,
+                    draftOnly.slug,
+                ),
+            ).toBeUndefined();
+            expect(
+                await getPublishedDocumentBySlug(
+                    "blog",
+                    teamId,
+                    published.slug,
+                ),
+            ).toMatchObject({
                 documentId: published.documentId,
             });
         });

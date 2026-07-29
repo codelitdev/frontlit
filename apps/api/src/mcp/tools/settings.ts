@@ -3,7 +3,12 @@ import { z } from "zod";
 import { teamSettingsSchema } from "@frontlit/api-contract";
 import { getTeamSettings, updateTeamSettings } from "../../settings/queries";
 import { getTeamMembership } from "../../team/queries";
-import { AUTH_ERROR, INTERNAL_ERROR, errorResult, jsonResult } from "./responses";
+import {
+    AUTH_ERROR,
+    INTERNAL_ERROR,
+    errorResult,
+    jsonResult,
+} from "./responses";
 import { getAuthAccount, getTeamId } from "./auth";
 import { omitInternal, serializeDates } from "../../utils/public";
 
@@ -15,16 +20,23 @@ export function registerSettingsTools(server: McpServer): void {
     server.registerTool(
         "get_team_settings",
         {
-            description: "Gets the current team's branding (title, subtitle, logo) and code-injection settings.",
+            description:
+                "Gets the current team's branding (title, subtitle, logo) and code-injection settings.",
             inputSchema: {},
             outputSchema: teamSettingsSchema,
-            annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+            annotations: {
+                readOnlyHint: true,
+                idempotentHint: true,
+                openWorldHint: false,
+            },
         },
         async (_args: any, extra: any) => {
             const teamId = getTeamId(extra);
             if (!teamId) return AUTH_ERROR;
             try {
-                return jsonResult(toPublicSettings(await getTeamSettings(teamId)));
+                return jsonResult(
+                    toPublicSettings(await getTeamSettings(teamId)),
+                );
             } catch {
                 return INTERNAL_ERROR;
             }
@@ -44,19 +56,33 @@ export function registerSettingsTools(server: McpServer): void {
                 codeInjectionBody: z.string().max(16_384).nullable().optional(),
             },
             outputSchema: teamSettingsSchema,
-            annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
             if (!teamId) return AUTH_ERROR;
             try {
-                const editsInjection = args.codeInjectionHead !== undefined || args.codeInjectionBody !== undefined;
+                const editsInjection =
+                    args.codeInjectionHead !== undefined ||
+                    args.codeInjectionBody !== undefined;
                 const account = getAuthAccount(extra);
                 if (editsInjection && account) {
-                    const membership = await getTeamMembership(teamId, account.id);
-                    if (membership?.role !== "owner") return errorResult("Only the team owner can edit code injection");
+                    const membership = await getTeamMembership(
+                        teamId,
+                        account.id,
+                    );
+                    if (membership?.role !== "owner")
+                        return errorResult(
+                            "Only the team owner can edit code injection",
+                        );
                 }
-                return jsonResult(toPublicSettings(await updateTeamSettings(teamId, args)));
+                return jsonResult(
+                    toPublicSettings(await updateTeamSettings(teamId, args)),
+                );
             } catch {
                 return INTERNAL_ERROR;
             }

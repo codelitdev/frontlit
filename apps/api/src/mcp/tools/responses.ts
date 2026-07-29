@@ -1,10 +1,20 @@
 export const AUTH_ERROR = {
-    content: [{ type: "text" as const, text: "Authentication required: valid credentials were not provided." }],
+    content: [
+        {
+            type: "text" as const,
+            text: "Authentication required: valid credentials were not provided.",
+        },
+    ],
     isError: true,
 };
 
 export const INTERNAL_ERROR = {
-    content: [{ type: "text" as const, text: "An error occurred while processing your request." }],
+    content: [
+        {
+            type: "text" as const,
+            text: "An error occurred while processing your request.",
+        },
+    ],
     isError: true,
 };
 
@@ -14,7 +24,10 @@ export const NOT_FOUND = {
 };
 
 export function errorResult(message: string) {
-    return { content: [{ type: "text" as const, text: message }], isError: true };
+    return {
+        content: [{ type: "text" as const, text: message }],
+        isError: true,
+    };
 }
 
 export function jsonResult(data: unknown) {

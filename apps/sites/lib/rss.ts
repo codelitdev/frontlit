@@ -1,5 +1,8 @@
 function escapeXml(value: string): string {
-    return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
 }
 
 export interface RssItem {
@@ -15,7 +18,13 @@ export interface RssItem {
 
 /** RSS 2.0 feed for `/blog/rss.xml` and `/changelog/rss.xml` (architecture.md
  * §12.3), capped at the 50 newest by the caller. */
-export function buildRssFeed(input: { title: string; description: string | null; feedUrl: string; siteUrl: string; items: RssItem[] }): string {
+export function buildRssFeed(input: {
+    title: string;
+    description: string | null;
+    feedUrl: string;
+    siteUrl: string;
+    items: RssItem[];
+}): string {
     const itemsXml = input.items
         .map(
             (item) => `    <item>

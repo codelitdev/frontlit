@@ -2,7 +2,12 @@ import React from "react";
 import type { WidgetEditorProps } from "../../models";
 import type { FaqItem, FaqSettings } from "./settings";
 import { generateUniqueId } from "../../utils";
-import { FieldGroup, ListField, SelectField, TextField } from "../_shared/fields";
+import {
+    FieldGroup,
+    ListField,
+    SelectField,
+    TextField,
+} from "../_shared/fields";
 
 export function FaqEditor({
     settings,

@@ -11,21 +11,68 @@ const DEFAULT_STYLE: ChatbotWidgetStyle = {
 };
 
 /** Built-in theme primaries (mirrors page-builder themes) for the ~1 KB loader. */
-const BUILTIN_PRIMARY: Record<string, { primary: string; primaryForeground: string; card: string; border: string; mutedForeground: string }> = {
-    classic: { primary: "#000000", primaryForeground: "#ffffff", card: "#ffffff", border: "#e4e4e4", mutedForeground: "#525252" },
-    learning: { primary: "#2563eb", primaryForeground: "#ffffff", card: "#ffffff", border: "#bae6fd", mutedForeground: "#0c4a6e" },
-    neobrutalism: { primary: "#FFF700", primaryForeground: "#000000", card: "#ffffff", border: "#000000", mutedForeground: "#525252" },
-    editorial: { primary: "#1E3A8A", primaryForeground: "#ffffff", card: "#ffffff", border: "#e5e7eb", mutedForeground: "#6b7280" },
-    midnight: { primary: "#61AFEF", primaryForeground: "#000000", card: "#1e1e1e", border: "#3e3e3e", mutedForeground: "#a4a4a4" },
+const BUILTIN_PRIMARY: Record<
+    string,
+    {
+        primary: string;
+        primaryForeground: string;
+        card: string;
+        border: string;
+        mutedForeground: string;
+    }
+> = {
+    classic: {
+        primary: "#000000",
+        primaryForeground: "#ffffff",
+        card: "#ffffff",
+        border: "#e4e4e4",
+        mutedForeground: "#525252",
+    },
+    learning: {
+        primary: "#2563eb",
+        primaryForeground: "#ffffff",
+        card: "#ffffff",
+        border: "#bae6fd",
+        mutedForeground: "#0c4a6e",
+    },
+    neobrutalism: {
+        primary: "#FFF700",
+        primaryForeground: "#000000",
+        card: "#ffffff",
+        border: "#000000",
+        mutedForeground: "#525252",
+    },
+    editorial: {
+        primary: "#1E3A8A",
+        primaryForeground: "#ffffff",
+        card: "#ffffff",
+        border: "#e5e7eb",
+        mutedForeground: "#6b7280",
+    },
+    midnight: {
+        primary: "#61AFEF",
+        primaryForeground: "#000000",
+        card: "#1e1e1e",
+        border: "#3e3e3e",
+        mutedForeground: "#a4a4a4",
+    },
 };
 
-function resolveEmbedPalette(themeId: string | null, themeStyle: Record<string, unknown> | null, accentColor: string | null) {
-    const colors = (themeStyle as { colors?: { light?: Record<string, string> } } | null)?.colors?.light;
-    const builtin = (themeId && BUILTIN_PRIMARY[themeId]) || BUILTIN_PRIMARY.classic;
+function resolveEmbedPalette(
+    themeId: string | null,
+    themeStyle: Record<string, unknown> | null,
+    accentColor: string | null,
+) {
+    const colors = (
+        themeStyle as { colors?: { light?: Record<string, string> } } | null
+    )?.colors?.light;
+    const builtin =
+        (themeId && BUILTIN_PRIMARY[themeId]) || BUILTIN_PRIMARY.classic;
     const primary = accentColor?.trim() || colors?.primary || builtin.primary;
     return {
         primary,
-        primaryForeground: colors?.primaryForeground || builtin.primaryForeground,
+        primaryForeground:
+            colors?.primaryForeground || builtin.primaryForeground,
         card: colors?.card || builtin.card,
         border: colors?.border || builtin.border,
         mutedForeground: colors?.mutedForeground || builtin.mutedForeground,
@@ -42,16 +89,31 @@ function resolveEmbedPalette(themeId: string | null, themeStyle: Record<string, 
  * - Text input: a centered bottom docked iframe; the bottom field is the
  *   real composer and a message sheet grows above it (resize via postMessage).
  */
-export async function GET(_request: Request, { params }: { params: Promise<{ teamId: string }> }) {
+export async function GET(
+    _request: Request,
+    { params }: { params: Promise<{ teamId: string }> },
+) {
     const { teamId } = await params;
-    const [settings, siteTheme] = await Promise.all([getChatbotSettings(teamId), loadSiteTheme(teamId)]);
+    const [settings, siteTheme] = await Promise.all([
+        getChatbotSettings(teamId),
+        loadSiteTheme(teamId),
+    ]);
     if (!settings?.enabled) {
-        return new Response("// FrontLit chat widget is disabled for this team\n", {
-            headers: { "content-type": "application/javascript; charset=utf-8" },
-        });
+        return new Response(
+            "// FrontLit chat widget is disabled for this team\n",
+            {
+                headers: {
+                    "content-type": "application/javascript; charset=utf-8",
+                },
+            },
+        );
     }
 
-    const palette = resolveEmbedPalette(siteTheme.themeId, siteTheme.themeStyle, settings.accentColor);
+    const palette = resolveEmbedPalette(
+        siteTheme.themeId,
+        siteTheme.themeStyle,
+        settings.accentColor,
+    );
     const color = JSON.stringify(palette.primary);
     const paletteJson = JSON.stringify(palette);
     const name = JSON.stringify(settings.name || "Chat");
@@ -128,5 +190,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tea
 })();
 `;
 
-    return new Response(script, { headers: { "content-type": "application/javascript; charset=utf-8" } });
+    return new Response(script, {
+        headers: { "content-type": "application/javascript; charset=utf-8" },
+    });
 }

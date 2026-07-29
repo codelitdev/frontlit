@@ -3,7 +3,10 @@ import type { SitemapEntry } from "./api";
 /** `<urlset>` body for `sitemap.xml/route.ts` — every published,
  * robots-allowed URL, absolute on the canonical host (architecture.md §12.3).
  * Fully derived from the API's sitemap read; nothing authored here. */
-export function buildSitemapXml(canonicalHost: string, entries: SitemapEntry[]): string {
+export function buildSitemapXml(
+    canonicalHost: string,
+    entries: SitemapEntry[],
+): string {
     const urls = entries
         .map((entry) => {
             const loc = `https://${canonicalHost}${entry.path}`;

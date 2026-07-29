@@ -31,8 +31,16 @@ function post(
 describe("blog screen helpers", () => {
     const posts = [
         post("one", "Launch notes", "launch-notes", "published", ["Product"]),
-        post("two", "Engineering update", "eng-update", "draft", ["Engineering"]),
-        post("three", "Summer release", "summer-release", "published_with_changes", ["Release"]),
+        post("two", "Engineering update", "eng-update", "draft", [
+            "Engineering",
+        ]),
+        post(
+            "three",
+            "Summer release",
+            "summer-release",
+            "published_with_changes",
+            ["Release"],
+        ),
     ];
 
     it("counts live posts including posts with unpublished changes", () => {
@@ -50,13 +58,27 @@ describe("blog screen helpers", () => {
         ["draft", ["two"]],
         ["changes", ["three"]],
     ])("filters the %s tab", (filter, expected) => {
-        expect(filterBlogPosts(posts, filter, "").map((item) => item.documentId)).toEqual(expected);
+        expect(
+            filterBlogPosts(posts, filter, "").map((item) => item.documentId),
+        ).toEqual(expected);
     });
 
     it("matches title, slug, or tag case-insensitively", () => {
-        expect(filterBlogPosts(posts, "all", "ENG-UPDATE").map((item) => item.documentId)).toEqual(["two"]);
-        expect(filterBlogPosts(posts, "all", "release").map((item) => item.documentId)).toEqual(["three"]);
-        expect(filterBlogPosts(posts, "all", "product").map((item) => item.documentId)).toEqual(["one"]);
+        expect(
+            filterBlogPosts(posts, "all", "ENG-UPDATE").map(
+                (item) => item.documentId,
+            ),
+        ).toEqual(["two"]);
+        expect(
+            filterBlogPosts(posts, "all", "release").map(
+                (item) => item.documentId,
+            ),
+        ).toEqual(["three"]);
+        expect(
+            filterBlogPosts(posts, "all", "product").map(
+                (item) => item.documentId,
+            ),
+        ).toEqual(["one"]);
     });
 
     it("sorts most recently updated posts first and keeps missing dates last", () => {
@@ -66,6 +88,10 @@ describe("blog screen helpers", () => {
             post("new", "New", "new", "draft", [], "2026-07-01T00:00:00.000Z"),
         ]);
 
-        expect(sorted.map((item) => item.documentId)).toEqual(["new", "old", "none"]);
+        expect(sorted.map((item) => item.documentId)).toEqual([
+            "new",
+            "old",
+            "none",
+        ]);
     });
 });

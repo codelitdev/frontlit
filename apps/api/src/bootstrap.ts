@@ -34,6 +34,9 @@ export async function createSuperAdminIfMissing(): Promise<void> {
             "Super admin account created",
         );
     } catch (err) {
-        logger.error({ error: (err as Error).message }, "Failed to create super admin account");
+        logger.error(
+            { error: (err as Error).message },
+            "Failed to create super admin account",
+        );
     }
 }

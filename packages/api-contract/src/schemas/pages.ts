@@ -20,7 +20,11 @@ export const pageSeoSchema = z.object({
     robotsAllowed: z.boolean().optional(),
 });
 
-export const pageStatusSchema = z.enum(["draft", "published", "published_with_changes"]);
+export const pageStatusSchema = z.enum([
+    "draft",
+    "published",
+    "published_with_changes",
+]);
 const themeReferenceSchema = z.string().min(1).max(128);
 
 export const pageSchema = z.object({

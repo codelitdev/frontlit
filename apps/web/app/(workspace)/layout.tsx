@@ -3,9 +3,17 @@ import { AppSidebar } from "@/components/workspace/app-sidebar";
 import { BreadcrumbProvider } from "@/components/workspace/breadcrumb-context";
 import { WorkspaceBreadcrumb } from "@/components/workspace/workspace-breadcrumb";
 import { Separator } from "@/components/ui/separator";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import {
+    SidebarInset,
+    SidebarProvider,
+    SidebarTrigger,
+} from "@/components/ui/sidebar";
 
-export default async function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+export default async function AuthenticatedLayout({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
     await requireAuth();
 
     return (
@@ -16,10 +24,15 @@ export default async function AuthenticatedLayout({ children }: { children: Reac
                 <BreadcrumbProvider>
                     <header className="flex h-12 w-full shrink-0 items-center gap-2 border-b px-4">
                         <SidebarTrigger className="-ml-1" />
-                        <Separator orientation="vertical" className="mr-2 data-vertical:h-4 data-vertical:self-auto" />
+                        <Separator
+                            orientation="vertical"
+                            className="mr-2 data-vertical:h-4 data-vertical:self-auto"
+                        />
                         <WorkspaceBreadcrumb />
                     </header>
-                    <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
+                    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                        {children}
+                    </div>
                 </BreadcrumbProvider>
             </SidebarInset>
         </SidebarProvider>

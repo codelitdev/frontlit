@@ -12,14 +12,19 @@ import { getOutboxQueueStats } from "../newsletter/outbox";
 const router = Router();
 
 router.get("/metrics", async (_req, res) => {
-    const { pendingCount, oldestPendingAgeSeconds } = await getOutboxQueueStats();
+    const { pendingCount, oldestPendingAgeSeconds } =
+        await getOutboxQueueStats();
 
     const lines = [
         renderCounters(),
         "# TYPE outbox_queue_pending gauge",
         `outbox_queue_pending ${pendingCount}`,
         "# TYPE outbox_queue_oldest_pending_age_seconds gauge",
-        ...(oldestPendingAgeSeconds !== null ? [`outbox_queue_oldest_pending_age_seconds ${oldestPendingAgeSeconds}`] : []),
+        ...(oldestPendingAgeSeconds !== null
+            ? [
+                  `outbox_queue_oldest_pending_age_seconds ${oldestPendingAgeSeconds}`,
+              ]
+            : []),
     ];
 
     res.set("content-type", "text/plain; version=0.0.4; charset=utf-8");

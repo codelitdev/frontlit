@@ -39,7 +39,10 @@ export const setTeamSubdomainBodySchema = z.object({
         .string()
         .min(1)
         .max(63)
-        .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Must be lowercase alphanumeric segments separated by single hyphens"),
+        .regex(
+            /^[a-z0-9]+(-[a-z0-9]+)*$/,
+            "Must be lowercase alphanumeric segments separated by single hyphens",
+        ),
 });
 
 export const attachCustomDomainBodySchema = z.object({
@@ -48,7 +51,10 @@ export const attachCustomDomainBodySchema = z.object({
         .min(1)
         .max(255)
         .toLowerCase()
-        .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/, "Must be a valid domain name"),
+        .regex(
+            /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/,
+            "Must be a valid domain name",
+        ),
 });
 
 /** Answers `apps/sites`' tenant-resolution middleware and doubles as the

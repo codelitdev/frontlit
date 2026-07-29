@@ -7,7 +7,9 @@ export const TEAM_ID_COOKIE = "frontlit_team_id";
 
 export function getTeamIdFromCookie(): string | null {
     if (typeof document === "undefined") return null;
-    const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${TEAM_ID_COOKIE}=([^;]+)`));
+    const match = document.cookie.match(
+        new RegExp(`(?:^|;\\s*)${TEAM_ID_COOKIE}=([^;]+)`),
+    );
     return match ? decodeURIComponent(match[1]) : null;
 }
 
@@ -42,9 +44,12 @@ export function isStaleTeamSelectionError(error?: string): boolean {
  * cookie's team if the account still belongs to it, else its sole team, or
  * `null` if it has none/several and no valid selection. Clears the cookie as
  * a side effect when it's stale. */
-export function resolveCurrentTeamId(teams: { teamId: string }[]): string | null {
+export function resolveCurrentTeamId(
+    teams: { teamId: string }[],
+): string | null {
     const cookieTeamId = getTeamIdFromCookie();
-    const cookieIsValid = !!cookieTeamId && teams.some((team) => team.teamId === cookieTeamId);
+    const cookieIsValid =
+        !!cookieTeamId && teams.some((team) => team.teamId === cookieTeamId);
     if (cookieTeamId && !cookieIsValid) {
         clearTeamIdCookie();
     }

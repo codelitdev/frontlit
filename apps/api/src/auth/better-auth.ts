@@ -71,7 +71,10 @@ async function sendOtpEmail(email: string, otp: string) {
     }
 
     if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER) {
-        logger.error({ email }, "Cannot send OTP email: SMTP is not configured");
+        logger.error(
+            { email },
+            "Cannot send OTP email: SMTP is not configured",
+        );
         return;
     }
 
@@ -92,8 +95,7 @@ async function sendOtpEmail(email: string, otp: string) {
 
 export const oauthTeamSelectionAdapter: OAuthTeamSelectionAdapter = {
     async listTeamsForUser(userId) {
-        const account =
-            await ensureFrontLitAccountForBetterAuthUserId(userId);
+        const account = await ensureFrontLitAccountForBetterAuthUserId(userId);
         if (!account) return [];
         const teams = await listTeamsForAccount(account.id);
         return teams.map((team) => ({
@@ -198,7 +200,16 @@ export const auth = betterAuth({
             consentPage: `${authBaseUrl}/oauth/consent`,
             allowDynamicClientRegistration: true,
             allowUnauthenticatedClientRegistration: true,
-            scopes: ["openid", "profile", "email", "offline_access", "pages:read", "pages:write", "themes:read", "themes:write"],
+            scopes: [
+                "openid",
+                "profile",
+                "email",
+                "offline_access",
+                "pages:read",
+                "pages:write",
+                "themes:read",
+                "themes:write",
+            ],
             validAudiences: validOAuthAudiences,
             ...createOAuthTeamSelectionHooks({
                 page: `${authBaseUrl}/oauth/select-team`,

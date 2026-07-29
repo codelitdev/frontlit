@@ -17,7 +17,10 @@ export async function POST(request: Request) {
     const timestamp = Number(request.headers.get("x-frontlit-timestamp"));
     const rawBody = await request.text();
 
-    if (!signature || !verifyWebhookSignature(secret, rawBody, timestamp, signature)) {
+    if (
+        !signature ||
+        !verifyWebhookSignature(secret, rawBody, timestamp, signature)
+    ) {
         return new Response("Invalid signature", { status: 401 });
     }
 

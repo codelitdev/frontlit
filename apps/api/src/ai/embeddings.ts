@@ -71,7 +71,12 @@ function mulberry32(seed: number) {
 
 function getLocalEmbedding(text: string): number[] {
     const random = mulberry32(hashString(text.trim().toLowerCase()));
-    const vector = Array.from({ length: EMBEDDING_DIMENSIONS }, () => random() * 2 - 1);
-    const magnitude = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0));
+    const vector = Array.from(
+        { length: EMBEDDING_DIMENSIONS },
+        () => random() * 2 - 1,
+    );
+    const magnitude = Math.sqrt(
+        vector.reduce((sum, value) => sum + value * value, 0),
+    );
     return vector.map((value) => value / magnitude);
 }

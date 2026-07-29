@@ -20,7 +20,12 @@ import { ScrollablePage } from "@/components/workspace/scrollable-page";
 import { Banner } from "@/components/workspace/banner";
 import { DeleteConfirm } from "@/components/workspace/delete-confirm";
 import { Button } from "@/components/ui/codelit/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/codelit/card";
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/codelit/card";
 import { Input } from "@/components/ui/codelit/input";
 import { Label } from "@/components/ui/codelit/label";
 import {
@@ -110,7 +115,11 @@ export default function EspSettingsPage() {
                 if (err instanceof ApiError && err.status === 409) {
                     setNotConnected(true);
                 } else {
-                    setLoadError(err instanceof ApiError ? err.message : "Failed to load ESP settings.");
+                    setLoadError(
+                        err instanceof ApiError
+                            ? err.message
+                            : "Failed to load ESP settings.",
+                    );
                 }
             } finally {
                 setLoading(false);
@@ -147,7 +156,11 @@ export default function EspSettingsPage() {
             setForm(formFromConfig(updatedEsp));
             toast.success("Email delivery settings saved in SendLit.");
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : "Failed to save settings.");
+            toast.error(
+                err instanceof ApiError
+                    ? err.message
+                    : "Failed to save settings.",
+            );
         } finally {
             setSaving(false);
         }
@@ -162,7 +175,8 @@ export default function EspSettingsPage() {
             setTestResult(result);
             toast.success("Test email sent.");
         } catch (err) {
-            const message = err instanceof ApiError ? err.message : "Test email failed.";
+            const message =
+                err instanceof ApiError ? err.message : "Test email failed.";
             setTestResult({ success: false, error: message });
             toast.error(message);
         } finally {
@@ -178,7 +192,9 @@ export default function EspSettingsPage() {
             setTestResult(null);
             toast.success("ESP configuration removed from SendLit.");
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : "Failed to remove ESP.");
+            toast.error(
+                err instanceof ApiError ? err.message : "Failed to remove ESP.",
+            );
         }
     }
 
@@ -200,7 +216,8 @@ export default function EspSettingsPage() {
 
                 {notConnected && (
                     <Banner variant="warning">
-                        This team isn&rsquo;t connected to SendLit yet. It&rsquo;s provisioned automatically in the background —
+                        This team isn&rsquo;t connected to SendLit yet.
+                        It&rsquo;s provisioned automatically in the background —
                         check back shortly, or contact support if this persists.
                     </Banner>
                 )}
@@ -211,34 +228,46 @@ export default function EspSettingsPage() {
                     <form onSubmit={handleSaveSettings} className="space-y-6">
                         {!esp && (
                             <Banner variant="warning">
-                                No email service provider is configured. Newsletter and transactional sends remain disabled until
-                                these settings are saved.
+                                No email service provider is configured.
+                                Newsletter and transactional sends remain
+                                disabled until these settings are saved.
                             </Banner>
                         )}
 
                         <Card>
                             <CardHeader>
-                                <CardTitle className="text-sm">Delivery provider</CardTitle>
+                                <CardTitle className="text-sm">
+                                    Delivery provider
+                                </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="grid gap-4 sm:grid-cols-2">
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="provider">Provider</Label>
+                                        <Label htmlFor="provider">
+                                            Provider
+                                        </Label>
                                         <Select
                                             value={form.provider}
                                             onValueChange={(provider) =>
                                                 setForm((current) => ({
                                                     ...current,
-                                                    provider: provider as EspProvider,
+                                                    provider:
+                                                        provider as EspProvider,
                                                 }))
                                             }
                                         >
-                                            <SelectTrigger id="provider" className="w-full">
+                                            <SelectTrigger
+                                                id="provider"
+                                                className="w-full"
+                                            >
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {PROVIDERS.map((provider) => (
-                                                    <SelectItem key={provider.value} value={provider.value}>
+                                                    <SelectItem
+                                                        key={provider.value}
+                                                        value={provider.value}
+                                                    >
                                                         {provider.label}
                                                     </SelectItem>
                                                 ))}
@@ -250,10 +279,15 @@ export default function EspSettingsPage() {
                                             id="secure"
                                             checked={form.secure}
                                             onCheckedChange={(secure) =>
-                                                setForm((current) => ({ ...current, secure }))
+                                                setForm((current) => ({
+                                                    ...current,
+                                                    secure,
+                                                }))
                                             }
                                         />
-                                        <Label htmlFor="secure">Implicit TLS (usually port 465)</Label>
+                                        <Label htmlFor="secure">
+                                            Implicit TLS (usually port 465)
+                                        </Label>
                                     </div>
                                 </div>
 
@@ -264,7 +298,10 @@ export default function EspSettingsPage() {
                                             id="host"
                                             value={form.host}
                                             onChange={(e) =>
-                                                setForm((current) => ({ ...current, host: e.target.value }))
+                                                setForm((current) => ({
+                                                    ...current,
+                                                    host: e.target.value,
+                                                }))
                                             }
                                             placeholder="smtp.example.com"
                                             required
@@ -279,7 +316,10 @@ export default function EspSettingsPage() {
                                             max={65535}
                                             value={form.port}
                                             onChange={(e) =>
-                                                setForm((current) => ({ ...current, port: e.target.value }))
+                                                setForm((current) => ({
+                                                    ...current,
+                                                    port: e.target.value,
+                                                }))
                                             }
                                             required
                                         />
@@ -288,26 +328,40 @@ export default function EspSettingsPage() {
 
                                 <div className="grid gap-4 sm:grid-cols-2">
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="username">Username</Label>
+                                        <Label htmlFor="username">
+                                            Username
+                                        </Label>
                                         <Input
                                             id="username"
                                             value={form.username}
                                             onChange={(e) =>
-                                                setForm((current) => ({ ...current, username: e.target.value }))
+                                                setForm((current) => ({
+                                                    ...current,
+                                                    username: e.target.value,
+                                                }))
                                             }
                                             autoComplete="off"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="password">Password / API key</Label>
+                                        <Label htmlFor="password">
+                                            Password / API key
+                                        </Label>
                                         <Input
                                             id="password"
                                             type="password"
                                             value={form.password}
                                             onChange={(e) =>
-                                                setForm((current) => ({ ...current, password: e.target.value }))
+                                                setForm((current) => ({
+                                                    ...current,
+                                                    password: e.target.value,
+                                                }))
                                             }
-                                            placeholder={esp?.hasPassword ? "Saved — leave blank to retain" : ""}
+                                            placeholder={
+                                                esp?.hasPassword
+                                                    ? "Saved — leave blank to retain"
+                                                    : ""
+                                            }
                                             autoComplete="new-password"
                                         />
                                     </div>
@@ -317,42 +371,60 @@ export default function EspSettingsPage() {
 
                         <Card>
                             <CardHeader>
-                                <CardTitle className="text-sm">Sender and compliance</CardTitle>
+                                <CardTitle className="text-sm">
+                                    Sender and compliance
+                                </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="grid gap-4 sm:grid-cols-2">
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="fromName">From name</Label>
+                                        <Label htmlFor="fromName">
+                                            From name
+                                        </Label>
                                         <Input
                                             id="fromName"
                                             value={form.fromName}
                                             onChange={(e) =>
-                                                setForm((current) => ({ ...current, fromName: e.target.value }))
+                                                setForm((current) => ({
+                                                    ...current,
+                                                    fromName: e.target.value,
+                                                }))
                                             }
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="fromEmail">From email</Label>
+                                        <Label htmlFor="fromEmail">
+                                            From email
+                                        </Label>
                                         <Input
                                             id="fromEmail"
                                             type="email"
                                             value={form.fromEmail}
                                             onChange={(e) =>
-                                                setForm((current) => ({ ...current, fromEmail: e.target.value }))
+                                                setForm((current) => ({
+                                                    ...current,
+                                                    fromEmail: e.target.value,
+                                                }))
                                             }
                                             required
                                         />
                                     </div>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="mailingAddress">Physical mailing address</Label>
+                                    <Label htmlFor="mailingAddress">
+                                        Physical mailing address
+                                    </Label>
                                     <Textarea
                                         id="mailingAddress"
                                         value={settings.mailingAddress ?? ""}
                                         onChange={(e) =>
                                             setSettings((current) =>
                                                 current
-                                                    ? { ...current, mailingAddress: e.target.value }
+                                                    ? {
+                                                          ...current,
+                                                          mailingAddress:
+                                                              e.target.value,
+                                                      }
                                                     : current,
                                             )
                                         }
@@ -361,7 +433,9 @@ export default function EspSettingsPage() {
                                         required
                                     />
                                     <p className="text-xs text-muted-foreground">
-                                        SendLit includes this address in managed newsletter footers and requires it before sending.
+                                        SendLit includes this address in managed
+                                        newsletter footers and requires it
+                                        before sending.
                                     </p>
                                 </div>
                             </CardContent>
@@ -369,7 +443,11 @@ export default function EspSettingsPage() {
 
                         <div className="flex flex-wrap items-center gap-3">
                             <Button type="submit" disabled={saving}>
-                                {saving ? "Saving…" : esp ? "Save changes" : "Configure ESP"}
+                                {saving
+                                    ? "Saving…"
+                                    : esp
+                                      ? "Save changes"
+                                      : "Configure ESP"}
                             </Button>
                             {esp && (
                                 <DeleteConfirm
@@ -388,31 +466,44 @@ export default function EspSettingsPage() {
                         {esp && (
                             <Card>
                                 <CardHeader>
-                                    <CardTitle className="text-sm">Test delivery</CardTitle>
+                                    <CardTitle className="text-sm">
+                                        Test delivery
+                                    </CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-3">
                                     <div className="flex gap-2">
                                         <Input
                                             type="email"
                                             value={testRecipient}
-                                            onChange={(e) => setTestRecipient(e.target.value)}
+                                            onChange={(e) =>
+                                                setTestRecipient(e.target.value)
+                                            }
                                             placeholder="recipient@example.com"
                                             aria-label="Test email recipient"
                                         />
                                         <Button
                                             type="button"
                                             variant="outline"
-                                            disabled={testing || !testRecipient.trim()}
+                                            disabled={
+                                                testing || !testRecipient.trim()
+                                            }
                                             onClick={handleTest}
                                         >
                                             {testing ? "Sending…" : "Send test"}
                                         </Button>
                                     </div>
                                     {testResult && (
-                                        <Banner variant={testResult.success ? "success" : "error"}>
+                                        <Banner
+                                            variant={
+                                                testResult.success
+                                                    ? "success"
+                                                    : "error"
+                                            }
+                                        >
                                             {testResult.success
                                                 ? "SendLit accepted the test email."
-                                                : testResult.error ?? "Test delivery failed."}
+                                                : (testResult.error ??
+                                                  "Test delivery failed.")}
                                         </Banner>
                                     )}
                                 </CardContent>

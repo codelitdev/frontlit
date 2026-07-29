@@ -2,8 +2,15 @@ import { and, asc, count, eq, lte } from "drizzle-orm";
 import { db } from "../db/client";
 import { outboxJobs, type OutboxJobType } from "../db/schema";
 
-export async function enqueueOutboxJob(teamId: string, type: OutboxJobType, payload: Record<string, unknown>) {
-    const [job] = await db.insert(outboxJobs).values({ teamId, type, payload }).returning();
+export async function enqueueOutboxJob(
+    teamId: string,
+    type: OutboxJobType,
+    payload: Record<string, unknown>,
+) {
+    const [job] = await db
+        .insert(outboxJobs)
+        .values({ teamId, type, payload })
+        .returning();
     return job;
 }
 
@@ -17,7 +24,10 @@ function backoffMs(attempts: number): number {
 
 export async function claimNextOutboxJob() {
     const [job] = await db.query.outboxJobs.findMany({
-        where: and(eq(outboxJobs.status, "pending"), lte(outboxJobs.nextAttemptAt, new Date())),
+        where: and(
+            eq(outboxJobs.status, "pending"),
+            lte(outboxJobs.nextAttemptAt, new Date()),
+        ),
         orderBy: asc(outboxJobs.nextAttemptAt),
         limit: 1,
     });
@@ -32,14 +42,23 @@ export async function claimNextOutboxJob() {
 }
 
 export async function markOutboxJobDone(jobId: string) {
-    await db.update(outboxJobs).set({ status: "done", updatedAt: new Date() }).where(eq(outboxJobs.id, jobId));
+    await db
+        .update(outboxJobs)
+        .set({ status: "done", updatedAt: new Date() })
+        .where(eq(outboxJobs.id, jobId));
 }
 
 /** Queue depth + oldest-pending age for `/metrics` (architecture.md §13.6) —
  * computed live from the table rather than tracked in-process, since the
  * queue is shared across every API instance. */
-export async function getOutboxQueueStats(): Promise<{ pendingCount: number; oldestPendingAgeSeconds: number | null }> {
-    const [{ value }] = await db.select({ value: count() }).from(outboxJobs).where(eq(outboxJobs.status, "pending"));
+export async function getOutboxQueueStats(): Promise<{
+    pendingCount: number;
+    oldestPendingAgeSeconds: number | null;
+}> {
+    const [{ value }] = await db
+        .select({ value: count() })
+        .from(outboxJobs)
+        .where(eq(outboxJobs.status, "pending"));
 
     const [oldest] = await db.query.outboxJobs.findMany({
         where: eq(outboxJobs.status, "pending"),
@@ -49,11 +68,17 @@ export async function getOutboxQueueStats(): Promise<{ pendingCount: number; old
 
     return {
         pendingCount: value,
-        oldestPendingAgeSeconds: oldest ? Math.floor((Date.now() - oldest.createdAt.getTime()) / 1000) : null,
+        oldestPendingAgeSeconds: oldest
+            ? Math.floor((Date.now() - oldest.createdAt.getTime()) / 1000)
+            : null,
     };
 }
 
-export async function markOutboxJobFailed(jobId: string, attempts: number, error: string) {
+export async function markOutboxJobFailed(
+    jobId: string,
+    attempts: number,
+    error: string,
+) {
     const failed = attempts + 1 >= MAX_ATTEMPTS;
     await db
         .update(outboxJobs)

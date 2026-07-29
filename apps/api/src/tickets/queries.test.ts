@@ -46,17 +46,21 @@ describe("persisted chatbot conversations", () => {
         });
 
         const messages = await getTicketMessages(ticket.id);
-        expect(messages.map((message) => message.author)).toEqual(["requester", "bot"]);
-        expect(messages.map((message) => ticketMessageText(message.content))).toEqual([
-            "How does the team plan work?",
-            "It includes six seats.",
+        expect(messages.map((message) => message.author)).toEqual([
+            "requester",
+            "bot",
         ]);
+        expect(
+            messages.map((message) => ticketMessageText(message.content)),
+        ).toEqual(["How does the team plan work?", "It includes six seats."]);
 
         const inbox = await listTickets({ teamId });
         expect(inbox).toHaveLength(1);
         expect(inbox[0].ticketId).toBe(ticket.ticketId);
 
         const otherTeam = await seedTeam(db, { name: "Other team" });
-        expect(await getTicketByTicketId(otherTeam.team.id, ticket.ticketId)).toBeUndefined();
+        expect(
+            await getTicketByTicketId(otherTeam.team.id, ticket.ticketId),
+        ).toBeUndefined();
     });
 });

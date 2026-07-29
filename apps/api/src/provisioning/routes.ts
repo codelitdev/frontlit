@@ -16,7 +16,10 @@ const provisioningLimiter = rateLimit({
     max: 30,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { error: "too_many_requests", error_description: "Too many requests." },
+    message: {
+        error: "too_many_requests",
+        error_description: "Too many requests.",
+    },
 });
 // This router is mounted at the API root, so an unqualified middleware
 // would rate-limit unrelated dashboard and public requests.
@@ -47,7 +50,12 @@ const s = initServer();
  */
 const impl = s.router(contract.provisioning, {
     provisionTeam: async ({ body, req }) => {
-        if (!isValidSecret(req.headers["x-frontlit-provisioning-secret"] as string | undefined)) {
+        if (
+            !isValidSecret(
+                req.headers["x-frontlit-provisioning-secret"] as
+                    string | undefined,
+            )
+        ) {
             return { status: 401, body: { error: "unauthorized" } };
         }
 
@@ -68,7 +76,10 @@ const impl = s.router(contract.provisioning, {
                 },
             };
         } catch (err) {
-            logger.error({ error: (err as Error).message }, "Team provisioning failed");
+            logger.error(
+                { error: (err as Error).message },
+                "Team provisioning failed",
+            );
             return { status: 500, body: { error: "server_error" } };
         }
     },

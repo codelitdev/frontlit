@@ -10,7 +10,10 @@ import { API_URL } from "./config";
  * apps/sites has no session to forward — every request goes straight to
  * `apps/api`, since these reads are published-only and safe to expose.
  */
-const client = initClient(contract.public, { baseUrl: API_URL, baseHeaders: {} });
+const client = initClient(contract.public, {
+    baseUrl: API_URL,
+    baseHeaders: {},
+});
 
 /** Every published-content read is tagged `team:<teamId>` and time-bound
  * revalidated (architecture.md §12.2/§13.5 — "ISR + tag revalidation means
@@ -21,11 +24,15 @@ function teamCache(teamId: string) {
     return { next: { revalidate: 60, tags: [`team:${teamId}`] } };
 }
 
-async function unwrapOrNull<T>(promise: Promise<{ status: number; body: unknown }>): Promise<T | null> {
+async function unwrapOrNull<T>(
+    promise: Promise<{ status: number; body: unknown }>,
+): Promise<T | null> {
     const result = await promise;
     if (result.status >= 200 && result.status < 300) return result.body as T;
     if (result.status === 404) return null;
-    throw new Error(`Public API request failed (${result.status}): ${JSON.stringify(result.body)}`);
+    throw new Error(
+        `Public API request failed (${result.status}): ${JSON.stringify(result.body)}`,
+    );
 }
 
 export interface ResolvedHost {
@@ -46,7 +53,12 @@ export interface PublicSettings {
 }
 
 export function getSettings(teamId: string): Promise<PublicSettings | null> {
-    return unwrapOrNull(client.getSettings({ params: { teamId }, fetchOptions: teamCache(teamId) }));
+    return unwrapOrNull(
+        client.getSettings({
+            params: { teamId },
+            fetchOptions: teamCache(teamId),
+        }),
+    );
 }
 
 export interface PublicPage {
@@ -66,8 +78,17 @@ export interface PublicPage {
 }
 
 /** Pass `""` (or omit) to resolve the homepage. */
-export function getPageBySlug(teamId: string, slug: string = ""): Promise<PublicPage | null> {
-    return unwrapOrNull(client.getPageBySlug({ params: { teamId }, query: { slug }, fetchOptions: teamCache(teamId) }));
+export function getPageBySlug(
+    teamId: string,
+    slug: string = "",
+): Promise<PublicPage | null> {
+    return unwrapOrNull(
+        client.getPageBySlug({
+            params: { teamId },
+            query: { slug },
+            fetchOptions: teamCache(teamId),
+        }),
+    );
 }
 
 export interface SitemapEntry {
@@ -77,7 +98,12 @@ export interface SitemapEntry {
 }
 
 export async function getSitemap(teamId: string): Promise<SitemapEntry[]> {
-    const result = await unwrapOrNull<{ items: SitemapEntry[] }>(client.getSitemap({ params: { teamId }, fetchOptions: teamCache(teamId) }));
+    const result = await unwrapOrNull<{ items: SitemapEntry[] }>(
+        client.getSitemap({
+            params: { teamId },
+            fetchOptions: teamCache(teamId),
+        }),
+    );
     return result?.items ?? [];
 }
 
@@ -100,8 +126,15 @@ export interface PublicChatbotSettings {
     widgetStyle: ChatbotWidgetStyle;
 }
 
-export async function getChatbotSettings(teamId: string): Promise<PublicChatbotSettings | null> {
-    return unwrapOrNull(client.getChatbotSettings({ params: { teamId }, fetchOptions: teamCache(teamId) }));
+export async function getChatbotSettings(
+    teamId: string,
+): Promise<PublicChatbotSettings | null> {
+    return unwrapOrNull(
+        client.getChatbotSettings({
+            params: { teamId },
+            fetchOptions: teamCache(teamId),
+        }),
+    );
 }
 
 export interface PublicDocument<M> {
@@ -121,15 +154,33 @@ export interface BlogMeta {
     seo?: { title?: string; description?: string };
 }
 
-export async function listBlogs(teamId: string, params: { offset?: number; itemsPerPage?: number } = {}): Promise<{ items: PublicDocument<BlogMeta>[]; total: number }> {
-    const result = await unwrapOrNull<{ items: PublicDocument<BlogMeta>[]; total: number }>(
-        client.listBlogs({ params: { teamId }, query: params, fetchOptions: teamCache(teamId) }),
+export async function listBlogs(
+    teamId: string,
+    params: { offset?: number; itemsPerPage?: number } = {},
+): Promise<{ items: PublicDocument<BlogMeta>[]; total: number }> {
+    const result = await unwrapOrNull<{
+        items: PublicDocument<BlogMeta>[];
+        total: number;
+    }>(
+        client.listBlogs({
+            params: { teamId },
+            query: params,
+            fetchOptions: teamCache(teamId),
+        }),
     );
     return result ?? { items: [], total: 0 };
 }
 
-export function getBlogBySlug(teamId: string, slug: string): Promise<PublicDocument<BlogMeta> | null> {
-    return unwrapOrNull(client.getBlogBySlug({ params: { teamId, slug }, fetchOptions: teamCache(teamId) }));
+export function getBlogBySlug(
+    teamId: string,
+    slug: string,
+): Promise<PublicDocument<BlogMeta> | null> {
+    return unwrapOrNull(
+        client.getBlogBySlug({
+            params: { teamId, slug },
+            fetchOptions: teamCache(teamId),
+        }),
+    );
 }
 
 export interface DocMeta {
@@ -146,19 +197,42 @@ export interface DocSection {
 }
 
 export async function listDocSections(teamId: string): Promise<DocSection[]> {
-    const result = await unwrapOrNull<{ items: DocSection[] }>(client.listDocSections({ params: { teamId }, fetchOptions: teamCache(teamId) }));
+    const result = await unwrapOrNull<{ items: DocSection[] }>(
+        client.listDocSections({
+            params: { teamId },
+            fetchOptions: teamCache(teamId),
+        }),
+    );
     return result?.items ?? [];
 }
 
-export async function listDocs(teamId: string, params: { offset?: number; itemsPerPage?: number } = {}): Promise<{ items: PublicDocument<DocMeta>[]; total: number }> {
-    const result = await unwrapOrNull<{ items: PublicDocument<DocMeta>[]; total: number }>(
-        client.listDocs({ params: { teamId }, query: params, fetchOptions: teamCache(teamId) }),
+export async function listDocs(
+    teamId: string,
+    params: { offset?: number; itemsPerPage?: number } = {},
+): Promise<{ items: PublicDocument<DocMeta>[]; total: number }> {
+    const result = await unwrapOrNull<{
+        items: PublicDocument<DocMeta>[];
+        total: number;
+    }>(
+        client.listDocs({
+            params: { teamId },
+            query: params,
+            fetchOptions: teamCache(teamId),
+        }),
     );
     return result ?? { items: [], total: 0 };
 }
 
-export function getDocBySlug(teamId: string, slug: string): Promise<PublicDocument<DocMeta> | null> {
-    return unwrapOrNull(client.getDocBySlug({ params: { teamId, slug }, fetchOptions: teamCache(teamId) }));
+export function getDocBySlug(
+    teamId: string,
+    slug: string,
+): Promise<PublicDocument<DocMeta> | null> {
+    return unwrapOrNull(
+        client.getDocBySlug({
+            params: { teamId, slug },
+            fetchOptions: teamCache(teamId),
+        }),
+    );
 }
 
 export interface ChangelogMeta {
@@ -168,9 +242,19 @@ export interface ChangelogMeta {
     seo?: { title?: string; description?: string };
 }
 
-export async function listChangelogs(teamId: string, params: { offset?: number; itemsPerPage?: number } = {}): Promise<{ items: PublicDocument<ChangelogMeta>[]; total: number }> {
-    const result = await unwrapOrNull<{ items: PublicDocument<ChangelogMeta>[]; total: number }>(
-        client.listChangelogs({ params: { teamId }, query: params, fetchOptions: teamCache(teamId) }),
+export async function listChangelogs(
+    teamId: string,
+    params: { offset?: number; itemsPerPage?: number } = {},
+): Promise<{ items: PublicDocument<ChangelogMeta>[]; total: number }> {
+    const result = await unwrapOrNull<{
+        items: PublicDocument<ChangelogMeta>[];
+        total: number;
+    }>(
+        client.listChangelogs({
+            params: { teamId },
+            query: params,
+            fetchOptions: teamCache(teamId),
+        }),
     );
     return result ?? { items: [], total: 0 };
 }
@@ -189,9 +273,19 @@ export interface TicketThread {
     messages: TicketMessage[];
 }
 
-export function getTicketThread(teamId: string, ticketId: string, token: string): Promise<TicketThread | null> {
+export function getTicketThread(
+    teamId: string,
+    ticketId: string,
+    token: string,
+): Promise<TicketThread | null> {
     // Never cached — a live, token-guarded conversation containing visitor
     // PII (architecture.md §13.4), the opposite of the published-content
     // reads above.
-    return unwrapOrNull(client.getTicketThread({ params: { teamId, ticketId }, query: { token }, fetchOptions: { cache: "no-store" } }));
+    return unwrapOrNull(
+        client.getTicketThread({
+            params: { teamId, ticketId },
+            query: { token },
+            fetchOptions: { cache: "no-store" },
+        }),
+    );
 }

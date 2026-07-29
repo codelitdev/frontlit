@@ -3,14 +3,26 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ApiError } from "@/lib/api-client";
-import { type Contact, deleteContact, getNewsletterSettings, listContacts } from "@/lib/api";
+import {
+    type Contact,
+    deleteContact,
+    getNewsletterSettings,
+    listContacts,
+} from "@/lib/api";
 import { PageHeader } from "@/components/workspace/page-header";
 import { Loading } from "@/components/workspace/loading";
 import { ScrollablePage } from "@/components/workspace/scrollable-page";
 import { Banner } from "@/components/workspace/banner";
 import { DeleteConfirm } from "@/components/workspace/delete-confirm";
 import { Badge } from "@/components/ui/codelit/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
 
 /**
@@ -30,7 +42,9 @@ export default function AudiencePage() {
         if (err instanceof ApiError && err.status === 409) {
             setNotConnected(true);
         } else {
-            setLoadError(err instanceof ApiError ? err.message : "Failed to load users.");
+            setLoadError(
+                err instanceof ApiError ? err.message : "Failed to load users.",
+            );
         }
     }
 
@@ -52,9 +66,15 @@ export default function AudiencePage() {
     async function handleDeleteContact(contactId: string) {
         try {
             await deleteContact(contactId);
-            setContacts((prev) => prev.filter((c) => c.contactId !== contactId));
+            setContacts((prev) =>
+                prev.filter((c) => c.contactId !== contactId),
+            );
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : "Failed to delete contact.");
+            toast.error(
+                err instanceof ApiError
+                    ? err.message
+                    : "Failed to delete contact.",
+            );
         }
     }
 
@@ -69,12 +89,16 @@ export default function AudiencePage() {
     return (
         <ScrollablePage>
             <div className="max-w-3xl space-y-6">
-                <PageHeader title="Users" description="Leads captured through email forms and support tickets across this team's site." />
+                <PageHeader
+                    title="Users"
+                    description="Leads captured through email forms and support tickets across this team's site."
+                />
 
                 {notConnected && (
                     <Banner variant="warning">
-                        This team isn&rsquo;t connected to SendLit yet. It&rsquo;s provisioned automatically in the background — check back
-                        shortly, or contact support if this persists.
+                        This team isn&rsquo;t connected to SendLit yet.
+                        It&rsquo;s provisioned automatically in the background —
+                        check back shortly, or contact support if this persists.
                     </Banner>
                 )}
 
@@ -93,21 +117,31 @@ export default function AudiencePage() {
                             <TableBody>
                                 {contacts.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={3} className="text-center text-muted-foreground">
+                                        <TableCell
+                                            colSpan={3}
+                                            className="text-center text-muted-foreground"
+                                        >
                                             No users yet.
                                         </TableCell>
                                     </TableRow>
                                 )}
                                 {contacts.map((c) => (
                                     <TableRow key={c.contactId}>
-                                        <TableCell className="font-medium">{c.email}</TableCell>
+                                        <TableCell className="font-medium">
+                                            {c.email}
+                                        </TableCell>
                                         <TableCell>
                                             {c.tags.length === 0 ? (
-                                                <span className="text-muted-foreground">no tags</span>
+                                                <span className="text-muted-foreground">
+                                                    no tags
+                                                </span>
                                             ) : (
                                                 <div className="flex flex-wrap gap-1">
                                                     {c.tags.map((tag) => (
-                                                        <Badge key={tag} variant="neutral">
+                                                        <Badge
+                                                            key={tag}
+                                                            variant="neutral"
+                                                        >
                                                             {tag}
                                                         </Badge>
                                                     ))}
@@ -117,7 +151,11 @@ export default function AudiencePage() {
                                         <TableCell>
                                             <DeleteConfirm
                                                 description={`Delete ${c.email} from SendLit? This cannot be undone.`}
-                                                onConfirm={() => handleDeleteContact(c.contactId)}
+                                                onConfirm={() =>
+                                                    handleDeleteContact(
+                                                        c.contactId,
+                                                    )
+                                                }
                                             />
                                         </TableCell>
                                     </TableRow>

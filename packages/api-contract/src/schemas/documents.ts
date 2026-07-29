@@ -5,7 +5,11 @@ import { z } from "zod";
 export const documentKinds = ["blog", "doc", "changelog"] as const;
 export type DocumentKind = (typeof documentKinds)[number];
 
-export const documentStatusSchema = z.enum(["draft", "published", "published_with_changes"]);
+export const documentStatusSchema = z.enum([
+    "draft",
+    "published",
+    "published_with_changes",
+]);
 
 /** Matches `@frontlit/text-editor`'s `TextEditorContent` — a TipTap JSON
  * document. Kept loose (`z.record(z.any())` per node) since node shapes are
@@ -44,7 +48,9 @@ export function makeDocumentSchema<M extends z.ZodTypeAny>(metaSchema: M) {
     });
 }
 
-export function makeCreateDocumentBodySchema<M extends z.ZodTypeAny>(metaSchema: M) {
+export function makeCreateDocumentBodySchema<M extends z.ZodTypeAny>(
+    metaSchema: M,
+) {
     return z.object({
         title: z.string().min(1),
         // `.default({})` (not `.optional()`): when the caller omits `meta`
@@ -58,7 +64,9 @@ export function makeCreateDocumentBodySchema<M extends z.ZodTypeAny>(metaSchema:
 
 /** Content fields are written to the document's *draft* columns and promoted
  * with `publish`. `slug` changes the public URL immediately. */
-export function makeUpdateDocumentBodySchema<M extends z.ZodTypeAny>(metaSchema: M) {
+export function makeUpdateDocumentBodySchema<M extends z.ZodTypeAny>(
+    metaSchema: M,
+) {
     return z.object({
         slug: z.string().min(1).max(200).optional(),
         title: z.string().optional(),
@@ -70,7 +78,10 @@ export function makeUpdateDocumentBodySchema<M extends z.ZodTypeAny>(metaSchema:
 }
 
 export const listDocumentsQuerySchema = z.object({
-    q: z.string().optional().describe("Search term matched against the document's draft title"),
+    q: z
+        .string()
+        .optional()
+        .describe("Search term matched against the document's draft title"),
     offset: z.coerce.number().int().min(1).optional(),
     itemsPerPage: z.coerce.number().int().min(1).optional(),
 });

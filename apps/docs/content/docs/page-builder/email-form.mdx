@@ -8,9 +8,17 @@ description: A newsletter/waitlist signup form.
 ## Usage
 
 ```tsx
-import { createWidgetInstance, PageRenderer, getDefaultTheme } from "@frontlit/page-builder";
+import {
+    createWidgetInstance,
+    PageRenderer,
+    getDefaultTheme,
+} from "@frontlit/page-builder";
 
 const layout = [createWidgetInstance("email-form")];
 
-<PageRenderer layout={layout} theme={getDefaultTheme()} pageData={{ pageType: "landing" }} />;
+<PageRenderer
+    layout={layout}
+    theme={getDefaultTheme()}
+    pageData={{ pageType: "landing" }}
+/>;
 ```

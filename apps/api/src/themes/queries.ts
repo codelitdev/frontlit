@@ -2,7 +2,11 @@ import { eq } from "drizzle-orm";
 import { db } from "../db/client";
 import { pages, themes } from "../db/schema";
 
-export async function createTheme(input: { teamId: string; name: string; style: Record<string, unknown> }) {
+export async function createTheme(input: {
+    teamId: string;
+    name: string;
+    style: Record<string, unknown>;
+}) {
     const [theme] = await db.insert(themes).values(input).returning();
     return theme;
 }
@@ -45,7 +49,10 @@ export async function deleteTheme(teamId: string, themeId: string) {
     const existing = await getThemeByThemeId(themeId);
     if (!existing || existing.teamId !== teamId) return;
     await db.transaction(async (tx) => {
-        await tx.update(pages).set({ themeId: null }).where(eq(pages.themeId, existing.themeId));
+        await tx
+            .update(pages)
+            .set({ themeId: null })
+            .where(eq(pages.themeId, existing.themeId));
         await tx.delete(themes).where(eq(themes.id, existing.id));
     });
 }

@@ -111,16 +111,12 @@ export function MarqueeEditor({
                     label="Border color"
                     value={settings.itemBorderColor}
                     placeholder="#e2e8f0"
-                    onChange={(itemBorderColor) =>
-                        update({ itemBorderColor })
-                    }
+                    onChange={(itemBorderColor) => update({ itemBorderColor })}
                 />
                 <SelectField
                     label="Border style"
                     value={settings.itemBorderStyle ?? "solid"}
-                    onChange={(itemBorderStyle) =>
-                        update({ itemBorderStyle })
-                    }
+                    onChange={(itemBorderStyle) => update({ itemBorderStyle })}
                     options={[
                         { label: "Solid", value: "solid" },
                         { label: "Dashed", value: "dashed" },
@@ -134,9 +130,7 @@ export function MarqueeEditor({
                     value={settings.itemBorderWidth}
                     min={0}
                     max={10}
-                    onChange={(itemBorderWidth) =>
-                        update({ itemBorderWidth })
-                    }
+                    onChange={(itemBorderWidth) => update({ itemBorderWidth })}
                 />
                 <NumberField
                     label="Border radius"

@@ -52,9 +52,7 @@ function Toast({
                 {icon ?? <Icon />}
             </span>
             <div className="min-w-0 flex-1">
-                {title && (
-                    <p className="text-sm font-semibold">{title}</p>
-                )}
+                {title && <p className="text-sm font-semibold">{title}</p>}
                 {description && (
                     <p className="mt-0.5 text-xs text-muted-foreground">
                         {description}

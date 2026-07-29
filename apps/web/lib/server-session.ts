@@ -4,14 +4,18 @@ import { API_URL } from "./config";
 type SessionResponse = { user?: unknown };
 
 function hasUserSession(body: unknown): body is SessionResponse {
-    return typeof body === "object" && body !== null && "user" in body && Boolean((body as SessionResponse).user);
+    return (
+        typeof body === "object" &&
+        body !== null &&
+        "user" in body &&
+        Boolean((body as SessionResponse).user)
+    );
 }
 
 export async function hasServerSession(
     cookieHeaderOverride?: string,
 ): Promise<boolean> {
-    const cookieHeader =
-        cookieHeaderOverride ?? (await cookies()).toString();
+    const cookieHeader = cookieHeaderOverride ?? (await cookies()).toString();
     if (!cookieHeader) return false;
 
     try {

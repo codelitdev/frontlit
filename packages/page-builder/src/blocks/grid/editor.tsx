@@ -31,18 +31,14 @@ export function GridEditor({
                     </span>
                     <Editor
                         initialContent={settings.description ?? emptyDoc}
-                        onChange={(description: any) =>
-                            update({ description })
-                        }
+                        onChange={(description: any) => update({ description })}
                         editorClassName="min-h-[100px]"
                     />
                 </div>
                 <SelectField
                     label="Header alignment"
                     value={settings.headerAlignment ?? "center"}
-                    onChange={(headerAlignment) =>
-                        update({ headerAlignment })
-                    }
+                    onChange={(headerAlignment) => update({ headerAlignment })}
                     options={[
                         { label: "Left", value: "left" },
                         { label: "Center", value: "center" },

@@ -6,7 +6,12 @@ import { useRouter } from "next/navigation";
 import { FilePlus2, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError } from "@/lib/api-client";
-import { createBlogPost, deleteBlogPost, listBlogPosts, type BlogPost } from "@/lib/api";
+import {
+    createBlogPost,
+    deleteBlogPost,
+    listBlogPosts,
+    type BlogPost,
+} from "@/lib/api";
 import {
     filterBlogPosts,
     getBlogStatusCounts,
@@ -68,7 +73,11 @@ export default function BlogPage() {
         listBlogPosts({ itemsPerPage: 500 })
             .then(({ items }) => setPosts(items))
             .catch((error) => {
-                toast.error(error instanceof ApiError ? error.message : "Failed to load posts.");
+                toast.error(
+                    error instanceof ApiError
+                        ? error.message
+                        : "Failed to load posts.",
+                );
             })
             .finally(() => setLoading(false));
     }, []);
@@ -104,7 +113,10 @@ export default function BlogPage() {
             setNewPostOpen(false);
             router.push(`/editor/blog/${created.documentId}`);
         } catch (error) {
-            const message = error instanceof ApiError ? error.message : "Failed to create post.";
+            const message =
+                error instanceof ApiError
+                    ? error.message
+                    : "Failed to create post.";
             setCreateError(message);
             toast.error(message);
         } finally {
@@ -115,10 +127,16 @@ export default function BlogPage() {
     async function handleDelete(documentId: string) {
         try {
             await deleteBlogPost(documentId);
-            setPosts((current) => current.filter((post) => post.documentId !== documentId));
+            setPosts((current) =>
+                current.filter((post) => post.documentId !== documentId),
+            );
             toast.success("Post deleted.");
         } catch (error) {
-            toast.error(error instanceof ApiError ? error.message : "Failed to delete post.");
+            toast.error(
+                error instanceof ApiError
+                    ? error.message
+                    : "Failed to delete post.",
+            );
         }
     }
 
@@ -135,10 +153,14 @@ export default function BlogPage() {
             <div className="mx-auto w-full max-w-6xl">
                 <header className="flex flex-col gap-5 border-b pb-5 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <h1 className="text-2xl font-semibold tracking-tight">Blog</h1>
+                        <h1 className="text-2xl font-semibold tracking-tight">
+                            Blog
+                        </h1>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            {plural(counts.published, "live post")} · {plural(counts.draft, "draft")} ·{" "}
-                            {plural(counts.changes, "post")} with unpublished changes
+                            {plural(counts.published, "live post")} ·{" "}
+                            {plural(counts.draft, "draft")} ·{" "}
+                            {plural(counts.changes, "post")} with unpublished
+                            changes
                         </p>
                     </div>
 
@@ -149,7 +171,9 @@ export default function BlogPage() {
                                 id="blog-filter"
                                 name="blogFilter"
                                 value={query}
-                                onChange={(event) => setQuery(event.target.value)}
+                                onChange={(event) =>
+                                    setQuery(event.target.value)
+                                }
                                 placeholder="Filter by title, slug, or tag"
                                 aria-label="Filter posts by title, slug, or tag"
                                 className="pl-9"
@@ -187,16 +211,21 @@ export default function BlogPage() {
                                     onClick={() => setFilter(item.value)}
                                     className={cn(
                                         "rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors",
-                                        filter === item.value && "bg-card text-foreground shadow-sm",
+                                        filter === item.value &&
+                                            "bg-card text-foreground shadow-sm",
                                     )}
                                 >
                                     {item.label}{" "}
-                                    <span className="ml-1 tabular-nums">{count}</span>
+                                    <span className="ml-1 tabular-nums">
+                                        {count}
+                                    </span>
                                 </button>
                             );
                         })}
                     </div>
-                    <p className="text-sm text-muted-foreground">Most recently updated</p>
+                    <p className="text-sm text-muted-foreground">
+                        Most recently updated
+                    </p>
                 </div>
 
                 <section className="py-6">
@@ -204,7 +233,9 @@ export default function BlogPage() {
                         <div className="rounded-xl border border-dashed px-6 py-12 text-center">
                             <FilePlus2 className="mx-auto size-6 text-muted-foreground" />
                             <h2 className="mt-3 font-semibold">
-                                {posts.length === 0 ? "Write your first post" : "No posts match"}
+                                {posts.length === 0
+                                    ? "Write your first post"
+                                    : "No posts match"}
                             </h2>
                             <p className="mt-1 text-sm text-muted-foreground">
                                 {posts.length === 0
@@ -239,7 +270,9 @@ export default function BlogPage() {
                                                 {post.draftTitle}
                                             </span>
                                             {post.status !== "published" && (
-                                                <DocumentStatusBadge status={post.status} />
+                                                <DocumentStatusBadge
+                                                    status={post.status}
+                                                />
                                             )}
                                         </div>
                                         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
@@ -263,7 +296,9 @@ export default function BlogPage() {
                                     <DeleteConfirm
                                         title={`Delete ${post.draftTitle}?`}
                                         description="This post and its published version will be permanently deleted."
-                                        onConfirm={() => handleDelete(post.documentId)}
+                                        onConfirm={() =>
+                                            handleDelete(post.documentId)
+                                        }
                                     />
                                 </div>
                             ))}
@@ -297,7 +332,11 @@ export default function BlogPage() {
                                     }}
                                     placeholder="What do you want to share?"
                                     aria-invalid={Boolean(createError)}
-                                    aria-describedby={createError ? "post-title-error" : undefined}
+                                    aria-describedby={
+                                        createError
+                                            ? "post-title-error"
+                                            : undefined
+                                    }
                                     className="mt-1"
                                     disabled={creating}
                                 />
@@ -318,13 +357,16 @@ export default function BlogPage() {
                                     id="post-tags"
                                     name="tags"
                                     value={newTags}
-                                    onChange={(event) => setNewTags(event.target.value)}
+                                    onChange={(event) =>
+                                        setNewTags(event.target.value)
+                                    }
                                     placeholder="Product, engineering, launch"
                                     className="mt-1"
                                     disabled={creating}
                                 />
                                 <p className="mt-1 text-xs text-muted-foreground">
-                                    Separate tags with commas. You can change these later.
+                                    Separate tags with commas. You can change
+                                    these later.
                                 </p>
                             </div>
                         </div>

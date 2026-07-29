@@ -3,18 +3,36 @@
 import { use, useEffect, useRef, useState } from "react";
 import { Editor } from "@frontlit/text-editor";
 import type { TextEditorContent } from "@frontlit/text-editor";
-import { discardHelpDocDraft, getHelpDoc, listDocSections, publishHelpDoc, updateHelpDoc, type DocSection, type HelpDoc } from "@/lib/api";
+import {
+    discardHelpDocDraft,
+    getHelpDoc,
+    listDocSections,
+    publishHelpDoc,
+    updateHelpDoc,
+    type DocSection,
+    type HelpDoc,
+} from "@/lib/api";
 import { FullScreenLoading } from "@/components/workspace/loading";
 import { SlugEditor } from "@/components/workspace/slug-editor";
 import { WritingEditorDocumentHeader } from "@/components/workspace/writing-editor-document-header";
 import { WritingEditorShell } from "@/components/workspace/writing-editor-shell";
 import { Label } from "@/components/ui/codelit/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/codelit/select";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/codelit/select";
 import { Textarea } from "@/components/ui/codelit/textarea";
 
 const NO_SECTION = "none";
 
-export default function HelpDocEditorPage({ params }: { params: Promise<{ documentId: string }> }) {
+export default function HelpDocEditorPage({
+    params,
+}: {
+    params: Promise<{ documentId: string }>;
+}) {
     const { documentId } = use(params);
     const [doc, setDoc] = useState<HelpDoc | null>(null);
     const [sections, setSections] = useState<DocSection[]>([]);
@@ -25,7 +43,9 @@ export default function HelpDocEditorPage({ params }: { params: Promise<{ docume
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [resetKey, setResetKey] = useState(0);
     const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const descriptionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const descriptionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
+        null,
+    );
 
     useEffect(() => {
         setSettingsOpen(window.matchMedia("(min-width: 768px)").matches);
@@ -39,8 +59,10 @@ export default function HelpDocEditorPage({ params }: { params: Promise<{ docume
 
     useEffect(
         () => () => {
-            if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
-            if (descriptionDebounceRef.current) clearTimeout(descriptionDebounceRef.current);
+            if (titleDebounceRef.current)
+                clearTimeout(titleDebounceRef.current);
+            if (descriptionDebounceRef.current)
+                clearTimeout(descriptionDebounceRef.current);
         },
         [],
     );
@@ -50,7 +72,11 @@ export default function HelpDocEditorPage({ params }: { params: Promise<{ docume
         try {
             setDoc(
                 await updateHelpDoc(documentId, {
-                    meta: { sectionId: sectionId === NO_SECTION ? undefined : sectionId, order: doc?.draftMeta.order ?? 0 },
+                    meta: {
+                        sectionId:
+                            sectionId === NO_SECTION ? undefined : sectionId,
+                        order: doc?.draftMeta.order ?? 0,
+                    },
                 }),
             );
         } finally {
@@ -75,7 +101,8 @@ export default function HelpDocEditorPage({ params }: { params: Promise<{ docume
 
     function handleDescriptionChange(value: string) {
         setDescription(value);
-        if (descriptionDebounceRef.current) clearTimeout(descriptionDebounceRef.current);
+        if (descriptionDebounceRef.current)
+            clearTimeout(descriptionDebounceRef.current);
         descriptionDebounceRef.current = setTimeout(async () => {
             setSaving(true);
             try {
@@ -106,7 +133,8 @@ export default function HelpDocEditorPage({ params }: { params: Promise<{ docume
 
     async function handleDiscardDraft() {
         if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
-        if (descriptionDebounceRef.current) clearTimeout(descriptionDebounceRef.current);
+        if (descriptionDebounceRef.current)
+            clearTimeout(descriptionDebounceRef.current);
         setPublishing(true);
         try {
             const reverted = await discardHelpDocDraft(documentId);
@@ -129,8 +157,9 @@ export default function HelpDocEditorPage({ params }: { params: Promise<{ docume
         return <FullScreenLoading label="Loading doc…" />;
     }
 
-    const activeSection =
-        sections.find((section) => section.sectionId === doc.draftMeta.sectionId);
+    const activeSection = sections.find(
+        (section) => section.sectionId === doc.draftMeta.sectionId,
+    );
 
     return (
         <WritingEditorShell
@@ -172,9 +201,14 @@ export default function HelpDocEditorPage({ params }: { params: Promise<{ docume
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value={NO_SECTION}>No section</SelectItem>
+                                <SelectItem value={NO_SECTION}>
+                                    No section
+                                </SelectItem>
                                 {sections.map((section) => (
-                                    <SelectItem key={section.sectionId} value={section.sectionId}>
+                                    <SelectItem
+                                        key={section.sectionId}
+                                        value={section.sectionId}
+                                    >
                                         {section.name}
                                     </SelectItem>
                                 ))}
@@ -184,7 +218,9 @@ export default function HelpDocEditorPage({ params }: { params: Promise<{ docume
 
                     <div>
                         <div className="flex items-center justify-between gap-3">
-                            <Label htmlFor="doc-description">Search description</Label>
+                            <Label htmlFor="doc-description">
+                                Search description
+                            </Label>
                             <span className="text-xs tabular-nums text-muted-foreground">
                                 {description.length} characters
                             </span>
@@ -192,17 +228,21 @@ export default function HelpDocEditorPage({ params }: { params: Promise<{ docume
                         <Textarea
                             id="doc-description"
                             value={description}
-                            onChange={(event) => handleDescriptionChange(event.target.value)}
+                            onChange={(event) =>
+                                handleDescriptionChange(event.target.value)
+                            }
                             placeholder="A short description for search results and doc listings."
                             className="mt-1 min-h-28"
                         />
                     </div>
 
                     <div className="border-t pt-6">
-                        <h3 className="text-sm font-semibold">Search indexing</h3>
+                        <h3 className="text-sm font-semibold">
+                            Search indexing
+                        </h3>
                         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                            This doc is chunked and indexed for semantic search every time
-                            you publish it.
+                            This doc is chunked and indexed for semantic search
+                            every time you publish it.
                         </p>
                     </div>
                 </div>

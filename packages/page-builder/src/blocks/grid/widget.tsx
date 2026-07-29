@@ -21,13 +21,7 @@ function resolveIcon(name?: string): LucideIcon | null {
     return (Icons as unknown as Record<string, LucideIcon>)[name] ?? null;
 }
 
-function GridItemCard({
-    item,
-    theme,
-}: {
-    item: GridItem;
-    theme: ThemeStyle;
-}) {
+function GridItemCard({ item, theme }: { item: GridItem; theme: ThemeStyle }) {
     const Icon = resolveIcon(item.icon);
     const hasMedia = Boolean(item.media?.file);
     const isOverlay = item.mediaAlignment === "overlay";
@@ -69,7 +63,10 @@ function GridItemCard({
 
     const media = hasMedia ? (
         <div className="overflow-hidden rounded-md">
-            <Image src={item.media?.file || ""} alt={item.media?.caption || ""} />
+            <Image
+                src={item.media?.file || ""}
+                alt={item.media?.caption || ""}
+            />
         </div>
     ) : Icon ? (
         <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -80,7 +77,9 @@ function GridItemCard({
     const text = (
         <div className="flex flex-col gap-2">
             <Header4 theme={theme}>{item.title}</Header4>
-            {item.description && <Text2 theme={theme}>{item.description}</Text2>}
+            {item.description && (
+                <Text2 theme={theme}>{item.description}</Text2>
+            )}
             {item.buttonAction && item.buttonCaption && (
                 <NavLink href={item.buttonAction} className="mt-2">
                     <Button theme={theme} variant="secondary" size="sm">
@@ -93,7 +92,10 @@ function GridItemCard({
 
     return (
         <PageCard theme={theme}>
-            <PageCardContent theme={theme} className="flex h-full flex-col gap-3">
+            <PageCardContent
+                theme={theme}
+                className="flex h-full flex-col gap-3"
+            >
                 {mediaFirst ? (
                     <>
                         {media}

@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { textEditorContentSchema } from "./documents";
 
-export const ticketStatusSchema = z.enum(["open", "pending", "resolved", "closed"]);
+export const ticketStatusSchema = z.enum([
+    "open",
+    "pending",
+    "resolved",
+    "closed",
+]);
 export const ticketSourceSchema = z.enum(["form", "chatbot", "api"]);
 export const ticketMessageAuthorSchema = z.enum(["requester", "agent", "bot"]);
 

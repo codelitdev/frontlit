@@ -1,5 +1,10 @@
 import { source } from "@/lib/source";
-import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/page";
+import {
+    DocsBody,
+    DocsDescription,
+    DocsPage,
+    DocsTitle,
+} from "fumadocs-ui/page";
 import { createRelativeLink } from "fumadocs-ui/mdx";
 import { notFound, redirect } from "next/navigation";
 import { APIPage } from "@/components/api-page";
@@ -7,7 +12,9 @@ import { getMDXComponents } from "@/mdx-components";
 
 const API_REFERENCE_INDEX = "/api-reference/pages/post";
 
-export default async function Page(props: { params: Promise<{ slug?: string[] }> }) {
+export default async function Page(props: {
+    params: Promise<{ slug?: string[] }>;
+}) {
     const params = await props.params;
     const slugPath = params.slug?.join("/");
 
@@ -37,7 +44,11 @@ export default async function Page(props: { params: Promise<{ slug?: string[] }>
             <DocsTitle>{page.data.title}</DocsTitle>
             <DocsDescription>{page.data.description}</DocsDescription>
             <DocsBody>
-                <MDXContent components={getMDXComponents({ a: createRelativeLink(source, page) })} />
+                <MDXContent
+                    components={getMDXComponents({
+                        a: createRelativeLink(source, page),
+                    })}
+                />
             </DocsBody>
         </DocsPage>
     );
@@ -53,14 +64,21 @@ export async function generateStaticParams() {
     }
     const bySlug = new Map<string, { slug?: string[] }>();
 
-    for (const param of [{ slug: [] as string[] }, ...params, { slug: ["api-reference"] }, { slug: ["rest-api"] }]) {
+    for (const param of [
+        { slug: [] as string[] },
+        ...params,
+        { slug: ["api-reference"] },
+        { slug: ["rest-api"] },
+    ]) {
         bySlug.set((param.slug ?? []).join("/"), param);
     }
 
     return [...bySlug.values()];
 }
 
-export async function generateMetadata(props: { params: Promise<{ slug?: string[] }> }) {
+export async function generateMetadata(props: {
+    params: Promise<{ slug?: string[] }>;
+}) {
     const params = await props.params;
 
     if (params.slug?.join("/") === "api-reference") {

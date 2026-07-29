@@ -26,5 +26,11 @@ export function SitePageRenderer({
     pageData: PageData;
 }) {
     const theme = resolvePageTheme(themeId, themeStyle);
-    return <PageRenderer layout={layout} theme={theme ?? getDefaultTheme()} pageData={pageData} />;
+    return (
+        <PageRenderer
+            layout={layout}
+            theme={theme ?? getDefaultTheme()}
+            pageData={pageData}
+        />
+    );
 }

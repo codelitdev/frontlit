@@ -49,9 +49,7 @@ export function MediaEditor({
                         <SelectField
                             label="Aspect ratio"
                             value={settings.aspectRatio ?? "16/9"}
-                            onChange={(aspectRatio) =>
-                                update({ aspectRatio })
-                            }
+                            onChange={(aspectRatio) => update({ aspectRatio })}
                             options={[
                                 { label: "Widescreen (16:9)", value: "16/9" },
                                 { label: "Standard (4:3)", value: "4/3" },

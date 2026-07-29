@@ -8,9 +8,17 @@ description: Freeform formatted text, powered by the FrontLit text editor.
 ## Usage
 
 ```tsx
-import { createWidgetInstance, PageRenderer, getDefaultTheme } from "@frontlit/page-builder";
+import {
+    createWidgetInstance,
+    PageRenderer,
+    getDefaultTheme,
+} from "@frontlit/page-builder";
 
 const layout = [createWidgetInstance("rich-text")];
 
-<PageRenderer layout={layout} theme={getDefaultTheme()} pageData={{ pageType: "landing" }} />;
+<PageRenderer
+    layout={layout}
+    theme={getDefaultTheme()}
+    pageData={{ pageType: "landing" }}
+/>;
 ```

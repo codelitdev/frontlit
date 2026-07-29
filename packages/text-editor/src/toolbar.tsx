@@ -91,7 +91,10 @@ const Toolbar = ({
         if (!activePopover) return undefined;
 
         const handleClick = (event: MouseEvent) => {
-            if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+            if (
+                popoverRef.current &&
+                !popoverRef.current.contains(event.target as Node)
+            ) {
                 setActivePopover(null);
             }
         };
@@ -128,7 +131,8 @@ const Toolbar = ({
                 ? editor.isActive("heading", { level: option.level })
                 : editor.isActive("paragraph"),
         ) ?? headingOptions[0];
-    const readTime = wordCount === 0 ? 0 : Math.max(1, Math.ceil(wordCount / 200));
+    const readTime =
+        wordCount === 0 ? 0 : Math.max(1, Math.ceil(wordCount / 200));
 
     const selectHeading = (level?: Level) => {
         const chain = editor.chain().focus();
@@ -138,7 +142,11 @@ const Toolbar = ({
     };
 
     const insertTable = () => {
-        editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+        editor
+            .chain()
+            .focus()
+            .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+            .run();
         setActivePopover(null);
     };
 
@@ -161,7 +169,9 @@ const Toolbar = ({
                     <Divider />
 
                     <div
-                        ref={activePopover === "heading" ? popoverRef : undefined}
+                        ref={
+                            activePopover === "heading" ? popoverRef : undefined
+                        }
                         className="relative"
                     >
                         <button
@@ -186,7 +196,9 @@ const Toolbar = ({
                                         type="button"
                                         role="menuitem"
                                         className="flex w-full rounded px-2.5 py-2 text-left text-sm hover:bg-muted"
-                                        onClick={() => selectHeading(option.level)}
+                                        onClick={() =>
+                                            selectHeading(option.level)
+                                        }
                                     >
                                         {option.label}
                                     </button>
@@ -200,25 +212,33 @@ const Toolbar = ({
                         icon={Bold}
                         label="Bold"
                         active={editor.isActive("bold")}
-                        onClick={() => editor.chain().focus().toggleBold().run()}
+                        onClick={() =>
+                            editor.chain().focus().toggleBold().run()
+                        }
                     />
                     <IconButton
                         icon={Italic}
                         label="Italic"
                         active={editor.isActive("italic")}
-                        onClick={() => editor.chain().focus().toggleItalic().run()}
+                        onClick={() =>
+                            editor.chain().focus().toggleItalic().run()
+                        }
                     />
                     <IconButton
                         icon={Underline}
                         label="Underline"
                         active={editor.isActive("underline")}
-                        onClick={() => editor.chain().focus().toggleMark("underline").run()}
+                        onClick={() =>
+                            editor.chain().focus().toggleMark("underline").run()
+                        }
                     />
                     <IconButton
                         icon={Code}
                         label="Inline code"
                         active={editor.isActive("code")}
-                        onClick={() => editor.chain().focus().toggleCode().run()}
+                        onClick={() =>
+                            editor.chain().focus().toggleCode().run()
+                        }
                     />
                     <IconButton
                         icon={LinkIcon}
@@ -236,24 +256,32 @@ const Toolbar = ({
                         icon={ListIcon}
                         label="Bullet list"
                         active={editor.isActive("bulletList")}
-                        onClick={() => editor.chain().focus().toggleBulletList().run()}
+                        onClick={() =>
+                            editor.chain().focus().toggleBulletList().run()
+                        }
                     />
                     <IconButton
                         icon={ListOrdered}
                         label="Numbered list"
                         active={editor.isActive("orderedList")}
-                        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                        onClick={() =>
+                            editor.chain().focus().toggleOrderedList().run()
+                        }
                     />
                     <IconButton
                         icon={Quote}
                         label="Blockquote"
                         active={editor.isActive("blockquote")}
-                        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                        onClick={() =>
+                            editor.chain().focus().toggleBlockquote().run()
+                        }
                     />
                     <Divider />
 
                     <div
-                        ref={activePopover === "insert" ? popoverRef : undefined}
+                        ref={
+                            activePopover === "insert" ? popoverRef : undefined
+                        }
                         className="relative"
                     >
                         <button
@@ -276,7 +304,11 @@ const Toolbar = ({
                                     type="button"
                                     className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-sm hover:bg-muted"
                                     onClick={() => {
-                                        editor.chain().focus().setHorizontalRule().run();
+                                        editor
+                                            .chain()
+                                            .focus()
+                                            .setHorizontalRule()
+                                            .run();
                                         setActivePopover(null);
                                     }}
                                 >
@@ -287,7 +319,11 @@ const Toolbar = ({
                                     type="button"
                                     className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-sm hover:bg-muted"
                                     onClick={() => {
-                                        editor.chain().focus().toggleCodeBlock().run();
+                                        editor
+                                            .chain()
+                                            .focus()
+                                            .toggleCodeBlock()
+                                            .run();
                                         setActivePopover(null);
                                     }}
                                 >
@@ -324,7 +360,9 @@ const Toolbar = ({
                                     }}
                                 >
                                     <ImageIcon className="size-4" />
-                                    {isUploadingImage ? "Uploading image…" : "Image"}
+                                    {isUploadingImage
+                                        ? "Uploading image…"
+                                        : "Image"}
                                 </button>
 
                                 {editor.isActive("table") && (
@@ -334,7 +372,11 @@ const Toolbar = ({
                                             type="button"
                                             className="flex w-full rounded px-2.5 py-2 text-sm hover:bg-muted"
                                             onClick={() => {
-                                                editor.chain().focus().addRowAfter().run();
+                                                editor
+                                                    .chain()
+                                                    .focus()
+                                                    .addRowAfter()
+                                                    .run();
                                                 setActivePopover(null);
                                             }}
                                         >
@@ -344,7 +386,11 @@ const Toolbar = ({
                                             type="button"
                                             className="flex w-full rounded px-2.5 py-2 text-sm hover:bg-muted"
                                             onClick={() => {
-                                                editor.chain().focus().addColumnAfter().run();
+                                                editor
+                                                    .chain()
+                                                    .focus()
+                                                    .addColumnAfter()
+                                                    .run();
                                                 setActivePopover(null);
                                             }}
                                         >
@@ -354,7 +400,11 @@ const Toolbar = ({
                                             type="button"
                                             className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-sm text-destructive hover:bg-destructive/10"
                                             onClick={() => {
-                                                editor.chain().focus().deleteTable().run();
+                                                editor
+                                                    .chain()
+                                                    .focus()
+                                                    .deleteTable()
+                                                    .run();
                                                 setActivePopover(null);
                                             }}
                                         >
@@ -368,8 +418,11 @@ const Toolbar = ({
                     </div>
 
                     <span className="ml-auto hidden pl-8 text-xs tabular-nums text-muted-foreground xl:inline">
-                        {wordCount.toLocaleString()} {wordCount === 1 ? "word" : "words"}
-                        <span aria-hidden className="mx-2">·</span>
+                        {wordCount.toLocaleString()}{" "}
+                        {wordCount === 1 ? "word" : "words"}
+                        <span aria-hidden className="mx-2">
+                            ·
+                        </span>
                         {readTime} min
                     </span>
                 </div>

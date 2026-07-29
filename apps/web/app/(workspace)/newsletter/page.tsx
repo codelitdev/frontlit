@@ -51,7 +51,11 @@ export default function NewsletterPage() {
         if (err instanceof ApiError && err.status === 409) {
             setNotConnected(true);
         } else {
-            setLoadError(err instanceof ApiError ? err.message : "Failed to load newsletter data.");
+            setLoadError(
+                err instanceof ApiError
+                    ? err.message
+                    : "Failed to load newsletter data.",
+            );
         }
     }
 
@@ -74,11 +78,17 @@ export default function NewsletterPage() {
         e.preventDefault();
         if (!newBroadcastName.trim()) return;
         try {
-            const created = await createBroadcast({ name: newBroadcastName.trim() });
+            const created = await createBroadcast({
+                name: newBroadcastName.trim(),
+            });
             setBroadcasts((prev) => [created, ...prev]);
             setNewBroadcastName("");
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : "Failed to create broadcast.");
+            toast.error(
+                err instanceof ApiError
+                    ? err.message
+                    : "Failed to create broadcast.",
+            );
         }
     }
 
@@ -89,7 +99,11 @@ export default function NewsletterPage() {
             const { items } = await listBroadcasts();
             setBroadcasts(items);
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : "Failed to send broadcast.");
+            toast.error(
+                err instanceof ApiError
+                    ? err.message
+                    : "Failed to send broadcast.",
+            );
         } finally {
             setSendingId(null);
         }
@@ -113,11 +127,16 @@ export default function NewsletterPage() {
 
                 {notConnected && (
                     <Banner variant="warning">
-                        This team isn&rsquo;t connected to SendLit yet. Configure the{" "}
-                        <Link href="/settings/esp" className="font-medium underline">
+                        This team isn&rsquo;t connected to SendLit yet.
+                        Configure the{" "}
+                        <Link
+                            href="/settings/esp"
+                            className="font-medium underline"
+                        >
                             ESP
                         </Link>{" "}
-                        connection, or check back shortly if provisioning is still running.
+                        connection, or check back shortly if provisioning is
+                        still running.
                     </Banner>
                 )}
 
@@ -125,42 +144,82 @@ export default function NewsletterPage() {
 
                 {!notConnected && (
                     <div>
-                        <h2 className="mb-3 text-lg font-semibold">Broadcasts</h2>
-                        <form onSubmit={handleCreateBroadcast} className="mb-4 flex gap-2">
+                        <h2 className="mb-3 text-lg font-semibold">
+                            Broadcasts
+                        </h2>
+                        <form
+                            onSubmit={handleCreateBroadcast}
+                            className="mb-4 flex gap-2"
+                        >
                             <Input
                                 value={newBroadcastName}
-                                onChange={(e) => setNewBroadcastName(e.target.value)}
+                                onChange={(e) =>
+                                    setNewBroadcastName(e.target.value)
+                                }
                                 placeholder="Broadcast name"
                                 className="flex-1"
                             />
                             <Button type="submit">Create draft</Button>
                         </form>
                         <div className="divide-y rounded-lg border">
-                            {broadcasts.length === 0 && <p className="p-4 text-sm text-muted-foreground">No broadcasts yet.</p>}
+                            {broadcasts.length === 0 && (
+                                <p className="p-4 text-sm text-muted-foreground">
+                                    No broadcasts yet.
+                                </p>
+                            )}
                             {broadcasts.map((b) => (
-                                <div key={b.broadcastId} className="flex items-center justify-between p-3">
+                                <div
+                                    key={b.broadcastId}
+                                    className="flex items-center justify-between p-3"
+                                >
                                     <div>
                                         <p className="font-medium">{b.name}</p>
-                                        <Badge variant="neutral" className="mt-1">
+                                        <Badge
+                                            variant="neutral"
+                                            className="mt-1"
+                                        >
                                             {b.status}
                                         </Badge>
                                     </div>
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild>
-                                            <Button variant="outline" size="sm" disabled={sendingId === b.broadcastId}>
-                                                {sendingId === b.broadcastId ? "Sending…" : "Send"}
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                disabled={
+                                                    sendingId === b.broadcastId
+                                                }
+                                            >
+                                                {sendingId === b.broadcastId
+                                                    ? "Sending…"
+                                                    : "Send"}
                                             </Button>
                                         </AlertDialogTrigger>
                                         <AlertDialogContent>
                                             <AlertDialogHeader>
-                                                <AlertDialogTitle>Send this broadcast?</AlertDialogTitle>
+                                                <AlertDialogTitle>
+                                                    Send this broadcast?
+                                                </AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    This will send &ldquo;{b.name}&rdquo; to its audience now. This cannot be undone.
+                                                    This will send &ldquo;
+                                                    {b.name}&rdquo; to its
+                                                    audience now. This cannot be
+                                                    undone.
                                                 </AlertDialogDescription>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleSend(b.broadcastId)}>Send</AlertDialogAction>
+                                                <AlertDialogCancel>
+                                                    Cancel
+                                                </AlertDialogCancel>
+                                                <AlertDialogAction
+                                                    onClick={() =>
+                                                        handleSend(
+                                                            b.broadcastId,
+                                                        )
+                                                    }
+                                                >
+                                                    Send
+                                                </AlertDialogAction>
                                             </AlertDialogFooter>
                                         </AlertDialogContent>
                                     </AlertDialog>

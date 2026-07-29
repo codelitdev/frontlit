@@ -191,14 +191,22 @@ const careersThemeStyle: ThemeStyle = {
         },
         card: {
             padding: { x: "px-5", y: "py-5" },
-            border: { width: "border", radius: "rounded-2xl", style: "border-solid" },
+            border: {
+                width: "border",
+                radius: "rounded-2xl",
+                style: "border-solid",
+            },
             shadow: "shadow-sm",
             custom: "transition-shadow duration-200 ease-in hover:shadow-md",
         },
         input: {
             borderRadius: "rounded-md",
             padding: { x: "px-3", y: "py-2" },
-            border: { width: "border", radius: "rounded-md", style: "border-solid" },
+            border: {
+                width: "border",
+                radius: "rounded-md",
+                style: "border-solid",
+            },
             shadow: "shadow-none",
         },
     },
@@ -293,13 +301,19 @@ export const careersLayout: WidgetInstance[] = [
             },
             {
                 title: "Research Engineer",
-                media: { mediaId: "role-research", file: roleImage("coit-tower") },
+                media: {
+                    mediaId: "role-research",
+                    file: roleImage("coit-tower"),
+                },
                 mediaAlignment: "overlay",
                 buttonAction: "#apply-research",
             },
             {
                 title: "Growth / Operations",
-                media: { mediaId: "role-growth", file: roleImage("golden-gate") },
+                media: {
+                    mediaId: "role-growth",
+                    file: roleImage("golden-gate"),
+                },
                 mediaAlignment: "overlay",
                 buttonAction: "#apply-growth",
             },
@@ -321,7 +335,9 @@ export const careersLayout: WidgetInstance[] = [
                             marks: [
                                 {
                                     type: "link",
-                                    attrs: { href: "mailto:careers@datacurve.ai" },
+                                    attrs: {
+                                        href: "mailto:careers@datacurve.ai",
+                                    },
                                 },
                             ],
                         },

@@ -16,6 +16,14 @@ export function Banner({
     className?: string;
 }) {
     return (
-        <div className={cn("rounded-md px-3 py-2 text-sm", BANNER_VARIANT_CLASS[variant], className)}>{children}</div>
+        <div
+            className={cn(
+                "rounded-md px-3 py-2 text-sm",
+                BANNER_VARIANT_CLASS[variant],
+                className,
+            )}
+        >
+            {children}
+        </div>
     );
 }

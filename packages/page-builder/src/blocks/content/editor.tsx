@@ -2,7 +2,12 @@ import React from "react";
 import type { WidgetEditorProps } from "../../models";
 import type { ContentSettings } from "./settings";
 import { Editor, emptyDoc } from "@frontlit/text-editor";
-import { FieldGroup, NumberField, SelectField, TextField } from "../_shared/fields";
+import {
+    FieldGroup,
+    NumberField,
+    SelectField,
+    TextField,
+} from "../_shared/fields";
 
 export function ContentEditor({
     settings,

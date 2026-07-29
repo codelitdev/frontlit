@@ -7,7 +7,8 @@ export const gridDefaults: Partial<GridSettings> = {
     items: [
         {
             title: "Website builder",
-            description: "Design and publish pages with a drag-and-drop editor.",
+            description:
+                "Design and publish pages with a drag-and-drop editor.",
             icon: "LayoutTemplate",
             mediaAlignment: "top",
         },

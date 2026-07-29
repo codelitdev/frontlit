@@ -69,7 +69,8 @@ export function derivePageStatus(page: {
         JSON.stringify(page.layout) !== JSON.stringify(page.draftLayout) ||
         page.title !== page.draftTitle ||
         page.description !== page.draftDescription ||
-        JSON.stringify(page.socialImage ?? null) !== JSON.stringify(page.draftSocialImage ?? null) ||
+        JSON.stringify(page.socialImage ?? null) !==
+            JSON.stringify(page.draftSocialImage ?? null) ||
         (page.robotsAllowed ?? null) !== (page.draftRobotsAllowed ?? null);
 
     return hasChanges ? "published_with_changes" : "published";
@@ -79,7 +80,9 @@ async function getRawPageByPageId(pageId: string) {
     return db.query.pages.findFirst({ where: eq(pages.pageId, pageId) });
 }
 
-function hydratePage<T extends { layout: WidgetInstanceRow[]; draftLayout: WidgetInstanceRow[] }>(
+function hydratePage<
+    T extends { layout: WidgetInstanceRow[]; draftLayout: WidgetInstanceRow[] },
+>(
     page: T,
     sharedWidgets: SharedWidgetsRow,
     draftSharedWidgets: SharedWidgetsRow,
@@ -91,7 +94,12 @@ function hydratePage<T extends { layout: WidgetInstanceRow[]; draftLayout: Widge
     };
 }
 
-export async function createPage(input: { teamId: string; name: string; type: PageType; themeId?: string }) {
+export async function createPage(input: {
+    teamId: string;
+    name: string;
+    type: PageType;
+    themeId?: string;
+}) {
     await validateThemeReference(input.teamId, input.themeId);
     const slug = await uniqueSlugForTeam(input.teamId, slugify(input.name));
     const requiredLayout = createRequiredSharedWidgetPlaceholders();
@@ -108,10 +116,20 @@ export async function createPage(input: { teamId: string; name: string; type: Pa
         })
         .returning();
     const settings = await getTeamSettings(input.teamId);
-    return hydratePage(page, settings.sharedWidgets, settings.draftSharedWidgets);
+    return hydratePage(
+        page,
+        settings.sharedWidgets,
+        settings.draftSharedWidgets,
+    );
 }
 
-export async function listPages(input: { teamId: string; type?: PageType; q?: string; offset?: number; itemsPerPage?: number }) {
+export async function listPages(input: {
+    teamId: string;
+    type?: PageType;
+    q?: string;
+    offset?: number;
+    itemsPerPage?: number;
+}) {
     const conditions = [eq(pages.teamId, input.teamId)];
     if (input.type) conditions.push(eq(pages.type, input.type));
     if (input.q) conditions.push(ilike(pages.name, `%${input.q}%`));
@@ -121,22 +139,31 @@ export async function listPages(input: { teamId: string; type?: PageType; q?: st
 
     const [items, settings] = await Promise.all([
         db.query.pages.findMany({
-        where: and(...conditions),
-        limit,
-        offset,
-        orderBy: (row, { desc }) => desc(row.updatedAt),
+            where: and(...conditions),
+            limit,
+            offset,
+            orderBy: (row, { desc }) => desc(row.updatedAt),
         }),
         getTeamSettings(input.teamId),
     ]);
-    return items.map((page) => hydratePage(page, settings.sharedWidgets, settings.draftSharedWidgets));
+    return items.map((page) =>
+        hydratePage(page, settings.sharedWidgets, settings.draftSharedWidgets),
+    );
 }
 
-export async function countPages(input: { teamId: string; type?: PageType; q?: string }) {
+export async function countPages(input: {
+    teamId: string;
+    type?: PageType;
+    q?: string;
+}) {
     const conditions = [eq(pages.teamId, input.teamId)];
     if (input.type) conditions.push(eq(pages.type, input.type));
     if (input.q) conditions.push(ilike(pages.name, `%${input.q}%`));
 
-    const [{ value }] = await db.select({ value: count() }).from(pages).where(and(...conditions));
+    const [{ value }] = await db
+        .select({ value: count() })
+        .from(pages)
+        .where(and(...conditions));
     return value;
 }
 
@@ -144,7 +171,11 @@ export async function getPageByPageId(pageId: string) {
     const page = await getRawPageByPageId(pageId);
     if (!page) return undefined;
     const settings = await getTeamSettings(page.teamId);
-    return hydratePage(page, settings.sharedWidgets, settings.draftSharedWidgets);
+    return hydratePage(
+        page,
+        settings.sharedWidgets,
+        settings.draftSharedWidgets,
+    );
 }
 
 /** Writes builder/SEO fields to draft columns. `themeId` and `slug` are
@@ -167,7 +198,16 @@ export async function updatePage(
     const existing = await getRawPageByPageId(pageId);
     if (!existing || existing.teamId !== teamId) return null;
 
-    const { name, slug: requestedSlug, layout, title, description, socialImage, robotsAllowed, themeId } = patch;
+    const {
+        name,
+        slug: requestedSlug,
+        layout,
+        title,
+        description,
+        socialImage,
+        robotsAllowed,
+        themeId,
+    } = patch;
     if (themeId !== undefined) {
         await validateThemeReference(teamId, themeId);
     }
@@ -181,7 +221,8 @@ export async function updatePage(
             throw new SlugConflictError("That slug is already in use.");
         }
     }
-    const settings = layout !== undefined ? await getTeamSettings(teamId) : null;
+    const settings =
+        layout !== undefined ? await getTeamSettings(teamId) : null;
     const splitLayout =
         layout !== undefined && settings
             ? splitSubmittedLayout(layout, settings.draftSharedWidgets)
@@ -203,11 +244,19 @@ export async function updatePage(
                 .set({
                     ...(name !== undefined ? { name } : {}),
                     ...(slug !== undefined ? { slug } : {}),
-                    ...(splitLayout ? { draftLayout: splitLayout.storedLayout } : {}),
+                    ...(splitLayout
+                        ? { draftLayout: splitLayout.storedLayout }
+                        : {}),
                     ...(title !== undefined ? { draftTitle: title } : {}),
-                    ...(description !== undefined ? { draftDescription: description } : {}),
-                    ...(socialImage !== undefined ? { draftSocialImage: socialImage } : {}),
-                    ...(robotsAllowed !== undefined ? { draftRobotsAllowed: robotsAllowed } : {}),
+                    ...(description !== undefined
+                        ? { draftDescription: description }
+                        : {}),
+                    ...(socialImage !== undefined
+                        ? { draftSocialImage: socialImage }
+                        : {}),
+                    ...(robotsAllowed !== undefined
+                        ? { draftRobotsAllowed: robotsAllowed }
+                        : {}),
                     ...(themeId !== undefined ? { themeId } : {}),
                     updatedAt: new Date(),
                 })
@@ -285,7 +334,9 @@ export async function discardPageDraft(teamId: string, pageId: string) {
 /** Unauthenticated, published-only reads for public site rendering
  * (architecture.md §5.4/§12.2). Never selects draft* columns. */
 export async function getPublishedPageBySlug(teamId: string, slug: string) {
-    const page = await db.query.pages.findFirst({ where: and(eq(pages.teamId, teamId), eq(pages.slug, slug)) });
+    const page = await db.query.pages.findFirst({
+        where: and(eq(pages.teamId, teamId), eq(pages.slug, slug)),
+    });
     if (!page || !page.publishedAt) return null;
     const settings = await getTeamSettings(teamId);
     return {
@@ -305,8 +356,10 @@ export async function listPublishedPages(teamId: string) {
 
 export async function deletePage(teamId: string, pageId: string) {
     const existing = await getRawPageByPageId(pageId);
-    if (!existing || existing.teamId !== teamId) return { ok: false as const, reason: "not_found" as const };
-    if (!existing.deleteable) return { ok: false as const, reason: "not_deleteable" as const };
+    if (!existing || existing.teamId !== teamId)
+        return { ok: false as const, reason: "not_found" as const };
+    if (!existing.deleteable)
+        return { ok: false as const, reason: "not_deleteable" as const };
     await db.delete(pages).where(eq(pages.id, existing.id));
     return { ok: true as const };
 }

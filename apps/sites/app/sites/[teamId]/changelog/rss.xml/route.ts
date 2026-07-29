@@ -2,9 +2,16 @@ import { getSettings, listChangelogs } from "@/lib/api";
 import { buildRssFeed } from "@/lib/rss";
 import { getCanonicalHost } from "@/lib/request-host";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ teamId: string }> }) {
+export async function GET(
+    _request: Request,
+    { params }: { params: Promise<{ teamId: string }> },
+) {
     const { teamId } = await params;
-    const [settings, { items }, canonicalHost] = await Promise.all([getSettings(teamId), listChangelogs(teamId, { itemsPerPage: 50 }), getCanonicalHost()]);
+    const [settings, { items }, canonicalHost] = await Promise.all([
+        getSettings(teamId),
+        listChangelogs(teamId, { itemsPerPage: 50 }),
+        getCanonicalHost(),
+    ]);
 
     const siteName = settings?.title || "FrontLit site";
     const xml = buildRssFeed({
@@ -20,5 +27,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tea
         })),
     });
 
-    return new Response(xml, { headers: { "content-type": "application/rss+xml; charset=utf-8" } });
+    return new Response(xml, {
+        headers: { "content-type": "application/rss+xml; charset=utf-8" },
+    });
 }

@@ -7,10 +7,15 @@ export const metadata: Metadata = {
         default: "FrontLit Docs",
         template: "%s | FrontLit Docs",
     },
-    description: "Documentation for FrontLit's page builder, APIs, and page-builder components.",
+    description:
+        "Documentation for FrontLit's page builder, APIs, and page-builder components.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
     return (
         <html lang="en" suppressHydrationWarning>
             <body>

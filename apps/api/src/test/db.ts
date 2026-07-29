@@ -59,6 +59,8 @@ export async function seedTeam(db: TestDb, overrides: { name?: string } = {}) {
             subdomain: `team-${crypto.randomUUID().slice(0, 8)}`,
         })
         .returning();
-    await db.insert(schema.teamMembers).values({ teamId: team.id, accountId: account.id, role: "owner" });
+    await db
+        .insert(schema.teamMembers)
+        .values({ teamId: team.id, accountId: account.id, role: "owner" });
     return { account, team };
 }

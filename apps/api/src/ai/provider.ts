@@ -21,7 +21,8 @@ import type { LanguageModel } from "ai";
 
 export type ChatProviderName = "opencode-go" | "openai" | "anthropic" | "local";
 
-const OPENCODE_GO_BASE_URL = process.env.OPENCODE_GO_BASE_URL || "https://opencode.ai/zen/go/v1";
+const OPENCODE_GO_BASE_URL =
+    process.env.OPENCODE_GO_BASE_URL || "https://opencode.ai/zen/go/v1";
 
 const DEFAULT_MODELS: Record<Exclude<ChatProviderName, "local">, string> = {
     "opencode-go": "deepseek-v4-flash",
@@ -34,7 +35,8 @@ let opencodeGoProvider: ReturnType<typeof createOpenAICompatible> | null = null;
 
 function getOpencodeGoProvider() {
     if (opencodeGoProvider) return opencodeGoProvider;
-    const apiKey = process.env.OPENCODE_API_KEY || process.env.OPENCODE_GO_API_KEY;
+    const apiKey =
+        process.env.OPENCODE_API_KEY || process.env.OPENCODE_GO_API_KEY;
     if (!apiKey) {
         throw new Error(
             "OpenCode Go requires OPENCODE_API_KEY (from https://opencode.ai/auth). " +
@@ -51,20 +53,31 @@ function getOpencodeGoProvider() {
 
 export function resolveChatProvider(): ChatProviderName {
     const configured = process.env.CHAT_PROVIDER?.trim().toLowerCase();
-    if (configured === "opencode-go" || configured === "opencode" || configured === "go") {
+    if (
+        configured === "opencode-go" ||
+        configured === "opencode" ||
+        configured === "go"
+    ) {
         return "opencode-go";
     }
-    if (configured === "openai" || configured === "anthropic" || configured === "local") {
+    if (
+        configured === "openai" ||
+        configured === "anthropic" ||
+        configured === "local"
+    ) {
         return configured;
     }
 
-    if (process.env.OPENCODE_API_KEY || process.env.OPENCODE_GO_API_KEY) return "opencode-go";
+    if (process.env.OPENCODE_API_KEY || process.env.OPENCODE_GO_API_KEY)
+        return "opencode-go";
     if (process.env.OPENAI_API_KEY) return "openai";
     if (process.env.ANTHROPIC_API_KEY) return "anthropic";
     return "local";
 }
 
-export function resolveChatModelId(provider: ChatProviderName = resolveChatProvider()): string {
+export function resolveChatModelId(
+    provider: ChatProviderName = resolveChatProvider(),
+): string {
     if (provider === "local") return "local";
     return process.env.CHAT_MODEL?.trim() || DEFAULT_MODELS[provider];
 }

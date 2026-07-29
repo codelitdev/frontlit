@@ -20,7 +20,11 @@ describe("extractChunks", () => {
     it("groups paragraphs under their preceding heading with a slugified anchor", () => {
         const content: TextEditorContentRow = {
             type: "doc",
-            content: [heading("Getting Started"), paragraph("First, install the CLI."), paragraph("Then run init.")],
+            content: [
+                heading("Getting Started"),
+                paragraph("First, install the CLI."),
+                paragraph("Then run init."),
+            ],
         };
 
         const chunks = extractChunks(content);
@@ -35,7 +39,12 @@ describe("extractChunks", () => {
     it("starts a new chunk at each heading", () => {
         const content: TextEditorContentRow = {
             type: "doc",
-            content: [heading("Intro"), paragraph("Intro text."), heading("Advanced"), paragraph("Advanced text.")],
+            content: [
+                heading("Intro"),
+                paragraph("Intro text."),
+                heading("Advanced"),
+                paragraph("Advanced text."),
+            ],
         };
 
         const chunks = extractChunks(content);
@@ -44,7 +53,10 @@ describe("extractChunks", () => {
     });
 
     it("handles content with no heading at all (one chunk, no heading)", () => {
-        const content: TextEditorContentRow = { type: "doc", content: [paragraph("Just a paragraph, no heading.")] };
+        const content: TextEditorContentRow = {
+            type: "doc",
+            content: [paragraph("Just a paragraph, no heading.")],
+        };
         const chunks = extractChunks(content);
 
         expect(chunks).toHaveLength(1);
@@ -53,8 +65,15 @@ describe("extractChunks", () => {
     });
 
     it("splits a very long section into multiple chunks under the same heading", () => {
-        const longParagraphs = Array.from({ length: 40 }, (_, i) => paragraph(`Paragraph ${i} with a bunch of filler words to pad out the count nicely here.`));
-        const content: TextEditorContentRow = { type: "doc", content: [heading("Big Section"), ...longParagraphs] };
+        const longParagraphs = Array.from({ length: 40 }, (_, i) =>
+            paragraph(
+                `Paragraph ${i} with a bunch of filler words to pad out the count nicely here.`,
+            ),
+        );
+        const content: TextEditorContentRow = {
+            type: "doc",
+            content: [heading("Big Section"), ...longParagraphs],
+        };
 
         const chunks = extractChunks(content);
 
@@ -65,7 +84,10 @@ describe("extractChunks", () => {
     it("ignores empty/whitespace-only nodes", () => {
         const content: TextEditorContentRow = {
             type: "doc",
-            content: [{ type: "paragraph", content: [] }, paragraph("Real content.")],
+            content: [
+                { type: "paragraph", content: [] },
+                paragraph("Real content."),
+            ],
         };
 
         const chunks = extractChunks(content);

@@ -114,7 +114,9 @@ function InlineButton({
     );
 }
 
-const InlineBubbleMenu = ({ editor }: BubbleMenuProps): React.JSX.Element | null => {
+const InlineBubbleMenu = ({
+    editor,
+}: BubbleMenuProps): React.JSX.Element | null => {
     const [isLinkEditing, setIsLinkEditing] = useState(false);
 
     const openLinkEditor = useCallback(() => {

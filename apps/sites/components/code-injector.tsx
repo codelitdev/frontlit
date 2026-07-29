@@ -11,7 +11,13 @@ type InjectionSection = "head" | "body";
  * (never in the dashboard), per a team's code-injection settings
  * (architecture.md §12.5).
  */
-export function CodeInjector({ head, body }: { head?: string | null; body?: string | null }) {
+export function CodeInjector({
+    head,
+    body,
+}: {
+    head?: string | null;
+    body?: string | null;
+}) {
     useEffect(() => {
         const sections: [InjectionSection, string | null | undefined][] = [
             ["head", head],
@@ -29,7 +35,10 @@ export function CodeInjector({ head, body }: { head?: string | null; body?: stri
                     const script = document.createElement("script");
                     script.innerHTML = child.innerHTML;
                     for (const attr of Array.from(child.attributes)) {
-                        script.setAttribute(attr.nodeName, attr.nodeValue ?? "");
+                        script.setAttribute(
+                            attr.nodeName,
+                            attr.nodeValue ?? "",
+                        );
                     }
                     node = script;
                 }

@@ -1,9 +1,9 @@
 /** Strips the internal surrogate `id` (and any other internal-only keys)
  * from a DB row before it's sent in an API/MCP response. */
-export function omitInternal<T extends Record<string, unknown>, K extends keyof T>(
-    row: T,
-    ...keys: K[]
-): Omit<T, K | "id"> {
+export function omitInternal<
+    T extends Record<string, unknown>,
+    K extends keyof T,
+>(row: T, ...keys: K[]): Omit<T, K | "id"> {
     const clone: Record<string, unknown> = { ...row };
     delete clone.id;
     for (const key of keys) delete clone[key as string];
@@ -20,7 +20,9 @@ type WithDatesAsStrings<T> = {
 
 /** Converts Date-typed columns (createdAt/updatedAt) to ISO strings for the
  * wire format, since Drizzle returns real `Date` objects. */
-export function serializeDates<T extends Record<string, unknown>>(row: T): WithDatesAsStrings<T> {
+export function serializeDates<T extends Record<string, unknown>>(
+    row: T,
+): WithDatesAsStrings<T> {
     const clone: Record<string, unknown> = { ...row };
     for (const key of Object.keys(clone)) {
         if (clone[key] instanceof Date) {

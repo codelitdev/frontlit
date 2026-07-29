@@ -5,13 +5,24 @@ import { createHmac, timingSafeEqual } from "node:crypto";
  * timestamps (±5 min replay window)". Shared by every outbound webhook
  * (currently just the ISR revalidation ping to apps/sites) so the
  * sign/verify contract stays identical everywhere it's used. */
-export function signWebhookPayload(secret: string, rawBody: string, timestamp: number): string {
-    return createHmac("sha256", secret).update(`${timestamp}.${rawBody}`).digest("hex");
+export function signWebhookPayload(
+    secret: string,
+    rawBody: string,
+    timestamp: number,
+): string {
+    return createHmac("sha256", secret)
+        .update(`${timestamp}.${rawBody}`)
+        .digest("hex");
 }
 
 const REPLAY_WINDOW_MS = 5 * 60 * 1000;
 
-export function verifyWebhookSignature(secret: string, rawBody: string, timestamp: number, signature: string): boolean {
+export function verifyWebhookSignature(
+    secret: string,
+    rawBody: string,
+    timestamp: number,
+    signature: string,
+): boolean {
     if (Math.abs(Date.now() - timestamp) > REPLAY_WINDOW_MS) return false;
 
     const expected = signWebhookPayload(secret, rawBody, timestamp);

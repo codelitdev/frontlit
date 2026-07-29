@@ -19,12 +19,24 @@
     "types": "./dist/index.d.ts",
     "typesVersions": {
         "*": {
-            "models": ["dist/models/index.d.ts"],
-            "primitives": ["dist/primitives/index.d.ts"],
-            "components": ["dist/components/index.d.ts"],
-            "blocks": ["dist/blocks/index.d.ts"],
-            "renderer": ["dist/renderer/index.d.ts"],
-            "builder": ["dist/builder/index.d.ts"]
+            "models": [
+                "dist/models/index.d.ts"
+            ],
+            "primitives": [
+                "dist/primitives/index.d.ts"
+            ],
+            "components": [
+                "dist/components/index.d.ts"
+            ],
+            "blocks": [
+                "dist/blocks/index.d.ts"
+            ],
+            "renderer": [
+                "dist/renderer/index.d.ts"
+            ],
+            "builder": [
+                "dist/builder/index.d.ts"
+            ]
         }
     },
     "scripts": {

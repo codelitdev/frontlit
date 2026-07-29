@@ -11,10 +11,7 @@ import {
     ensureFrontLitAccountForUser,
     type Account,
 } from "../account/queries";
-import {
-    getApiKeyBySecret,
-    type ApiKey,
-} from "../apikey/queries";
+import { getApiKeyBySecret, type ApiKey } from "../apikey/queries";
 import { getTeamMembership } from "../team/queries";
 import {
     auth,
@@ -34,9 +31,7 @@ export type AuthDependencies = {
     ) => Promise<{
         user: { id?: string; email: string; name?: string | null };
     } | null>;
-    verifyBetterAuthBearerToken: (
-        token: string,
-    ) => Promise<{
+    verifyBetterAuthBearerToken: (token: string) => Promise<{
         sub?: string;
         azp?: string;
         scope?: string;
@@ -75,8 +70,7 @@ const defaultDependencies: AuthDependencies = {
             },
             token,
         ),
-    ensureAccountForBetterAuthUserId:
-        ensureFrontLitAccountForBetterAuthUserId,
+    ensureAccountForBetterAuthUserId: ensureFrontLitAccountForBetterAuthUserId,
     ensureAccountForUser: ensureFrontLitAccountForUser,
     getTeamMembership,
 };
@@ -91,9 +85,7 @@ function resolver(dependencies: AuthDependencies) {
             dependencies.ensureAccountForBetterAuthUserId,
         ensureAccountForSessionUser: dependencies.ensureAccountForUser,
         hasTeamMembership: async (teamId, accountId) =>
-            Boolean(
-                await dependencies.getTeamMembership(teamId, accountId),
-            ),
+            Boolean(await dependencies.getTeamMembership(teamId, accountId)),
     });
 }
 

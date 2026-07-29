@@ -5,7 +5,12 @@ export const baseOptions: BaseLayoutProps = {
     nav: {
         title: (
             <>
-                <Image src="/icon.svg" alt="FrontLit logo" width={24} height={24} />
+                <Image
+                    src="/icon.svg"
+                    alt="FrontLit logo"
+                    width={24}
+                    height={24}
+                />
                 FrontLit Docs
             </>
         ),

@@ -73,8 +73,8 @@ const Editor: EditorType = Object.assign(
         );
 
         const changeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-                    null,
-                );
+            null,
+        );
 
         const editor = useEditor(
             {
@@ -223,7 +223,10 @@ const Editor: EditorType = Object.assign(
 
         return (
             <div
-                className={cn("tiptap-editor flex flex-col gap-4 border", className)}
+                className={cn(
+                    "tiptap-editor flex flex-col gap-4 border",
+                    className,
+                )}
             >
                 {editable && showToolbar && (
                     <div

@@ -10,8 +10,7 @@ vi.mock("../auth/better-auth", () => ({
     mcpResourceUrl: "http://localhost:4000/mcp",
     oauthResourceClient: {
         getActions: () => ({
-            getProtectedResourceMetadata:
-                mocks.getProtectedResourceMetadata,
+            getProtectedResourceMetadata: mocks.getProtectedResourceMetadata,
         }),
     },
 }));

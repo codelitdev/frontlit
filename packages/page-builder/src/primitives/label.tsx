@@ -3,8 +3,7 @@ import { Label as ShadcnLabel } from "./components/ui/label";
 import { cn } from "./lib/utils";
 import type { ThemeStyle } from "../models";
 
-export interface LabelProps
-    extends React.LabelHTMLAttributes<HTMLLabelElement> {
+export interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {
     theme?: ThemeStyle;
     error?: boolean;
 }

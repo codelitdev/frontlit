@@ -3,7 +3,12 @@ import { genId } from "../db/id";
 import { pages, type WidgetInstanceRow } from "../db/schema";
 import { createRequiredSharedWidgetPlaceholders } from "./shared-widgets";
 
-const STANDARD_PAGES: { name: string; slug: string; type: "site" | "blog" | "custom"; layout?: WidgetInstanceRow[] }[] = [
+const STANDARD_PAGES: {
+    name: string;
+    slug: string;
+    type: "site" | "blog" | "custom";
+    layout?: WidgetInstanceRow[];
+}[] = [
     { name: "Homepage", slug: "", type: "site" },
     { name: "Blog", slug: "blog", type: "blog" },
     { name: "Changelog", slug: "changelog", type: "custom" },
@@ -17,7 +22,15 @@ const STANDARD_PAGES: { name: string; slug: string; type: "site" | "blog" | "cus
         // block shape, hand-built here rather than imported so apps/api never
         // pulls in the page-builder's browser/React dependency graph (same
         // rule as documents' opaque TipTap JSON, §5.1).
-        layout: [{ widgetId: genId(), name: "support-form", deleteable: true, shared: false, settings: {} }],
+        layout: [
+            {
+                widgetId: genId(),
+                name: "support-form",
+                deleteable: true,
+                shared: false,
+                settings: {},
+            },
+        ],
     },
     { name: "Terms of Service", slug: "terms", type: "custom" },
     { name: "Privacy policy", slug: "privacy", type: "custom" },

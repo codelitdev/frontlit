@@ -12,15 +12,15 @@ combined there instead of split the way CourseLit splits them.
 
 ## What's inside
 
-| Subpath                          | What it exports                                                                 |
-| --------------------------------- | -------------------------------------------------------------------------------- |
-| `@frontlit/page-builder`          | Everything below, re-exported from one place                                    |
-| `@frontlit/page-builder/models`   | `Theme`, `WidgetInstance`, `Widget<T>`, `Page`, `Media`, etc. (re-exports `TextEditorContent` from `@frontlit/text-editor`) |
-| `@frontlit/page-builder/primitives` | Themed UI atoms (`Button`, `Header1-4`, `Section`, `PageCard`, ...) + 5 built-in themes |
+| Subpath                             | What it exports                                                                                                             |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `@frontlit/page-builder`            | Everything below, re-exported from one place                                                                                |
+| `@frontlit/page-builder/models`     | `Theme`, `WidgetInstance`, `Widget<T>`, `Page`, `Media`, etc. (re-exports `TextEditorContent` from `@frontlit/text-editor`) |
+| `@frontlit/page-builder/primitives` | Themed UI atoms (`Button`, `Header1-4`, `Section`, `PageCard`, ...) + 5 built-in themes                                     |
 | `@frontlit/page-builder/components` | Shared presentational bits: `Image`, `NavLink`, `VideoWithPreview` (re-exports `TextRenderer` from `@frontlit/text-editor`) |
-| `@frontlit/page-builder/blocks`   | The block library: `Header`, `Hero`, `Content`, `Featured`, `Faq`, `Pricing`, `Banner`, `EmailForm`, `Footer` |
-| `@frontlit/page-builder/renderer` | `PageRenderer` — renders a page's `WidgetInstance[]` layout, with an `editing` mode for use inside the builder |
-| `@frontlit/page-builder/builder`  | `PageBuilder` — the full WYSIWYG editor (add/remove/reorder blocks, edit settings, switch themes) |
+| `@frontlit/page-builder/blocks`     | The block library: `Header`, `Hero`, `Content`, `Featured`, `Faq`, `Pricing`, `Banner`, `EmailForm`, `Footer`               |
+| `@frontlit/page-builder/renderer`   | `PageRenderer` — renders a page's `WidgetInstance[]` layout, with an `editing` mode for use inside the builder              |
+| `@frontlit/page-builder/builder`    | `PageBuilder` — the full WYSIWYG editor (add/remove/reorder blocks, edit settings, switch themes)                           |
 
 `createDefaultLayout()` / `getDefaultTheme()` (exported from the root) build
 a ready-to-render, FrontLit-branded landing page layout using every block —
@@ -36,18 +36,26 @@ so editing navigation on one page applies consistently across all pages.
 
 ```tsx
 // Read-only rendering (e.g. a published page or the marketing site):
-import { PageRenderer, createDefaultLayout, getDefaultTheme } from "@frontlit/page-builder";
+import {
+    PageRenderer,
+    createDefaultLayout,
+    getDefaultTheme,
+} from "@frontlit/page-builder";
 
 <PageRenderer
-  layout={createDefaultLayout()}
-  theme={getDefaultTheme()}
-  pageData={{ pageType: "landing" }}
+    layout={createDefaultLayout()}
+    theme={getDefaultTheme()}
+    pageData={{ pageType: "landing" }}
 />;
 
 // The interactive editor:
 import { PageBuilder } from "@frontlit/page-builder";
 
-<PageBuilder onChange={({ layout, theme }) => {/* persist however you like */}} />;
+<PageBuilder
+    onChange={({ layout, theme }) => {
+        /* persist however you like */
+    }}
+/>;
 ```
 
 Both `PageRenderer` and `PageBuilder` are client components (this package

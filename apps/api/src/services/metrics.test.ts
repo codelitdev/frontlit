@@ -26,6 +26,8 @@ describe("metrics registry", () => {
 
     it("emits a TYPE line per metric name", () => {
         incrementCounter("webhook_signature_failures_total");
-        expect(renderCounters()).toContain("# TYPE webhook_signature_failures_total counter");
+        expect(renderCounters()).toContain(
+            "# TYPE webhook_signature_failures_total counter",
+        );
     });
 });

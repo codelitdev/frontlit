@@ -171,9 +171,7 @@ export function PageRenderer({
                     locked: true,
                     allowAddBelow: false,
                 })}
-            {injectThemeStyles && (
-                <style>{generateThemeStyles(theme)}</style>
-            )}
+            {injectThemeStyles && <style>{generateThemeStyles(theme)}</style>}
         </div>
     );
 }

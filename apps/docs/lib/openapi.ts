@@ -19,48 +19,74 @@ const openApiDocument = generateOpenApi(
                 url: "{protocol}://{host}",
                 description: "API Server",
                 variables: {
-                    protocol: { default: isProduction ? "https" : "http", enum: ["https", "http"] },
-                    host: { default: isProduction ? "api.frontlit.dev" : localHost },
+                    protocol: {
+                        default: isProduction ? "https" : "http",
+                        enum: ["https", "http"],
+                    },
+                    host: {
+                        default: isProduction ? "api.frontlit.dev" : localHost,
+                    },
                 },
             },
         ],
         tags: [
-            { name: "Pages", description: "Pages built with the page-builder block layout." },
-            { name: "Themes", description: "Saved, reusable theme styles (colors, typography, structure)." },
+            {
+                name: "Pages",
+                description: "Pages built with the page-builder block layout.",
+            },
+            {
+                name: "Themes",
+                description:
+                    "Saved, reusable theme styles (colors, typography, structure).",
+            },
             {
                 name: "Teams",
-                description: "Team management (list/create/rename/delete), per-team API keys, and server-to-server provisioning.",
+                description:
+                    "Team management (list/create/rename/delete), per-team API keys, and server-to-server provisioning.",
             },
             {
                 name: "Media",
-                description: "Team media library, backed by MediaLit. FrontLit servers never receive file bytes — uploads go direct-to-MediaLit using a short-lived signature.",
+                description:
+                    "Team media library, backed by MediaLit. FrontLit servers never receive file bytes — uploads go direct-to-MediaLit using a short-lived signature.",
             },
             {
                 name: "Blog",
-                description: "Blog posts — one of three kinds built on the shared documents engine (blog/doc/changelog), with draft/publish state.",
+                description:
+                    "Blog posts — one of three kinds built on the shared documents engine (blog/doc/changelog), with draft/publish state.",
             },
             {
                 name: "Public",
-                description: "Unauthenticated, published-only reads for public site rendering. Resolved by a team's public id.",
+                description:
+                    "Unauthenticated, published-only reads for public site rendering. Resolved by a team's public id.",
             },
             {
                 name: "Domains",
-                description: "A team's default `<slug>.<PLATFORM_SITE_DOMAIN>` subdomain plus an optional attached, DNS-verified custom domain.",
+                description:
+                    "A team's default `<slug>.<PLATFORM_SITE_DOMAIN>` subdomain plus an optional attached, DNS-verified custom domain.",
             },
             {
                 name: "Settings",
-                description: "Per-team site-wide branding (title, subtitle, logo) and code-injection snippets for the public site.",
+                description:
+                    "Per-team site-wide branding (title, subtitle, logo) and code-injection snippets for the public site.",
             },
         ],
         components: {
             securitySchemes: {
-                apiKeyAuth: { type: "apiKey", in: "header", name: "x-frontlit-apikey" },
+                apiKeyAuth: {
+                    type: "apiKey",
+                    in: "header",
+                    name: "x-frontlit-apikey",
+                },
                 bearerAuth: {
                     type: "http",
                     scheme: "bearer",
                     bearerFormat: "JWT",
                 },
-                provisioningSecretAuth: { type: "apiKey", in: "header", name: "X-Frontlit-Provisioning-Secret" },
+                provisioningSecretAuth: {
+                    type: "apiKey",
+                    in: "header",
+                    name: "X-Frontlit-Provisioning-Secret",
+                },
             },
         },
         security: [{ apiKeyAuth: [] }, { bearerAuth: [] }],

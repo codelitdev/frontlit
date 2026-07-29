@@ -10,7 +10,10 @@ import { resolvePageTheme } from "./page-theme";
  * the same Theme object pages resolve via `themeId` / saved style. Falls back
  * to Classic when the homepage has no theme.
  */
-export function resolveSiteTheme(themeId: string | null, themeStyle: Record<string, unknown> | null): Theme {
+export function resolveSiteTheme(
+    themeId: string | null,
+    themeStyle: Record<string, unknown> | null,
+): Theme {
     return resolvePageTheme(themeId, themeStyle) ?? getDefaultTheme();
 }
 
@@ -35,7 +38,10 @@ export function siteThemePalette(theme: Theme) {
  * Effective accent for the launcher/header: explicit chatbot accent wins,
  * otherwise the site theme primary (so the bot matches page buttons).
  */
-export function resolveChatAccent(accentColor: string | null | undefined, theme: Theme): string {
+export function resolveChatAccent(
+    accentColor: string | null | undefined,
+    theme: Theme,
+): string {
     const trimmed = accentColor?.trim();
     if (trimmed) return trimmed;
     return theme.theme.colors.light.primary;

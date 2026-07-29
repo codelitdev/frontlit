@@ -28,7 +28,9 @@ export interface MediaLitMedia {
 
 /** `group` is the team's internal id — MediaLit's per-tenant isolation,
  * mirroring how courselit groups uploads by `domain`. */
-export async function getMediaUploadSignature(group: string): Promise<{ signature: string; endpoint: string }> {
+export async function getMediaUploadSignature(
+    group: string,
+): Promise<{ signature: string; endpoint: string }> {
     const medialit = await getMediaLitClient();
     const signature = await medialit.getSignature({ group });
     return { signature, endpoint: medialit.endpoint };

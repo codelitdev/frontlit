@@ -10,7 +10,11 @@ export const footerDefaults: Partial<FooterSettings> = {
             id: generateUniqueId(),
             title: "Product",
             links: [
-                { id: generateUniqueId(), label: "Features", href: "#features" },
+                {
+                    id: generateUniqueId(),
+                    label: "Features",
+                    href: "#features",
+                },
                 { id: generateUniqueId(), label: "Pricing", href: "#pricing" },
                 {
                     id: generateUniqueId(),

@@ -21,7 +21,10 @@ export function getPageStatusCounts(pages: Page[]): PageStatusCounts {
     return pages.reduce<PageStatusCounts>(
         (counts, page) => {
             counts.all += 1;
-            if (page.status === "published" || page.status === "published_with_changes") {
+            if (
+                page.status === "published" ||
+                page.status === "published_with_changes"
+            ) {
                 counts.published += 1;
             }
             if (page.status === "draft") counts.draft += 1;
@@ -32,14 +35,19 @@ export function getPageStatusCounts(pages: Page[]): PageStatusCounts {
     );
 }
 
-export function filterPages(pages: Page[], filter: PagesFilter, query: string): Page[] {
+export function filterPages(
+    pages: Page[],
+    filter: PagesFilter,
+    query: string,
+): Page[] {
     const normalizedQuery = query.trim().toLowerCase();
 
     return pages.filter((page) => {
         const matchesStatus =
             filter === "all" ||
             (filter === "published" &&
-                (page.status === "published" || page.status === "published_with_changes")) ||
+                (page.status === "published" ||
+                    page.status === "published_with_changes")) ||
             (filter === "draft" && page.status === "draft") ||
             (filter === "changes" && page.status === "published_with_changes");
 
@@ -59,8 +67,12 @@ export function sortPagesForLibrary(pages: Page[]): Page[] {
         if (left.slug === "" && right.slug !== "") return -1;
         if (right.slug === "" && left.slug !== "") return 1;
 
-        const leftTime = left.updatedAt ? new Date(left.updatedAt).getTime() : Number.NEGATIVE_INFINITY;
-        const rightTime = right.updatedAt ? new Date(right.updatedAt).getTime() : Number.NEGATIVE_INFINITY;
+        const leftTime = left.updatedAt
+            ? new Date(left.updatedAt).getTime()
+            : Number.NEGATIVE_INFINITY;
+        const rightTime = right.updatedAt
+            ? new Date(right.updatedAt).getTime()
+            : Number.NEGATIVE_INFINITY;
         return rightTime - leftTime || left.name.localeCompare(right.name);
     });
 }

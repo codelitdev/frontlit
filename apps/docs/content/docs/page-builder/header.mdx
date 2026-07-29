@@ -11,9 +11,17 @@ description: Sticky site navigation, pinned to the top of every page.
 in the `layout` array:
 
 ```tsx
-import { createWidgetInstance, PageRenderer, getDefaultTheme } from "@frontlit/page-builder";
+import {
+    createWidgetInstance,
+    PageRenderer,
+    getDefaultTheme,
+} from "@frontlit/page-builder";
 
 const layout = [createWidgetInstance("header", { ctaHref: "/get-started" })];
 
-<PageRenderer layout={layout} theme={getDefaultTheme()} pageData={{ pageType: "landing" }} />;
+<PageRenderer
+    layout={layout}
+    theme={getDefaultTheme()}
+    pageData={{ pageType: "landing" }}
+/>;
 ```

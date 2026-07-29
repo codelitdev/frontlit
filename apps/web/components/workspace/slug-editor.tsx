@@ -45,7 +45,11 @@ export function SlugEditor({
             const savedSlug = await onSave(requestedSlug);
             setValue(savedSlug);
         } catch (caught) {
-            setError(caught instanceof Error ? caught.message : "Could not update the slug.");
+            setError(
+                caught instanceof Error
+                    ? caught.message
+                    : "Could not update the slug.",
+            );
         } finally {
             setSaving(false);
         }
@@ -62,7 +66,8 @@ export function SlugEditor({
                 <div
                     className={cn(
                         "flex min-w-0 flex-1 items-center overflow-hidden rounded-[var(--radius)] border border-input bg-card transition-[border-color,box-shadow] focus-within:border-ring focus-within:shadow-[0_0_0_3px_var(--primary-soft)]",
-                        error && "border-destructive focus-within:shadow-[0_0_0_3px_var(--destructive-soft)]",
+                        error &&
+                            "border-destructive focus-within:shadow-[0_0_0_3px_var(--destructive-soft)]",
                         disabled && "bg-muted opacity-60",
                     )}
                 >
@@ -95,7 +100,11 @@ export function SlugEditor({
                 </Button>
             </div>
             {error ? (
-                <p id={errorId} role="alert" className="mt-1 text-xs text-destructive">
+                <p
+                    id={errorId}
+                    role="alert"
+                    className="mt-1 text-xs text-destructive"
+                >
                     {error}
                 </p>
             ) : (

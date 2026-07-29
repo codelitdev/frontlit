@@ -2,11 +2,7 @@
 
 import React from "react";
 import type { PageSeo } from "../models";
-import {
-    FieldGroup,
-    TextField,
-    ToggleField,
-} from "../blocks/_shared/fields";
+import { FieldGroup, TextField, ToggleField } from "../blocks/_shared/fields";
 
 /**
  * Page-level SEO settings panel. Like the block and theme editors, changes

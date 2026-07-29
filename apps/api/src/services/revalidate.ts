@@ -27,6 +27,12 @@ export async function revalidateTeam(teamPublicId: string): Promise<void> {
             body,
         });
     } catch (err) {
-        logger.warn({ teamId: teamPublicId, error: err instanceof Error ? err.message : String(err) }, "ISR revalidation webhook failed");
+        logger.warn(
+            {
+                teamId: teamPublicId,
+                error: err instanceof Error ? err.message : String(err),
+            },
+            "ISR revalidation webhook failed",
+        );
     }
 }

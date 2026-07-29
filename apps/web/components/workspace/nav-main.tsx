@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronRight } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
     SidebarGroup,
     SidebarMenu,
@@ -25,7 +29,9 @@ export interface NavItem {
 
 function isGroupActive(pathname: string, item: NavItem): boolean {
     if (item.items?.length) {
-        return item.items.some((child) => isNavItemActive(pathname, child.href));
+        return item.items.some((child) =>
+            isNavItemActive(pathname, child.href),
+        );
     }
     return isNavItemActive(pathname, item.href);
 }
@@ -45,7 +51,11 @@ function NavCollapsibleItem({ item }: { item: NavItem }) {
     }, [active]);
 
     return (
-        <Collapsible open={open} onOpenChange={setOpen} className="group/collapsible">
+        <Collapsible
+            open={open}
+            onOpenChange={setOpen}
+            className="group/collapsible"
+        >
             <SidebarMenuItem>
                 <CollapsibleTrigger asChild>
                     <SidebarMenuButton isActive={active} tooltip={item.label}>
@@ -57,10 +67,16 @@ function NavCollapsibleItem({ item }: { item: NavItem }) {
                 <CollapsibleContent>
                     <SidebarMenuSub>
                         {children.map((child) => {
-                            const itemActive = isNavItemActive(pathname, child.href);
+                            const itemActive = isNavItemActive(
+                                pathname,
+                                child.href,
+                            );
                             return (
                                 <SidebarMenuSubItem key={child.href}>
-                                    <SidebarMenuSubButton asChild isActive={itemActive}>
+                                    <SidebarMenuSubButton
+                                        asChild
+                                        isActive={itemActive}
+                                    >
                                         <Link href={child.href}>
                                             <child.icon />
                                             <span>{child.label}</span>
@@ -90,7 +106,11 @@ export function NavItems({ items }: { items: NavItem[] }) {
                 const active = isNavItemActive(pathname, item.href);
                 return (
                     <SidebarMenuItem key={item.href}>
-                        <SidebarMenuButton asChild isActive={active} tooltip={item.label}>
+                        <SidebarMenuButton
+                            asChild
+                            isActive={active}
+                            tooltip={item.label}
+                        >
                             <Link href={item.href}>
                                 <item.icon />
                                 <span>{item.label}</span>

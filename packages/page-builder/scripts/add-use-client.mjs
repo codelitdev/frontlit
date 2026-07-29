@@ -22,4 +22,5 @@ function walk(dir) {
 }
 
 walk(distDir);
-console.log("Prepended \"use client\" to all dist/*.js files.");
+// eslint-disable-next-line no-console -- build script status output
+console.log('Prepended "use client" to all dist/*.js files.');

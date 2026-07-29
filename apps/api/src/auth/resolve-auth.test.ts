@@ -14,10 +14,7 @@ vi.mock("./better-auth", () => ({
     auth: { api: { getSession: vi.fn(async () => null) } },
     authIssuer: "https://frontlit.test/api/auth",
     mcpResourceUrl: "https://frontlit.test/mcp",
-    validOAuthAudiences: [
-        "https://frontlit.test",
-        "https://frontlit.test/mcp",
-    ],
+    validOAuthAudiences: ["https://frontlit.test", "https://frontlit.test/mcp"],
     oauthResourceClient: {
         getActions: () => ({ verifyAccessToken: vi.fn(async () => null) }),
     },
@@ -26,10 +23,7 @@ vi.mock("better-auth/node", () => ({
     fromNodeHeaders: vi.fn((headers) => headers),
 }));
 
-import {
-    resolveAuth,
-    type AuthDependencies,
-} from "./resolve-auth";
+import { resolveAuth, type AuthDependencies } from "./resolve-auth";
 
 const account = {
     id: "account-1",

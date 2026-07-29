@@ -1,7 +1,10 @@
 "use client";
 
 import { use, useEffect, useRef, useState } from "react";
-import { PageBuilder, type PageBuilderState } from "@frontlit/page-builder/builder";
+import {
+    PageBuilder,
+    type PageBuilderState,
+} from "@frontlit/page-builder/builder";
 import type { Theme as BuilderTheme } from "@frontlit/page-builder/models";
 import {
     createTheme,
@@ -23,11 +26,19 @@ import { EditorToolbar } from "@/components/workspace/editor-toolbar";
 import { FullScreenLoading } from "@/components/workspace/loading";
 import { SlugEditor } from "@/components/workspace/slug-editor";
 
-export default function PageEditorPage({ params }: { params: Promise<{ pageId: string }> }) {
+export default function PageEditorPage({
+    params,
+}: {
+    params: Promise<{ pageId: string }>;
+}) {
     const { pageId } = use(params);
     const [page, setPage] = useState<Page | null>(null);
-    const [initialTheme, setInitialTheme] = useState<BuilderTheme | undefined>(undefined);
-    const [customThemes, setCustomThemes] = useState<BuilderTheme[] | null>(null);
+    const [initialTheme, setInitialTheme] = useState<BuilderTheme | undefined>(
+        undefined,
+    );
+    const [customThemes, setCustomThemes] = useState<BuilderTheme[] | null>(
+        null,
+    );
     const [saving, setSaving] = useState(false);
     const [publishing, setPublishing] = useState(false);
     // Bumped only when the draft is reset from outside the builder (discard),
@@ -39,31 +50,41 @@ export default function PageEditorPage({ params }: { params: Promise<{ pageId: s
     const themeSnapshotsRef = useRef(new Map<string, string>());
 
     useEffect(() => {
-        Promise.all([getPage(pageId), listThemes()]).then(async ([loaded, savedThemes]) => {
-            const mappedThemes = savedThemes.items.map(
-                (theme): BuilderTheme => ({
-                    id: theme.themeId,
-                    name: theme.name,
-                    theme: theme.style as unknown as BuilderTheme["theme"],
-                }),
-            );
+        Promise.all([getPage(pageId), listThemes()]).then(
+            async ([loaded, savedThemes]) => {
+                const mappedThemes = savedThemes.items.map(
+                    (theme): BuilderTheme => ({
+                        id: theme.themeId,
+                        name: theme.name,
+                        theme: theme.style as unknown as BuilderTheme["theme"],
+                    }),
+                );
 
-            knownThemeIdsRef.current = new Set(mappedThemes.map((theme) => theme.id));
-            themeAliasesRef.current = new Map();
-            themeSnapshotsRef.current = new Map(
-                mappedThemes.map((theme) => [theme.id, themeSnapshot(theme)]),
-            );
-            setInitialTheme(
-                await resolveEditorTheme(loaded.themeId, async (themeId) => {
-                    const loadedTheme = savedThemes.items.find(
-                        (theme) => theme.themeId === themeId,
-                    );
-                    return loadedTheme ?? getTheme(themeId);
-                }),
-            );
-            setCustomThemes(mappedThemes);
-            setPage(loaded);
-        });
+                knownThemeIdsRef.current = new Set(
+                    mappedThemes.map((theme) => theme.id),
+                );
+                themeAliasesRef.current = new Map();
+                themeSnapshotsRef.current = new Map(
+                    mappedThemes.map((theme) => [
+                        theme.id,
+                        themeSnapshot(theme),
+                    ]),
+                );
+                setInitialTheme(
+                    await resolveEditorTheme(
+                        loaded.themeId,
+                        async (themeId) => {
+                            const loadedTheme = savedThemes.items.find(
+                                (theme) => theme.themeId === themeId,
+                            );
+                            return loadedTheme ?? getTheme(themeId);
+                        },
+                    ),
+                );
+                setCustomThemes(mappedThemes);
+                setPage(loaded);
+            },
+        );
     }, [pageId]);
 
     async function handleChange(state: PageBuilderState) {
@@ -80,9 +101,12 @@ export default function PageEditorPage({ params }: { params: Promise<{ pageId: s
                 layout: state.layout,
                 title: state.seo.title,
                 description: state.seo.description,
-                socialImage: state.seo.socialImage as unknown as Record<string, unknown> | undefined,
+                socialImage: state.seo.socialImage as unknown as
+                    Record<string, unknown> | undefined,
                 robotsAllowed: state.seo.robotsAllowed,
-                themeId: themeAliasesRef.current.get(state.theme.id) ?? state.theme.id,
+                themeId:
+                    themeAliasesRef.current.get(state.theme.id) ??
+                    state.theme.id,
             });
             setPage(updated);
         } finally {

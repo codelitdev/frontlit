@@ -36,7 +36,9 @@ function extractText(content: unknown): string {
     if (!content || typeof content !== "object") return "";
     const value = content as Record<string, unknown>;
     const ownText = typeof value.text === "string" ? value.text : "";
-    const childText = Array.isArray(value.content) ? value.content.map(extractText).join("") : "";
+    const childText = Array.isArray(value.content)
+        ? value.content.map(extractText).join("")
+        : "";
     return `${ownText}${childText}`;
 }
 
@@ -58,13 +60,25 @@ export function useVisitorChat({
     greeting: string | null;
 }) {
     const [messages, setMessages] = useState<ChatMessage[]>(() =>
-        greeting ? [{ id: "greeting", role: "assistant", content: greeting, author: "bot" }] : [],
+        greeting
+            ? [
+                  {
+                      id: "greeting",
+                      role: "assistant",
+                      content: greeting,
+                      author: "bot",
+                  },
+              ]
+            : [],
     );
     const [conversation, setConversation] = useState<Conversation | null>(null);
     const [input, setInput] = useState("");
     const [isSending, setIsSending] = useState(false);
     const [isHydrating, setIsHydrating] = useState(false);
-    const storageKey = useMemo(() => `frontlit:chat:${apiBaseUrl}:${teamId}`, [apiBaseUrl, teamId]);
+    const storageKey = useMemo(
+        () => `frontlit:chat:${apiBaseUrl}:${teamId}`,
+        [apiBaseUrl, teamId],
+    );
 
     const listRef = useRef<HTMLDivElement>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
@@ -72,9 +86,12 @@ export function useVisitorChat({
     const isSendingRef = useRef(false);
     const stickToBottomRef = useRef(true);
 
-    const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
-        bottomRef.current?.scrollIntoView({ behavior, block: "end" });
-    }, []);
+    const scrollToBottom = useCallback(
+        (behavior: ScrollBehavior = "smooth") => {
+            bottomRef.current?.scrollIntoView({ behavior, block: "end" });
+        },
+        [],
+    );
 
     useEffect(() => {
         isSendingRef.current = isSending;
@@ -86,7 +103,8 @@ export function useVisitorChat({
     const onListScroll = () => {
         const el = listRef.current;
         if (!el) return;
-        const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+        const distanceFromBottom =
+            el.scrollHeight - el.scrollTop - el.clientHeight;
         stickToBottomRef.current = distanceFromBottom < 80;
     };
 
@@ -94,27 +112,51 @@ export function useVisitorChat({
         async (current: Conversation) => {
             if (isSendingRef.current) return;
 
-            const url = new URL(`${apiBaseUrl}/public/${teamId}/tickets/${current.id}/messages`);
+            const url = new URL(
+                `${apiBaseUrl}/public/${teamId}/tickets/${current.id}/messages`,
+            );
             url.searchParams.set("token", current.token);
             const response = await fetch(url, { cache: "no-store" });
             if (response.status === 401 || response.status === 404) {
                 localStorage.removeItem(storageKey);
                 setConversation(null);
-                setMessages(greeting ? [{ id: "greeting", role: "assistant", content: greeting, author: "bot" }] : []);
+                setMessages(
+                    greeting
+                        ? [
+                              {
+                                  id: "greeting",
+                                  role: "assistant",
+                                  content: greeting,
+                                  author: "bot",
+                              },
+                          ]
+                        : [],
+                );
                 return;
             }
             if (!response.ok) return;
 
-            const thread = (await response.json()) as { messages: ThreadMessage[] };
+            const thread = (await response.json()) as {
+                messages: ThreadMessage[];
+            };
             const next = thread.messages.map((message) => ({
                 id: message.messageId,
-                role: (message.author === "requester" ? "user" : "assistant") as "user" | "assistant",
+                role: (message.author === "requester"
+                    ? "user"
+                    : "assistant") as "user" | "assistant",
                 author: message.author,
                 content: extractText(message.content),
             }));
 
             if (next.length === 0 && greeting) {
-                setMessages([{ id: "greeting", role: "assistant", content: greeting, author: "bot" }]);
+                setMessages([
+                    {
+                        id: "greeting",
+                        role: "assistant",
+                        content: greeting,
+                        author: "bot",
+                    },
+                ]);
                 return;
             }
             setMessages(next);
@@ -143,7 +185,10 @@ export function useVisitorChat({
             await loadConversation(conversation);
             if (!cancelled) setIsHydrating(false);
         })();
-        const poll = window.setInterval(() => void loadConversation(conversation), 5_000);
+        const poll = window.setInterval(
+            () => void loadConversation(conversation),
+            5_000,
+        );
         return () => {
             cancelled = true;
             window.clearInterval(poll);
@@ -154,9 +199,16 @@ export function useVisitorChat({
         const question = input.trim();
         if (!question || isSending) return;
 
-        const history = messages.filter((m) => !m.error).map((m) => ({ role: m.role, content: m.content }));
+        const history = messages
+            .filter((m) => !m.error)
+            .map((m) => ({ role: m.role, content: m.content }));
 
-        const userMessage: ChatMessage = { id: newId("local"), role: "user", content: question, author: "requester" };
+        const userMessage: ChatMessage = {
+            id: newId("local"),
+            role: "user",
+            content: question,
+            author: "requester",
+        };
         stickToBottomRef.current = true;
         setMessages((prev) => [...prev, userMessage]);
         setInput("");
@@ -173,7 +225,12 @@ export function useVisitorChat({
                 body: JSON.stringify({
                     message: question,
                     history,
-                    ...(conversation ? { conversationId: conversation.id, conversationToken: conversation.token } : {}),
+                    ...(conversation
+                        ? {
+                              conversationId: conversation.id,
+                              conversationToken: conversation.token,
+                          }
+                        : {}),
                 }),
             });
             if (!res.ok) throw new Error(`Chat failed (${res.status})`);
@@ -184,7 +241,10 @@ export function useVisitorChat({
                 conversationId: string;
                 conversationToken: string;
             };
-            const nextConversation = { id: body.conversationId, token: body.conversationToken };
+            const nextConversation = {
+                id: body.conversationId,
+                token: body.conversationToken,
+            };
             localStorage.setItem(storageKey, JSON.stringify(nextConversation));
             setConversation(nextConversation);
             setMessages((prev) => [
@@ -226,7 +286,12 @@ export function useVisitorChat({
     /** True once the visitor has more than a greeting (or is mid-reply). */
     const hasThread =
         isSending ||
-        messages.some((m) => m.role === "user" || m.error || (m.role === "assistant" && m.id !== "greeting"));
+        messages.some(
+            (m) =>
+                m.role === "user" ||
+                m.error ||
+                (m.role === "assistant" && m.id !== "greeting"),
+        );
 
     return {
         messages,

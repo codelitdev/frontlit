@@ -104,10 +104,7 @@ export function ContentWidget({
             nextTheme={nextTheme}
         >
             <div
-                className={clsx(
-                    "flex flex-col gap-8",
-                    sideBySide && direction,
-                )}
+                className={clsx("flex flex-col gap-8", sideBySide && direction)}
             >
                 {hasMedia && (
                     <div

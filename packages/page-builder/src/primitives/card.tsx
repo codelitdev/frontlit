@@ -10,23 +10,20 @@ export interface PageCardProps extends React.HTMLAttributes<HTMLDivElement> {
     theme?: ThemeStyle;
 }
 
-export interface PageCardImageProps
-    extends React.ImgHTMLAttributes<HTMLImageElement> {
+export interface PageCardImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
     src: string;
     alt: string;
     className?: string;
     theme?: ThemeStyle;
 }
 
-export interface PageCardContentProps
-    extends React.HTMLAttributes<HTMLDivElement> {
+export interface PageCardContentProps extends React.HTMLAttributes<HTMLDivElement> {
     children: React.ReactNode;
     className?: string;
     theme?: ThemeStyle;
 }
 
-export interface PageCardHeaderProps
-    extends React.HTMLAttributes<HTMLDivElement> {
+export interface PageCardHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
     children: React.ReactNode;
     className?: string;
     theme?: ThemeStyle;

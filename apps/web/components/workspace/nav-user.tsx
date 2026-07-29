@@ -12,7 +12,12 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/codelit/dropdown-menu";
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
+import {
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    useSidebar,
+} from "@/components/ui/sidebar";
 
 interface CurrentAccount {
     email: string;
@@ -41,21 +46,34 @@ export function NavUser({ account }: { account: CurrentAccount | null }) {
                                 {initialsFor(account)}
                             </div>
                             <div className="grid min-w-0 flex-1 text-left text-sm leading-tight">
-                                <span className="truncate font-medium">{account?.name || "FrontLit"}</span>
-                                <span className="truncate text-xs text-muted-foreground">{account?.email || "Signed in"}</span>
+                                <span className="truncate font-medium">
+                                    {account?.name || "FrontLit"}
+                                </span>
+                                <span className="truncate text-xs text-muted-foreground">
+                                    {account?.email || "Signed in"}
+                                </span>
                             </div>
                             <ChevronsUpDown className="ml-auto size-4" />
                         </SidebarMenuButton>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-64" side={isMobile ? "bottom" : "right"} align="end" sideOffset={4}>
+                    <DropdownMenuContent
+                        className="w-64"
+                        side={isMobile ? "bottom" : "right"}
+                        align="end"
+                        sideOffset={4}
+                    >
                         <DropdownMenuLabel className="p-0 font-normal">
                             <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                                 <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-accent text-sm font-semibold text-sidebar-accent-foreground">
                                     {initialsFor(account)}
                                 </div>
                                 <div className="grid min-w-0 flex-1 leading-tight">
-                                    <span className="truncate font-medium">{account?.name || "FrontLit"}</span>
-                                    <span className="truncate text-xs text-muted-foreground">{account?.email || "Signed in"}</span>
+                                    <span className="truncate font-medium">
+                                        {account?.name || "FrontLit"}
+                                    </span>
+                                    <span className="truncate text-xs text-muted-foreground">
+                                        {account?.email || "Signed in"}
+                                    </span>
                                 </div>
                             </div>
                         </DropdownMenuLabel>
@@ -71,7 +89,9 @@ export function NavUser({ account }: { account: CurrentAccount | null }) {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                             onClick={async () => {
-                                await fetch("/api/auth/sign-out", { method: "POST" });
+                                await fetch("/api/auth/sign-out", {
+                                    method: "POST",
+                                });
                                 router.push("/login");
                             }}
                         >

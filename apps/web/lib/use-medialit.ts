@@ -17,18 +17,29 @@ interface UseMediaLitProps {
     onUploadError?: (error: Error) => void;
 }
 
-export function useMediaLit({ signatureEndpoint, access = "public", onUploadComplete, onUploadError }: UseMediaLitProps) {
+export function useMediaLit({
+    signatureEndpoint,
+    access = "public",
+    onUploadComplete,
+    onUploadError,
+}: UseMediaLitProps) {
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const uploadRef = useRef<TUSUpload | null>(null);
 
-    async function getSignature(): Promise<{ signature?: string; endpoint?: string }> {
+    async function getSignature(): Promise<{
+        signature?: string;
+        endpoint?: string;
+    }> {
         const res = await fetch(signatureEndpoint, { method: "POST" });
         if (!res.ok) return {};
         return res.json();
     }
 
-    function uploadFile(fileToUpload: File, metadata: Record<string, string> = {}): Promise<Record<string, any>> {
+    function uploadFile(
+        fileToUpload: File,
+        metadata: Record<string, string> = {},
+    ): Promise<Record<string, any>> {
         setIsUploading(true);
         setUploadProgress(0);
 
@@ -36,7 +47,9 @@ export function useMediaLit({ signatureEndpoint, access = "public", onUploadComp
             getSignature()
                 .then(({ signature, endpoint }) => {
                     if (!signature || !endpoint) {
-                        const err = new Error("Failed to obtain upload signature");
+                        const err = new Error(
+                            "Failed to obtain upload signature",
+                        );
                         setIsUploading(false);
                         onUploadError?.(err);
                         reject(err);
@@ -55,7 +68,9 @@ export function useMediaLit({ signatureEndpoint, access = "public", onUploadComp
                             ...metadata,
                         },
                         onProgress: (bytesUploaded, bytesTotal) => {
-                            setUploadProgress((bytesUploaded / bytesTotal) * 100);
+                            setUploadProgress(
+                                (bytesUploaded / bytesTotal) * 100,
+                            );
                         },
                         onError: (error) => {
                             setIsUploading(false);
@@ -64,14 +79,23 @@ export function useMediaLit({ signatureEndpoint, access = "public", onUploadComp
                         },
                         onSuccess: (payload) => {
                             try {
-                                const mediaString = payload.lastResponse.getHeader("Media");
-                                const media = mediaString ? JSON.parse(mediaString) : null;
-                                if (!media) throw new Error("Upload completed without media metadata");
+                                const mediaString =
+                                    payload.lastResponse.getHeader("Media");
+                                const media = mediaString
+                                    ? JSON.parse(mediaString)
+                                    : null;
+                                if (!media)
+                                    throw new Error(
+                                        "Upload completed without media metadata",
+                                    );
                                 setUploadProgress(100);
                                 onUploadComplete?.(media);
                                 resolve(media);
                             } catch (error) {
-                                const uploadError = error instanceof Error ? error : new Error("Failed to parse media");
+                                const uploadError =
+                                    error instanceof Error
+                                        ? error
+                                        : new Error("Failed to parse media");
                                 onUploadError?.(uploadError);
                                 reject(uploadError);
                             } finally {
@@ -83,7 +107,8 @@ export function useMediaLit({ signatureEndpoint, access = "public", onUploadComp
                     const upload = new TUSUpload(fileToUpload, tusOptions);
                     uploadRef.current = upload;
                     upload.findPreviousUploads().then((previousUploads) => {
-                        if (previousUploads.length) upload.resumeFromPreviousUpload(previousUploads[0]);
+                        if (previousUploads.length)
+                            upload.resumeFromPreviousUpload(previousUploads[0]);
                         upload.start();
                     });
                 })

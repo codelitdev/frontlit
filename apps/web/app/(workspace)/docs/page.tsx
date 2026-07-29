@@ -92,7 +92,9 @@ export default function DocumentationPage() {
     const [filter, setFilter] = useState<DocsFilter>("all");
     const [titleFilter, setTitleFilter] = useState("");
     const [askMode, setAskMode] = useState(false);
-    const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+    const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
+        new Set(),
+    );
 
     const [newDocOpen, setNewDocOpen] = useState(false);
     const [newTitle, setNewTitle] = useState("");
@@ -101,12 +103,16 @@ export default function DocumentationPage() {
     const [creating, setCreating] = useState(false);
 
     const [sectionDialogOpen, setSectionDialogOpen] = useState(false);
-    const [editingSection, setEditingSection] = useState<DocSection | null>(null);
+    const [editingSection, setEditingSection] = useState<DocSection | null>(
+        null,
+    );
     const [sectionName, setSectionName] = useState("");
     const [sectionSaving, setSectionSaving] = useState(false);
 
     const [query, setQuery] = useState("");
-    const [searchResults, setSearchResults] = useState<DocSearchResult[] | null>(null);
+    const [searchResults, setSearchResults] = useState<
+        DocSearchResult[] | null
+    >(null);
     const [searching, setSearching] = useState(false);
     const [searchError, setSearchError] = useState<string | null>(null);
 
@@ -122,7 +128,11 @@ export default function DocumentationPage() {
     useEffect(() => {
         refresh()
             .catch((error) => {
-                toast.error(error instanceof ApiError ? error.message : "Failed to load docs.");
+                toast.error(
+                    error instanceof ApiError
+                        ? error.message
+                        : "Failed to load docs.",
+                );
             })
             .finally(() => setLoading(false));
     }, []);
@@ -135,7 +145,9 @@ export default function DocumentationPage() {
     const groups = useMemo(
         () =>
             groupDocsBySection(filteredDocs, sections).filter(
-                (group) => group.docs.length > 0 || (filter === "all" && !titleFilter.trim()),
+                (group) =>
+                    group.docs.length > 0 ||
+                    (filter === "all" && !titleFilter.trim()),
             ),
         [filteredDocs, sections, filter, titleFilter],
     );
@@ -159,19 +171,26 @@ export default function DocumentationPage() {
         setCreating(true);
         try {
             const sectionDocs = docs.filter(
-                (doc) => (doc.draftMeta.sectionId ?? NO_SECTION) === newDocSectionId,
+                (doc) =>
+                    (doc.draftMeta.sectionId ?? NO_SECTION) === newDocSectionId,
             );
             const created = await createHelpDoc({
                 title: validation.title,
                 meta: {
-                    sectionId: newDocSectionId === NO_SECTION ? undefined : newDocSectionId,
+                    sectionId:
+                        newDocSectionId === NO_SECTION
+                            ? undefined
+                            : newDocSectionId,
                     order: sectionDocs.length,
                 },
             });
             setNewDocOpen(false);
             router.push(`/editor/docs/${created.documentId}`);
         } catch (error) {
-            const message = error instanceof ApiError ? error.message : "Failed to create doc.";
+            const message =
+                error instanceof ApiError
+                    ? error.message
+                    : "Failed to create doc.";
             setCreateError(message);
             toast.error(message);
         } finally {
@@ -182,10 +201,16 @@ export default function DocumentationPage() {
     async function handleDeleteDoc(documentId: string) {
         try {
             await deleteHelpDoc(documentId);
-            setDocs((current) => current.filter((doc) => doc.documentId !== documentId));
+            setDocs((current) =>
+                current.filter((doc) => doc.documentId !== documentId),
+            );
             toast.success("Doc deleted.");
         } catch (error) {
-            toast.error(error instanceof ApiError ? error.message : "Failed to delete doc.");
+            toast.error(
+                error instanceof ApiError
+                    ? error.message
+                    : "Failed to delete doc.",
+            );
         }
     }
 
@@ -218,7 +243,11 @@ export default function DocumentationPage() {
             setSectionDialogOpen(false);
             await refresh();
         } catch (error) {
-            toast.error(error instanceof ApiError ? error.message : "Failed to save section.");
+            toast.error(
+                error instanceof ApiError
+                    ? error.message
+                    : "Failed to save section.",
+            );
         } finally {
             setSectionSaving(false);
         }
@@ -226,7 +255,9 @@ export default function DocumentationPage() {
 
     async function handleDeleteSection(section: DocSection) {
         try {
-            const assignedDocs = docs.filter((doc) => doc.draftMeta.sectionId === section.sectionId);
+            const assignedDocs = docs.filter(
+                (doc) => doc.draftMeta.sectionId === section.sectionId,
+            );
             await Promise.all(
                 assignedDocs.map((doc) =>
                     updateHelpDoc(doc.documentId, {
@@ -238,7 +269,11 @@ export default function DocumentationPage() {
             await refresh();
             toast.success("Section deleted. Its docs are now unsectioned.");
         } catch (error) {
-            toast.error(error instanceof ApiError ? error.message : "Failed to delete section.");
+            toast.error(
+                error instanceof ApiError
+                    ? error.message
+                    : "Failed to delete section.",
+            );
         }
     }
 
@@ -262,7 +297,8 @@ export default function DocumentationPage() {
             const { items } = await searchDocs(query.trim());
             setSearchResults(items);
         } catch (error) {
-            const message = error instanceof ApiError ? error.message : "Search failed.";
+            const message =
+                error instanceof ApiError ? error.message : "Search failed.";
             setSearchError(message);
             toast.error(message);
         } finally {
@@ -283,10 +319,14 @@ export default function DocumentationPage() {
             <div className="mx-auto w-full max-w-6xl">
                 <header className="flex flex-col gap-5 border-b pb-5 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <h1 className="text-2xl font-semibold tracking-tight">Docs</h1>
+                        <h1 className="text-2xl font-semibold tracking-tight">
+                            Docs
+                        </h1>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            {plural(counts.published, "live doc")} · {plural(counts.draft, "draft")} ·{" "}
-                            {plural(counts.changes, "doc")} with unpublished changes
+                            {plural(counts.published, "live doc")} ·{" "}
+                            {plural(counts.draft, "draft")} ·{" "}
+                            {plural(counts.changes, "doc")} with unpublished
+                            changes
                         </p>
                     </div>
 
@@ -297,7 +337,9 @@ export default function DocumentationPage() {
                                 id="docs-filter"
                                 name="docsFilter"
                                 value={titleFilter}
-                                onChange={(event) => setTitleFilter(event.target.value)}
+                                onChange={(event) =>
+                                    setTitleFilter(event.target.value)
+                                }
                                 placeholder="Filter by title or slug"
                                 aria-label="Filter docs by title or slug"
                                 className="pl-9"
@@ -321,19 +363,27 @@ export default function DocumentationPage() {
                 {askMode ? (
                     <section className="max-w-3xl py-8">
                         <div className="mb-5">
-                            <h2 className="text-xl font-semibold">Ask your docs</h2>
+                            <h2 className="text-xl font-semibold">
+                                Ask your docs
+                            </h2>
                             <p className="mt-1 text-sm text-muted-foreground">
-                                Search the semantic index built from your published docs. Results
-                                are matching source passages, not an AI-generated answer.
+                                Search the semantic index built from your
+                                published docs. Results are matching source
+                                passages, not an AI-generated answer.
                             </p>
                         </div>
 
-                        <form onSubmit={handleSearch} className="flex flex-col gap-2 sm:flex-row">
+                        <form
+                            onSubmit={handleSearch}
+                            className="flex flex-col gap-2 sm:flex-row"
+                        >
                             <div className="relative flex-1">
                                 <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
                                     value={query}
-                                    onChange={(event) => setQuery(event.target.value)}
+                                    onChange={(event) =>
+                                        setQuery(event.target.value)
+                                    }
                                     id="doc-search"
                                     name="query"
                                     autoComplete="off"
@@ -352,14 +402,22 @@ export default function DocumentationPage() {
                         </form>
 
                         {searchError && (
-                            <p role="alert" className="mt-3 text-sm text-destructive">
+                            <p
+                                role="alert"
+                                className="mt-3 text-sm text-destructive"
+                            >
                                 {searchError}
                             </p>
                         )}
 
                         {searchResults && (
-                            <div className="mt-7" data-testid="doc-search-results">
-                                <h3 className="mb-3 text-sm font-semibold">Top matching passages</h3>
+                            <div
+                                className="mt-7"
+                                data-testid="doc-search-results"
+                            >
+                                <h3 className="mb-3 text-sm font-semibold">
+                                    Top matching passages
+                                </h3>
                                 {searchResults.length === 0 ? (
                                     <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
                                         No matches found in published docs.
@@ -367,7 +425,9 @@ export default function DocumentationPage() {
                                 ) : (
                                     <div className="space-y-3">
                                         {searchResults.map((result, index) => (
-                                            <Card key={`${result.documentId}-${result.anchor ?? index}`}>
+                                            <Card
+                                                key={`${result.documentId}-${result.anchor ?? index}`}
+                                            >
                                                 <CardContent className="p-0">
                                                     <div className="p-5">
                                                         <p className="line-clamp-4 text-sm leading-6">
@@ -383,17 +443,25 @@ export default function DocumentationPage() {
                                                                 href={`/editor/docs/${result.documentId}`}
                                                                 className="font-medium text-primary hover:underline"
                                                             >
-                                                                {result.title ?? "Untitled doc"}
+                                                                {result.title ??
+                                                                    "Untitled doc"}
                                                             </Link>
                                                             {result.heading && (
                                                                 <span className="text-muted-foreground">
                                                                     {" "}
-                                                                    · {result.heading}
+                                                                    ·{" "}
+                                                                    {
+                                                                        result.heading
+                                                                    }
                                                                 </span>
                                                             )}
                                                         </div>
                                                         <span className="shrink-0 tabular-nums text-muted-foreground">
-                                                            {(result.similarity * 100).toFixed(0)}% match
+                                                            {(
+                                                                result.similarity *
+                                                                100
+                                                            ).toFixed(0)}
+                                                            % match
                                                         </span>
                                                     </div>
                                                 </CardContent>
@@ -427,8 +495,12 @@ export default function DocumentationPage() {
                                             key={item.value}
                                             type="button"
                                             role="tab"
-                                            aria-selected={filter === item.value}
-                                            onClick={() => setFilter(item.value)}
+                                            aria-selected={
+                                                filter === item.value
+                                            }
+                                            onClick={() =>
+                                                setFilter(item.value)
+                                            }
                                             className={cn(
                                                 "rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors",
                                                 filter === item.value &&
@@ -436,7 +508,9 @@ export default function DocumentationPage() {
                                             )}
                                         >
                                             {item.label}{" "}
-                                            <span className="ml-1 tabular-nums">{count}</span>
+                                            <span className="ml-1 tabular-nums">
+                                                {count}
+                                            </span>
                                         </button>
                                     );
                                 })}
@@ -451,7 +525,9 @@ export default function DocumentationPage() {
                                 <div className="rounded-lg border border-dashed px-6 py-12 text-center">
                                     <FilePlus2 className="mx-auto size-6 text-muted-foreground" />
                                     <h2 className="mt-3 font-semibold">
-                                        {docs.length === 0 ? "Create your first doc" : "No docs match"}
+                                        {docs.length === 0
+                                            ? "Create your first doc"
+                                            : "No docs match"}
                                     </h2>
                                     <p className="mt-1 text-sm text-muted-foreground">
                                         {docs.length === 0
@@ -474,7 +550,8 @@ export default function DocumentationPage() {
 
                             {groups.map((group) => {
                                 const groupKey = group.id ?? NO_SECTION;
-                                const collapsed = collapsedSections.has(groupKey);
+                                const collapsed =
+                                    collapsedSections.has(groupKey);
 
                                 return (
                                     <div key={groupKey}>
@@ -482,7 +559,9 @@ export default function DocumentationPage() {
                                             <button
                                                 type="button"
                                                 aria-label={`${collapsed ? "Expand" : "Collapse"} ${group.name}`}
-                                                onClick={() => toggleSection(group.id)}
+                                                onClick={() =>
+                                                    toggleSection(group.id)
+                                                }
                                                 className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                                             >
                                                 {collapsed ? (
@@ -491,7 +570,9 @@ export default function DocumentationPage() {
                                                     <ChevronDown className="size-4" />
                                                 )}
                                             </button>
-                                            <h2 className="text-sm font-semibold">{group.name}</h2>
+                                            <h2 className="text-sm font-semibold">
+                                                {group.name}
+                                            </h2>
                                             <span className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
                                                 {group.docs.length}
                                             </span>
@@ -500,7 +581,12 @@ export default function DocumentationPage() {
                                                     type="button"
                                                     variant="ghost"
                                                     size="sm"
-                                                    onClick={() => openNewDoc(group.id ?? NO_SECTION)}
+                                                    onClick={() =>
+                                                        openNewDoc(
+                                                            group.id ??
+                                                                NO_SECTION,
+                                                        )
+                                                    }
                                                 >
                                                     <Plus className="size-4" />
                                                     New
@@ -512,14 +598,22 @@ export default function DocumentationPage() {
                                                             variant="ghost"
                                                             size="sm"
                                                             aria-label={`Rename ${group.name}`}
-                                                            onClick={() => openRenameSection(group.section!)}
+                                                            onClick={() =>
+                                                                openRenameSection(
+                                                                    group.section!,
+                                                                )
+                                                            }
                                                         >
                                                             <Pencil className="size-4" />
                                                         </Button>
                                                         <DeleteConfirm
                                                             title={`Delete ${group.name}?`}
                                                             description={`Delete this section? Its ${plural(group.docs.length, "doc")} will become unsectioned.`}
-                                                            onConfirm={() => handleDeleteSection(group.section!)}
+                                                            onConfirm={() =>
+                                                                handleDeleteSection(
+                                                                    group.section!,
+                                                                )
+                                                            }
                                                         />
                                                     </>
                                                 )}
@@ -544,23 +638,37 @@ export default function DocumentationPage() {
                                                             >
                                                                 <div className="flex flex-wrap items-center gap-2">
                                                                     <span className="truncate text-sm font-semibold group-hover:underline">
-                                                                        {doc.draftTitle}
+                                                                        {
+                                                                            doc.draftTitle
+                                                                        }
                                                                     </span>
-                                                                    {doc.status !== "published" && (
-                                                                        <DocumentStatusBadge status={doc.status} />
+                                                                    {doc.status !==
+                                                                        "published" && (
+                                                                        <DocumentStatusBadge
+                                                                            status={
+                                                                                doc.status
+                                                                            }
+                                                                        />
                                                                     )}
                                                                 </div>
                                                                 <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
-                                                                    /docs/{doc.slug}
+                                                                    /docs/
+                                                                    {doc.slug}
                                                                 </p>
                                                             </Link>
                                                             <span className="hidden shrink-0 text-xs text-muted-foreground sm:block">
-                                                                {relativeUpdatedAt(doc.updatedAt)}
+                                                                {relativeUpdatedAt(
+                                                                    doc.updatedAt,
+                                                                )}
                                                             </span>
                                                             <DeleteConfirm
                                                                 title={`Delete ${doc.draftTitle}?`}
                                                                 description="This doc and its published version will be permanently deleted."
-                                                                onConfirm={() => handleDeleteDoc(doc.documentId)}
+                                                                onConfirm={() =>
+                                                                    handleDeleteDoc(
+                                                                        doc.documentId,
+                                                                    )
+                                                                }
                                                             />
                                                         </div>
                                                     ))
@@ -609,7 +717,11 @@ export default function DocumentationPage() {
                                     }}
                                     placeholder="What is this doc about?"
                                     aria-invalid={Boolean(createError)}
-                                    aria-describedby={createError ? "doc-title-error" : undefined}
+                                    aria-describedby={
+                                        createError
+                                            ? "doc-title-error"
+                                            : undefined
+                                    }
                                     className="mt-1"
                                     disabled={creating}
                                 />
@@ -632,11 +744,16 @@ export default function DocumentationPage() {
                                     onValueChange={setNewDocSectionId}
                                     disabled={creating}
                                 >
-                                    <SelectTrigger id="new-doc-section" className="mt-1">
+                                    <SelectTrigger
+                                        id="new-doc-section"
+                                        className="mt-1"
+                                    >
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value={NO_SECTION}>No section</SelectItem>
+                                        <SelectItem value={NO_SECTION}>
+                                            No section
+                                        </SelectItem>
                                         {sections.map((section) => (
                                             <SelectItem
                                                 key={section.sectionId}
@@ -667,15 +784,21 @@ export default function DocumentationPage() {
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={sectionDialogOpen} onOpenChange={setSectionDialogOpen}>
+            <Dialog
+                open={sectionDialogOpen}
+                onOpenChange={setSectionDialogOpen}
+            >
                 <DialogContent>
                     <form onSubmit={handleSaveSection}>
                         <DialogHeader>
                             <DialogTitle>
-                                {editingSection ? "Rename section" : "Add section"}
+                                {editingSection
+                                    ? "Rename section"
+                                    : "Add section"}
                             </DialogTitle>
                             <DialogDescription>
-                                Sections organize docs in this workspace and the help center.
+                                Sections organize docs in this workspace and the
+                                help center.
                             </DialogDescription>
                         </DialogHeader>
 
@@ -685,7 +808,9 @@ export default function DocumentationPage() {
                                 id="section-name"
                                 name="sectionName"
                                 value={sectionName}
-                                onChange={(event) => setSectionName(event.target.value)}
+                                onChange={(event) =>
+                                    setSectionName(event.target.value)
+                                }
                                 placeholder="Getting started"
                                 autoFocus
                                 className="mt-1"

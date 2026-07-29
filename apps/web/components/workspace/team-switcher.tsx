@@ -11,7 +11,12 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/codelit/dropdown-menu";
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
+import {
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    useSidebar,
+} from "@/components/ui/sidebar";
 import { FrontLitLogo } from "@/components/workspace/frontlit-logo";
 import type { Team } from "@/lib/api";
 
@@ -24,7 +29,8 @@ export function TeamSwitcher({
 }) {
     const { isMobile } = useSidebar();
     const pathname = usePathname();
-    const currentTeam = teams.find((team) => team.teamId === currentTeamId) ?? teams[0];
+    const currentTeam =
+        teams.find((team) => team.teamId === currentTeamId) ?? teams[0];
 
     return (
         <SidebarMenu>
@@ -39,29 +45,64 @@ export function TeamSwitcher({
                                 <FrontLitLogo className="size-8" />
                             </div>
                             <div className="grid min-w-0 flex-1 text-left text-sm leading-tight">
-                                <span className="truncate font-medium">{currentTeam?.name ?? "FrontLit"}</span>
+                                <span className="truncate font-medium">
+                                    {currentTeam?.name ?? "FrontLit"}
+                                </span>
                                 <span className="truncate text-xs text-muted-foreground">
-                                    {currentTeam ? "Team workspace" : "Select team"}
+                                    {currentTeam
+                                        ? "Team workspace"
+                                        : "Select team"}
                                 </span>
                             </div>
                             <ChevronsUpDown className="ml-auto size-4" />
                         </SidebarMenuButton>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-64" align="start" side={isMobile ? "bottom" : "right"} sideOffset={4}>
-                        <DropdownMenuLabel className="text-xs text-muted-foreground">Teams</DropdownMenuLabel>
+                    <DropdownMenuContent
+                        className="w-64"
+                        align="start"
+                        side={isMobile ? "bottom" : "right"}
+                        sideOffset={4}
+                    >
+                        <DropdownMenuLabel className="text-xs text-muted-foreground">
+                            Teams
+                        </DropdownMenuLabel>
                         {teams.length === 0 ? (
-                            <div className="px-2 py-2 text-sm text-muted-foreground">No teams available.</div>
+                            <div className="px-2 py-2 text-sm text-muted-foreground">
+                                No teams available.
+                            </div>
                         ) : (
                             teams.map((team) => (
-                                <DropdownMenuItem key={team.teamId} asChild className="gap-2 p-2">
-                                    <form action="/api/team/switch" method="POST">
-                                        <input type="hidden" name="teamId" value={team.teamId} />
-                                        <input type="hidden" name="redirectTo" value={pathname} />
-                                        <button type="submit" className="flex w-full items-center gap-2 text-left">
+                                <DropdownMenuItem
+                                    key={team.teamId}
+                                    asChild
+                                    className="gap-2 p-2"
+                                >
+                                    <form
+                                        action="/api/team/switch"
+                                        method="POST"
+                                    >
+                                        <input
+                                            type="hidden"
+                                            name="teamId"
+                                            value={team.teamId}
+                                        />
+                                        <input
+                                            type="hidden"
+                                            name="redirectTo"
+                                            value={pathname}
+                                        />
+                                        <button
+                                            type="submit"
+                                            className="flex w-full items-center gap-2 text-left"
+                                        >
                                             <span className="flex size-6 shrink-0 items-center justify-center rounded-md border text-xs font-medium">
-                                                {team.name.slice(0, 1).toUpperCase()}
+                                                {team.name
+                                                    .slice(0, 1)
+                                                    .toUpperCase()}
                                             </span>
-                                            <span className="min-w-0 flex-1 truncate">{team.name}</span>
+                                            <span className="min-w-0 flex-1 truncate">
+                                                {team.name}
+                                            </span>
                                         </button>
                                     </form>
                                 </DropdownMenuItem>
@@ -73,7 +114,9 @@ export function TeamSwitcher({
                                 <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
                                     <Plus className="size-4" />
                                 </div>
-                                <div className="font-medium text-muted-foreground">Add team</div>
+                                <div className="font-medium text-muted-foreground">
+                                    Add team
+                                </div>
                             </Link>
                         </DropdownMenuItem>
                     </DropdownMenuContent>

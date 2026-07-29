@@ -162,8 +162,8 @@
         "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
     --font-merriweather:
-        var(--font-merriweather), ui-serif, Georgia, Cambria,
-        "Times New Roman", Times, serif;
+        var(--font-merriweather), ui-serif, Georgia, Cambria, "Times New Roman",
+        Times, serif;
     --font-inter:
         var(--font-inter), ui-sans-serif, system-ui, sans-serif,
         "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
@@ -203,8 +203,8 @@
         "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
     --font-roboto-slab:
-        var(--font-roboto-slab), ui-serif, Georgia, Cambria,
-        "Times New Roman", Times, serif;
+        var(--font-roboto-slab), ui-serif, Georgia, Cambria, "Times New Roman",
+        Times, serif;
     --font-source-serif-4:
         var(--font-source-serif-4), ui-serif, Georgia, Cambria,
         "Times New Roman", Times, serif;

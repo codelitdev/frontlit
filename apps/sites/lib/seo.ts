@@ -19,7 +19,9 @@ export interface ResolvedSeo {
     robotsIndex: boolean;
 }
 
-function mediaUrl(media: Record<string, unknown> | null | undefined): string | null {
+function mediaUrl(
+    media: Record<string, unknown> | null | undefined,
+): string | null {
     if (!media) return null;
     const url = media.url;
     return typeof url === "string" ? url : null;
@@ -31,7 +33,11 @@ function mediaUrl(media: Record<string, unknown> | null | undefined): string | n
  * → team logo; description = page/entity description → site subtitle.
  * Robots defaults to indexable unless explicitly disallowed.
  */
-export function resolveSeo(entry: SeoInput, site: PublicSettings | null, siteName: string): ResolvedSeo {
+export function resolveSeo(
+    entry: SeoInput,
+    site: PublicSettings | null,
+    siteName: string,
+): ResolvedSeo {
     const title = entry.title || entry.fallbackName || site?.title || siteName;
     const description = entry.description || site?.subtitle || null;
     const imageUrl = mediaUrl(entry.image) ?? mediaUrl(site?.logo) ?? null;
@@ -42,6 +48,9 @@ export function resolveSeo(entry: SeoInput, site: PublicSettings | null, siteNam
 
 /** `<title>` template suffix — every route composes with this via Next's
  * `generateMetadata` `parent` chaining. */
-export function titleTemplate(site: PublicSettings | null, siteName: string): string {
+export function titleTemplate(
+    site: PublicSettings | null,
+    siteName: string,
+): string {
     return site?.title || siteName;
 }

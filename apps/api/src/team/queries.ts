@@ -42,7 +42,10 @@ export async function listTeamsForAccount(accountId: string) {
 
 export async function getTeamMembership(teamId: string, accountId: string) {
     return db.query.teamMembers.findFirst({
-        where: and(eq(teamMembers.teamId, teamId), eq(teamMembers.accountId, accountId)),
+        where: and(
+            eq(teamMembers.teamId, teamId),
+            eq(teamMembers.accountId, accountId),
+        ),
     });
 }
 
@@ -77,7 +80,9 @@ export async function deleteTeam(teamId: string) {
 }
 
 export async function findTeamByExternalId(externalId: string) {
-    return db.query.teams.findFirst({ where: eq(teams.externalId, externalId) });
+    return db.query.teams.findFirst({
+        where: eq(teams.externalId, externalId),
+    });
 }
 
 export async function createTeam(input: {
@@ -96,7 +101,11 @@ export async function createTeam(input: {
         })
         .returning();
 
-    await db.insert(teamMembers).values({ teamId: team.id, accountId: input.ownerAccountId, role: "owner" });
+    await db.insert(teamMembers).values({
+        teamId: team.id,
+        accountId: input.ownerAccountId,
+        role: "owner",
+    });
 
     // Standard pages are provisioned immediately. The public website remains
     // inactive until a member deliberately claims its subdomain in settings.
@@ -106,7 +115,13 @@ export async function createTeam(input: {
     // §10.1). Best-effort + non-blocking: never lets a SendLit outage fail
     // team creation, and falls back to an owner-email lookup if the caller
     // didn't already have one handy.
-    const ownerEmail = input.ownerEmail ?? (await db.query.accounts.findFirst({ where: eq(accounts.id, input.ownerAccountId) }))?.email;
+    const ownerEmail =
+        input.ownerEmail ??
+        (
+            await db.query.accounts.findFirst({
+                where: eq(accounts.id, input.ownerAccountId),
+            })
+        )?.email;
     if (ownerEmail) {
         await provisionSendlitForTeam(team, ownerEmail);
     }

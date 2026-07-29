@@ -19,6 +19,11 @@ function Editor() {
         // `updatePage(pageId, { layout: state.layout, ... })`.
     }
 
-    return <PageBuilder pageData={{ pageType: "landing" }} onChange={handleChange} />;
+    return (
+        <PageBuilder
+            pageData={{ pageType: "landing" }}
+            onChange={handleChange}
+        />
+    );
 }
 ```

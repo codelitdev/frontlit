@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChatbotWidgetStyle, ChatbotWidgetVariant } from "@/lib/api";
 import { ChatPanel } from "@/components/chat-panel";
-import { resolveChatAccent, resolveSiteTheme, siteThemeStyleTag } from "@/lib/site-theme";
+import {
+    resolveChatAccent,
+    resolveSiteTheme,
+    siteThemeStyleTag,
+} from "@/lib/site-theme";
 
 const DEFAULT_STYLE: ChatbotWidgetStyle = {
     bubbleShape: "circle",
@@ -22,12 +26,28 @@ function bubbleRadius(shape: ChatbotWidgetStyle["bubbleShape"]) {
     return shape === "circle" ? "9999px" : shape === "rounded" ? "16px" : "8px";
 }
 
-function BubbleIcon({ icon, className }: { icon: ChatbotWidgetStyle["bubbleIcon"]; className?: string }) {
+function BubbleIcon({
+    icon,
+    className,
+}: {
+    icon: ChatbotWidgetStyle["bubbleIcon"];
+    className?: string;
+}) {
     const cn = className ?? "h-6 w-6";
     if (icon === "message") {
         return (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={cn}>
-                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" strokeLinecap="round" strokeLinejoin="round" />
+            <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                className={cn}
+            >
+                <path
+                    d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
             </svg>
         );
     }
@@ -40,15 +60,34 @@ function BubbleIcon({ icon, className }: { icon: ChatbotWidgetStyle["bubbleIcon"
     }
     if (icon === "bot") {
         return (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={cn}>
+            <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                className={cn}
+            >
                 <rect x="5" y="8" width="14" height="11" rx="3" />
-                <path d="M12 5v3M9 12h.01M15 12h.01M9 16h6" strokeLinecap="round" />
+                <path
+                    d="M12 5v3M9 12h.01M15 12h.01M9 16h6"
+                    strokeLinecap="round"
+                />
             </svg>
         );
     }
     return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={cn}>
-            <path d="M4 4h16v12H7l-3 3V4z" strokeLinecap="round" strokeLinejoin="round" />
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            className={cn}
+        >
+            <path
+                d="M4 4h16v12H7l-3 3V4z"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
         </svg>
     );
 }
@@ -80,10 +119,16 @@ export function ChatWidget({
     themeStyle?: Record<string, unknown> | null;
 }) {
     const [open, setOpen] = useState(false);
-    const theme = useMemo(() => resolveSiteTheme(themeId, themeStyle), [themeId, themeStyle]);
+    const theme = useMemo(
+        () => resolveSiteTheme(themeId, themeStyle),
+        [themeId, themeStyle],
+    );
     const themeCss = useMemo(() => siteThemeStyleTag(theme), [theme]);
     const color = resolveChatAccent(accentColor, theme);
-    const style: ChatbotWidgetStyle = { ...DEFAULT_STYLE, ...(widgetStyle ?? {}) };
+    const style: ChatbotWidgetStyle = {
+        ...DEFAULT_STYLE,
+        ...(widgetStyle ?? {}),
+    };
 
     useEffect(() => {
         if (!open) return;
@@ -113,7 +158,9 @@ export function ChatWidget({
                         themeId={themeId}
                         themeStyle={themeStyle}
                         layout="docked"
-                        placeholder={style.inputPlaceholder || "Ask a question…"}
+                        placeholder={
+                            style.inputPlaceholder || "Ask a question…"
+                        }
                         inputRadius={style.inputRadius}
                         inputWidth={style.inputWidth}
                     />
@@ -128,7 +175,11 @@ export function ChatWidget({
             <style dangerouslySetInnerHTML={{ __html: themeCss }} />
             {open && (
                 <div className="h-[min(560px,calc(100vh-6rem))] w-[min(380px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
-                    <iframe src="/embed/chat" title={name} className="h-full w-full border-0" />
+                    <iframe
+                        src="/embed/chat"
+                        title={name}
+                        className="h-full w-full border-0"
+                    />
                 </div>
             )}
 
@@ -147,7 +198,13 @@ export function ChatWidget({
                 }}
             >
                 {open ? (
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-6 w-6">
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        className="h-6 w-6"
+                    >
                         <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
                     </svg>
                 ) : (

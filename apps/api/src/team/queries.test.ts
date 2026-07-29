@@ -5,12 +5,7 @@ import { makeTestDb, type TestDb } from "../test/db";
 vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 
 import { db as testDb } from "../db/client";
-import {
-    accounts,
-    authSession,
-    authUser,
-    pages,
-} from "../db/schema";
+import { accounts, authSession, authUser, pages } from "../db/schema";
 import {
     ensureFrontLitAccountForUser,
     findAccountByEmail,
@@ -30,13 +25,19 @@ describe("createTeam", () => {
     });
 
     async function makeOwner() {
-        const [account] = await db.insert(accounts).values({ email: `owner-${crypto.randomUUID()}@example.com` }).returning();
+        const [account] = await db
+            .insert(accounts)
+            .values({ email: `owner-${crypto.randomUUID()}@example.com` })
+            .returning();
         return account;
     }
 
     it("leaves the team's public website inactive until it claims a subdomain", async () => {
         const owner = await makeOwner();
-        const team = await createTeam({ ownerAccountId: owner.id, name: `Acme ${crypto.randomUUID().slice(0, 8)}` });
+        const team = await createTeam({
+            ownerAccountId: owner.id,
+            name: `Acme ${crypto.randomUUID().slice(0, 8)}`,
+        });
 
         expect(team.subdomain).toBeNull();
         expect(team.customDomain).toBeNull();
@@ -44,14 +45,35 @@ describe("createTeam", () => {
 
     it("seeds the standard, non-deleteable pages", async () => {
         const owner = await makeOwner();
-        const team = await createTeam({ ownerAccountId: owner.id, name: `Acme ${crypto.randomUUID().slice(0, 8)}` });
+        const team = await createTeam({
+            ownerAccountId: owner.id,
+            name: `Acme ${crypto.randomUUID().slice(0, 8)}`,
+        });
 
-        const teamPages = await db.query.pages.findMany({ where: eq(pages.teamId, team.id) });
+        const teamPages = await db.query.pages.findMany({
+            where: eq(pages.teamId, team.id),
+        });
         const slugs = teamPages.map((p) => p.slug).sort();
-        expect(slugs).toEqual(["", "blog", "changelog", "docs", "help", "privacy", "terms"].sort());
+        expect(slugs).toEqual(
+            [
+                "",
+                "blog",
+                "changelog",
+                "docs",
+                "help",
+                "privacy",
+                "terms",
+            ].sort(),
+        );
         expect(teamPages.every((p) => !p.deleteable)).toBe(true);
         expect(teamPages.every((p) => p.publishedAt !== null)).toBe(true);
-        expect(teamPages.every((p) => p.layout[0]?.name === "header" && p.layout.at(-1)?.name === "footer")).toBe(true);
+        expect(
+            teamPages.every(
+                (p) =>
+                    p.layout[0]?.name === "header" &&
+                    p.layout.at(-1)?.name === "footer",
+            ),
+        ).toBe(true);
         expect(
             teamPages.every(
                 (p) =>
@@ -63,13 +85,21 @@ describe("createTeam", () => {
         ).toBe(true);
 
         const helpPage = teamPages.find((p) => p.slug === "help");
-        expect(helpPage?.layout.map((widget) => widget.name)).toEqual(["header", "support-form", "footer"]);
+        expect(helpPage?.layout.map((widget) => widget.name)).toEqual([
+            "header",
+            "support-form",
+            "footer",
+        ]);
     });
 
     it("skips SendLit provisioning silently when SENDLIT_API_URL isn't configured", async () => {
         const owner = await makeOwner();
         await expect(
-            createTeam({ ownerAccountId: owner.id, name: "No SendLit", ownerEmail: owner.email }),
+            createTeam({
+                ownerAccountId: owner.id,
+                name: "No SendLit",
+                ownerEmail: owner.email,
+            }),
         ).resolves.toBeTruthy();
     });
 });

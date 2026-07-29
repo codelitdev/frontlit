@@ -20,18 +20,29 @@ import {
  * reachable. Falls back to a local-only success (no network call) when the
  * page isn't wired to a live team/API, e.g. an isolated component preview.
  */
-async function subscribeEmail(email: string, pageData: PageData): Promise<{ success: boolean }> {
+async function subscribeEmail(
+    email: string,
+    pageData: PageData,
+): Promise<{ success: boolean }> {
     if (!pageData.teamId || !pageData.publicApiBaseUrl) {
         await new Promise((resolve) => setTimeout(resolve, 600));
         return { success: Boolean(email) };
     }
 
     try {
-        const res = await fetch(`${pageData.publicApiBaseUrl}/public/${pageData.teamId}/leads`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ email, sourcePath: pageData.pageSlug ? `/${pageData.pageSlug}` : undefined }),
-        });
+        const res = await fetch(
+            `${pageData.publicApiBaseUrl}/public/${pageData.teamId}/leads`,
+            {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({
+                    email,
+                    sourcePath: pageData.pageSlug
+                        ? `/${pageData.pageSlug}`
+                        : undefined,
+                }),
+            },
+        );
         if (!res.ok) return { success: false };
         const body = (await res.json()) as { accepted: boolean };
         return { success: body.accepted };
@@ -169,9 +180,7 @@ export function EmailFormWidget({
                 <div
                     className={clsx(
                         "flex flex-col gap-4",
-                        layout === "split"
-                            ? "items-start"
-                            : "contents",
+                        layout === "split" ? "items-start" : "contents",
                     )}
                 >
                     <Header1 theme={overriddenTheme}>{title}</Header1>

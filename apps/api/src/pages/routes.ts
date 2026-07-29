@@ -27,7 +27,12 @@ router.use("/pages", requireAuth, requireTeam);
 const s = initServer();
 
 function toPublicPage<T extends Record<string, unknown>>(page: T) {
-    return serializeDates(omitInternal({ ...page, status: derivePageStatus(page as any) }, "teamId"));
+    return serializeDates(
+        omitInternal(
+            { ...page, status: derivePageStatus(page as any) },
+            "teamId",
+        ),
+    );
 }
 
 /** Thin ts-rest adapter: every handler extracts `params`/`query`/`body`
@@ -37,7 +42,10 @@ function toPublicPage<T extends Record<string, unknown>>(page: T) {
 const impl = s.router(contract.pages, {
     create: async ({ body, req }) => {
         try {
-            const page = await createPage({ teamId: (req as any).teamId, ...body });
+            const page = await createPage({
+                teamId: (req as any).teamId,
+                ...body,
+            });
             return { status: 201, body: toPublicPage(page) };
         } catch (error) {
             if (error instanceof InvalidThemeReferenceError) {
@@ -49,7 +57,13 @@ const impl = s.router(contract.pages, {
     list: async ({ query, req }) => {
         const teamId = (req as any).teamId;
         const [items, total] = await Promise.all([
-            listPages({ teamId, type: query.type, q: query.q, offset: query.offset, itemsPerPage: query.itemsPerPage }),
+            listPages({
+                teamId,
+                type: query.type,
+                q: query.q,
+                offset: query.offset,
+                itemsPerPage: query.itemsPerPage,
+            }),
             countPages({ teamId, type: query.type, q: query.q }),
         ]);
         return {
@@ -66,8 +80,13 @@ const impl = s.router(contract.pages, {
     },
     update: async ({ params, body, req }) => {
         try {
-            const page = await updatePage((req as any).teamId, params.pageId, body);
-            if (!page) return { status: 404, body: { error: "Page not found" } };
+            const page = await updatePage(
+                (req as any).teamId,
+                params.pageId,
+                body,
+            );
+            if (!page)
+                return { status: 404, body: { error: "Page not found" } };
             if (body.themeId !== undefined || body.slug !== undefined) {
                 const team = await findTeamById((req as any).teamId);
                 if (team) revalidateTeam(team.teamId).catch(() => {});
@@ -101,9 +120,15 @@ const impl = s.router(contract.pages, {
     },
     remove: async ({ params, req }) => {
         const result = await deletePage((req as any).teamId, params.pageId);
-        if (!result.ok && result.reason === "not_found") return { status: 404, body: { error: "Page not found" } };
+        if (!result.ok && result.reason === "not_found")
+            return { status: 404, body: { error: "Page not found" } };
         if (!result.ok && result.reason === "not_deleteable") {
-            return { status: 409, body: { error: "This is a standard page and can't be deleted." } };
+            return {
+                status: 409,
+                body: {
+                    error: "This is a standard page and can't be deleted.",
+                },
+            };
         }
         const team = await findTeamById((req as any).teamId);
         if (team) revalidateTeam(team.teamId).catch(() => {});

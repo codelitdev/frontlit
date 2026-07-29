@@ -68,7 +68,10 @@ const extractVimeoVideoId = (parsedUrl: URL) => {
     return null;
 };
 
-export function extractVideoId(url?: string, platform?: SupportedVideoPlatform) {
+export function extractVideoId(
+    url?: string,
+    platform?: SupportedVideoPlatform,
+) {
     if (!url) {
         return null;
     }

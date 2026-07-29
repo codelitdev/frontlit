@@ -17,22 +17,43 @@ async function loadPage(params: Props["params"]) {
     return { teamId, page };
 }
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata(
+    { params }: Props,
+    parent: ResolvingMetadata,
+): Promise<Metadata> {
     const { teamId, page } = await loadPage(params);
     if (!page) return {};
 
-    const [settings, previous] = await Promise.all([getSettings(teamId), parent]);
+    const [settings, previous] = await Promise.all([
+        getSettings(teamId),
+        parent,
+    ]);
     const seo = resolveSeo(
-        { title: page.title, description: page.description, image: page.socialImage, robotsAllowed: page.robotsAllowed, fallbackName: page.name },
+        {
+            title: page.title,
+            description: page.description,
+            image: page.socialImage,
+            robotsAllowed: page.robotsAllowed,
+            fallbackName: page.name,
+        },
         settings,
         previous.title?.absolute || "FrontLit site",
     );
 
     return {
-        title: page.slug === "" ? seo.title : `${seo.title} | ${previous.title?.absolute}`,
+        title:
+            page.slug === ""
+                ? seo.title
+                : `${seo.title} | ${previous.title?.absolute}`,
         description: seo.description ?? undefined,
-        alternates: { canonical: `https://${await getCanonicalHost()}/${page.slug}` },
-        openGraph: { title: seo.title, description: seo.description ?? undefined, images: seo.imageUrl ? [{ url: seo.imageUrl }] : undefined },
+        alternates: {
+            canonical: `https://${await getCanonicalHost()}/${page.slug}`,
+        },
+        openGraph: {
+            title: seo.title,
+            description: seo.description ?? undefined,
+            images: seo.imageUrl ? [{ url: seo.imageUrl }] : undefined,
+        },
         robots: { index: seo.robotsIndex, follow: seo.robotsIndex },
     };
 }
@@ -50,7 +71,13 @@ export default async function SitePage({ params }: Props) {
                     type="application/ld+json"
                     // eslint-disable-next-line react/no-danger
                     dangerouslySetInnerHTML={{
-                        __html: serializeJsonLd(organizationAndWebsiteJsonLd({ siteName: page.name, logoUrl: null, canonicalHost })),
+                        __html: serializeJsonLd(
+                            organizationAndWebsiteJsonLd({
+                                siteName: page.name,
+                                logoUrl: null,
+                                canonicalHost,
+                            }),
+                        ),
                     }}
                 />
             )}
@@ -58,7 +85,12 @@ export default async function SitePage({ params }: Props) {
                 layout={page.layout}
                 themeId={page.themeId}
                 themeStyle={page.theme}
-                pageData={{ pageType: page.type, teamId, pageSlug: page.slug, publicApiBaseUrl: API_PUBLIC_URL }}
+                pageData={{
+                    pageType: page.type,
+                    teamId,
+                    pageSlug: page.slug,
+                    publicApiBaseUrl: API_PUBLIC_URL,
+                }}
             />
         </>
     );

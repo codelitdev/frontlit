@@ -21,7 +21,9 @@ function DialogPortal(
     return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
 }
 
-function DialogClose(props: React.ComponentProps<typeof DialogPrimitive.Close>) {
+function DialogClose(
+    props: React.ComponentProps<typeof DialogPrimitive.Close>,
+) {
     return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
 }
 
@@ -87,7 +89,10 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
     return (
         <div
             data-slot="dialog-footer"
-            className={cn("mt-5 flex items-center justify-end gap-2.5", className)}
+            className={cn(
+                "mt-5 flex items-center justify-end gap-2.5",
+                className,
+            )}
             {...props}
         />
     );

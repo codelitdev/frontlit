@@ -5,12 +5,19 @@ import type { ChatMessage } from "@/lib/use-visitor-chat";
 
 function TypingDots({ color }: { color: string }) {
     return (
-        <div className="flex items-center gap-1 px-1 py-0.5" aria-label="Assistant is typing" role="status">
+        <div
+            className="flex items-center gap-1 px-1 py-0.5"
+            aria-label="Assistant is typing"
+            role="status"
+        >
             {[0, 1, 2].map((i) => (
                 <span
                     key={i}
                     className="inline-block h-1.5 w-1.5 animate-bounce rounded-full"
-                    style={{ backgroundColor: color, animationDelay: `${i * 120}ms` }}
+                    style={{
+                        backgroundColor: color,
+                        animationDelay: `${i * 120}ms`,
+                    }}
                 />
             ))}
         </div>
@@ -44,8 +51,17 @@ export function ChatMessageList({
             aria-relevant="additions"
         >
             {messages.map((message) => (
-                <div key={message.id} className={message.role === "user" ? "flex justify-end" : "flex justify-start"}>
-                    <div className={`max-w-[85%] ${message.role === "user" ? "items-end" : "items-start"} flex flex-col`}>
+                <div
+                    key={message.id}
+                    className={
+                        message.role === "user"
+                            ? "flex justify-end"
+                            : "flex justify-start"
+                    }
+                >
+                    <div
+                        className={`max-w-[85%] ${message.role === "user" ? "items-end" : "items-start"} flex flex-col`}
+                    >
                         <p
                             className={
                                 message.role === "user"
@@ -54,15 +70,25 @@ export function ChatMessageList({
                                       ? "whitespace-pre-wrap break-words rounded-2xl rounded-bl-md border border-destructive/30 bg-destructive/10 px-3.5 py-2 text-sm leading-relaxed text-destructive"
                                       : "whitespace-pre-wrap break-words rounded-2xl rounded-bl-md bg-muted px-3.5 py-2 text-sm leading-relaxed text-foreground"
                             }
-                            style={message.role === "user" ? { backgroundColor: color } : undefined}
+                            style={
+                                message.role === "user"
+                                    ? { backgroundColor: color }
+                                    : undefined
+                            }
                         >
                             {message.content}
                         </p>
-                        {message.author === "agent" && <p className="mt-1 px-1 text-xs text-muted-foreground">Support agent</p>}
+                        {message.author === "agent" && (
+                            <p className="mt-1 px-1 text-xs text-muted-foreground">
+                                Support agent
+                            </p>
+                        )}
                         {message.sources && message.sources.length > 0 && (
                             <ul className="mt-1.5 flex flex-col gap-0.5 px-1 text-xs text-muted-foreground">
                                 {message.sources.map((source) => (
-                                    <li key={`${source.documentId}-${source.anchor ?? ""}`}>
+                                    <li
+                                        key={`${source.documentId}-${source.anchor ?? ""}`}
+                                    >
                                         <a
                                             href={`/docs/${source.slug}${source.anchor ? `#${source.anchor}` : ""}`}
                                             target="_blank"

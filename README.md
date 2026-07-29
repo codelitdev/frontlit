@@ -7,6 +7,7 @@ The front office of your SaaS.
 API first. AI ready (MCP compatible)
 
 ## Tech stack
+
 - ts-rest (for API)
 - PostgreSQL (For DB and vector search)
 - Next.js

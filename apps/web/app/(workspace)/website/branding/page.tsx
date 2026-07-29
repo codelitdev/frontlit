@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useMediaLit } from "@/lib/use-medialit";
-import { getTeamSettings, registerMedia, updateTeamSettings, type TeamSettings } from "@/lib/api";
+import {
+    getTeamSettings,
+    registerMedia,
+    updateTeamSettings,
+    type TeamSettings,
+} from "@/lib/api";
 import { PageHeader } from "@/components/workspace/page-header";
 import { Loading } from "@/components/workspace/loading";
 import { ScrollablePage } from "@/components/workspace/scrollable-page";
@@ -13,7 +18,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
 
 export default function BrandingPage() {
-    useSetBreadcrumb([{ label: "Website", href: "/website/pages" }, { label: "Branding" }]);
+    useSetBreadcrumb([
+        { label: "Website", href: "/website/pages" },
+        { label: "Branding" },
+    ]);
     const [settings, setSettings] = useState<TeamSettings | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -27,7 +35,9 @@ export default function BrandingPage() {
     const { isUploading, uploadFile } = useMediaLit({
         signatureEndpoint: "/api/proxy/media/presigned",
         onUploadComplete: async (media) => {
-            const registered = await registerMedia({ mediaLitId: media.mediaId });
+            const registered = await registerMedia({
+                mediaLitId: media.mediaId,
+            });
             await save({ logo: registered as any });
         },
     });
@@ -63,30 +73,49 @@ export default function BrandingPage() {
                             <Input
                                 id="site-title"
                                 value={settings.title || ""}
-                                onChange={(e) => setSettings({ ...settings, title: e.target.value })}
+                                onChange={(e) =>
+                                    setSettings({
+                                        ...settings,
+                                        title: e.target.value,
+                                    })
+                                }
                                 onBlur={(e) => save({ title: e.target.value })}
                                 disabled={saving}
                             />
                         </div>
 
                         <div className="space-y-1.5">
-                            <Label htmlFor="site-subtitle">Subtitle / default description</Label>
+                            <Label htmlFor="site-subtitle">
+                                Subtitle / default description
+                            </Label>
                             <Input
                                 id="site-subtitle"
                                 value={settings.subtitle || ""}
-                                onChange={(e) => setSettings({ ...settings, subtitle: e.target.value })}
-                                onBlur={(e) => save({ subtitle: e.target.value })}
+                                onChange={(e) =>
+                                    setSettings({
+                                        ...settings,
+                                        subtitle: e.target.value,
+                                    })
+                                }
+                                onBlur={(e) =>
+                                    save({ subtitle: e.target.value })
+                                }
                                 disabled={saving}
                             />
                         </div>
 
                         <div className="space-y-1.5">
                             <Label>Logo</Label>
-                            <p className="text-xs text-muted-foreground">Default OG/Twitter image, JSON-LD logo, chat widget avatar and favicon.</p>
+                            <p className="text-xs text-muted-foreground">
+                                Default OG/Twitter image, JSON-LD logo, chat
+                                widget avatar and favicon.
+                            </p>
                             <div className="flex items-center gap-3">
                                 <Avatar className="size-12 rounded-md">
                                     <AvatarImage src={logoUrl} alt="" />
-                                    <AvatarFallback className="rounded-md">{settings.title?.slice(0, 1) || "F"}</AvatarFallback>
+                                    <AvatarFallback className="rounded-md">
+                                        {settings.title?.slice(0, 1) || "F"}
+                                    </AvatarFallback>
                                 </Avatar>
                                 <Input
                                     type="file"

@@ -20,7 +20,11 @@ export function getDocStatusCounts(docs: HelpDoc[]): DocStatusCounts {
     return docs.reduce<DocStatusCounts>(
         (counts, doc) => {
             counts.all += 1;
-            if (doc.status === "published" || doc.status === "published_with_changes") counts.published += 1;
+            if (
+                doc.status === "published" ||
+                doc.status === "published_with_changes"
+            )
+                counts.published += 1;
             if (doc.status === "draft") counts.draft += 1;
             if (doc.status === "published_with_changes") counts.changes += 1;
             return counts;
@@ -29,26 +33,43 @@ export function getDocStatusCounts(docs: HelpDoc[]): DocStatusCounts {
     );
 }
 
-export function filterDocs(docs: HelpDoc[], filter: DocsFilter, query: string): HelpDoc[] {
+export function filterDocs(
+    docs: HelpDoc[],
+    filter: DocsFilter,
+    query: string,
+): HelpDoc[] {
     const normalizedQuery = query.trim().toLowerCase();
 
     return docs.filter((doc) => {
         const matchesStatus =
             filter === "all" ||
-            (filter === "published" && (doc.status === "published" || doc.status === "published_with_changes")) ||
+            (filter === "published" &&
+                (doc.status === "published" ||
+                    doc.status === "published_with_changes")) ||
             (filter === "draft" && doc.status === "draft") ||
             (filter === "changes" && doc.status === "published_with_changes");
 
         if (!matchesStatus) return false;
         if (!normalizedQuery) return true;
 
-        return doc.draftTitle.toLowerCase().includes(normalizedQuery) || doc.slug.toLowerCase().includes(normalizedQuery);
+        return (
+            doc.draftTitle.toLowerCase().includes(normalizedQuery) ||
+            doc.slug.toLowerCase().includes(normalizedQuery)
+        );
     });
 }
 
-export function groupDocsBySection(docs: HelpDoc[], sections: DocSection[]): DocGroup[] {
-    const orderedSections = [...sections].sort((left, right) => left.order - right.order || left.name.localeCompare(right.name));
-    const knownSectionIds = new Set(orderedSections.map((section) => section.sectionId));
+export function groupDocsBySection(
+    docs: HelpDoc[],
+    sections: DocSection[],
+): DocGroup[] {
+    const orderedSections = [...sections].sort(
+        (left, right) =>
+            left.order - right.order || left.name.localeCompare(right.name),
+    );
+    const knownSectionIds = new Set(
+        orderedSections.map((section) => section.sectionId),
+    );
     const sortDocs = (items: HelpDoc[]) =>
         [...items].sort(
             (left, right) =>
@@ -60,10 +81,14 @@ export function groupDocsBySection(docs: HelpDoc[], sections: DocSection[]): Doc
         id: section.sectionId,
         name: section.name,
         section,
-        docs: sortDocs(docs.filter((doc) => doc.draftMeta.sectionId === section.sectionId)),
+        docs: sortDocs(
+            docs.filter((doc) => doc.draftMeta.sectionId === section.sectionId),
+        ),
     }));
     const unsectionedDocs = docs.filter(
-        (doc) => !doc.draftMeta.sectionId || !knownSectionIds.has(doc.draftMeta.sectionId),
+        (doc) =>
+            !doc.draftMeta.sectionId ||
+            !knownSectionIds.has(doc.draftMeta.sectionId),
     );
 
     if (unsectionedDocs.length > 0) {

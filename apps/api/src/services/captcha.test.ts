@@ -45,7 +45,9 @@ describe("captcha", () => {
     it("calls Cloudflare's siteverify endpoint and trusts its verdict", async () => {
         process.env.TURNSTILE_SECRET_KEY = "secret";
         process.env.CAPTCHA_PROVIDER = "turnstile";
-        const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({ success: true }) });
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValue({ json: async () => ({ success: true }) });
         vi.stubGlobal("fetch", fetchMock);
 
         expect(await verifyCaptcha("a-real-token", "1.2.3.4")).toBe(true);
@@ -54,18 +56,30 @@ describe("captcha", () => {
             expect.objectContaining({ method: "POST" }),
         );
         const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-        expect(body).toEqual({ secret: "secret", response: "a-real-token", remoteip: "1.2.3.4" });
+        expect(body).toEqual({
+            secret: "secret",
+            response: "a-real-token",
+            remoteip: "1.2.3.4",
+        });
     });
 
     it("fails closed when Cloudflare rejects the token", async () => {
         process.env.TURNSTILE_SECRET_KEY = "secret";
-        vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ json: async () => ({ success: false }) }));
+        vi.stubGlobal(
+            "fetch",
+            vi
+                .fn()
+                .mockResolvedValue({ json: async () => ({ success: false }) }),
+        );
         expect(await verifyCaptcha("bad-token")).toBe(false);
     });
 
     it("fails closed when the verification request throws", async () => {
         process.env.TURNSTILE_SECRET_KEY = "secret";
-        vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
+        vi.stubGlobal(
+            "fetch",
+            vi.fn().mockRejectedValue(new Error("network down")),
+        );
         expect(await verifyCaptcha("a-token")).toBe(false);
     });
 });

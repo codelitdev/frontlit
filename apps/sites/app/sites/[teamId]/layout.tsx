@@ -6,7 +6,11 @@ import { loadSiteTheme } from "@/lib/load-site-theme";
 import { CodeInjector } from "@/components/code-injector";
 import { ChatWidget } from "@/components/chat-widget";
 
-export async function generateMetadata({ params }: { params: Promise<{ teamId: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+    params,
+}: {
+    params: Promise<{ teamId: string }>;
+}): Promise<Metadata> {
     const { teamId } = await params;
     const settings = await getSettings(teamId);
     const siteTitle = settings?.title || "FrontLit site";
@@ -18,11 +22,20 @@ export async function generateMetadata({ params }: { params: Promise<{ teamId: s
         applicationName: "FrontLit",
         generator: "FrontLit",
         icons: logoUrl ? { icon: logoUrl } : undefined,
-        openGraph: { siteName: siteTitle, images: logoUrl ? [{ url: logoUrl }] : undefined },
+        openGraph: {
+            siteName: siteTitle,
+            images: logoUrl ? [{ url: logoUrl }] : undefined,
+        },
     };
 }
 
-export default async function TenantLayout({ children, params }: { children: React.ReactNode; params: Promise<{ teamId: string }> }) {
+export default async function TenantLayout({
+    children,
+    params,
+}: {
+    children: React.ReactNode;
+    params: Promise<{ teamId: string }>;
+}) {
     const { teamId } = await params;
     const isEmbed = (await headers()).get("x-frontlit-embed") === "1";
     if (isEmbed) return <>{children}</>;
@@ -35,7 +48,10 @@ export default async function TenantLayout({ children, params }: { children: Rea
 
     return (
         <>
-            <CodeInjector head={settings?.codeInjectionHead} body={settings?.codeInjectionBody} />
+            <CodeInjector
+                head={settings?.codeInjectionHead}
+                body={settings?.codeInjectionBody}
+            />
             {children}
             {chatbot?.enabled && (
                 <ChatWidget

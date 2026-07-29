@@ -25,7 +25,14 @@ vi.mock("./service", () => ({
 
 import { db as testDb } from "../db/client";
 import { sealMedia, deleteMedia } from "./service";
-import { countMedia, deleteMediaRecord, getMediaByMediaId, listMedia, registerMedia, updateMedia } from "./queries";
+import {
+    countMedia,
+    deleteMediaRecord,
+    getMediaByMediaId,
+    listMedia,
+    registerMedia,
+    updateMedia,
+} from "./queries";
 
 describe("media library", () => {
     const db = testDb as unknown as TestDb;
@@ -38,13 +45,21 @@ describe("media library", () => {
     });
 
     it("registers media by sealing it and storing the sealed URL/metadata", async () => {
-        const item = await registerMedia({ teamId, mediaLitId: "ml_abc123", alt: "A photo" });
+        const item = await registerMedia({
+            teamId,
+            mediaLitId: "ml_abc123",
+            alt: "A photo",
+        });
 
         expect(sealMedia).toHaveBeenCalledWith("ml_abc123");
         expect(item?.mediaId).toMatch(/^med_/);
         expect(item?.mediaLitId).toBe("ml_abc123");
-        expect(item?.url).toBe("https://cdn.medialit.example/ml_abc123/main.png");
-        expect(item?.thumbnailUrl).toBe("https://cdn.medialit.example/ml_abc123/thumb.webp");
+        expect(item?.url).toBe(
+            "https://cdn.medialit.example/ml_abc123/main.png",
+        );
+        expect(item?.thumbnailUrl).toBe(
+            "https://cdn.medialit.example/ml_abc123/thumb.webp",
+        );
         expect(item?.mimeType).toBe("image/png");
         expect(item?.size).toBe(1234);
         expect(item?.alt).toBe("A photo");
@@ -76,26 +91,41 @@ describe("media library", () => {
 
     it("updates alt/caption without touching MediaLit", async () => {
         const created = await registerMedia({ teamId, mediaLitId: "ml_edit" });
-        const updated = await updateMedia(teamId, created!.mediaId, { alt: "New alt", caption: "New caption" });
+        const updated = await updateMedia(teamId, created!.mediaId, {
+            alt: "New alt",
+            caption: "New caption",
+        });
 
         expect(updated?.alt).toBe("New alt");
         expect(updated?.caption).toBe("New caption");
     });
 
     it("update is team-scoped and no-ops for another team", async () => {
-        const created = await registerMedia({ teamId, mediaLitId: "ml_scoped" });
+        const created = await registerMedia({
+            teamId,
+            mediaLitId: "ml_scoped",
+        });
         const { team: otherTeam } = await seedTeam(db, { name: "Other" });
 
-        expect(await updateMedia(otherTeam.id, created!.mediaId, { alt: "hijacked" })).toBeNull();
+        expect(
+            await updateMedia(otherTeam.id, created!.mediaId, {
+                alt: "hijacked",
+            }),
+        ).toBeNull();
     });
 
     it("deletes from MediaLit and the local library together", async () => {
-        const created = await registerMedia({ teamId, mediaLitId: "ml_delete" });
+        const created = await registerMedia({
+            teamId,
+            mediaLitId: "ml_delete",
+        });
         const result = await deleteMediaRecord(teamId, created!.mediaId);
 
         expect(result.ok).toBe(true);
         expect(deleteMedia).toHaveBeenCalledWith("ml_delete");
-        expect(await getMediaByMediaId(teamId, created!.mediaId)).toBeUndefined();
+        expect(
+            await getMediaByMediaId(teamId, created!.mediaId),
+        ).toBeUndefined();
     });
 
     it("delete is a no-op (and never calls MediaLit) for a missing/foreign item", async () => {

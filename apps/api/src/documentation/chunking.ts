@@ -31,7 +31,9 @@ function wordCount(text: string): number {
  * A section longer than the target size is itself split into multiple
  * chunks, all still attributed to that heading.
  */
-export function extractChunks(content: TextEditorContentRow | null | undefined): DocChunk[] {
+export function extractChunks(
+    content: TextEditorContentRow | null | undefined,
+): DocChunk[] {
     if (!content?.content?.length) return [];
 
     const chunks: DocChunk[] = [];
@@ -66,7 +68,10 @@ export function extractChunks(content: TextEditorContentRow | null | undefined):
     // a near-empty embedding.
     if (chunks.length > 1) {
         const last = chunks[chunks.length - 1];
-        if (wordCount(last.content) < MIN_CHUNK_WORDS && last.heading === chunks[chunks.length - 2].heading) {
+        if (
+            wordCount(last.content) < MIN_CHUNK_WORDS &&
+            last.heading === chunks[chunks.length - 2].heading
+        ) {
             chunks[chunks.length - 2].content += `\n\n${last.content}`;
             chunks.pop();
         }

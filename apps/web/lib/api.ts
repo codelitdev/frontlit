@@ -3,7 +3,11 @@ import { contract, pageTypes } from "@frontlit/api-contract";
 import type { TextEditorContent } from "@frontlit/text-editor";
 import type { WidgetInstance } from "@frontlit/page-builder/models";
 import { ApiError } from "./api-client";
-import { clearTeamIdCookie, isStaleTeamSelectionError, needsTeamSelection } from "./tokens";
+import {
+    clearTeamIdCookie,
+    isStaleTeamSelectionError,
+    needsTeamSelection,
+} from "./tokens";
 
 /**
  * Typed client generated from `@frontlit/api-contract` — the same contract
@@ -21,10 +25,13 @@ const client = initClient(contract, {
 // reload.
 export const TEAMS_CHANGED_EVENT = "frontlit:teams-changed";
 function notifyTeamsChanged() {
-    if (typeof window !== "undefined") window.dispatchEvent(new Event(TEAMS_CHANGED_EVENT));
+    if (typeof window !== "undefined")
+        window.dispatchEvent(new Event(TEAMS_CHANGED_EVENT));
 }
 
-async function unwrap<T>(promise: Promise<{ status: number; body: unknown }>): Promise<T> {
+async function unwrap<T>(
+    promise: Promise<{ status: number; body: unknown }>,
+): Promise<T> {
     const result = await promise;
 
     if (result.status >= 200 && result.status < 300) {
@@ -39,7 +46,10 @@ async function unwrap<T>(promise: Promise<{ status: number; body: unknown }>): P
 
     const errorBody = result.body as { error?: string } | undefined;
     if (typeof window !== "undefined") {
-        if (needsTeamSelection(result.status, errorBody?.error) && !window.location.pathname.startsWith("/teams")) {
+        if (
+            needsTeamSelection(result.status, errorBody?.error) &&
+            !window.location.pathname.startsWith("/teams")
+        ) {
             if (isStaleTeamSelectionError(errorBody?.error)) {
                 clearTeamIdCookie();
             }
@@ -48,7 +58,10 @@ async function unwrap<T>(promise: Promise<{ status: number; body: unknown }>): P
         }
     }
 
-    throw new ApiError(result.status, errorBody?.error || `Request failed (${result.status})`);
+    throw new ApiError(
+        result.status,
+        errorBody?.error || `Request failed (${result.status})`,
+    );
 }
 
 export interface Paginated<T> {
@@ -85,7 +98,9 @@ export function listTeams() {
             return result.body as { items: Team[] };
         }
 
-        const errorBody = result.body as { error?: string; teams?: Pick<Team, "teamId" | "name">[] } | undefined;
+        const errorBody = result.body as
+            | { error?: string; teams?: Pick<Team, "teamId" | "name">[] }
+            | undefined;
         if (result.status === 409 && errorBody?.teams) {
             return { items: errorBody.teams };
         }
@@ -101,7 +116,9 @@ export async function createTeam(name: string) {
 }
 
 export async function renameTeam(teamId: string, name: string) {
-    const team = await unwrap<Team>(client.teams.rename({ params: { teamId }, body: { name } }));
+    const team = await unwrap<Team>(
+        client.teams.rename({ params: { teamId }, body: { name } }),
+    );
     notifyTeamsChanged();
     return team;
 }
@@ -112,11 +129,15 @@ export async function deleteTeam(teamId: string) {
 }
 
 export function listTeamKeys(teamId: string) {
-    return unwrap<{ items: ApiKey[] }>(client.teams.listKeys({ params: { teamId } }));
+    return unwrap<{ items: ApiKey[] }>(
+        client.teams.listKeys({ params: { teamId } }),
+    );
 }
 
 export function createTeamKey(teamId: string, name: string) {
-    return unwrap<CreatedApiKey>(client.teams.createKey({ params: { teamId }, body: { name } }));
+    return unwrap<CreatedApiKey>(
+        client.teams.createKey({ params: { teamId }, body: { name } }),
+    );
 }
 
 export function deleteTeamKey(teamId: string, keyId: string) {
@@ -153,11 +174,22 @@ export interface Page {
     updatedAt: string | null;
 }
 
-export function listPages(params: { type?: PageType; q?: string; offset?: number; itemsPerPage?: number } = {}) {
+export function listPages(
+    params: {
+        type?: PageType;
+        q?: string;
+        offset?: number;
+        itemsPerPage?: number;
+    } = {},
+) {
     return unwrap<Paginated<Page>>(client.pages.list({ query: params }));
 }
 
-export function createPage(input: { name: string; type: PageType; themeId?: string }) {
+export function createPage(input: {
+    name: string;
+    type: PageType;
+    themeId?: string;
+}) {
     return unwrap<Page>(client.pages.create({ body: input }));
 }
 
@@ -178,7 +210,9 @@ export function updatePage(
         robotsAllowed: boolean;
     }>,
 ) {
-    return unwrap<Page>(client.pages.update({ params: { pageId }, body: patch }));
+    return unwrap<Page>(
+        client.pages.update({ params: { pageId }, body: patch }),
+    );
 }
 
 export function deletePage(pageId: string) {
@@ -207,7 +241,10 @@ export function listThemes() {
     return unwrap<{ items: Theme[] }>(client.themes.list());
 }
 
-export function createTheme(input: { name: string; style: Record<string, unknown> }) {
+export function createTheme(input: {
+    name: string;
+    style: Record<string, unknown>;
+}) {
     return unwrap<Theme>(client.themes.create({ body: input }));
 }
 
@@ -215,8 +252,13 @@ export function getTheme(themeId: string) {
     return unwrap<Theme>(client.themes.get({ params: { themeId } }));
 }
 
-export function updateTheme(themeId: string, patch: Partial<{ name: string; style: Record<string, unknown> }>) {
-    return unwrap<Theme>(client.themes.update({ params: { themeId }, body: patch }));
+export function updateTheme(
+    themeId: string,
+    patch: Partial<{ name: string; style: Record<string, unknown> }>,
+) {
+    return unwrap<Theme>(
+        client.themes.update({ params: { themeId }, body: patch }),
+    );
 }
 
 export function deleteTheme(themeId: string) {
@@ -239,16 +281,27 @@ export interface Media {
     updatedAt: string | null;
 }
 
-export function listMedia(params: { offset?: number; itemsPerPage?: number } = {}) {
+export function listMedia(
+    params: { offset?: number; itemsPerPage?: number } = {},
+) {
     return unwrap<Paginated<Media>>(client.media.list({ query: params }));
 }
 
-export function registerMedia(input: { mediaLitId: string; alt?: string; caption?: string }) {
+export function registerMedia(input: {
+    mediaLitId: string;
+    alt?: string;
+    caption?: string;
+}) {
     return unwrap<Media>(client.media.create({ body: input }));
 }
 
-export function updateMedia(mediaId: string, patch: Partial<{ alt: string; caption: string }>) {
-    return unwrap<Media>(client.media.update({ params: { mediaId }, body: patch }));
+export function updateMedia(
+    mediaId: string,
+    patch: Partial<{ alt: string; caption: string }>,
+) {
+    return unwrap<Media>(
+        client.media.update({ params: { mediaId }, body: patch }),
+    );
 }
 
 export function deleteMedia(mediaId: string) {
@@ -282,11 +335,16 @@ export interface BlogPost {
     updatedAt: string | null;
 }
 
-export function listBlogPosts(params: { q?: string; offset?: number; itemsPerPage?: number } = {}) {
+export function listBlogPosts(
+    params: { q?: string; offset?: number; itemsPerPage?: number } = {},
+) {
     return unwrap<Paginated<BlogPost>>(client.blogs.list({ query: params }));
 }
 
-export function createBlogPost(input: { title: string; meta?: Partial<BlogMeta> }) {
+export function createBlogPost(input: {
+    title: string;
+    meta?: Partial<BlogMeta>;
+}) {
     return unwrap<BlogPost>(client.blogs.create({ body: input }));
 }
 
@@ -305,7 +363,9 @@ export function updateBlogPost(
         meta: Partial<BlogMeta>;
     }>,
 ) {
-    return unwrap<BlogPost>(client.blogs.update({ params: { documentId }, body: patch }));
+    return unwrap<BlogPost>(
+        client.blogs.update({ params: { documentId }, body: patch }),
+    );
 }
 
 export function publishBlogPost(documentId: string) {
@@ -313,7 +373,9 @@ export function publishBlogPost(documentId: string) {
 }
 
 export function discardBlogPostDraft(documentId: string) {
-    return unwrap<BlogPost>(client.blogs.discardDraft({ params: { documentId } }));
+    return unwrap<BlogPost>(
+        client.blogs.discardDraft({ params: { documentId } }),
+    );
 }
 
 export function deleteBlogPost(documentId: string) {
@@ -346,11 +408,16 @@ export interface HelpDoc {
     updatedAt: string | null;
 }
 
-export function listHelpDocs(params: { q?: string; offset?: number; itemsPerPage?: number } = {}) {
+export function listHelpDocs(
+    params: { q?: string; offset?: number; itemsPerPage?: number } = {},
+) {
     return unwrap<Paginated<HelpDoc>>(client.docs.list({ query: params }));
 }
 
-export function createHelpDoc(input: { title: string; meta?: Partial<DocMeta> }) {
+export function createHelpDoc(input: {
+    title: string;
+    meta?: Partial<DocMeta>;
+}) {
     return unwrap<HelpDoc>(client.docs.create({ body: input }));
 }
 
@@ -369,7 +436,9 @@ export function updateHelpDoc(
         meta: Partial<DocMeta>;
     }>,
 ) {
-    return unwrap<HelpDoc>(client.docs.update({ params: { documentId }, body: patch }));
+    return unwrap<HelpDoc>(
+        client.docs.update({ params: { documentId }, body: patch }),
+    );
 }
 
 export function publishHelpDoc(documentId: string) {
@@ -377,7 +446,9 @@ export function publishHelpDoc(documentId: string) {
 }
 
 export function discardHelpDocDraft(documentId: string) {
-    return unwrap<HelpDoc>(client.docs.discardDraft({ params: { documentId } }));
+    return unwrap<HelpDoc>(
+        client.docs.discardDraft({ params: { documentId } }),
+    );
 }
 
 export function deleteHelpDoc(documentId: string) {
@@ -401,8 +472,13 @@ export function createDocSection(input: { name: string; order?: number }) {
     return unwrap<DocSection>(client.docSections.create({ body: input }));
 }
 
-export function updateDocSection(sectionId: string, patch: Partial<{ name: string; order: number }>) {
-    return unwrap<DocSection>(client.docSections.update({ params: { sectionId }, body: patch }));
+export function updateDocSection(
+    sectionId: string,
+    patch: Partial<{ name: string; order: number }>,
+) {
+    return unwrap<DocSection>(
+        client.docSections.update({ params: { sectionId }, body: patch }),
+    );
 }
 
 export function deleteDocSection(sectionId: string) {
@@ -420,7 +496,9 @@ export interface DocSearchResult {
 }
 
 export function searchDocs(q: string, k?: number) {
-    return unwrap<{ items: DocSearchResult[] }>(client.docSections.search({ query: { q, k } }));
+    return unwrap<{ items: DocSearchResult[] }>(
+        client.docSections.search({ query: { q, k } }),
+    );
 }
 
 // ---- Changelog -----------------------------------------------------------
@@ -452,15 +530,22 @@ export interface ChangelogEntry {
 }
 
 export function listChangelogEntries(params: { q?: string } = {}) {
-    return unwrap<Paginated<ChangelogEntry>>(client.changelogs.list({ query: params }));
+    return unwrap<Paginated<ChangelogEntry>>(
+        client.changelogs.list({ query: params }),
+    );
 }
 
-export function createChangelogEntry(input: { title: string; meta?: Partial<ChangelogMeta> }) {
+export function createChangelogEntry(input: {
+    title: string;
+    meta?: Partial<ChangelogMeta>;
+}) {
     return unwrap<ChangelogEntry>(client.changelogs.create({ body: input }));
 }
 
 export function getChangelogEntry(documentId: string) {
-    return unwrap<ChangelogEntry>(client.changelogs.get({ params: { documentId } }));
+    return unwrap<ChangelogEntry>(
+        client.changelogs.get({ params: { documentId } }),
+    );
 }
 
 export function updateChangelogEntry(
@@ -474,15 +559,21 @@ export function updateChangelogEntry(
         meta: Partial<ChangelogMeta>;
     }>,
 ) {
-    return unwrap<ChangelogEntry>(client.changelogs.update({ params: { documentId }, body: patch }));
+    return unwrap<ChangelogEntry>(
+        client.changelogs.update({ params: { documentId }, body: patch }),
+    );
 }
 
 export function publishChangelogEntry(documentId: string) {
-    return unwrap<ChangelogEntry>(client.changelogs.publish({ params: { documentId } }));
+    return unwrap<ChangelogEntry>(
+        client.changelogs.publish({ params: { documentId } }),
+    );
 }
 
 export function discardChangelogEntryDraft(documentId: string) {
-    return unwrap<ChangelogEntry>(client.changelogs.discardDraft({ params: { documentId } }));
+    return unwrap<ChangelogEntry>(
+        client.changelogs.discardDraft({ params: { documentId } }),
+    );
 }
 
 export function deleteChangelogEntry(documentId: string) {
@@ -498,8 +589,13 @@ export function getGithubIntegration() {
     return unwrap<GithubIntegration>(client.changelogs.getGithubIntegration());
 }
 
-export function connectGithubIntegration(input: { token: string; repo: string }) {
-    return unwrap<GithubIntegration>(client.changelogs.connectGithub({ body: input }));
+export function connectGithubIntegration(input: {
+    token: string;
+    repo: string;
+}) {
+    return unwrap<GithubIntegration>(
+        client.changelogs.connectGithub({ body: input }),
+    );
 }
 
 export function disconnectGithubIntegration() {
@@ -507,7 +603,9 @@ export function disconnectGithubIntegration() {
 }
 
 export function importGithubReleases() {
-    return unwrap<{ imported: number; skipped: number }>(client.changelogs.importGithubReleases());
+    return unwrap<{ imported: number; skipped: number }>(
+        client.changelogs.importGithubReleases(),
+    );
 }
 
 // ---- Newsletter (SendLit, read-through) ------------------------------------
@@ -521,7 +619,9 @@ export interface Contact {
     createdAt?: string;
 }
 
-export function listContacts(params: { email?: string; tag?: string; subscribed?: boolean } = {}) {
+export function listContacts(
+    params: { email?: string; tag?: string; subscribed?: boolean } = {},
+) {
     return unwrap<Paginated<Contact>>(client.contacts.list({ query: params }));
 }
 
@@ -534,11 +634,15 @@ export function deleteContact(contactId: string) {
 }
 
 export function addContactTag(contactId: string, tag: string) {
-    return unwrap<Contact>(client.contacts.addTag({ params: { contactId, tag } }));
+    return unwrap<Contact>(
+        client.contacts.addTag({ params: { contactId, tag } }),
+    );
 }
 
 export function removeContactTag(contactId: string, tag: string) {
-    return unwrap<Contact>(client.contacts.removeTag({ params: { contactId, tag } }));
+    return unwrap<Contact>(
+        client.contacts.removeTag({ params: { contactId, tag } }),
+    );
 }
 
 export interface Segment {
@@ -551,8 +655,15 @@ export function listSegments() {
     return unwrap<{ items: Segment[] }>(client.segments.list());
 }
 
-export function createSegment(input: { name: string; conditions?: Record<string, unknown>[] }) {
-    return unwrap<Segment>(client.segments.create({ body: { name: input.name, conditions: input.conditions ?? [] } }));
+export function createSegment(input: {
+    name: string;
+    conditions?: Record<string, unknown>[];
+}) {
+    return unwrap<Segment>(
+        client.segments.create({
+            body: { name: input.name, conditions: input.conditions ?? [] },
+        }),
+    );
 }
 
 export function deleteSegment(segmentId: string) {
@@ -570,17 +681,13 @@ export function getNewsletterSettings() {
 }
 
 export function updateNewsletterSettings(patch: { mailingAddress?: string }) {
-    return unwrap<NewsletterSettings>(client.newsletter.updateSettings({ body: patch }));
+    return unwrap<NewsletterSettings>(
+        client.newsletter.updateSettings({ body: patch }),
+    );
 }
 
 export type EspProvider =
-    | "smtp"
-    | "sendgrid"
-    | "mailgun"
-    | "postmark"
-    | "ses"
-    | "resend"
-    | "custom";
+    "smtp" | "sendgrid" | "mailgun" | "postmark" | "ses" | "resend" | "custom";
 
 export interface EspConfig {
     espId: string;
@@ -643,15 +750,27 @@ export function listBroadcasts() {
 }
 
 export function createBroadcast(input: { name: string; subject?: string }) {
-    return unwrap<Broadcast>(client.newsletter.createBroadcast({ body: input }));
+    return unwrap<Broadcast>(
+        client.newsletter.createBroadcast({ body: input }),
+    );
 }
 
-export function updateBroadcast(broadcastId: string, patch: Partial<{ name: string; subject: string }>) {
-    return unwrap<Broadcast>(client.newsletter.updateBroadcast({ params: { broadcastId }, body: patch }));
+export function updateBroadcast(
+    broadcastId: string,
+    patch: Partial<{ name: string; subject: string }>,
+) {
+    return unwrap<Broadcast>(
+        client.newsletter.updateBroadcast({
+            params: { broadcastId },
+            body: patch,
+        }),
+    );
 }
 
 export function sendBroadcast(broadcastId: string) {
-    return unwrap<{ status: string }>(client.newsletter.sendBroadcast({ params: { broadcastId } }));
+    return unwrap<{ status: string }>(
+        client.newsletter.sendBroadcast({ params: { broadcastId } }),
+    );
 }
 
 // ---- Chatbot --------------------------------------------------------------
@@ -740,15 +859,27 @@ export function listTickets(
 }
 
 export function getTicket(ticketId: string) {
-    return unwrap<TicketWithMessages>(client.tickets.get({ params: { ticketId } }));
+    return unwrap<TicketWithMessages>(
+        client.tickets.get({ params: { ticketId } }),
+    );
 }
 
 export function replyToTicket(ticketId: string, content: TextEditorContent) {
-    return unwrap<TicketWithMessages>(client.tickets.reply({ params: { ticketId }, body: { content: content as any } }));
+    return unwrap<TicketWithMessages>(
+        client.tickets.reply({
+            params: { ticketId },
+            body: { content: content as any },
+        }),
+    );
 }
 
-export function updateTicket(ticketId: string, patch: Partial<{ status: TicketStatus; assigneeAccountId: string | null }>) {
-    return unwrap<Ticket>(client.tickets.update({ params: { ticketId }, body: patch }));
+export function updateTicket(
+    ticketId: string,
+    patch: Partial<{ status: TicketStatus; assigneeAccountId: string | null }>,
+) {
+    return unwrap<Ticket>(
+        client.tickets.update({ params: { ticketId }, body: patch }),
+    );
 }
 
 // ---- Domains ----------------------------------------------------------------
@@ -768,7 +899,11 @@ export interface DomainSettings {
     subdomain: Subdomain | null;
     customDomain: CustomDomain | null;
     canonicalHost: string | null;
-    verificationRecords: { cnameTarget: string; txtName: string; txtValue: string } | null;
+    verificationRecords: {
+        cnameTarget: string;
+        txtName: string;
+        txtValue: string;
+    } | null;
 }
 
 export function getDomainSettings() {
@@ -776,11 +911,15 @@ export function getDomainSettings() {
 }
 
 export function setTeamSubdomain(slug: string) {
-    return unwrap<DomainSettings>(client.domains.setSubdomain({ body: { slug } }));
+    return unwrap<DomainSettings>(
+        client.domains.setSubdomain({ body: { slug } }),
+    );
 }
 
 export function attachCustomDomain(hostname: string) {
-    return unwrap<DomainSettings>(client.domains.attachCustomDomain({ body: { hostname } }));
+    return unwrap<DomainSettings>(
+        client.domains.attachCustomDomain({ body: { hostname } }),
+    );
 }
 
 export function verifyCustomDomain() {
@@ -808,7 +947,13 @@ export function getTeamSettings() {
 }
 
 export function updateTeamSettings(
-    patch: Partial<{ title: string; subtitle: string; logo: Record<string, unknown> | null; codeInjectionHead: string | null; codeInjectionBody: string | null }>,
+    patch: Partial<{
+        title: string;
+        subtitle: string;
+        logo: Record<string, unknown> | null;
+        codeInjectionHead: string | null;
+        codeInjectionBody: string | null;
+    }>,
 ) {
     return unwrap<TeamSettings>(client.settings.update({ body: patch }));
 }

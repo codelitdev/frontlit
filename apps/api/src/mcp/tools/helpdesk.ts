@@ -1,6 +1,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { ticketSchema, ticketWithMessagesSchema, textEditorContentSchema } from "@frontlit/api-contract";
+import {
+    ticketSchema,
+    ticketWithMessagesSchema,
+    textEditorContentSchema,
+} from "@frontlit/api-contract";
 import {
     addTicketMessage,
     countTickets,
@@ -25,9 +29,14 @@ function toPublicMessage(message: Record<string, unknown>) {
     return serializeDates(omitInternal(message, "teamId", "ticketId"));
 }
 
-async function toTicketWithMessages(ticket: Record<string, unknown> & { id: string }) {
+async function toTicketWithMessages(
+    ticket: Record<string, unknown> & { id: string },
+) {
     const messages = await getTicketMessages(ticket.id);
-    return { ...toPublicTicket(ticket), messages: messages.map(toPublicMessage) };
+    return {
+        ...toPublicTicket(ticket),
+        messages: messages.map(toPublicMessage),
+    };
 }
 
 /** Support ticket inbox (architecture.md §11.3) — team-scoped CRUD twin of
@@ -37,7 +46,8 @@ export function registerHelpdeskTools(server: McpServer): void {
     server.registerTool(
         "create_ticket",
         {
-            description: "Creates a support ticket on behalf of a requester (source: api) — the headless door of the three ticket submission paths.",
+            description:
+                "Creates a support ticket on behalf of a requester (source: api) — the headless door of the three ticket submission paths.",
             inputSchema: {
                 subject: z.string().min(1),
                 message: z.string().min(1),
@@ -45,13 +55,21 @@ export function registerHelpdeskTools(server: McpServer): void {
                 requesterName: z.string().optional(),
             },
             outputSchema: ticketWithMessagesSchema.shape,
-            annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
             if (!teamId) return AUTH_ERROR;
             try {
-                const { ticket } = await createTicket({ teamId, ...args, source: "api" });
+                const { ticket } = await createTicket({
+                    teamId,
+                    ...args,
+                    source: "api",
+                });
                 return jsonResult(await toTicketWithMessages(ticket));
             } catch {
                 return INTERNAL_ERROR;
@@ -62,22 +80,32 @@ export function registerHelpdeskTools(server: McpServer): void {
     server.registerTool(
         "list_tickets",
         {
-            description: "Lists the team's support tickets, optionally filtered by status, assignee, or a search term.",
+            description:
+                "Lists the team's support tickets, optionally filtered by status, assignee, or a search term.",
             inputSchema: {
-                status: z.enum(["open", "pending", "resolved", "closed"]).optional(),
+                status: z
+                    .enum(["open", "pending", "resolved", "closed"])
+                    .optional(),
                 assigneeAccountId: z.string().optional(),
                 q: z.string().optional(),
                 offset: z.number().int().min(1).optional(),
                 itemsPerPage: z.number().int().min(1).optional(),
             },
             outputSchema: { items: z.array(ticketSchema), total: z.number() },
-            annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+            annotations: {
+                readOnlyHint: true,
+                idempotentHint: true,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
             if (!teamId) return AUTH_ERROR;
             try {
-                const [items, total] = await Promise.all([listTickets({ teamId, ...args }), countTickets({ teamId, ...args })]);
+                const [items, total] = await Promise.all([
+                    listTickets({ teamId, ...args }),
+                    countTickets({ teamId, ...args }),
+                ]);
                 return jsonResult({ items: items.map(toPublicTicket), total });
             } catch {
                 return INTERNAL_ERROR;
@@ -91,7 +119,11 @@ export function registerHelpdeskTools(server: McpServer): void {
             description: "Gets a support ticket with its full message thread.",
             inputSchema: { ticketId: z.string().min(1) },
             outputSchema: ticketWithMessagesSchema.shape,
-            annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+            annotations: {
+                readOnlyHint: true,
+                idempotentHint: true,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -109,10 +141,18 @@ export function registerHelpdeskTools(server: McpServer): void {
     server.registerTool(
         "reply_to_ticket",
         {
-            description: "Replies to a support ticket as an agent. Rotates and emails the requester a fresh magic-link token if SendLit is connected.",
-            inputSchema: { ticketId: z.string().min(1), content: textEditorContentSchema },
+            description:
+                "Replies to a support ticket as an agent. Rotates and emails the requester a fresh magic-link token if SendLit is connected.",
+            inputSchema: {
+                ticketId: z.string().min(1),
+                content: textEditorContentSchema,
+            },
             outputSchema: ticketWithMessagesSchema.shape,
-            annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -122,7 +162,13 @@ export function registerHelpdeskTools(server: McpServer): void {
                 if (!ticket) return NOT_FOUND;
 
                 const account = getAuthAccount(extra);
-                await addTicketMessage({ teamId, ticketDbId: ticket.id, author: "agent", authorAccountId: account?.id, content: args.content });
+                await addTicketMessage({
+                    teamId,
+                    ticketDbId: ticket.id,
+                    author: "agent",
+                    authorAccountId: account?.id,
+                    content: args.content,
+                });
 
                 const team = await findTeamById(teamId);
                 if (team && ticket.requesterEmail) {
@@ -137,8 +183,13 @@ export function registerHelpdeskTools(server: McpServer): void {
                     }).catch(() => {});
                 }
 
-                const updated = await getTicketByTicketId(teamId, args.ticketId);
-                return jsonResult(await toTicketWithMessages(updated ?? ticket));
+                const updated = await getTicketByTicketId(
+                    teamId,
+                    args.ticketId,
+                );
+                return jsonResult(
+                    await toTicketWithMessages(updated ?? ticket),
+                );
             } catch {
                 return INTERNAL_ERROR;
             }
@@ -148,16 +199,27 @@ export function registerHelpdeskTools(server: McpServer): void {
     server.registerTool(
         "update_ticket_status",
         {
-            description: "Updates a support ticket's status (open, pending, resolved, closed).",
-            inputSchema: { ticketId: z.string().min(1), status: z.enum(["open", "pending", "resolved", "closed"]) },
+            description:
+                "Updates a support ticket's status (open, pending, resolved, closed).",
+            inputSchema: {
+                ticketId: z.string().min(1),
+                status: z.enum(["open", "pending", "resolved", "closed"]),
+            },
             outputSchema: ticketSchema.shape,
-            annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                idempotentHint: true,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
             if (!teamId) return AUTH_ERROR;
             try {
-                const ticket = await updateTicket(teamId, args.ticketId, { status: args.status });
+                const ticket = await updateTicket(teamId, args.ticketId, {
+                    status: args.status,
+                });
                 if (!ticket) return NOT_FOUND;
                 return jsonResult(toPublicTicket(ticket));
             } catch {
@@ -169,16 +231,27 @@ export function registerHelpdeskTools(server: McpServer): void {
     server.registerTool(
         "assign_ticket",
         {
-            description: "Assigns (or unassigns, with assigneeAccountId omitted) a support ticket to a team member account.",
-            inputSchema: { ticketId: z.string().min(1), assigneeAccountId: z.string().nullable().optional() },
+            description:
+                "Assigns (or unassigns, with assigneeAccountId omitted) a support ticket to a team member account.",
+            inputSchema: {
+                ticketId: z.string().min(1),
+                assigneeAccountId: z.string().nullable().optional(),
+            },
             outputSchema: ticketSchema.shape,
-            annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                idempotentHint: true,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
             if (!teamId) return AUTH_ERROR;
             try {
-                const ticket = await updateTicket(teamId, args.ticketId, { assigneeAccountId: args.assigneeAccountId ?? null });
+                const ticket = await updateTicket(teamId, args.ticketId, {
+                    assigneeAccountId: args.assigneeAccountId ?? null,
+                });
                 if (!ticket) return NOT_FOUND;
                 return jsonResult(toPublicTicket(ticket));
             } catch {

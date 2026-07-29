@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { makeCreateDocumentBodySchema, makeDocumentSchema, makeUpdateDocumentBodySchema } from "./documents";
+import {
+    makeCreateDocumentBodySchema,
+    makeDocumentSchema,
+    makeUpdateDocumentBodySchema,
+} from "./documents";
 
 export const changelogMetaSchema = z.object({
     version: z.string().optional(),
@@ -15,8 +19,11 @@ export const changelogMetaSchema = z.object({
 });
 
 export const changelogSchema = makeDocumentSchema(changelogMetaSchema);
-export const createChangelogBodySchema = makeCreateDocumentBodySchema(changelogMetaSchema);
-export const updateChangelogBodySchema = makeUpdateDocumentBodySchema(changelogMetaSchema.partial());
+export const createChangelogBodySchema =
+    makeCreateDocumentBodySchema(changelogMetaSchema);
+export const updateChangelogBodySchema = makeUpdateDocumentBodySchema(
+    changelogMetaSchema.partial(),
+);
 
 export const githubIntegrationConfigSchema = z.object({
     token: z.string().min(1),

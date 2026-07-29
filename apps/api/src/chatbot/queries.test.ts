@@ -31,7 +31,11 @@ describe("chatbot settings", () => {
     });
 
     it("updates settings", async () => {
-        const updated = await updateChatbotSettings(teamId, { enabled: true, name: "Helper", greeting: "Hi there!" });
+        const updated = await updateChatbotSettings(teamId, {
+            enabled: true,
+            name: "Helper",
+            greeting: "Hi there!",
+        });
         expect(updated.enabled).toBe(true);
         expect(updated.name).toBe("Helper");
         expect(updated.greeting).toBe("Hi there!");
@@ -48,14 +52,18 @@ describe("chatbot settings", () => {
         // Unpatched bubble defaults remain present.
         expect(updated.widgetStyle.bubbleIcon).toBe("chat");
 
-        const again = await updateChatbotSettings(teamId, { widgetStyle: { bubbleShape: "square" } });
+        const again = await updateChatbotSettings(teamId, {
+            widgetStyle: { bubbleShape: "square" },
+        });
         expect(again.widgetStyle.bubbleShape).toBe("square");
         expect(again.widgetStyle.inputPlaceholder).toBe("Need help?");
     });
 
     it("clears accentColor so the site theme primary can apply", async () => {
         await updateChatbotSettings(teamId, { accentColor: "#ff0000" });
-        const cleared = await updateChatbotSettings(teamId, { accentColor: null });
+        const cleared = await updateChatbotSettings(teamId, {
+            accentColor: null,
+        });
         expect(cleared.accentColor).toBeNull();
     });
 });

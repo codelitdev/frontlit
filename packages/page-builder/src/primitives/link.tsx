@@ -2,8 +2,7 @@ import React from "react";
 import { cn } from "./lib/utils";
 import type { ThemeStyle } from "../models";
 
-export interface LinkProps
-    extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
+export interface LinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
     children: React.ReactNode;
     className?: string;
     theme?: ThemeStyle;

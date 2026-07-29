@@ -29,7 +29,10 @@ const mcpLimiter = rateLimit({
     max: 60,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { error: "too_many_requests", error_description: "Too many requests." },
+    message: {
+        error: "too_many_requests",
+        error_description: "Too many requests.",
+    },
 });
 
 const mcpSessions = new Map<string, StreamableHTTPServerTransport>();
@@ -38,7 +41,10 @@ const mcpCors = (req: any, res: any, next: any) => {
     const origin = req.headers.origin || "*";
     res.header("Access-Control-Allow-Origin", origin);
     res.header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Accept, Mcp-Session-Id, Mcp-Protocol-Version, x-frontlit-apikey, Authorization");
+    res.header(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Accept, Mcp-Session-Id, Mcp-Protocol-Version, x-frontlit-apikey, Authorization",
+    );
     res.header("Access-Control-Expose-Headers", "Mcp-Session-Id");
     if (req.method === "OPTIONS") {
         res.status(204).end();
@@ -58,7 +64,9 @@ function patchMcpAcceptHeaders(req: any) {
     const additions: string[] = [];
     if (needsJson) additions.push("application/json");
     if (needsSSE) additions.push("text/event-stream");
-    const newAccept = accept ? `${accept}, ${additions.join(", ")}` : additions.join(", ");
+    const newAccept = accept
+        ? `${accept}, ${additions.join(", ")}`
+        : additions.join(", ");
     req.headers.accept = newAccept;
 
     const rawHeaders: string[] = req.rawHeaders;
@@ -84,27 +92,46 @@ function getMcpAuth(req: any) {
     };
 }
 
-router.post("/mcp", mcpCors, mcpLimiter, mcpAuth, requireTeam, async (req: any, res: any) => {
-    patchMcpAcceptHeaders(req);
+router.post(
+    "/mcp",
+    mcpCors,
+    mcpLimiter,
+    mcpAuth,
+    requireTeam,
+    async (req: any, res: any) => {
+        patchMcpAcceptHeaders(req);
 
-    const auth = getMcpAuth(req);
-    const sessionId = req.headers["mcp-session-id"] as string | undefined;
+        const auth = getMcpAuth(req);
+        const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
-    if (sessionId) {
-        const transport = mcpSessions.get(sessionId);
-        if (!transport) {
-            res.status(404).json({ jsonrpc: "2.0", error: { code: -32001, message: "Session not found" }, id: null });
-            return;
+        if (sessionId) {
+            const transport = mcpSessions.get(sessionId);
+            if (!transport) {
+                res.status(404).json({
+                    jsonrpc: "2.0",
+                    error: { code: -32001, message: "Session not found" },
+                    id: null,
+                });
+                return;
+            }
+            await transport.handleRequest(
+                Object.assign(req, { auth }),
+                res,
+                req.body,
+            );
+        } else {
+            const transport = createMCPSession(
+                (id) => mcpSessions.set(id, transport),
+                (id) => mcpSessions.delete(id),
+            );
+            await transport.handleRequest(
+                Object.assign(req, { auth }),
+                res,
+                req.body,
+            );
         }
-        await transport.handleRequest(Object.assign(req, { auth }), res, req.body);
-    } else {
-        const transport = createMCPSession(
-            (id) => mcpSessions.set(id, transport),
-            (id) => mcpSessions.delete(id),
-        );
-        await transport.handleRequest(Object.assign(req, { auth }), res, req.body);
-    }
-});
+    },
+);
 
 router.options("/mcp", mcpCors);
 

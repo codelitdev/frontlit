@@ -8,7 +8,10 @@ interface Props {
     params: Promise<{ teamId: string }>;
 }
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata(
+    { params }: Props,
+    parent: ResolvingMetadata,
+): Promise<Metadata> {
     const previous = await parent;
     return {
         title: `Changelog | ${previous.title?.absolute}`,
@@ -25,7 +28,11 @@ const LABEL_CLASS: Record<string, string> = {
 
 export default async function ChangelogPage({ params }: Props) {
     const { teamId } = await params;
-    const [settings, { items }, canonicalHost] = await Promise.all([getSettings(teamId), listChangelogs(teamId, { itemsPerPage: 100 }), getCanonicalHost()]);
+    const [settings, { items }, canonicalHost] = await Promise.all([
+        getSettings(teamId),
+        listChangelogs(teamId, { itemsPerPage: 100 }),
+        getCanonicalHost(),
+    ]);
 
     return (
         <main className="mx-auto max-w-3xl px-6 py-16">
@@ -37,7 +44,10 @@ export default async function ChangelogPage({ params }: Props) {
                         changelogJsonLd({
                             siteName: settings?.title || "FrontLit site",
                             url: `https://${canonicalHost}/changelog`,
-                            entries: items.map((entry) => ({ name: entry.title ?? entry.slug, url: `https://${canonicalHost}/changelog` })),
+                            entries: items.map((entry) => ({
+                                name: entry.title ?? entry.slug,
+                                url: `https://${canonicalHost}/changelog`,
+                            })),
                         }),
                     ),
                 }}
@@ -48,19 +58,37 @@ export default async function ChangelogPage({ params }: Props) {
                     <li key={entry.documentId} className="relative">
                         <span className="absolute -left-[calc(2rem+5px)] top-1.5 h-2.5 w-2.5 rounded-full bg-neutral-400" />
                         <div className="flex flex-wrap items-center gap-2">
-                            {entry.meta.version && <span className="font-mono text-sm text-neutral-500">{entry.meta.version}</span>}
+                            {entry.meta.version && (
+                                <span className="font-mono text-sm text-neutral-500">
+                                    {entry.meta.version}
+                                </span>
+                            )}
                             {entry.publishedAt && (
-                                <time dateTime={entry.publishedAt} className="text-sm text-neutral-400">
-                                    {new Date(entry.publishedAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
+                                <time
+                                    dateTime={entry.publishedAt}
+                                    className="text-sm text-neutral-400"
+                                >
+                                    {new Date(
+                                        entry.publishedAt,
+                                    ).toLocaleDateString(undefined, {
+                                        year: "numeric",
+                                        month: "long",
+                                        day: "numeric",
+                                    })}
                                 </time>
                             )}
                             {(entry.meta.labels ?? []).map((label) => (
-                                <span key={label} className={`rounded-full px-2 py-0.5 text-xs font-medium ${LABEL_CLASS[label] ?? "bg-neutral-100 text-neutral-600"}`}>
+                                <span
+                                    key={label}
+                                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${LABEL_CLASS[label] ?? "bg-neutral-100 text-neutral-600"}`}
+                                >
                                     {label}
                                 </span>
                             ))}
                         </div>
-                        <h2 className="mt-2 text-xl font-semibold">{entry.title}</h2>
+                        <h2 className="mt-2 text-xl font-semibold">
+                            {entry.title}
+                        </h2>
                         {entry.content && (
                             <div className="prose mt-3 max-w-none">
                                 <TextRenderer json={entry.content} />
@@ -68,7 +96,11 @@ export default async function ChangelogPage({ params }: Props) {
                         )}
                     </li>
                 ))}
-                {items.length === 0 && <p className="text-neutral-500">No changelog entries published yet.</p>}
+                {items.length === 0 && (
+                    <p className="text-neutral-500">
+                        No changelog entries published yet.
+                    </p>
+                )}
             </ol>
         </main>
     );

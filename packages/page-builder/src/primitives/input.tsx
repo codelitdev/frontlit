@@ -3,8 +3,7 @@ import { Input as ShadcnInput } from "./components/ui/input";
 import { cn } from "./lib/utils";
 import type { ThemeStyle } from "../models";
 
-export interface InputProps
-    extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
     theme?: ThemeStyle;
     error?: boolean;
     // style?: React.CSSProperties;

@@ -1,10 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/client";
 import { accounts, authUser } from "../db/schema";
-import {
-    createTeam,
-    listTeamsForAccount,
-} from "../team/queries";
+import { createTeam, listTeamsForAccount } from "../team/queries";
 
 export type Account = typeof accounts.$inferSelect;
 
@@ -38,9 +35,7 @@ export async function createAccount(
     email: string,
     name?: string,
     options: { authUserId?: string; withDefaultApiKey?: boolean } = {},
-): Promise<
-    Account & { defaultTeamId: string; defaultApiKeySecret?: string }
-> {
+): Promise<Account & { defaultTeamId: string; defaultApiKeySecret?: string }> {
     const [account] = await db
         .insert(accounts)
         .values({

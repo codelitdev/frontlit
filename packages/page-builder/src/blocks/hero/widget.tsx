@@ -2,7 +2,12 @@ import React from "react";
 import type { WidgetProps } from "../../models";
 import type { ThemeStyle } from "../../models";
 import type { HeroSettings } from "./settings";
-import { Image, NavLink, TextRenderer, VideoWithPreview } from "../../components";
+import {
+    Image,
+    NavLink,
+    TextRenderer,
+    VideoWithPreview,
+} from "../../components";
 import { isVideo } from "../../utils";
 import clsx from "clsx";
 import {
@@ -91,7 +96,10 @@ export function HeroWidget({
             )}
         >
             {preTitle && (
-                <Preheader theme={overriddenTheme} className="text-muted-foreground">
+                <Preheader
+                    theme={overriddenTheme}
+                    className="text-muted-foreground"
+                >
                     {preTitle}
                 </Preheader>
             )}

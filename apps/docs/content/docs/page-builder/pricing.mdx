@@ -8,9 +8,17 @@ description: A comparison of pricing tiers.
 ## Usage
 
 ```tsx
-import { createWidgetInstance, PageRenderer, getDefaultTheme } from "@frontlit/page-builder";
+import {
+    createWidgetInstance,
+    PageRenderer,
+    getDefaultTheme,
+} from "@frontlit/page-builder";
 
 const layout = [createWidgetInstance("pricing")];
 
-<PageRenderer layout={layout} theme={getDefaultTheme()} pageData={{ pageType: "landing" }} />;
+<PageRenderer
+    layout={layout}
+    theme={getDefaultTheme()}
+    pageData={{ pageType: "landing" }}
+/>;
 ```

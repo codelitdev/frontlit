@@ -5,7 +5,10 @@ import Link from "next/link";
 import { Settings2, X } from "lucide-react";
 import { Button } from "@/components/ui/codelit/button";
 import { IconButton } from "@/components/ui/codelit/icon-button";
-import { DocumentStatusBadge, type DocumentStatus } from "@/components/workspace/document-status-badge";
+import {
+    DocumentStatusBadge,
+    type DocumentStatus,
+} from "@/components/workspace/document-status-badge";
 import { formatSavedAt } from "@/lib/writing-editor";
 import {
     AlertDialog,
@@ -84,16 +87,24 @@ export function WritingEditorShell({
                             <span className="hidden shrink-0 text-sm text-muted-foreground md:inline">
                                 {contextLabel}
                             </span>
-                            <span aria-hidden className="hidden text-sm text-muted-foreground md:inline">
+                            <span
+                                aria-hidden
+                                className="hidden text-sm text-muted-foreground md:inline"
+                            >
                                 /
                             </span>
                         </>
                     )}
-                    <span className="truncate text-sm font-semibold">{title}</span>
+                    <span className="truncate text-sm font-semibold">
+                        {title}
+                    </span>
                 </div>
 
                 <div className="flex shrink-0 items-center gap-2">
-                    <DocumentStatusBadge status={status} data-testid={statusTestId} />
+                    <DocumentStatusBadge
+                        status={status}
+                        data-testid={statusTestId}
+                    />
                     <span
                         className="hidden min-w-24 text-right text-xs text-muted-foreground lg:inline"
                         aria-live="polite"
@@ -109,7 +120,9 @@ export function WritingEditorShell({
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                disabled={publishing || saving || !hasDraftChanges}
+                                disabled={
+                                    publishing || saving || !hasDraftChanges
+                                }
                                 className="hidden sm:inline-flex"
                             >
                                 Discard draft
@@ -117,12 +130,18 @@ export function WritingEditorShell({
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                             <AlertDialogHeader>
-                                <AlertDialogTitle>Discard draft?</AlertDialogTitle>
-                                <AlertDialogDescription>{discardDescription}</AlertDialogDescription>
+                                <AlertDialogTitle>
+                                    Discard draft?
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    {discardDescription}
+                                </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={onDiscardDraft}>Discard</AlertDialogAction>
+                                <AlertDialogAction onClick={onDiscardDraft}>
+                                    Discard
+                                </AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
@@ -134,13 +153,28 @@ export function WritingEditorShell({
                     >
                         {publishing ? publishingLabel : "Publish changes"}
                     </Button>
-                    <span aria-hidden className="hidden h-7 w-px bg-border sm:block" />
+                    <span
+                        aria-hidden
+                        className="hidden h-7 w-px bg-border sm:block"
+                    />
                     <IconButton
                         type="button"
-                        aria-label={settingsOpen ? "Close document settings" : "Open document settings"}
-                        title={settingsOpen ? "Close document settings" : "Open document settings"}
+                        aria-label={
+                            settingsOpen
+                                ? "Close document settings"
+                                : "Open document settings"
+                        }
+                        title={
+                            settingsOpen
+                                ? "Close document settings"
+                                : "Open document settings"
+                        }
                         onClick={() => onSettingsOpenChange(!settingsOpen)}
-                        className={settingsOpen ? "bg-muted text-foreground" : undefined}
+                        className={
+                            settingsOpen
+                                ? "bg-muted text-foreground"
+                                : undefined
+                        }
                     >
                         <Settings2 />
                     </IconButton>
@@ -148,7 +182,9 @@ export function WritingEditorShell({
             </header>
 
             <div className="relative flex min-h-0 flex-1">
-                <main className="min-w-0 flex-1 overflow-hidden">{children}</main>
+                <main className="min-w-0 flex-1 overflow-hidden">
+                    {children}
+                </main>
                 {settingsOpen && (
                     <>
                         <button
@@ -159,7 +195,9 @@ export function WritingEditorShell({
                         />
                         <aside className="absolute inset-y-0 right-0 z-30 flex w-[min(20rem,calc(100vw-2rem))] flex-col border-l bg-card shadow-xl md:relative md:z-auto md:w-80 md:shadow-none">
                             <div className="flex h-14 shrink-0 items-center justify-between border-b px-5">
-                                <h2 className="font-semibold">Document settings</h2>
+                                <h2 className="font-semibold">
+                                    Document settings
+                                </h2>
                                 <IconButton
                                     type="button"
                                     size="sm"
@@ -169,7 +207,9 @@ export function WritingEditorShell({
                                     <X />
                                 </IconButton>
                             </div>
-                            <div className="flex-1 overflow-y-auto p-5">{settings}</div>
+                            <div className="flex-1 overflow-y-auto p-5">
+                                {settings}
+                            </div>
                         </aside>
                     </>
                 )}

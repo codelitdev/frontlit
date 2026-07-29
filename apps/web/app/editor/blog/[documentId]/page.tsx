@@ -3,7 +3,13 @@
 import { use, useEffect, useRef, useState } from "react";
 import { Editor } from "@frontlit/text-editor";
 import type { TextEditorContent } from "@frontlit/text-editor";
-import { discardBlogPostDraft, getBlogPost, publishBlogPost, updateBlogPost, type BlogPost } from "@/lib/api";
+import {
+    discardBlogPostDraft,
+    getBlogPost,
+    publishBlogPost,
+    updateBlogPost,
+    type BlogPost,
+} from "@/lib/api";
 import { FullScreenLoading } from "@/components/workspace/loading";
 import { SlugEditor } from "@/components/workspace/slug-editor";
 import { WritingEditorDocumentHeader } from "@/components/workspace/writing-editor-document-header";
@@ -13,7 +19,11 @@ import { Label } from "@/components/ui/codelit/label";
 import { Textarea } from "@/components/ui/codelit/textarea";
 import { parseTags } from "@/lib/writing-editor";
 
-export default function BlogEditorPage({ params }: { params: Promise<{ documentId: string }> }) {
+export default function BlogEditorPage({
+    params,
+}: {
+    params: Promise<{ documentId: string }>;
+}) {
     const { documentId } = use(params);
     const [post, setPost] = useState<BlogPost | null>(null);
     const [title, setTitle] = useState("");
@@ -24,7 +34,9 @@ export default function BlogEditorPage({ params }: { params: Promise<{ documentI
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [resetKey, setResetKey] = useState(0);
     const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const descriptionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const descriptionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
+        null,
+    );
     const tagsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
@@ -39,8 +51,10 @@ export default function BlogEditorPage({ params }: { params: Promise<{ documentI
 
     useEffect(
         () => () => {
-            if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
-            if (descriptionDebounceRef.current) clearTimeout(descriptionDebounceRef.current);
+            if (titleDebounceRef.current)
+                clearTimeout(titleDebounceRef.current);
+            if (descriptionDebounceRef.current)
+                clearTimeout(descriptionDebounceRef.current);
             if (tagsDebounceRef.current) clearTimeout(tagsDebounceRef.current);
         },
         [],
@@ -63,7 +77,8 @@ export default function BlogEditorPage({ params }: { params: Promise<{ documentI
 
     function handleDescriptionChange(value: string) {
         setDescription(value);
-        if (descriptionDebounceRef.current) clearTimeout(descriptionDebounceRef.current);
+        if (descriptionDebounceRef.current)
+            clearTimeout(descriptionDebounceRef.current);
         descriptionDebounceRef.current = setTimeout(async () => {
             setSaving(true);
             try {
@@ -111,7 +126,8 @@ export default function BlogEditorPage({ params }: { params: Promise<{ documentI
 
     async function handleDiscardDraft() {
         if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
-        if (descriptionDebounceRef.current) clearTimeout(descriptionDebounceRef.current);
+        if (descriptionDebounceRef.current)
+            clearTimeout(descriptionDebounceRef.current);
         if (tagsDebounceRef.current) clearTimeout(tagsDebounceRef.current);
         setPublishing(true);
         try {
@@ -171,7 +187,9 @@ export default function BlogEditorPage({ params }: { params: Promise<{ documentI
                         <Textarea
                             id="blog-description"
                             value={description}
-                            onChange={(event) => handleDescriptionChange(event.target.value)}
+                            onChange={(event) =>
+                                handleDescriptionChange(event.target.value)
+                            }
                             placeholder="A short description for blog listings."
                             className="mt-1 min-h-28"
                         />
@@ -182,7 +200,9 @@ export default function BlogEditorPage({ params }: { params: Promise<{ documentI
                         <Input
                             id="blog-tags"
                             value={tags}
-                            onChange={(event) => handleTagsChange(event.target.value)}
+                            onChange={(event) =>
+                                handleTagsChange(event.target.value)
+                            }
                             placeholder="Product, engineering, launch"
                             className="mt-1"
                         />
@@ -194,8 +214,8 @@ export default function BlogEditorPage({ params }: { params: Promise<{ documentI
                     <div className="border-t pt-6">
                         <h3 className="text-sm font-semibold">Publishing</h3>
                         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                            Your title, excerpt, tags, and article content go live together
-                            when you publish changes.
+                            Your title, excerpt, tags, and article content go
+                            live together when you publish changes.
                         </p>
                     </div>
                 </div>

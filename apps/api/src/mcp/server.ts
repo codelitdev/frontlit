@@ -1,7 +1,11 @@
 import crypto from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { blogMetaSchema, docMetaSchema, changelogMetaSchema } from "@frontlit/api-contract";
+import {
+    blogMetaSchema,
+    docMetaSchema,
+    changelogMetaSchema,
+} from "@frontlit/api-contract";
 import { registerTeamTools } from "./tools/teams";
 import { registerPageTools } from "./tools/pages";
 import { registerThemeTools } from "./tools/themes";
@@ -22,7 +26,12 @@ function registerAllTools(server: McpServer): void {
     registerMediaTools(server);
     registerDocumentTools(server, "blog", "blog_post", blogMetaSchema);
     registerDocumentTools(server, "doc", "help_doc", docMetaSchema);
-    registerDocumentTools(server, "changelog", "changelog_entry", changelogMetaSchema);
+    registerDocumentTools(
+        server,
+        "changelog",
+        "changelog_entry",
+        changelogMetaSchema,
+    );
     registerChangelogTools(server);
     registerNewsletterTools(server);
     registerDocumentationTools(server);

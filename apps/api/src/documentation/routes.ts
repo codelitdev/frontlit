@@ -3,7 +3,13 @@ import { createExpressEndpoints, initServer } from "@ts-rest/express";
 import { contract } from "@frontlit/api-contract";
 import { requireAuth } from "../auth/middleware";
 import { requireTeam } from "../auth/require-team";
-import { createDocSection, deleteDocSection, listDocSections, searchChunks, updateDocSection } from "./queries";
+import {
+    createDocSection,
+    deleteDocSection,
+    listDocSections,
+    searchChunks,
+    updateDocSection,
+} from "./queries";
 import { omitInternal, serializeDates } from "../utils/public";
 
 /** Doc sections (help-center nav tree) + semantic search (architecture.md
@@ -21,7 +27,10 @@ function toPublicSection<T extends Record<string, unknown>>(section: T) {
 
 const impl = s.router(contract.docSections, {
     create: async ({ body, req }) => {
-        const section = await createDocSection({ teamId: (req as any).teamId, ...body });
+        const section = await createDocSection({
+            teamId: (req as any).teamId,
+            ...body,
+        });
         return { status: 201, body: toPublicSection(section) };
     },
     list: async ({ req }) => {
@@ -29,17 +38,30 @@ const impl = s.router(contract.docSections, {
         return { status: 200, body: { items: items.map(toPublicSection) } };
     },
     update: async ({ params, body, req }) => {
-        const section = await updateDocSection((req as any).teamId, params.sectionId, body);
-        if (!section) return { status: 404, body: { error: "Section not found" } };
+        const section = await updateDocSection(
+            (req as any).teamId,
+            params.sectionId,
+            body,
+        );
+        if (!section)
+            return { status: 404, body: { error: "Section not found" } };
         return { status: 200, body: toPublicSection(section) };
     },
     remove: async ({ params, req }) => {
-        const result = await deleteDocSection((req as any).teamId, params.sectionId);
-        if (!result.ok) return { status: 404, body: { error: "Section not found" } };
+        const result = await deleteDocSection(
+            (req as any).teamId,
+            params.sectionId,
+        );
+        if (!result.ok)
+            return { status: 404, body: { error: "Section not found" } };
         return { status: 204, body: undefined };
     },
     search: async ({ query, req }) => {
-        const results = await searchChunks((req as any).teamId, query.q, query.k);
+        const results = await searchChunks(
+            (req as any).teamId,
+            query.q,
+            query.k,
+        );
         return { status: 200, body: { items: results } };
     },
 });

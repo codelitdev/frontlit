@@ -3,7 +3,11 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { ChatMessageList } from "@/components/chat-message-list";
 import { useVisitorChat } from "@/lib/use-visitor-chat";
-import { resolveChatAccent, resolveSiteTheme, siteThemeStyleTag } from "@/lib/site-theme";
+import {
+    resolveChatAccent,
+    resolveSiteTheme,
+    siteThemeStyleTag,
+} from "@/lib/site-theme";
 
 /**
  * The chat widget's actual UI, hosted at `/embed/chat` and iframed by both
@@ -39,7 +43,10 @@ export function ChatPanel({
     inputRadius?: "none" | "sm" | "md" | "lg" | "full";
     inputWidth?: "sm" | "md" | "lg";
 }) {
-    const theme = useMemo(() => resolveSiteTheme(themeId, themeStyle), [themeId, themeStyle]);
+    const theme = useMemo(
+        () => resolveSiteTheme(themeId, themeStyle),
+        [themeId, themeStyle],
+    );
     const themeCss = useMemo(() => siteThemeStyleTag(theme), [theme]);
     const color = resolveChatAccent(accentColor, theme);
     const palette = theme.theme.colors.light;
@@ -81,13 +88,20 @@ export function ChatPanel({
         if (hasThread) setSheetPinned(true);
     }, [hasThread]);
 
-    const showSheet = layout === "docked" && (focused || sheetPinned || isSending || input.trim().length > 0);
+    const showSheet =
+        layout === "docked" &&
+        (focused || sheetPinned || isSending || input.trim().length > 0);
 
     // Tell parent embed loaders to grow/shrink the iframe for docked mode.
     useEffect(() => {
         if (layout !== "docked") return;
-        const height = showSheet ? Math.min(560, Math.round(window.innerHeight * 0.7)) : 72;
-        window.parent?.postMessage({ type: "frontlit-chat-resize", height }, "*");
+        const height = showSheet
+            ? Math.min(560, Math.round(window.innerHeight * 0.7))
+            : 72;
+        window.parent?.postMessage(
+            { type: "frontlit-chat-resize", height },
+            "*",
+        );
     }, [layout, showSheet]);
 
     useEffect(() => {
@@ -118,7 +132,15 @@ export function ChatPanel({
     };
 
     const radiusPx =
-        inputRadius === "none" ? "0px" : inputRadius === "sm" ? "6px" : inputRadius === "md" ? "10px" : inputRadius === "lg" ? "16px" : "9999px";
+        inputRadius === "none"
+            ? "0px"
+            : inputRadius === "sm"
+              ? "6px"
+              : inputRadius === "md"
+                ? "10px"
+                : inputRadius === "lg"
+                  ? "16px"
+                  : "9999px";
     const widthPx = inputWidth === "sm" ? 220 : inputWidth === "lg" ? 340 : 280;
 
     if (layout === "docked") {
@@ -143,9 +165,15 @@ export function ChatPanel({
                             style={{ backgroundColor: color }}
                         >
                             <div className="min-w-0">
-                                <p className="truncate text-sm font-medium leading-tight">{name}</p>
+                                <p className="truncate text-sm font-medium leading-tight">
+                                    {name}
+                                </p>
                                 <p className="truncate text-[11px] opacity-80">
-                                    {isSending ? "Typing…" : isHydrating ? "Loading…" : "Online"}
+                                    {isSending
+                                        ? "Typing…"
+                                        : isHydrating
+                                          ? "Loading…"
+                                          : "Online"}
                                 </p>
                             </div>
                             <button
@@ -158,7 +186,13 @@ export function ChatPanel({
                                     inputRef.current?.blur();
                                 }}
                             >
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth={2}
+                                    className="h-4 w-4"
+                                >
                                     <path d="M6 12h12" strokeLinecap="round" />
                                 </svg>
                             </button>
@@ -211,16 +245,46 @@ export function ChatPanel({
                             disabled={!canSend}
                             aria-label="Send message"
                             className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary-foreground shadow-sm transition enabled:hover:scale-105 enabled:active:scale-95 disabled:opacity-40"
-                            style={{ backgroundColor: color, color: palette.primaryForeground }}
+                            style={{
+                                backgroundColor: color,
+                                color: palette.primaryForeground,
+                            }}
                         >
                             {isSending ? (
-                                <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden>
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-                                    <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" />
+                                <svg
+                                    className="h-3.5 w-3.5 animate-spin"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    aria-hidden
+                                >
+                                    <circle
+                                        className="opacity-25"
+                                        cx="12"
+                                        cy="12"
+                                        r="10"
+                                        stroke="currentColor"
+                                        strokeWidth="3"
+                                    />
+                                    <path
+                                        className="opacity-90"
+                                        fill="currentColor"
+                                        d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"
+                                    />
                                 </svg>
                             ) : (
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} className="h-4 w-4" aria-hidden>
-                                    <path d="M12 19V5M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth={2.25}
+                                    className="h-4 w-4"
+                                    aria-hidden
+                                >
+                                    <path
+                                        d="M12 19V5M5 12l7-7 7 7"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                    />
                                 </svg>
                             )}
                         </button>
@@ -241,7 +305,11 @@ export function ChatPanel({
                 <div className="min-w-0">
                     <p className="truncate font-medium leading-tight">{name}</p>
                     <p className="truncate text-xs opacity-80">
-                        {isSending ? "Typing…" : isHydrating ? "Loading conversation…" : "Online"}
+                        {isSending
+                            ? "Typing…"
+                            : isHydrating
+                              ? "Loading conversation…"
+                              : "Online"}
                     </p>
                 </div>
             </header>
@@ -256,7 +324,10 @@ export function ChatPanel({
                 className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-background px-4 py-4"
             />
 
-            <form onSubmit={onSubmit} className="shrink-0 border-t border-border bg-card p-3">
+            <form
+                onSubmit={onSubmit}
+                className="shrink-0 border-t border-border bg-card p-3"
+            >
                 <div className="flex items-end gap-2">
                     <textarea
                         ref={inputRef}
@@ -278,21 +349,51 @@ export function ChatPanel({
                         style={{ backgroundColor: color }}
                     >
                         {isSending ? (
-                            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden>
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-                                <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" />
+                            <svg
+                                className="h-4 w-4 animate-spin"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                aria-hidden
+                            >
+                                <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="3"
+                                />
+                                <path
+                                    className="opacity-90"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"
+                                />
                             </svg>
                         ) : (
-                            <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 translate-x-px" aria-hidden>
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                                className="h-4 w-4 translate-x-px"
+                                aria-hidden
+                            >
                                 <path d="M3.4 20.6 21 12 3.4 3.4 3 10l12 2-12 2z" />
                             </svg>
                         )}
                     </button>
                 </div>
                 <p className="mt-1.5 px-0.5 text-[11px] text-muted-foreground">
-                    <kbd className="rounded border border-border bg-muted px-1">Enter</kbd> to send ·{" "}
-                    <kbd className="rounded border border-border bg-muted px-1">Shift</kbd>+
-                    <kbd className="rounded border border-border bg-muted px-1">Enter</kbd> for new line
+                    <kbd className="rounded border border-border bg-muted px-1">
+                        Enter
+                    </kbd>{" "}
+                    to send ·{" "}
+                    <kbd className="rounded border border-border bg-muted px-1">
+                        Shift
+                    </kbd>
+                    +
+                    <kbd className="rounded border border-border bg-muted px-1">
+                        Enter
+                    </kbd>{" "}
+                    for new line
                 </p>
             </form>
         </div>

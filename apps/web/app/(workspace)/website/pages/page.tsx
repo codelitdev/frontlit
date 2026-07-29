@@ -6,7 +6,13 @@ import { useRouter } from "next/navigation";
 import { FilePlus2, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError } from "@/lib/api-client";
-import { createPage, deletePage, listPages, type Page, type PageType } from "@/lib/api";
+import {
+    createPage,
+    deletePage,
+    listPages,
+    type Page,
+    type PageType,
+} from "@/lib/api";
 import {
     filterPages,
     getPageStatusCounts,
@@ -70,7 +76,10 @@ function relativeUpdatedAt(value: string | null) {
 }
 
 export default function PagesPage() {
-    useSetBreadcrumb([{ label: "Website", href: "/website/pages" }, { label: "Pages" }]);
+    useSetBreadcrumb([
+        { label: "Website", href: "/website/pages" },
+        { label: "Pages" },
+    ]);
     const router = useRouter();
     const [pages, setPages] = useState<Page[]>([]);
     const [loading, setLoading] = useState(true);
@@ -87,7 +96,11 @@ export default function PagesPage() {
         listPages({ itemsPerPage: 500 })
             .then(({ items }) => setPages(items))
             .catch((error) => {
-                toast.error(error instanceof ApiError ? error.message : "Failed to load pages.");
+                toast.error(
+                    error instanceof ApiError
+                        ? error.message
+                        : "Failed to load pages.",
+                );
             })
             .finally(() => setLoading(false));
     }, []);
@@ -120,7 +133,10 @@ export default function PagesPage() {
             setNewPageOpen(false);
             router.push(`/editor/pages/${created.pageId}`);
         } catch (error) {
-            const message = error instanceof ApiError ? error.message : "Failed to create page.";
+            const message =
+                error instanceof ApiError
+                    ? error.message
+                    : "Failed to create page.";
             setCreateError(message);
             toast.error(message);
         } finally {
@@ -131,10 +147,16 @@ export default function PagesPage() {
     async function handleDelete(page: Page) {
         try {
             await deletePage(page.pageId);
-            setPages((current) => current.filter((item) => item.pageId !== page.pageId));
+            setPages((current) =>
+                current.filter((item) => item.pageId !== page.pageId),
+            );
             toast.success("Page deleted.");
         } catch (error) {
-            toast.error(error instanceof ApiError ? error.message : "Failed to delete page.");
+            toast.error(
+                error instanceof ApiError
+                    ? error.message
+                    : "Failed to delete page.",
+            );
         }
     }
 
@@ -151,10 +173,14 @@ export default function PagesPage() {
             <div className="mx-auto w-full max-w-6xl">
                 <header className="flex flex-col gap-5 border-b pb-5 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <h1 className="text-2xl font-semibold tracking-tight">Pages</h1>
+                        <h1 className="text-2xl font-semibold tracking-tight">
+                            Pages
+                        </h1>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            {plural(counts.published, "live page")} · {plural(counts.draft, "draft")} ·{" "}
-                            {plural(counts.changes, "page")} with unpublished changes
+                            {plural(counts.published, "live page")} ·{" "}
+                            {plural(counts.draft, "draft")} ·{" "}
+                            {plural(counts.changes, "page")} with unpublished
+                            changes
                         </p>
                     </div>
 
@@ -165,7 +191,9 @@ export default function PagesPage() {
                                 id="pages-filter"
                                 name="pagesFilter"
                                 value={query}
-                                onChange={(event) => setQuery(event.target.value)}
+                                onChange={(event) =>
+                                    setQuery(event.target.value)
+                                }
                                 placeholder="Filter by name, slug, or type"
                                 aria-label="Filter pages by name, slug, or type"
                                 className="pl-9"
@@ -203,11 +231,14 @@ export default function PagesPage() {
                                     onClick={() => setFilter(item.value)}
                                     className={cn(
                                         "rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors",
-                                        filter === item.value && "bg-card text-foreground shadow-sm",
+                                        filter === item.value &&
+                                            "bg-card text-foreground shadow-sm",
                                     )}
                                 >
                                     {item.label}{" "}
-                                    <span className="ml-1 tabular-nums">{count}</span>
+                                    <span className="ml-1 tabular-nums">
+                                        {count}
+                                    </span>
                                 </button>
                             );
                         })}
@@ -222,7 +253,9 @@ export default function PagesPage() {
                         <div className="rounded-xl border border-dashed px-6 py-12 text-center">
                             <FilePlus2 className="mx-auto size-6 text-muted-foreground" />
                             <h2 className="mt-3 font-semibold">
-                                {pages.length === 0 ? "Create your first page" : "No pages match"}
+                                {pages.length === 0
+                                    ? "Create your first page"
+                                    : "No pages match"}
                             </h2>
                             <p className="mt-1 text-sm text-muted-foreground">
                                 {pages.length === 0
@@ -257,10 +290,15 @@ export default function PagesPage() {
                                                 {page.name}
                                             </span>
                                             {page.status !== "published" && (
-                                                <DocumentStatusBadge status={page.status} />
+                                                <DocumentStatusBadge
+                                                    status={page.status}
+                                                />
                                             )}
                                             {!page.deleteable && (
-                                                <Badge variant="outline" className="px-2 py-0.5">
+                                                <Badge
+                                                    variant="outline"
+                                                    className="px-2 py-0.5"
+                                                >
                                                     Required
                                                 </Badge>
                                             )}
@@ -300,7 +338,8 @@ export default function PagesPage() {
                         <DialogHeader>
                             <DialogTitle>New page</DialogTitle>
                             <DialogDescription>
-                                Choose the page purpose, then customize it in the builder.
+                                Choose the page purpose, then customize it in
+                                the builder.
                             </DialogDescription>
                         </DialogHeader>
 
@@ -319,7 +358,11 @@ export default function PagesPage() {
                                     }}
                                     placeholder="Pricing"
                                     aria-invalid={Boolean(createError)}
-                                    aria-describedby={createError ? "page-name-error" : undefined}
+                                    aria-describedby={
+                                        createError
+                                            ? "page-name-error"
+                                            : undefined
+                                    }
                                     className="mt-1"
                                     disabled={creating}
                                 />
@@ -339,10 +382,15 @@ export default function PagesPage() {
                                 <Select
                                     name="type"
                                     value={newPageType}
-                                    onValueChange={(value) => setNewPageType(value as PageType)}
+                                    onValueChange={(value) =>
+                                        setNewPageType(value as PageType)
+                                    }
                                     disabled={creating}
                                 >
-                                    <SelectTrigger id="page-type" className="mt-1">
+                                    <SelectTrigger
+                                        id="page-type"
+                                        className="mt-1"
+                                    >
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>

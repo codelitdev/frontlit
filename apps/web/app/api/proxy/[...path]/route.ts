@@ -3,7 +3,10 @@ import { API_URL } from "@/lib/config";
 import { hasServerSession } from "@/lib/server-session";
 import { TEAM_ID_COOKIE } from "@/lib/tokens";
 
-async function forward(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+async function forward(
+    req: NextRequest,
+    { params }: { params: Promise<{ path: string[] }> },
+) {
     const cookieHeader = req.headers.get("cookie") ?? "";
     if (!(await hasServerSession(cookieHeader))) {
         return NextResponse.json(
@@ -18,7 +21,8 @@ async function forward(req: NextRequest, { params }: { params: Promise<{ path: s
     const { path } = await params;
     const targetUrl = `${API_URL}/${path.join("/")}${req.nextUrl.search}`;
     const method = req.method;
-    const hasBody = method !== "GET" && method !== "HEAD" && method !== "DELETE";
+    const hasBody =
+        method !== "GET" && method !== "HEAD" && method !== "DELETE";
     const body = hasBody ? await req.text() : undefined;
     // Listing/creating teams is account-level. Nested team routes still
     // identify a concrete team and should carry the workspace selection just
@@ -51,7 +55,9 @@ async function forward(req: NextRequest, { params }: { params: Promise<{ path: s
         headers: hasNullBody
             ? {}
             : {
-                  "Content-Type": upstream.headers.get("Content-Type") || "application/json",
+                  "Content-Type":
+                      upstream.headers.get("Content-Type") ||
+                      "application/json",
               },
     });
 
@@ -61,4 +67,10 @@ async function forward(req: NextRequest, { params }: { params: Promise<{ path: s
     return res;
 }
 
-export { forward as GET, forward as POST, forward as PATCH, forward as PUT, forward as DELETE };
+export {
+    forward as GET,
+    forward as POST,
+    forward as PATCH,
+    forward as PUT,
+    forward as DELETE,
+};

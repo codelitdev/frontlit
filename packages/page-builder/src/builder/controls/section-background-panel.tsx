@@ -20,10 +20,7 @@ import { cn } from "../../primitives/lib/utils";
 import { Switch } from "../../primitives/components/ui/switch";
 import { ColorSelector } from "./color-selector";
 import { PageBuilderSlider } from "./page-builder-slider";
-import {
-    PATTERN_PRESETS,
-    type PatternPresetCategory,
-} from "./pattern-presets";
+import { PATTERN_PRESETS, type PatternPresetCategory } from "./pattern-presets";
 
 interface SectionBackgroundPanelProps {
     value?: SectionBackground;
@@ -92,8 +89,7 @@ const PATTERN_FILTERS: {
     { id: "glow", label: "Glows" },
 ];
 
-const fieldLabelClass =
-    "text-xs font-semibold tracking-tight text-foreground";
+const fieldLabelClass = "text-xs font-semibold tracking-tight text-foreground";
 const fieldHintClass =
     "text-[11px] leading-relaxed text-muted-foreground break-words";
 const controlClass =
@@ -128,12 +124,7 @@ function FieldLabel({
 }
 
 function PanelInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-    return (
-        <input
-            {...props}
-            className={cn(controlClass, props.className)}
-        />
-    );
+    return <input {...props} className={cn(controlClass, props.className)} />;
 }
 
 function PanelTextarea(
@@ -303,10 +294,7 @@ function FixedBackgroundToggle({
                             aria-describedby="bg-fixed-hint"
                         />
                     </div>
-                    <p
-                        id="bg-fixed-hint"
-                        className={fieldHintClass}
-                    >
+                    <p id="bg-fixed-hint" className={fieldHintClass}>
                         Keep the background still while the page scrolls —
                         content moves over a static surface.
                     </p>
@@ -353,7 +341,10 @@ function BackgroundPreview({ value }: { value: SectionBackground }) {
 
     return (
         <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-border/70 shadow-sm">
-            <div className="relative h-14 w-full max-w-full" style={previewStyle}>
+            <div
+                className="relative h-14 w-full max-w-full"
+                style={previewStyle}
+            >
                 {value.type === "image" && imageUrl && (value.blur || 0) > 0 ? (
                     <div
                         className="absolute inset-0"
@@ -560,9 +551,7 @@ export function SectionBackgroundPanel({
                                 />
                                 <PanelInput
                                     id="background-image-url"
-                                    value={
-                                        (value.media?.file as string) || ""
-                                    }
+                                    value={(value.media?.file as string) || ""}
                                     onChange={(e) =>
                                         handleBackgroundChange({
                                             media: e.target.value
@@ -715,8 +704,7 @@ export function SectionBackgroundPanel({
                                 value={value.maskImage || ""}
                                 onChange={(e) =>
                                     handleBackgroundChange({
-                                        maskImage:
-                                            e.target.value || undefined,
+                                        maskImage: e.target.value || undefined,
                                     })
                                 }
                                 placeholder="linear-gradient(black, transparent)"
@@ -787,9 +775,7 @@ export function SectionBackgroundPanel({
                                                 : "border-border/80 bg-muted/10 hover:border-primary/35 hover:bg-muted/30",
                                         )}
                                         onClick={() =>
-                                            handleBackgroundChange(
-                                                preset.apply,
-                                            )
+                                            handleBackgroundChange(preset.apply)
                                         }
                                     >
                                         <span
@@ -898,8 +884,7 @@ export function SectionBackgroundPanel({
                                 value={value.gradientBackgroundSize || ""}
                                 onChange={(e) =>
                                     handleBackgroundChange({
-                                        gradientBackgroundSize:
-                                            e.target.value,
+                                        gradientBackgroundSize: e.target.value,
                                     })
                                 }
                                 placeholder="cover"
@@ -915,9 +900,7 @@ export function SectionBackgroundPanel({
                             </FieldLabel>
                             <PanelInput
                                 id="gradient-background-position"
-                                value={
-                                    value.gradientBackgroundPosition || ""
-                                }
+                                value={value.gradientBackgroundPosition || ""}
                                 onChange={(e) =>
                                     handleBackgroundChange({
                                         gradientBackgroundPosition:

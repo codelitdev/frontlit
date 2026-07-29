@@ -1,8 +1,7 @@
 import type { ResolvedHost } from "./api";
 
 export type HostDecision =
-    | { action: "unknown" }
-    | { action: "rewrite"; teamId: string };
+    { action: "unknown" } | { action: "rewrite"; teamId: string };
 
 /**
  * Pure decision logic for the tenant-resolution middleware (architecture.md
@@ -14,7 +13,10 @@ export type HostDecision =
  * SEO, not redirects. Kept host-effect-free (no
  * `NextResponse`, no `fetch`) so it's unit-testable without a request.
  */
-export function decideHost(resolved: ResolvedHost | null, _requestUrl: { pathname: string; search: string; protocol: string }): HostDecision {
+export function decideHost(
+    resolved: ResolvedHost | null,
+    _requestUrl: { pathname: string; search: string; protocol: string },
+): HostDecision {
     if (!resolved) return { action: "unknown" };
     return { action: "rewrite", teamId: resolved.teamId };
 }

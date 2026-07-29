@@ -21,8 +21,16 @@ describe("team settings", () => {
         expect(settings.title).toBeNull();
         expect(settings.codeInjectionHead).toBeNull();
         expect(settings.codeInjectionBody).toBeNull();
-        expect(settings.sharedWidgets.header).toMatchObject({ name: "header", shared: true, deleteable: false });
-        expect(settings.sharedWidgets.footer).toMatchObject({ name: "footer", shared: true, deleteable: false });
+        expect(settings.sharedWidgets.header).toMatchObject({
+            name: "header",
+            shared: true,
+            deleteable: false,
+        });
+        expect(settings.sharedWidgets.footer).toMatchObject({
+            name: "footer",
+            shared: true,
+            deleteable: false,
+        });
         expect(settings.draftSharedWidgets).toEqual(settings.sharedWidgets);
     });
 

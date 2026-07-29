@@ -1,6 +1,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { documentStatusSchema, successMessageSchema, textEditorContentSchema } from "@frontlit/api-contract";
+import {
+    documentStatusSchema,
+    successMessageSchema,
+    textEditorContentSchema,
+} from "@frontlit/api-contract";
 import type { DocumentKind } from "../../db/schema";
 import {
     countDocuments,
@@ -18,7 +22,13 @@ import { getTeamId } from "./auth";
 import { omitInternal, serializeDates } from "../../utils/public";
 
 function toPublicDocument<T extends Record<string, unknown>>(doc: T) {
-    return serializeDates(omitInternal({ ...doc, status: deriveDocumentStatus(doc as any) }, "teamId", "kind"));
+    return serializeDates(
+        omitInternal(
+            { ...doc, status: deriveDocumentStatus(doc as any) },
+            "teamId",
+            "kind",
+        ),
+    );
 }
 
 /**
@@ -27,7 +37,12 @@ function toPublicDocument<T extends Record<string, unknown>>(doc: T) {
  * `label` names the tools/output schema (e.g. "blog_post"); `metaSchema`
  * documents the kind-specific `meta` shape for MCP clients.
  */
-export function registerDocumentTools(server: McpServer, kind: DocumentKind, label: string, metaSchema: z.ZodTypeAny): void {
+export function registerDocumentTools(
+    server: McpServer,
+    kind: DocumentKind,
+    label: string,
+    metaSchema: z.ZodTypeAny,
+): void {
     const documentSchema = z.object({
         documentId: z.string(),
         slug: z.string(),
@@ -51,15 +66,26 @@ export function registerDocumentTools(server: McpServer, kind: DocumentKind, lab
         `create_${label}`,
         {
             description: `Creates a new, empty ${label} (draft only) for the current team.`,
-            inputSchema: { title: z.string().min(1), meta: metaSchema.optional() },
+            inputSchema: {
+                title: z.string().min(1),
+                meta: metaSchema.optional(),
+            },
             outputSchema: documentSchema,
-            annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
             if (!teamId) return AUTH_ERROR;
             try {
-                const doc = await createDocument(kind, { teamId, title: args.title, meta: args.meta });
+                const doc = await createDocument(kind, {
+                    teamId,
+                    title: args.title,
+                    meta: args.meta,
+                });
                 return jsonResult(toPublicDocument(doc));
             } catch {
                 return INTERNAL_ERROR;
@@ -72,8 +98,15 @@ export function registerDocumentTools(server: McpServer, kind: DocumentKind, lab
         {
             description: `Lists ${label}s for the current team, optionally filtered by a title search term.`,
             inputSchema: { q: z.string().optional() },
-            outputSchema: z.object({ items: z.array(documentSchema), total: z.number() }),
-            annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+            outputSchema: z.object({
+                items: z.array(documentSchema),
+                total: z.number(),
+            }),
+            annotations: {
+                readOnlyHint: true,
+                idempotentHint: true,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -83,7 +116,10 @@ export function registerDocumentTools(server: McpServer, kind: DocumentKind, lab
                     listDocuments(kind, { teamId, q: args.q }),
                     countDocuments(kind, { teamId, q: args.q }),
                 ]);
-                return jsonResult({ items: items.map(toPublicDocument), total });
+                return jsonResult({
+                    items: items.map(toPublicDocument),
+                    total,
+                });
             } catch {
                 return INTERNAL_ERROR;
             }
@@ -96,13 +132,20 @@ export function registerDocumentTools(server: McpServer, kind: DocumentKind, lab
             description: `Fetches a single ${label} by id, including its full draft and published content.`,
             inputSchema: { documentId: z.string() },
             outputSchema: documentSchema,
-            annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+            annotations: {
+                readOnlyHint: true,
+                idempotentHint: true,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
             if (!teamId) return AUTH_ERROR;
             try {
-                const doc = await getDocumentByDocumentId(kind, args.documentId);
+                const doc = await getDocumentByDocumentId(
+                    kind,
+                    args.documentId,
+                );
                 if (!doc || doc.teamId !== teamId) return NOT_FOUND;
                 return jsonResult(toPublicDocument(doc));
             } catch {
@@ -124,14 +167,23 @@ export function registerDocumentTools(server: McpServer, kind: DocumentKind, lab
                 meta: metaSchema.optional(),
             },
             outputSchema: documentSchema,
-            annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
             if (!teamId) return AUTH_ERROR;
             try {
                 const { documentId, ...patch } = args;
-                const doc = await updateDocument(kind, teamId, documentId, patch);
+                const doc = await updateDocument(
+                    kind,
+                    teamId,
+                    documentId,
+                    patch,
+                );
                 if (!doc) return NOT_FOUND;
                 return jsonResult(toPublicDocument(doc));
             } catch {
@@ -146,13 +198,22 @@ export function registerDocumentTools(server: McpServer, kind: DocumentKind, lab
             description: `Publishes a ${label}: copies its draft content into the published fields the public site/API renders.`,
             inputSchema: { documentId: z.string() },
             outputSchema: documentSchema,
-            annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                idempotentHint: true,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
             if (!teamId) return AUTH_ERROR;
             try {
-                const doc = await publishDocument(kind, teamId, args.documentId);
+                const doc = await publishDocument(
+                    kind,
+                    teamId,
+                    args.documentId,
+                );
                 if (!doc) return NOT_FOUND;
                 return jsonResult(toPublicDocument(doc));
             } catch {
@@ -167,13 +228,22 @@ export function registerDocumentTools(server: McpServer, kind: DocumentKind, lab
             description: `Discards a ${label}'s draft changes, resetting the draft content back to whatever is currently published.`,
             inputSchema: { documentId: z.string() },
             outputSchema: documentSchema,
-            annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: true,
+                idempotentHint: true,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
             if (!teamId) return AUTH_ERROR;
             try {
-                const doc = await discardDocumentDraft(kind, teamId, args.documentId);
+                const doc = await discardDocumentDraft(
+                    kind,
+                    teamId,
+                    args.documentId,
+                );
                 if (!doc) return NOT_FOUND;
                 return jsonResult(toPublicDocument(doc));
             } catch {
@@ -188,13 +258,21 @@ export function registerDocumentTools(server: McpServer, kind: DocumentKind, lab
             description: `Permanently deletes a ${label}.`,
             inputSchema: { documentId: z.string() },
             outputSchema: successMessageSchema,
-            annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: true,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
             if (!teamId) return AUTH_ERROR;
             try {
-                const result = await deleteDocument(kind, teamId, args.documentId);
+                const result = await deleteDocument(
+                    kind,
+                    teamId,
+                    args.documentId,
+                );
                 if (!result.ok) return NOT_FOUND;
                 return jsonResult({ message: `${label} deleted.` });
             } catch {

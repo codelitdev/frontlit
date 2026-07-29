@@ -55,7 +55,10 @@ export default function AccountPage() {
             const form = document.createElement("form");
             form.method = "POST";
             form.action = "/api/team/switch";
-            for (const [name, value] of Object.entries({ teamId: team.teamId, redirectTo: "/teams" })) {
+            for (const [name, value] of Object.entries({
+                teamId: team.teamId,
+                redirectTo: "/teams",
+            })) {
                 const input = document.createElement("input");
                 input.type = "hidden";
                 input.name = name;
@@ -65,7 +68,9 @@ export default function AccountPage() {
             document.body.appendChild(form);
             form.submit();
         } catch (err) {
-            setCreateError(err instanceof ApiError ? err.message : "Failed to create team");
+            setCreateError(
+                err instanceof ApiError ? err.message : "Failed to create team",
+            );
             setCreating(false);
         }
     }
@@ -81,11 +86,22 @@ export default function AccountPage() {
     return (
         <ScrollablePage>
             <div className="max-w-2xl space-y-8">
-                <PageHeader title="Account" description="Manage your team workspaces and their API keys." />
+                <PageHeader
+                    title="Account"
+                    description="Manage your team workspaces and their API keys."
+                />
 
                 <form onSubmit={handleCreate} className="flex gap-2">
-                    <Input value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)} placeholder="New team name" className="flex-1" />
-                    <Button type="submit" disabled={!newTeamName.trim() || creating}>
+                    <Input
+                        value={newTeamName}
+                        onChange={(e) => setNewTeamName(e.target.value)}
+                        placeholder="New team name"
+                        className="flex-1"
+                    />
+                    <Button
+                        type="submit"
+                        disabled={!newTeamName.trim() || creating}
+                    >
                         {creating ? "Creating…" : "Create team"}
                     </Button>
                 </form>
@@ -93,7 +109,11 @@ export default function AccountPage() {
 
                 <div className="space-y-4">
                     {teams.map((team) => (
-                        <TeamCard key={team.teamId} team={team} onChange={refresh} />
+                        <TeamCard
+                            key={team.teamId}
+                            team={team}
+                            onChange={refresh}
+                        />
                     ))}
                 </div>
             </div>
@@ -101,7 +121,13 @@ export default function AccountPage() {
     );
 }
 
-function TeamCard({ team, onChange }: { team: Team; onChange: () => Promise<void> }) {
+function TeamCard({
+    team,
+    onChange,
+}: {
+    team: Team;
+    onChange: () => Promise<void>;
+}) {
     const [name, setName] = useState(team.name);
     const [keys, setKeys] = useState<ApiKey[]>([]);
     const [newKeyName, setNewKeyName] = useState("");
@@ -147,8 +173,15 @@ function TeamCard({ team, onChange }: { team: Team; onChange: () => Promise<void
     return (
         <Card>
             <CardContent className="space-y-3">
-                <form onSubmit={handleRename} className="flex items-center gap-2">
-                    <Input value={name} onChange={(e) => setName(e.target.value)} className="flex-1" />
+                <form
+                    onSubmit={handleRename}
+                    className="flex items-center gap-2"
+                >
+                    <Input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="flex-1"
+                    />
                     <Button type="submit" variant="outline" size="sm">
                         Rename
                     </Button>
@@ -170,7 +203,13 @@ function TeamCard({ team, onChange }: { team: Team; onChange: () => Promise<void
                 </form>
                 <p className="text-xs text-muted-foreground">{team.teamId}</p>
 
-                <Button type="button" variant="ghost" size="sm" className="h-auto p-0 text-xs underline underline-offset-4" onClick={() => setExpanded((v) => !v)}>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-0 text-xs underline underline-offset-4"
+                    onClick={() => setExpanded((v) => !v)}
+                >
                     {expanded ? "Hide API keys" : "Manage API keys"}
                 </Button>
 
@@ -178,22 +217,43 @@ function TeamCard({ team, onChange }: { team: Team; onChange: () => Promise<void
                     <div className="space-y-2 border-t pt-3">
                         {createdKey && (
                             <div className="rounded-md border border-warning/30 bg-warning-soft p-2 text-xs">
-                                <p className="font-medium">Save this key now — it won&apos;t be shown again:</p>
-                                <code className="break-all">{createdKey.key}</code>
+                                <p className="font-medium">
+                                    Save this key now — it won&apos;t be shown
+                                    again:
+                                </p>
+                                <code className="break-all">
+                                    {createdKey.key}
+                                </code>
                             </div>
                         )}
                         {keys.map((key) => (
-                            <div key={key.id} className="flex items-center justify-between text-sm">
+                            <div
+                                key={key.id}
+                                className="flex items-center justify-between text-sm"
+                            >
                                 <span>
-                                    {key.name || "Unnamed key"} <code className="text-muted-foreground">{key.keyPrefix}…</code>
+                                    {key.name || "Unnamed key"}{" "}
+                                    <code className="text-muted-foreground">
+                                        {key.keyPrefix}…
+                                    </code>
                                 </span>
-                                <Button variant="ghost" size="sm" className="h-auto p-0 text-xs underline underline-offset-4 text-destructive" onClick={() => handleDeleteKey(key.id)}>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-auto p-0 text-xs underline underline-offset-4 text-destructive"
+                                    onClick={() => handleDeleteKey(key.id)}
+                                >
                                     Revoke
                                 </Button>
                             </div>
                         ))}
                         <form onSubmit={handleCreateKey} className="flex gap-2">
-                            <Input value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)} placeholder="Key name" className="h-8 flex-1 text-xs" />
+                            <Input
+                                value={newKeyName}
+                                onChange={(e) => setNewKeyName(e.target.value)}
+                                placeholder="Key name"
+                                className="h-8 flex-1 text-xs"
+                            />
                             <Button type="submit" variant="outline" size="sm">
                                 Create key
                             </Button>

@@ -25,7 +25,8 @@ export const chatbotWidgetStyleSchema = z.object({
 });
 export type ChatbotWidgetStyle = z.infer<typeof chatbotWidgetStyleSchema>;
 
-export const DEFAULT_CHATBOT_WIDGET_STYLE: ChatbotWidgetStyle = chatbotWidgetStyleSchema.parse({});
+export const DEFAULT_CHATBOT_WIDGET_STYLE: ChatbotWidgetStyle =
+    chatbotWidgetStyleSchema.parse({});
 
 /** Partial style patch accepted on update — missing keys keep previous values. */
 export const chatbotWidgetStylePatchSchema = chatbotWidgetStyleSchema.partial();
@@ -83,7 +84,12 @@ export const chatRequestBodySchema = z.object({
     conversationId: z.string().optional(),
     conversationToken: z.string().optional(),
     history: z
-        .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() }))
+        .array(
+            z.object({
+                role: z.enum(["user", "assistant"]),
+                content: z.string(),
+            }),
+        )
         .max(20)
         .optional(),
 });

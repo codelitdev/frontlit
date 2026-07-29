@@ -10,18 +10,39 @@ interface Props {
     params: Promise<{ teamId: string; slug: string }>;
 }
 
-export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
+export async function generateMetadata(
+    { params }: Props,
+    parent: ResolvingMetadata,
+): Promise<Metadata> {
     const { teamId, slug } = await params;
-    const [doc, settings, previous] = await Promise.all([getDocBySlug(teamId, slug), getSettings(teamId), parent]);
+    const [doc, settings, previous] = await Promise.all([
+        getDocBySlug(teamId, slug),
+        getSettings(teamId),
+        parent,
+    ]);
     if (!doc) return {};
 
-    const seo = resolveSeo({ title: doc.title, description: doc.excerpt, image: doc.featuredImage }, settings, previous.title?.absolute || "FrontLit site");
+    const seo = resolveSeo(
+        {
+            title: doc.title,
+            description: doc.excerpt,
+            image: doc.featuredImage,
+        },
+        settings,
+        previous.title?.absolute || "FrontLit site",
+    );
 
     return {
         title: `${seo.title} | ${previous.title?.absolute}`,
         description: seo.description ?? undefined,
-        alternates: { canonical: `https://${await getCanonicalHost()}/docs/${slug}` },
-        openGraph: { title: seo.title, description: seo.description ?? undefined, images: seo.imageUrl ? [{ url: seo.imageUrl }] : undefined },
+        alternates: {
+            canonical: `https://${await getCanonicalHost()}/docs/${slug}`,
+        },
+        openGraph: {
+            title: seo.title,
+            description: seo.description ?? undefined,
+            images: seo.imageUrl ? [{ url: seo.imageUrl }] : undefined,
+        },
         robots: { index: seo.robotsIndex, follow: seo.robotsIndex },
     };
 }
@@ -48,8 +69,14 @@ export default async function DocPage({ params }: Props) {
                             updatedAt: doc.updatedAt,
                             url: `https://${canonicalHost}/docs/${slug}`,
                             breadcrumb: [
-                                { name: "Docs", url: `https://${canonicalHost}/docs` },
-                                { name: doc.title ?? slug, url: `https://${canonicalHost}/docs/${slug}` },
+                                {
+                                    name: "Docs",
+                                    url: `https://${canonicalHost}/docs`,
+                                },
+                                {
+                                    name: doc.title ?? slug,
+                                    url: `https://${canonicalHost}/docs/${slug}`,
+                                },
                             ],
                         }),
                     ),
@@ -66,11 +93,16 @@ export default async function DocPage({ params }: Props) {
                 </article>
                 {headings.length > 0 && (
                     <nav className="hidden lg:block">
-                        <p className="text-sm font-semibold text-neutral-500">On this page</p>
+                        <p className="text-sm font-semibold text-neutral-500">
+                            On this page
+                        </p>
                         <ul className="mt-3 flex flex-col gap-2 text-sm">
                             {headings.map((heading) => (
                                 <li key={heading.id}>
-                                    <a href={`#${heading.id}`} className="text-neutral-600 hover:underline">
+                                    <a
+                                        href={`#${heading.id}`}
+                                        className="text-neutral-600 hover:underline"
+                                    >
                                         {heading.text}
                                     </a>
                                 </li>

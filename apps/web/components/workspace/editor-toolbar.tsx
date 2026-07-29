@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { DocumentStatusBadge, type DocumentStatus } from "@/components/workspace/document-status-badge";
+import {
+    DocumentStatusBadge,
+    type DocumentStatus,
+} from "@/components/workspace/document-status-badge";
 import { Badge } from "@/components/ui/codelit/badge";
 import { Button } from "@/components/ui/codelit/button";
 import {
@@ -43,31 +46,50 @@ export function EditorToolbar({
 }) {
     return (
         <div className="flex h-11 shrink-0 items-center justify-between border-b bg-background px-4">
-            <Link href={backHref} className="text-xs text-muted-foreground hover:underline">
+            <Link
+                href={backHref}
+                className="text-xs text-muted-foreground hover:underline"
+            >
                 ← {backLabel}
             </Link>
             <div className="flex items-center gap-2">
-                <DocumentStatusBadge status={status} data-testid={statusTestId} />
+                <DocumentStatusBadge
+                    status={status}
+                    data-testid={statusTestId}
+                />
                 {extra}
                 {saving && <Badge variant="neutral">Saving…</Badge>}
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm" disabled={publishing || status === "published"}>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={publishing || status === "published"}
+                        >
                             Discard draft
                         </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle>Discard draft?</AlertDialogTitle>
-                            <AlertDialogDescription>{discardDescription}</AlertDialogDescription>
+                            <AlertDialogDescription>
+                                {discardDescription}
+                            </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={onDiscardDraft}>Discard</AlertDialogAction>
+                            <AlertDialogAction onClick={onDiscardDraft}>
+                                Discard
+                            </AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
-                <Button size="sm" onClick={onPublish} disabled={publishing || status === "published"} data-testid="publish-button">
+                <Button
+                    size="sm"
+                    onClick={onPublish}
+                    disabled={publishing || status === "published"}
+                    data-testid="publish-button"
+                >
                     {publishing ? publishingLabel : "Publish"}
                 </Button>
             </div>

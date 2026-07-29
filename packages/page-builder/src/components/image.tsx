@@ -1,11 +1,7 @@
 import NextImage from "next/legacy/image";
 
 export type ImageObjectFit =
-    | "cover"
-    | "contain"
-    | "fill"
-    | "none"
-    | "scale-down";
+    "cover" | "contain" | "fill" | "none" | "scale-down";
 
 interface ImgProps {
     src: string;

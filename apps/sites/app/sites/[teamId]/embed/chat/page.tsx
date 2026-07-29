@@ -12,7 +12,10 @@ export default async function EmbedChatPage({
 }) {
     const { teamId } = await params;
     const { layout: layoutParam } = await searchParams;
-    const [settings, siteTheme] = await Promise.all([getChatbotSettings(teamId), loadSiteTheme(teamId)]);
+    const [settings, siteTheme] = await Promise.all([
+        getChatbotSettings(teamId),
+        loadSiteTheme(teamId),
+    ]);
     const layout = layoutParam === "docked" ? "docked" : "panel";
     const style = settings?.widgetStyle;
 

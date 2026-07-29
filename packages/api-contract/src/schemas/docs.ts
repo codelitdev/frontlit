@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { makeCreateDocumentBodySchema, makeDocumentSchema, makeUpdateDocumentBodySchema } from "./documents";
+import {
+    makeCreateDocumentBodySchema,
+    makeDocumentSchema,
+    makeUpdateDocumentBodySchema,
+} from "./documents";
 
 export const docMetaSchema = z.object({
     sectionId: z.string().optional(),
@@ -8,7 +12,9 @@ export const docMetaSchema = z.object({
 
 export const docSchema = makeDocumentSchema(docMetaSchema);
 export const createDocBodySchema = makeCreateDocumentBodySchema(docMetaSchema);
-export const updateDocBodySchema = makeUpdateDocumentBodySchema(docMetaSchema.partial());
+export const updateDocBodySchema = makeUpdateDocumentBodySchema(
+    docMetaSchema.partial(),
+);
 
 export const docSectionSchema = z.object({
     sectionId: z.string(),

@@ -9,13 +9,21 @@ import { slugify, uniqueSlug } from "../utils/slug";
  * chunks in one transaction (architecture.md §6.3). Called after
  * `publishDocument("doc", ...)`; never on draft saves \u2014 only published
  * content is ever searchable/citable. */
-export async function reindexDocument(input: { teamId: string; documentId: string; content: unknown }) {
+export async function reindexDocument(input: {
+    teamId: string;
+    documentId: string;
+    content: unknown;
+}) {
     const chunks = extractChunks(input.content as any);
 
-    const embeddings = chunks.length ? await getEmbeddings(chunks.map((chunk) => chunk.content)) : [];
+    const embeddings = chunks.length
+        ? await getEmbeddings(chunks.map((chunk) => chunk.content))
+        : [];
 
     await db.transaction(async (tx) => {
-        await tx.delete(documentChunks).where(eq(documentChunks.documentId, input.documentId));
+        await tx
+            .delete(documentChunks)
+            .where(eq(documentChunks.documentId, input.documentId));
         if (chunks.length) {
             await tx.insert(documentChunks).values(
                 chunks.map((chunk, i) => ({
@@ -34,7 +42,9 @@ export async function reindexDocument(input: { teamId: string; documentId: strin
 }
 
 export async function deleteChunksForDocument(documentId: string) {
-    await db.delete(documentChunks).where(eq(documentChunks.documentId, documentId));
+    await db
+        .delete(documentChunks)
+        .where(eq(documentChunks.documentId, documentId));
 }
 
 export interface SearchResult {
@@ -53,7 +63,11 @@ const SIMILARITY_FLOOR = 0.25;
  * (architecture.md §6.4). `cosineDistance` returns `1 - cosine_similarity`,
  * so `similarity = 1 - distance`; results below `SIMILARITY_FLOOR` are
  * dropped rather than fed to a prompt as noise. */
-export async function searchChunks(teamId: string, query: string, k = 6): Promise<SearchResult[]> {
+export async function searchChunks(
+    teamId: string,
+    query: string,
+    k = 6,
+): Promise<SearchResult[]> {
     const embedding = await getEmbedding(query);
     const similarity = sql<number>`1 - (${cosineDistance(documentChunks.embedding, embedding)})`;
 
@@ -69,7 +83,12 @@ export async function searchChunks(teamId: string, query: string, k = 6): Promis
         })
         .from(documentChunks)
         .innerJoin(documents, eq(documentChunks.documentId, documents.id))
-        .where(and(eq(documentChunks.teamId, teamId), gt(similarity, SIMILARITY_FLOOR)))
+        .where(
+            and(
+                eq(documentChunks.teamId, teamId),
+                gt(similarity, SIMILARITY_FLOOR),
+            ),
+        )
         .orderBy((row) => sql`${row.similarity} desc`)
         .limit(k);
 
@@ -81,16 +100,32 @@ export async function searchChunks(teamId: string, query: string, k = 6): Promis
 // points into) \u2014 architecture.md §5.1.
 // ---------------------------------------------------------------------------
 
-async function sectionSlugTaken(teamId: string, slug: string): Promise<boolean> {
-    const existing = await db.query.docSections.findFirst({ where: and(eq(docSections.teamId, teamId), eq(docSections.slug, slug)) });
+async function sectionSlugTaken(
+    teamId: string,
+    slug: string,
+): Promise<boolean> {
+    const existing = await db.query.docSections.findFirst({
+        where: and(eq(docSections.teamId, teamId), eq(docSections.slug, slug)),
+    });
     return Boolean(existing);
 }
 
-export async function createDocSection(input: { teamId: string; name: string; order?: number }) {
-    const slug = await uniqueSlug(slugify(input.name), (candidate) => sectionSlugTaken(input.teamId, candidate));
+export async function createDocSection(input: {
+    teamId: string;
+    name: string;
+    order?: number;
+}) {
+    const slug = await uniqueSlug(slugify(input.name), (candidate) =>
+        sectionSlugTaken(input.teamId, candidate),
+    );
     const [section] = await db
         .insert(docSections)
-        .values({ teamId: input.teamId, name: input.name, slug, order: input.order ?? 0 })
+        .values({
+            teamId: input.teamId,
+            name: input.name,
+            slug,
+            order: input.order ?? 0,
+        })
         .returning();
     return section;
 }
@@ -102,11 +137,23 @@ export async function listDocSections(teamId: string) {
     });
 }
 
-export async function getDocSectionBySectionId(teamId: string, sectionId: string) {
-    return db.query.docSections.findFirst({ where: and(eq(docSections.teamId, teamId), eq(docSections.sectionId, sectionId)) });
+export async function getDocSectionBySectionId(
+    teamId: string,
+    sectionId: string,
+) {
+    return db.query.docSections.findFirst({
+        where: and(
+            eq(docSections.teamId, teamId),
+            eq(docSections.sectionId, sectionId),
+        ),
+    });
 }
 
-export async function updateDocSection(teamId: string, sectionId: string, patch: Partial<{ name: string; order: number }>) {
+export async function updateDocSection(
+    teamId: string,
+    sectionId: string,
+    patch: Partial<{ name: string; order: number }>,
+) {
     const existing = await getDocSectionBySectionId(teamId, sectionId);
     if (!existing) return null;
     const [section] = await db
@@ -125,6 +172,9 @@ export async function deleteDocSection(teamId: string, sectionId: string) {
 }
 
 export async function countDocSections(teamId: string) {
-    const [{ value }] = await db.select({ value: count() }).from(docSections).where(eq(docSections.teamId, teamId));
+    const [{ value }] = await db
+        .select({ value: count() })
+        .from(docSections)
+        .where(eq(docSections.teamId, teamId));
     return value;
 }

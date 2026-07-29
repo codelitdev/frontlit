@@ -8,10 +8,14 @@ describe("buildSitemapXml", () => {
             { kind: "blog", path: "/blog/hello", lastmod: null },
         ]);
 
-        expect(xml).toContain("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">");
+        expect(xml).toContain(
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+        );
         expect(xml).toContain("<loc>https://acme.frontlit.app/</loc>");
         expect(xml).toContain("<lastmod>2026-01-01T00:00:00.000Z</lastmod>");
-        expect(xml).toContain("<loc>https://acme.frontlit.app/blog/hello</loc>");
+        expect(xml).toContain(
+            "<loc>https://acme.frontlit.app/blog/hello</loc>",
+        );
     });
 });
 

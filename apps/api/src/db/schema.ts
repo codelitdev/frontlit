@@ -40,7 +40,10 @@ import { authSession, authUser } from "@codelitdev/oauth-server-kit";
  * Mirrors the convention used across FrontLit's sibling projects.
  */
 function publicIdCheck(column: string, prefix: string) {
-    return check(`${column}_prefix_check`, sql.raw(`"${column}" LIKE '${prefix}\\_%' ESCAPE '\\'`));
+    return check(
+        `${column}_prefix_check`,
+        sql.raw(`"${column}" LIKE '${prefix}\\_%' ESCAPE '\\'`),
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -122,10 +125,17 @@ export const teamMembers = pgTable(
         accountId: text("account_id")
             .notNull()
             .references(() => accounts.id, { onDelete: "cascade" }),
-        role: text("role", { enum: ["owner", "member"] }).notNull().default("member"),
+        role: text("role", { enum: ["owner", "member"] })
+            .notNull()
+            .default("member"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
     },
-    (table) => [uniqueIndex("team_members_team_account_idx").on(table.teamId, table.accountId)],
+    (table) => [
+        uniqueIndex("team_members_team_account_idx").on(
+            table.teamId,
+            table.accountId,
+        ),
+    ],
 );
 
 /**
@@ -182,7 +192,10 @@ export const themes = pgTable(
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().defaultNow(),
     },
-    (table) => [index("themes_team_idx").on(table.teamId), publicIdCheck("theme_id", "thm")],
+    (table) => [
+        index("themes_team_idx").on(table.teamId),
+        publicIdCheck("theme_id", "thm"),
+    ],
 );
 
 export type WidgetInstanceRow = {
@@ -257,7 +270,10 @@ export const documents = pgTable(
         content: jsonb("content").$type<TextEditorContentRow>(),
         excerpt: text("excerpt"),
         featuredImage: jsonb("featured_image").$type<Record<string, unknown>>(),
-        meta: jsonb("meta").$type<Record<string, unknown>>().notNull().default({}),
+        meta: jsonb("meta")
+            .$type<Record<string, unknown>>()
+            .notNull()
+            .default({}),
         publishedAt: timestamp("published_at"),
 
         // Draft side — written by every editor save. `publish()` copies
@@ -265,19 +281,37 @@ export const documents = pgTable(
         // reverse. Unlike pages, a document always has draft content (there's
         // no "empty until first save" state — creation seeds an empty doc).
         draftTitle: text("draft_title").notNull(),
-        draftContent: jsonb("draft_content").$type<TextEditorContentRow>().notNull(),
+        draftContent: jsonb("draft_content")
+            .$type<TextEditorContentRow>()
+            .notNull(),
         draftExcerpt: text("draft_excerpt"),
-        draftFeaturedImage: jsonb("draft_featured_image").$type<Record<string, unknown>>(),
-        draftMeta: jsonb("draft_meta").$type<Record<string, unknown>>().notNull().default({}),
+        draftFeaturedImage: jsonb("draft_featured_image").$type<
+            Record<string, unknown>
+        >(),
+        draftMeta: jsonb("draft_meta")
+            .$type<Record<string, unknown>>()
+            .notNull()
+            .default({}),
 
-        authorAccountId: text("author_account_id").references(() => accounts.id, { onDelete: "set null" }),
+        authorAccountId: text("author_account_id").references(
+            () => accounts.id,
+            { onDelete: "set null" },
+        ),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().defaultNow(),
     },
     (table) => [
-        uniqueIndex("documents_team_kind_slug_idx").on(table.teamId, table.kind, table.slug),
+        uniqueIndex("documents_team_kind_slug_idx").on(
+            table.teamId,
+            table.kind,
+            table.slug,
+        ),
         index("documents_team_kind_idx").on(table.teamId, table.kind),
-        index("documents_published_idx").on(table.teamId, table.kind, table.publishedAt),
+        index("documents_published_idx").on(
+            table.teamId,
+            table.kind,
+            table.publishedAt,
+        ),
         publicIdCheck("document_id", "doc"),
     ],
 );
@@ -331,7 +365,10 @@ export const documentChunks = pgTable(
     },
     (table) => [
         index("document_chunks_team_idx").on(table.teamId),
-        index("document_chunks_embedding_idx").using("hnsw", table.embedding.op("vector_cosine_ops")),
+        index("document_chunks_embedding_idx").using(
+            "hnsw",
+            table.embedding.op("vector_cosine_ops"),
+        ),
     ],
 );
 
@@ -363,9 +400,14 @@ export const chatbotSettings = pgTable("chatbot_settings", {
      * bot can't answer. Independent of the help desk being used at all. */
     escalationEnabled: boolean("escalation_enabled").notNull().default(false),
     /** Public launcher: classic bubble button vs bottom text-input bar. */
-    variant: text("variant", { enum: ["bubble", "text_input"] }).notNull().default("bubble"),
+    variant: text("variant", { enum: ["bubble", "text_input"] })
+        .notNull()
+        .default("bubble"),
     /** Visual knobs for the selected launcher variant. */
-    widgetStyle: jsonb("widget_style").$type<ChatbotWidgetStyleRow>().notNull().default({}),
+    widgetStyle: jsonb("widget_style")
+        .$type<ChatbotWidgetStyleRow>()
+        .notNull()
+        .default({}),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -401,7 +443,10 @@ export const media = pgTable(
     },
     (table) => [
         index("media_team_idx").on(table.teamId, table.createdAt),
-        uniqueIndex("media_team_medialit_idx").on(table.teamId, table.mediaLitId),
+        uniqueIndex("media_team_medialit_idx").on(
+            table.teamId,
+            table.mediaLitId,
+        ),
         publicIdCheck("media_id", "med"),
     ],
 );
@@ -427,7 +472,12 @@ export const integrations = pgTable(
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().defaultNow(),
     },
-    (table) => [uniqueIndex("integrations_team_provider_idx").on(table.teamId, table.provider)],
+    (table) => [
+        uniqueIndex("integrations_team_provider_idx").on(
+            table.teamId,
+            table.provider,
+        ),
+    ],
 );
 
 // ---------------------------------------------------------------------------
@@ -466,7 +516,12 @@ export const teamSettings = pgTable("team_settings", {
 // conversations raised from the public site, API, or workspace.
 // ---------------------------------------------------------------------------
 
-export const ticketStatuses = ["open", "pending", "resolved", "closed"] as const;
+export const ticketStatuses = [
+    "open",
+    "pending",
+    "resolved",
+    "closed",
+] as const;
 export type TicketStatus = (typeof ticketStatuses)[number];
 
 /** "form" = support-form page-builder block, "chatbot" = RAG escalation
@@ -486,22 +541,33 @@ export const tickets = pgTable(
             .notNull()
             .references(() => teams.id, { onDelete: "cascade" }),
         subject: text("subject").notNull(),
-        status: text("status", { enum: ticketStatuses }).notNull().default("open"),
+        status: text("status", { enum: ticketStatuses })
+            .notNull()
+            .default("open"),
         /** Null for an anonymous chatbot visitor. Support-form and API
          * tickets always provide an email address. */
         requesterEmail: text("requester_email"),
         requesterName: text("requester_name"),
-        source: text("source", { enum: ticketSources }).notNull().default("form"),
+        source: text("source", { enum: ticketSources })
+            .notNull()
+            .default("form"),
         /** SHA-256 hash of the visitor's magic-link token (§13.4); never store
          * the raw token. */
         accessTokenHash: text("access_token_hash").notNull(),
-        assigneeAccountId: text("assignee_account_id").references(() => accounts.id, { onDelete: "set null" }),
+        assigneeAccountId: text("assignee_account_id").references(
+            () => accounts.id,
+            { onDelete: "set null" },
+        ),
         lastMessageAt: timestamp("last_message_at").notNull().defaultNow(),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().defaultNow(),
     },
     (table) => [
-        index("tickets_team_status_idx").on(table.teamId, table.status, table.lastMessageAt),
+        index("tickets_team_status_idx").on(
+            table.teamId,
+            table.status,
+            table.lastMessageAt,
+        ),
         publicIdCheck("ticket_id", "tkt"),
     ],
 );
@@ -524,11 +590,17 @@ export const ticketMessages = pgTable(
             .notNull()
             .references(() => tickets.id, { onDelete: "cascade" }),
         author: text("author", { enum: ticketMessageAuthors }).notNull(),
-        authorAccountId: text("author_account_id").references(() => accounts.id, { onDelete: "set null" }),
+        authorAccountId: text("author_account_id").references(
+            () => accounts.id,
+            { onDelete: "set null" },
+        ),
         content: jsonb("content").$type<TextEditorContentRow>().notNull(),
         createdAt: timestamp("created_at").notNull().defaultNow(),
     },
-    (table) => [index("ticket_messages_ticket_idx").on(table.ticketId), publicIdCheck("message_id", "tmsg")],
+    (table) => [
+        index("ticket_messages_ticket_idx").on(table.ticketId),
+        publicIdCheck("message_id", "tmsg"),
+    ],
 );
 
 // ---------------------------------------------------------------------------
@@ -542,7 +614,12 @@ export const ticketMessages = pgTable(
 export const outboxJobTypes = ["contact_sync", "provision_sendlit"] as const;
 export type OutboxJobType = (typeof outboxJobTypes)[number];
 
-export const outboxJobStatuses = ["pending", "processing", "done", "failed"] as const;
+export const outboxJobStatuses = [
+    "pending",
+    "processing",
+    "done",
+    "failed",
+] as const;
 export type OutboxJobStatus = (typeof outboxJobStatuses)[number];
 
 export const outboxJobs = pgTable(
@@ -554,14 +631,18 @@ export const outboxJobs = pgTable(
             .references(() => teams.id, { onDelete: "cascade" }),
         type: text("type", { enum: outboxJobTypes }).notNull(),
         payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
-        status: text("status", { enum: outboxJobStatuses }).notNull().default("pending"),
+        status: text("status", { enum: outboxJobStatuses })
+            .notNull()
+            .default("pending"),
         attempts: integer("attempts").notNull().default(0),
         lastError: text("last_error"),
         nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().defaultNow(),
     },
-    (table) => [index("outbox_jobs_poll_idx").on(table.status, table.nextAttemptAt)],
+    (table) => [
+        index("outbox_jobs_poll_idx").on(table.status, table.nextAttemptAt),
+    ],
 );
 
 export const pages = pgTable(
@@ -576,7 +657,9 @@ export const pages = pgTable(
             .notNull()
             .references(() => teams.id, { onDelete: "cascade" }),
         name: text("name").notNull(),
-        type: text("type", { enum: ["site", "blog", "landing", "post", "custom"] }).notNull(),
+        type: text("type", {
+            enum: ["site", "blog", "landing", "post", "custom"],
+        }).notNull(),
         slug: text("slug").notNull(),
         deleteable: boolean("deleteable").notNull().default(true),
         // Logical theme reference: a built-in id such as "learning", or a
@@ -587,7 +670,10 @@ export const pages = pgTable(
 
         // Published side — read by public rendering. Only ever written by
         // `publish()`, which copies the draft columns below into these.
-        layout: jsonb("layout").$type<WidgetInstanceRow[]>().notNull().default([]),
+        layout: jsonb("layout")
+            .$type<WidgetInstanceRow[]>()
+            .notNull()
+            .default([]),
         title: text("title"),
         description: text("description"),
         socialImage: jsonb("social_image").$type<Record<string, unknown>>(),
@@ -597,10 +683,14 @@ export const pages = pgTable(
         // Draft side — written by every builder/editor save. `publish()`
         // copies these into the published columns; `discardDraft()` does
         // the reverse.
-        draftLayout: jsonb("draft_layout").$type<WidgetInstanceRow[]>().notNull().default([]),
+        draftLayout: jsonb("draft_layout")
+            .$type<WidgetInstanceRow[]>()
+            .notNull()
+            .default([]),
         draftTitle: text("draft_title"),
         draftDescription: text("draft_description"),
-        draftSocialImage: jsonb("draft_social_image").$type<Record<string, unknown>>(),
+        draftSocialImage:
+            jsonb("draft_social_image").$type<Record<string, unknown>>(),
         draftRobotsAllowed: boolean("draft_robots_allowed"),
 
         createdAt: timestamp("created_at").notNull().defaultNow(),

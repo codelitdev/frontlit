@@ -629,9 +629,7 @@ export function ThemeEditor({
                 return renderStructureList();
             default:
                 return (
-                    <p className="text-xs text-muted-foreground">
-                        Coming soon
-                    </p>
+                    <p className="text-xs text-muted-foreground">Coming soon</p>
                 );
         }
     };

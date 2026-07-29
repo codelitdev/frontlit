@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isStaleTeamSelectionError, needsTeamSelection, resolveCurrentTeamId } from "./tokens";
+import {
+    isStaleTeamSelectionError,
+    needsTeamSelection,
+    resolveCurrentTeamId,
+} from "./tokens";
 
 describe("needsTeamSelection", () => {
     it("is true for explicit missing-team selection errors", () => {
@@ -49,7 +53,9 @@ describe("resolveCurrentTeamId", () => {
     });
 
     it("returns null when there are several teams and no cookie", () => {
-        expect(resolveCurrentTeamId([{ teamId: "team_a" }, { teamId: "team_b" }])).toBeNull();
+        expect(
+            resolveCurrentTeamId([{ teamId: "team_a" }, { teamId: "team_b" }]),
+        ).toBeNull();
     });
 
     it("returns null when the account has no teams", () => {

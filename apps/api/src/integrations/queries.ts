@@ -3,26 +3,42 @@ import { db } from "../db/client";
 import { integrations, type IntegrationProvider } from "../db/schema";
 import { decryptSecret, encryptSecret } from "../utils/crypto";
 
-export async function getIntegration(teamId: string, provider: IntegrationProvider) {
-    return db.query.integrations.findFirst({ where: and(eq(integrations.teamId, teamId), eq(integrations.provider, provider)) });
+export async function getIntegration(
+    teamId: string,
+    provider: IntegrationProvider,
+) {
+    return db.query.integrations.findFirst({
+        where: and(
+            eq(integrations.teamId, teamId),
+            eq(integrations.provider, provider),
+        ),
+    });
 }
 
 /** Returns the connected repo + decrypted token, or null if not connected. */
-export async function getGithubIntegration(teamId: string): Promise<{ repo: string; token: string } | null> {
+export async function getGithubIntegration(
+    teamId: string,
+): Promise<{ repo: string; token: string } | null> {
     const row = await getIntegration(teamId, "github");
     if (!row) return null;
     const config = row.config as { repo: string; token: string };
     return { repo: config.repo, token: decryptSecret(config.token) };
 }
 
-export async function upsertGithubIntegration(teamId: string, input: { repo: string; token: string }) {
+export async function upsertGithubIntegration(
+    teamId: string,
+    input: { repo: string; token: string },
+) {
     const encryptedToken = encryptSecret(input.token);
     const existing = await getIntegration(teamId, "github");
 
     if (existing) {
         const [updated] = await db
             .update(integrations)
-            .set({ config: { repo: input.repo, token: encryptedToken }, updatedAt: new Date() })
+            .set({
+                config: { repo: input.repo, token: encryptedToken },
+                updatedAt: new Date(),
+            })
             .where(eq(integrations.id, existing.id))
             .returning();
         return updated;
@@ -30,13 +46,27 @@ export async function upsertGithubIntegration(teamId: string, input: { repo: str
 
     const [created] = await db
         .insert(integrations)
-        .values({ teamId, provider: "github", config: { repo: input.repo, token: encryptedToken } })
+        .values({
+            teamId,
+            provider: "github",
+            config: { repo: input.repo, token: encryptedToken },
+        })
         .returning();
     return created;
 }
 
-export async function deleteIntegration(teamId: string, provider: IntegrationProvider) {
-    await db.delete(integrations).where(and(eq(integrations.teamId, teamId), eq(integrations.provider, provider)));
+export async function deleteIntegration(
+    teamId: string,
+    provider: IntegrationProvider,
+) {
+    await db
+        .delete(integrations)
+        .where(
+            and(
+                eq(integrations.teamId, teamId),
+                eq(integrations.provider, provider),
+            ),
+        );
 }
 
 /** Returns the team's decrypted SendLit API key, or null if the team hasn't
@@ -61,6 +91,9 @@ export async function storeSendlitApiKey(teamId: string, apiKey: string) {
         return updated;
     }
 
-    const [created] = await db.insert(integrations).values({ teamId, provider: "sendlit", config: { apiKey: encrypted } }).returning();
+    const [created] = await db
+        .insert(integrations)
+        .values({ teamId, provider: "sendlit", config: { apiKey: encrypted } })
+        .returning();
     return created;
 }

@@ -43,7 +43,10 @@ function Badge({
             {...props}
         >
             {dot && (
-                <span aria-hidden className="size-1.5 rounded-full bg-current" />
+                <span
+                    aria-hidden
+                    className="size-1.5 rounded-full bg-current"
+                />
             )}
             {children}
         </span>

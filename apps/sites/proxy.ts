@@ -37,7 +37,8 @@ export async function proxy(request: NextRequest) {
     // opt out of what its parent renders.
     const headers = new Headers(request.headers);
     headers.set("x-frontlit-canonical-host", resolved!.canonicalHost);
-    if (request.nextUrl.pathname.startsWith("/embed/")) headers.set("x-frontlit-embed", "1");
+    if (request.nextUrl.pathname.startsWith("/embed/"))
+        headers.set("x-frontlit-embed", "1");
 
     return NextResponse.rewrite(url, { request: { headers } });
 }

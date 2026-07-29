@@ -52,23 +52,56 @@ describe("pages screen helpers", () => {
         ["draft", ["landing"]],
         ["changes", ["help"]],
     ])("filters the %s tab", (filter, expected) => {
-        expect(filterPages(pages, filter, "").map((item) => item.pageId)).toEqual(expected);
+        expect(
+            filterPages(pages, filter, "").map((item) => item.pageId),
+        ).toEqual(expected);
     });
 
     it("matches name, slug, or page type case-insensitively", () => {
-        expect(filterPages(pages, "all", "SUMMER").map((item) => item.pageId)).toEqual(["landing"]);
-        expect(filterPages(pages, "all", "custom").map((item) => item.pageId)).toEqual(["help"]);
-        expect(filterPages(pages, "all", "homepage").map((item) => item.pageId)).toEqual(["home"]);
+        expect(
+            filterPages(pages, "all", "SUMMER").map((item) => item.pageId),
+        ).toEqual(["landing"]);
+        expect(
+            filterPages(pages, "all", "custom").map((item) => item.pageId),
+        ).toEqual(["help"]);
+        expect(
+            filterPages(pages, "all", "homepage").map((item) => item.pageId),
+        ).toEqual(["home"]);
     });
 
     it("keeps the homepage first and sorts the remaining pages by recent updates", () => {
         const sorted = sortPagesForLibrary([
-            page("old", "Old", "old", "custom", "draft", "2026-01-01T00:00:00.000Z"),
-            page("new", "New", "new", "custom", "draft", "2026-07-01T00:00:00.000Z"),
-            page("home", "Homepage", "", "site", "published", "2025-01-01T00:00:00.000Z"),
+            page(
+                "old",
+                "Old",
+                "old",
+                "custom",
+                "draft",
+                "2026-01-01T00:00:00.000Z",
+            ),
+            page(
+                "new",
+                "New",
+                "new",
+                "custom",
+                "draft",
+                "2026-07-01T00:00:00.000Z",
+            ),
+            page(
+                "home",
+                "Homepage",
+                "",
+                "site",
+                "published",
+                "2025-01-01T00:00:00.000Z",
+            ),
         ]);
 
-        expect(sorted.map((item) => item.pageId)).toEqual(["home", "new", "old"]);
+        expect(sorted.map((item) => item.pageId)).toEqual([
+            "home",
+            "new",
+            "old",
+        ]);
     });
 
     it("formats the homepage and regular public paths", () => {

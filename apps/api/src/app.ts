@@ -31,7 +31,10 @@ import { openApiDocument } from "./openapi";
 export function createApp() {
     const app = express();
 
-    app.set("trust proxy", process.env.ENABLE_TRUST_PROXY === "true" ? 1 : false);
+    app.set(
+        "trust proxy",
+        process.env.ENABLE_TRUST_PROXY === "true" ? 1 : false,
+    );
 
     app.use(cors());
     // Mounted before express.json(): Better Auth's Node handler parses its
@@ -92,10 +95,20 @@ export function createApp() {
     app.use(domainsRoutes);
     app.use(settingsRoutes);
 
-    app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-        logger.error({ error: err.message, path: req.path, method: req.method }, "Unhandled express error");
-        res.status(500).json({ error: "server_error" });
-    });
+    app.use(
+        (
+            err: any,
+            req: express.Request,
+            res: express.Response,
+            _next: express.NextFunction,
+        ) => {
+            logger.error(
+                { error: err.message, path: req.path, method: req.method },
+                "Unhandled express error",
+            );
+            res.status(500).json({ error: "server_error" });
+        },
+    );
 
     return app;
 }

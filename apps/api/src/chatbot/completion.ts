@@ -29,7 +29,12 @@ function toSources(chunks: SearchResult[]): ChatSource[] {
         const key = `${chunk.documentId}#${chunk.anchor ?? ""}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        sources.push({ documentId: chunk.documentId, slug: chunk.slug, title: chunk.title, anchor: chunk.anchor });
+        sources.push({
+            documentId: chunk.documentId,
+            slug: chunk.slug,
+            title: chunk.title,
+            anchor: chunk.anchor,
+        });
     }
     return sources;
 }
@@ -39,8 +44,13 @@ function toSources(chunks: SearchResult[]): ChatSource[] {
  * produces a useful reply, while refusing jailbreaks / general inference
  * abuse (architecture.md §13.4 prompt-injection containment).
  */
-export function buildInstructions(chunks: SearchResult[], teamName?: string | null): string {
-    const who = teamName?.trim() ? `for ${teamName.trim()}` : "for this product/site";
+export function buildInstructions(
+    chunks: SearchResult[],
+    teamName?: string | null,
+): string {
+    const who = teamName?.trim()
+        ? `for ${teamName.trim()}`
+        : "for this product/site";
     const hasArticles = chunks.length > 0;
 
     const policy = [
@@ -101,11 +111,17 @@ export function wrapVisitorMessage(question: string): string {
 }
 
 /** User/assistant turns only — AI SDK v7 puts policy in `instructions`. */
-function buildMessages(question: string, history: { role: "user" | "assistant"; content: string }[]): ModelMessage[] {
+function buildMessages(
+    question: string,
+    history: { role: "user" | "assistant"; content: string }[],
+): ModelMessage[] {
     return [
         ...history.map((turn) => {
             if (turn.role === "user") {
-                return { role: "user" as const, content: wrapVisitorMessage(turn.content) };
+                return {
+                    role: "user" as const,
+                    content: wrapVisitorMessage(turn.content),
+                };
             }
             return { role: "assistant" as const, content: turn.content };
         }),
@@ -160,13 +176,17 @@ export async function* streamChatAnswer(
     chunks: SearchResult[],
     history: { role: "user" | "assistant"; content: string }[] = [],
     options: ChatAnswerOptions = {},
-): AsyncGenerator<{ type: "token"; text: string } | { type: "done"; answer: string; sources: ChatSource[]; escalate: boolean }> {
+): AsyncGenerator<
+    | { type: "token"; text: string }
+    | { type: "done"; answer: string; sources: ChatSource[]; escalate: boolean }
+> {
     const sources = toSources(chunks);
     const escalate = chunks.length === 0;
 
     const model = getChatLanguageModel();
     if (!model || resolveChatProvider() === "local") {
-        const answer = chunks.length === 0 ? NO_DOCS_LOCAL : getLocalAnswer(chunks).answer;
+        const answer =
+            chunks.length === 0 ? NO_DOCS_LOCAL : getLocalAnswer(chunks).answer;
         yield { type: "token", text: answer };
         yield { type: "done", answer, sources, escalate };
         return;

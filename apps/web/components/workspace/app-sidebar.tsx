@@ -20,8 +20,19 @@ import {
     Settings,
     Users,
 } from "lucide-react";
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarRail } from "@/components/ui/sidebar";
-import { NavMain, NavItems, type NavItem } from "@/components/workspace/nav-main";
+import {
+    Sidebar,
+    SidebarContent,
+    SidebarFooter,
+    SidebarHeader,
+    SidebarMenu,
+    SidebarRail,
+} from "@/components/ui/sidebar";
+import {
+    NavMain,
+    NavItems,
+    type NavItem,
+} from "@/components/workspace/nav-main";
 import { NavUser } from "@/components/workspace/nav-user";
 import { TeamSwitcher } from "@/components/workspace/team-switcher";
 import { Banner } from "@/components/workspace/banner";
@@ -39,7 +50,11 @@ const NAV: NavItem[] = [
             { href: "/website/pages", label: "Pages", icon: FileText },
             { href: "/website/branding", label: "Branding", icon: Palette },
             { href: "/website/domain", label: "Domain", icon: Globe },
-            { href: "/website/code-injection", label: "Code injection", icon: Code },
+            {
+                href: "/website/code-injection",
+                label: "Code injection",
+                icon: Code,
+            },
             { href: "/website/chatbot", label: "Chatbot", icon: Bot },
         ],
     },
@@ -78,11 +93,15 @@ export function AppSidebar() {
             try {
                 const [teamsResult, sessionResult] = await Promise.allSettled([
                     listTeams(),
-                    fetch("/api/auth/get-session", { cache: "no-store" }).then(async (res) => {
-                        if (!res.ok) return null;
-                        const session = (await res.json()) as { user?: CurrentAccount };
-                        return session.user ?? null;
-                    }),
+                    fetch("/api/auth/get-session", { cache: "no-store" }).then(
+                        async (res) => {
+                            if (!res.ok) return null;
+                            const session = (await res.json()) as {
+                                user?: CurrentAccount;
+                            };
+                            return session.user ?? null;
+                        },
+                    ),
                 ]);
                 if (cancelled) return;
 
@@ -94,12 +113,19 @@ export function AppSidebar() {
                     throw teamsResult.reason;
                 }
 
-                if (sessionResult.status === "fulfilled" && sessionResult.value) {
+                if (
+                    sessionResult.status === "fulfilled" &&
+                    sessionResult.value
+                ) {
                     setAccount(sessionResult.value);
                 }
             } catch (err) {
                 if (cancelled) return;
-                setError(err instanceof ApiError ? err.message : "Failed to load teams");
+                setError(
+                    err instanceof ApiError
+                        ? err.message
+                        : "Failed to load teams",
+                );
             }
         }
         load();
@@ -123,14 +149,21 @@ export function AppSidebar() {
             )}
 
             <SidebarContent>
-                {currentTeamId && teams.find((team) => team.teamId === currentTeamId)?.subdomain == null && (
-                    <div className="px-2 pb-2 group-data-[collapsible=icon]:hidden">
-                        <Banner variant="warning">
-                            <Link href="/website/domain" className="font-medium underline">Finish website setup</Link>{" "}
-                            by choosing your public subdomain.
-                        </Banner>
-                    </div>
-                )}
+                {currentTeamId &&
+                    teams.find((team) => team.teamId === currentTeamId)
+                        ?.subdomain == null && (
+                        <div className="px-2 pb-2 group-data-[collapsible=icon]:hidden">
+                            <Banner variant="warning">
+                                <Link
+                                    href="/website/domain"
+                                    className="font-medium underline"
+                                >
+                                    Finish website setup
+                                </Link>{" "}
+                                by choosing your public subdomain.
+                            </Banner>
+                        </div>
+                    )}
                 <NavMain items={NAV} />
                 <SidebarMenu className="mt-auto px-2">
                     <NavItems items={FOOTER_NAV} />

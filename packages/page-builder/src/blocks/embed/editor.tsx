@@ -1,7 +1,12 @@
 import React from "react";
 import type { WidgetEditorProps } from "../../models";
 import type { EmbedSettings } from "./settings";
-import { FieldGroup, NumberField, SelectField, TextField } from "../_shared/fields";
+import {
+    FieldGroup,
+    NumberField,
+    SelectField,
+    TextField,
+} from "../_shared/fields";
 
 export function EmbedEditor({
     settings,
@@ -16,7 +21,7 @@ export function EmbedEditor({
         <div className="flex flex-col">
             <div className="mx-1 mb-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
                 Embedding external content may expose visitors to scripts and
-                trackers you don't control. Only embed sources you trust.
+                trackers you don&apos;t control. Only embed sources you trust.
             </div>
             <FieldGroup title="Content">
                 <SelectField

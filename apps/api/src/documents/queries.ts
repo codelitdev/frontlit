@@ -1,6 +1,10 @@
 import { and, count, eq, ilike, isNotNull, ne } from "drizzle-orm";
 import { db } from "../db/client";
-import { documents, type DocumentKind, type TextEditorContentRow } from "../db/schema";
+import {
+    documents,
+    type DocumentKind,
+    type TextEditorContentRow,
+} from "../db/schema";
 import {
     isUniqueConstraintViolation,
     normalizeEditableSlug,
@@ -31,16 +35,27 @@ export function deriveDocumentStatus(doc: {
 
     const hasChanges =
         doc.title !== doc.draftTitle ||
-        JSON.stringify(doc.content ?? null) !== JSON.stringify(doc.draftContent ?? null) ||
+        JSON.stringify(doc.content ?? null) !==
+            JSON.stringify(doc.draftContent ?? null) ||
         doc.excerpt !== doc.draftExcerpt ||
-        JSON.stringify(doc.featuredImage ?? null) !== JSON.stringify(doc.draftFeaturedImage ?? null) ||
+        JSON.stringify(doc.featuredImage ?? null) !==
+            JSON.stringify(doc.draftFeaturedImage ?? null) ||
         JSON.stringify(doc.meta ?? {}) !== JSON.stringify(doc.draftMeta ?? {});
 
     return hasChanges ? "published_with_changes" : "published";
 }
 
-async function slugTaken(teamId: string, kind: DocumentKind, slug: string, excludeDocumentId?: string): Promise<boolean> {
-    const conditions = [eq(documents.teamId, teamId), eq(documents.kind, kind), eq(documents.slug, slug)];
+async function slugTaken(
+    teamId: string,
+    kind: DocumentKind,
+    slug: string,
+    excludeDocumentId?: string,
+): Promise<boolean> {
+    const conditions = [
+        eq(documents.teamId, teamId),
+        eq(documents.kind, kind),
+        eq(documents.slug, slug),
+    ];
     if (excludeDocumentId) conditions.push(ne(documents.id, excludeDocumentId));
     const existing = await db.query.documents.findFirst({
         where: and(...conditions),
@@ -48,8 +63,13 @@ async function slugTaken(teamId: string, kind: DocumentKind, slug: string, exclu
     return Boolean(existing);
 }
 
-export async function createDocument(kind: DocumentKind, input: { teamId: string; title: string; meta?: Record<string, unknown> }) {
-    const slug = await uniqueSlug(slugify(input.title), (candidate) => slugTaken(input.teamId, kind, candidate));
+export async function createDocument(
+    kind: DocumentKind,
+    input: { teamId: string; title: string; meta?: Record<string, unknown> },
+) {
+    const slug = await uniqueSlug(slugify(input.title), (candidate) =>
+        slugTaken(input.teamId, kind, candidate),
+    );
 
     const [doc] = await db
         .insert(documents)
@@ -65,8 +85,19 @@ export async function createDocument(kind: DocumentKind, input: { teamId: string
     return doc;
 }
 
-export async function listDocuments(kind: DocumentKind, input: { teamId: string; q?: string; offset?: number; itemsPerPage?: number }) {
-    const conditions = [eq(documents.teamId, input.teamId), eq(documents.kind, kind)];
+export async function listDocuments(
+    kind: DocumentKind,
+    input: {
+        teamId: string;
+        q?: string;
+        offset?: number;
+        itemsPerPage?: number;
+    },
+) {
+    const conditions = [
+        eq(documents.teamId, input.teamId),
+        eq(documents.kind, kind),
+    ];
     if (input.q) conditions.push(ilike(documents.draftTitle, `%${input.q}%`));
 
     const offset = ((input.offset ?? 1) - 1) * (input.itemsPerPage ?? 20);
@@ -80,16 +111,33 @@ export async function listDocuments(kind: DocumentKind, input: { teamId: string;
     });
 }
 
-export async function countDocuments(kind: DocumentKind, input: { teamId: string; q?: string }) {
-    const conditions = [eq(documents.teamId, input.teamId), eq(documents.kind, kind)];
+export async function countDocuments(
+    kind: DocumentKind,
+    input: { teamId: string; q?: string },
+) {
+    const conditions = [
+        eq(documents.teamId, input.teamId),
+        eq(documents.kind, kind),
+    ];
     if (input.q) conditions.push(ilike(documents.draftTitle, `%${input.q}%`));
 
-    const [{ value }] = await db.select({ value: count() }).from(documents).where(and(...conditions));
+    const [{ value }] = await db
+        .select({ value: count() })
+        .from(documents)
+        .where(and(...conditions));
     return value;
 }
 
-export async function getDocumentByDocumentId(kind: DocumentKind, documentId: string) {
-    return db.query.documents.findFirst({ where: and(eq(documents.documentId, documentId), eq(documents.kind, kind)) });
+export async function getDocumentByDocumentId(
+    kind: DocumentKind,
+    documentId: string,
+) {
+    return db.query.documents.findFirst({
+        where: and(
+            eq(documents.documentId, documentId),
+            eq(documents.kind, kind),
+        ),
+    });
 }
 
 /** Writes content to draft columns while applying `slug` immediately.
@@ -113,9 +161,22 @@ export async function updateDocument(
     const existing = await getDocumentByDocumentId(kind, documentId);
     if (!existing || existing.teamId !== teamId) return null;
 
-    const { title, slug: requestedSlug, content, excerpt, featuredImage, meta } = patch;
-    const slug = requestedSlug === undefined ? undefined : normalizeEditableSlug(requestedSlug);
-    if (slug !== undefined && await slugTaken(teamId, kind, slug, existing.id)) {
+    const {
+        title,
+        slug: requestedSlug,
+        content,
+        excerpt,
+        featuredImage,
+        meta,
+    } = patch;
+    const slug =
+        requestedSlug === undefined
+            ? undefined
+            : normalizeEditableSlug(requestedSlug);
+    if (
+        slug !== undefined &&
+        (await slugTaken(teamId, kind, slug, existing.id))
+    ) {
         throw new SlugConflictError("That slug is already in use.");
     }
 
@@ -127,8 +188,20 @@ export async function updateDocument(
                 ...(slug !== undefined ? { slug } : {}),
                 ...(content !== undefined ? { draftContent: content } : {}),
                 ...(excerpt !== undefined ? { draftExcerpt: excerpt } : {}),
-                ...(featuredImage !== undefined ? { draftFeaturedImage: featuredImage } : {}),
-                ...(meta !== undefined ? { draftMeta: { ...(existing.draftMeta as Record<string, unknown>), ...meta } } : {}),
+                ...(featuredImage !== undefined
+                    ? { draftFeaturedImage: featuredImage }
+                    : {}),
+                ...(meta !== undefined
+                    ? {
+                          draftMeta: {
+                              ...(existing.draftMeta as Record<
+                                  string,
+                                  unknown
+                              >),
+                              ...meta,
+                          },
+                      }
+                    : {}),
                 updatedAt: new Date(),
             })
             .where(eq(documents.id, existing.id))
@@ -146,7 +219,11 @@ export async function updateDocument(
  * columns in one update and stamps `publishedAt`. For the `doc` kind, this
  * also re-indexes the document's pgvector chunks (architecture.md §6.3) —
  * only published content is ever searchable/citable, never draft. */
-export async function publishDocument(kind: DocumentKind, teamId: string, documentId: string) {
+export async function publishDocument(
+    kind: DocumentKind,
+    teamId: string,
+    documentId: string,
+) {
     const existing = await getDocumentByDocumentId(kind, documentId);
     if (!existing || existing.teamId !== teamId) return null;
 
@@ -165,7 +242,11 @@ export async function publishDocument(kind: DocumentKind, teamId: string, docume
         .returning();
 
     if (doc && kind === "doc") {
-        await reindexDocument({ teamId, documentId: doc.id, content: doc.content });
+        await reindexDocument({
+            teamId,
+            documentId: doc.id,
+            content: doc.content,
+        });
     }
 
     return doc;
@@ -175,7 +256,11 @@ export async function publishDocument(kind: DocumentKind, teamId: string, docume
  * document that has never been published has nothing to revert to, so
  * this is a no-op in that case (draft* columns are NOT NULL \u2014 unlike
  * pages, there's no "empty" draft state to fall back to). */
-export async function discardDocumentDraft(kind: DocumentKind, teamId: string, documentId: string) {
+export async function discardDocumentDraft(
+    kind: DocumentKind,
+    teamId: string,
+    documentId: string,
+) {
     const existing = await getDocumentByDocumentId(kind, documentId);
     if (!existing || existing.teamId !== teamId) return null;
     if (!existing.publishedAt) return existing;
@@ -195,9 +280,14 @@ export async function discardDocumentDraft(kind: DocumentKind, teamId: string, d
     return doc;
 }
 
-export async function deleteDocument(kind: DocumentKind, teamId: string, documentId: string) {
+export async function deleteDocument(
+    kind: DocumentKind,
+    teamId: string,
+    documentId: string,
+) {
     const existing = await getDocumentByDocumentId(kind, documentId);
-    if (!existing || existing.teamId !== teamId) return { ok: false as const, reason: "not_found" as const };
+    if (!existing || existing.teamId !== teamId)
+        return { ok: false as const, reason: "not_found" as const };
     await db.delete(documents).where(eq(documents.id, existing.id));
     return { ok: true as const };
 }
@@ -207,45 +297,89 @@ export async function deleteDocument(kind: DocumentKind, teamId: string, documen
 // Never touch draft* columns.
 // ---------------------------------------------------------------------------
 
-export async function listPublishedDocuments(kind: DocumentKind, input: { teamId: string; offset?: number; itemsPerPage?: number }) {
+export async function listPublishedDocuments(
+    kind: DocumentKind,
+    input: { teamId: string; offset?: number; itemsPerPage?: number },
+) {
     const offset = ((input.offset ?? 1) - 1) * (input.itemsPerPage ?? 20);
     const limit = input.itemsPerPage ?? 20;
 
     return db.query.documents.findMany({
-        where: and(eq(documents.teamId, input.teamId), eq(documents.kind, kind), isNotNull(documents.publishedAt)),
+        where: and(
+            eq(documents.teamId, input.teamId),
+            eq(documents.kind, kind),
+            isNotNull(documents.publishedAt),
+        ),
         limit,
         offset,
         orderBy: (row, { desc }) => desc(row.publishedAt),
     });
 }
 
-export async function countPublishedDocuments(kind: DocumentKind, input: { teamId: string }) {
+export async function countPublishedDocuments(
+    kind: DocumentKind,
+    input: { teamId: string },
+) {
     const [{ value }] = await db
         .select({ value: count() })
         .from(documents)
-        .where(and(eq(documents.teamId, input.teamId), eq(documents.kind, kind), isNotNull(documents.publishedAt)));
+        .where(
+            and(
+                eq(documents.teamId, input.teamId),
+                eq(documents.kind, kind),
+                isNotNull(documents.publishedAt),
+            ),
+        );
     return value;
 }
 
-export async function getPublishedDocumentBySlug(kind: DocumentKind, teamId: string, slug: string) {
+export async function getPublishedDocumentBySlug(
+    kind: DocumentKind,
+    teamId: string,
+    slug: string,
+) {
     return db.query.documents.findFirst({
-        where: and(eq(documents.teamId, teamId), eq(documents.kind, kind), eq(documents.slug, slug), isNotNull(documents.publishedAt)),
+        where: and(
+            eq(documents.teamId, teamId),
+            eq(documents.kind, kind),
+            eq(documents.slug, slug),
+            isNotNull(documents.publishedAt),
+        ),
     });
 }
 
 /** Import idempotency key for GitHub-sourced changelog entries
  * (architecture.md §8.1): one draft document per GitHub release id, never
  * duplicated on repeat imports. */
-export async function findChangelogByGithubReleaseId(teamId: string, releaseId: number) {
-    const all = await db.query.documents.findMany({ where: and(eq(documents.teamId, teamId), eq(documents.kind, "changelog")) });
-    return all.find((doc) => (doc.draftMeta as any)?.github?.releaseId === releaseId || (doc.meta as any)?.github?.releaseId === releaseId);
+export async function findChangelogByGithubReleaseId(
+    teamId: string,
+    releaseId: number,
+) {
+    const all = await db.query.documents.findMany({
+        where: and(
+            eq(documents.teamId, teamId),
+            eq(documents.kind, "changelog"),
+        ),
+    });
+    return all.find(
+        (doc) =>
+            (doc.draftMeta as any)?.github?.releaseId === releaseId ||
+            (doc.meta as any)?.github?.releaseId === releaseId,
+    );
 }
 
 export async function createDocumentWithContent(
     kind: DocumentKind,
-    input: { teamId: string; title: string; content: TextEditorContentRow; meta?: Record<string, unknown> },
+    input: {
+        teamId: string;
+        title: string;
+        content: TextEditorContentRow;
+        meta?: Record<string, unknown>;
+    },
 ) {
-    const slug = await uniqueSlug(slugify(input.title), (candidate) => slugTaken(input.teamId, kind, candidate));
+    const slug = await uniqueSlug(slugify(input.title), (candidate) =>
+        slugTaken(input.teamId, kind, candidate),
+    );
 
     const [doc] = await db
         .insert(documents)

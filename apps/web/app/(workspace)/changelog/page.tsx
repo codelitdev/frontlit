@@ -24,7 +24,12 @@ import { Button } from "@/components/ui/codelit/button";
 import { Input } from "@/components/ui/codelit/input";
 import { Label } from "@/components/ui/codelit/label";
 import { Badge } from "@/components/ui/codelit/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/codelit/card";
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/codelit/card";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
 
 export default function ChangelogPage() {
@@ -48,7 +53,9 @@ export default function ChangelogPage() {
     }
 
     useEffect(() => {
-        Promise.all([refresh(), refreshGithub()]).finally(() => setLoading(false));
+        Promise.all([refresh(), refreshGithub()]).finally(() =>
+            setLoading(false),
+        );
     }, []);
 
     async function handleCreate(e: React.FormEvent) {
@@ -64,7 +71,11 @@ export default function ChangelogPage() {
             await deleteChangelogEntry(documentId);
             await refresh();
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : "Failed to delete entry.");
+            toast.error(
+                err instanceof ApiError
+                    ? err.message
+                    : "Failed to delete entry.",
+            );
         }
     }
 
@@ -73,11 +84,20 @@ export default function ChangelogPage() {
         if (!repo.trim() || !token.trim()) return;
         setConnecting(true);
         try {
-            setGithub(await connectGithubIntegration({ repo: repo.trim(), token: token.trim() }));
+            setGithub(
+                await connectGithubIntegration({
+                    repo: repo.trim(),
+                    token: token.trim(),
+                }),
+            );
             setRepo("");
             setToken("");
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : "Failed to connect GitHub.");
+            toast.error(
+                err instanceof ApiError
+                    ? err.message
+                    : "Failed to connect GitHub.",
+            );
         } finally {
             setConnecting(false);
         }
@@ -93,10 +113,16 @@ export default function ChangelogPage() {
         setImportResult(null);
         try {
             const result = await importGithubReleases();
-            setImportResult(`Imported ${result.imported}, skipped ${result.skipped} (already imported).`);
+            setImportResult(
+                `Imported ${result.imported}, skipped ${result.skipped} (already imported).`,
+            );
             await refresh();
         } catch (err) {
-            toast.error(err instanceof ApiError ? err.message : "Failed to import releases.");
+            toast.error(
+                err instanceof ApiError
+                    ? err.message
+                    : "Failed to import releases.",
+            );
         } finally {
             setImporting(false);
         }
@@ -117,29 +143,57 @@ export default function ChangelogPage() {
                     <PageHeader title="Changelog" />
 
                     <form onSubmit={handleCreate} className="mb-6 flex gap-2">
-                        <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Entry title" className="flex-1" />
+                        <Input
+                            value={newTitle}
+                            onChange={(e) => setNewTitle(e.target.value)}
+                            placeholder="Entry title"
+                            className="flex-1"
+                        />
                         <Button type="submit">Create</Button>
                     </form>
 
                     <div className="divide-y rounded-lg border">
-                        {entries.length === 0 && <p className="p-4 text-sm text-muted-foreground">No changelog entries yet.</p>}
+                        {entries.length === 0 && (
+                            <p className="p-4 text-sm text-muted-foreground">
+                                No changelog entries yet.
+                            </p>
+                        )}
                         {entries.map((entry) => (
-                            <div key={entry.documentId} className="flex items-center justify-between p-3">
+                            <div
+                                key={entry.documentId}
+                                className="flex items-center justify-between p-3"
+                            >
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <Link href={`/editor/changelog/${entry.documentId}`} className="font-medium hover:underline">
+                                        <Link
+                                            href={`/editor/changelog/${entry.documentId}`}
+                                            className="font-medium hover:underline"
+                                        >
                                             {entry.draftTitle}
                                         </Link>
-                                        {entry.draftMeta.version && <Badge variant="neutral">{entry.draftMeta.version}</Badge>}
-                                        <DocumentStatusBadge status={entry.status} />
+                                        {entry.draftMeta.version && (
+                                            <Badge variant="neutral">
+                                                {entry.draftMeta.version}
+                                            </Badge>
+                                        )}
+                                        <DocumentStatusBadge
+                                            status={entry.status}
+                                        />
                                     </div>
                                     <p className="text-xs text-muted-foreground">
-                                        /changelog/{entry.slug} · updated {entry.updatedAt ? new Date(entry.updatedAt).toLocaleString() : "—"}
+                                        /changelog/{entry.slug} · updated{" "}
+                                        {entry.updatedAt
+                                            ? new Date(
+                                                  entry.updatedAt,
+                                              ).toLocaleString()
+                                            : "—"}
                                     </p>
                                 </div>
                                 <DeleteConfirm
                                     description={`Delete "${entry.draftTitle}"? This cannot be undone.`}
-                                    onConfirm={() => handleDelete(entry.documentId)}
+                                    onConfirm={() =>
+                                        handleDelete(entry.documentId)
+                                    }
                                 />
                             </div>
                         ))}
@@ -148,37 +202,75 @@ export default function ChangelogPage() {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-sm">GitHub integration</CardTitle>
+                        <CardTitle className="text-sm">
+                            GitHub integration
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
                         {github?.connected ? (
                             <div className="space-y-3">
                                 <p className="text-sm text-muted-foreground">
-                                    Connected to <span className="font-medium text-foreground">{github.repo}</span>
+                                    Connected to{" "}
+                                    <span className="font-medium text-foreground">
+                                        {github.repo}
+                                    </span>
                                 </p>
                                 <div className="flex gap-2">
-                                    <Button onClick={handleImport} disabled={importing}>
-                                        {importing ? "Importing…" : "Import releases"}
+                                    <Button
+                                        onClick={handleImport}
+                                        disabled={importing}
+                                    >
+                                        {importing
+                                            ? "Importing…"
+                                            : "Import releases"}
                                     </Button>
-                                    <Button variant="outline" onClick={handleDisconnectGithub}>
+                                    <Button
+                                        variant="outline"
+                                        onClick={handleDisconnectGithub}
+                                    >
                                         Disconnect
                                     </Button>
                                 </div>
-                                {importResult && <p className="text-xs text-muted-foreground">{importResult}</p>}
+                                {importResult && (
+                                    <p className="text-xs text-muted-foreground">
+                                        {importResult}
+                                    </p>
+                                )}
                             </div>
                         ) : (
-                            <form onSubmit={handleConnectGithub} className="space-y-3">
+                            <form
+                                onSubmit={handleConnectGithub}
+                                className="space-y-3"
+                            >
                                 <p className="text-xs text-muted-foreground">
-                                    Connect a repo with a fine-grained personal access token (read-only Contents access is enough) to import
-                                    Releases as draft changelog entries.
+                                    Connect a repo with a fine-grained personal
+                                    access token (read-only Contents access is
+                                    enough) to import Releases as draft
+                                    changelog entries.
                                 </p>
                                 <div className="space-y-1.5">
                                     <Label htmlFor="gh-repo">Repository</Label>
-                                    <Input id="gh-repo" value={repo} onChange={(e) => setRepo(e.target.value)} placeholder="owner/repo" />
+                                    <Input
+                                        id="gh-repo"
+                                        value={repo}
+                                        onChange={(e) =>
+                                            setRepo(e.target.value)
+                                        }
+                                        placeholder="owner/repo"
+                                    />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="gh-token">Personal access token</Label>
-                                    <Input id="gh-token" value={token} onChange={(e) => setToken(e.target.value)} type="password" />
+                                    <Label htmlFor="gh-token">
+                                        Personal access token
+                                    </Label>
+                                    <Input
+                                        id="gh-token"
+                                        value={token}
+                                        onChange={(e) =>
+                                            setToken(e.target.value)
+                                        }
+                                        type="password"
+                                    />
                                 </div>
                                 <Button type="submit" disabled={connecting}>
                                     {connecting ? "Connecting…" : "Connect"}

@@ -8,11 +8,7 @@ export const pricingDefaults: Partial<PricingSettings> = {
             name: "Starter",
             price: "$0/mo",
             description: "For hobby sites and side projects.",
-            features: [
-                "1 website",
-                "FrontLit branding",
-                "Community support",
-            ],
+            features: ["1 website", "FrontLit branding", "Community support"],
             buttonCaption: "Get started",
             buttonAction: "#",
         },

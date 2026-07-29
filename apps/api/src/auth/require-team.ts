@@ -23,7 +23,11 @@ function getHeaderValue(value: unknown): string | undefined {
  *   is absent and the account belongs to exactly one team, that team is
  *   used automatically. Otherwise the caller must specify one explicitly.
  */
-export async function requireTeam(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function requireTeam(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+): Promise<void> {
     const anyReq = req as any;
     if (anyReq.teamId) return next();
     if (!anyReq.accountId) {
@@ -43,10 +47,7 @@ export async function requireTeam(req: Request, res: Response, next: NextFunctio
         }
         let membership;
         try {
-            membership = await getTeamMembership(
-                team.id,
-                anyReq.accountId,
-            );
+            membership = await getTeamMembership(team.id, anyReq.accountId);
         } catch {
             res.status(400).json({
                 error: "invalid_team_id",

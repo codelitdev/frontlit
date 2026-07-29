@@ -2,15 +2,10 @@ import {
     createCentralAuthMiddleware,
     type CentralAuthInput,
 } from "@codelitdev/oauth-server-kit";
-import {
-    type AuthResult,
-    resolveAuth,
-} from "./resolve-auth";
+import { type AuthResult, resolveAuth } from "./resolve-auth";
 import { mcpProtectedResourceMetadataUrl } from "./better-auth";
 
-type AuthResolver = (
-    input: CentralAuthInput,
-) => Promise<AuthResult>;
+type AuthResolver = (input: CentralAuthInput) => Promise<AuthResult>;
 
 export function createAuthMiddleware(
     mode: "rest" | "mcp",

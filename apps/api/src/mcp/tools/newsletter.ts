@@ -33,10 +33,18 @@ import {
     upsertEspConfig,
     updateSegment,
 } from "../../newsletter/sendlit-client";
-import { AUTH_ERROR, errorResult, INTERNAL_ERROR, NOT_FOUND, jsonResult } from "./responses";
+import {
+    AUTH_ERROR,
+    errorResult,
+    INTERNAL_ERROR,
+    NOT_FOUND,
+    jsonResult,
+} from "./responses";
 import { getTeamId } from "./auth";
 
-const NOT_CONNECTED_ERROR = errorResult("SendLit is not connected for this team yet.");
+const NOT_CONNECTED_ERROR = errorResult(
+    "SendLit is not connected for this team yet.",
+);
 
 /** All tools proxy the team's provisioned SendLit team \u2014 FrontLit has no
  * local contact/segment/broadcast data (architecture.md \u00a710). */
@@ -47,7 +55,11 @@ export function registerNewsletterTools(server: McpServer): void {
             description: "Gets the current team's SendLit compliance settings.",
             inputSchema: {},
             outputSchema: newsletterSettingsSchema,
-            annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
+            annotations: {
+                readOnlyHint: true,
+                idempotentHint: true,
+                openWorldHint: true,
+            },
         },
         async (_args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -55,7 +67,10 @@ export function registerNewsletterTools(server: McpServer): void {
             const apiKey = await getSendlitApiKey(teamId);
             if (!apiKey) return jsonResult({ connected: false });
             try {
-                return jsonResult({ connected: true, ...(await getGeneralSettings(apiKey)) });
+                return jsonResult({
+                    connected: true,
+                    ...(await getGeneralSettings(apiKey)),
+                });
             } catch {
                 return jsonResult({ connected: true });
             }
@@ -65,10 +80,15 @@ export function registerNewsletterTools(server: McpServer): void {
     server.registerTool(
         "update_newsletter_settings",
         {
-            description: "Updates the physical mailing address SendLit requires in marketing email footers.",
+            description:
+                "Updates the physical mailing address SendLit requires in marketing email footers.",
             inputSchema: { mailingAddress: z.string().optional() },
             outputSchema: newsletterSettingsSchema,
-            annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                openWorldHint: true,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -76,7 +96,10 @@ export function registerNewsletterTools(server: McpServer): void {
             const apiKey = await getSendlitApiKey(teamId);
             if (!apiKey) return NOT_CONNECTED_ERROR;
             try {
-                return jsonResult({ connected: true, ...(await updateGeneralSettings(apiKey, args)) });
+                return jsonResult({
+                    connected: true,
+                    ...(await updateGeneralSettings(apiKey, args)),
+                });
             } catch {
                 return INTERNAL_ERROR;
             }
@@ -207,10 +230,22 @@ export function registerNewsletterTools(server: McpServer): void {
     server.registerTool(
         "list_contacts",
         {
-            description: "Lists the current team's SendLit contacts, optionally filtered by email, tag, or subscription state.",
-            inputSchema: { email: z.string().optional(), tag: z.string().optional(), subscribed: z.boolean().optional() },
-            outputSchema: z.object({ items: z.array(contactSchema), total: z.number() }),
-            annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
+            description:
+                "Lists the current team's SendLit contacts, optionally filtered by email, tag, or subscription state.",
+            inputSchema: {
+                email: z.string().optional(),
+                tag: z.string().optional(),
+                subscribed: z.boolean().optional(),
+            },
+            outputSchema: z.object({
+                items: z.array(contactSchema),
+                total: z.number(),
+            }),
+            annotations: {
+                readOnlyHint: true,
+                idempotentHint: true,
+                openWorldHint: true,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -231,7 +266,11 @@ export function registerNewsletterTools(server: McpServer): void {
             description: "Fetches a single SendLit contact by id.",
             inputSchema: { contactId: z.string() },
             outputSchema: contactSchema,
-            annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
+            annotations: {
+                readOnlyHint: true,
+                idempotentHint: true,
+                openWorldHint: true,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -249,10 +288,15 @@ export function registerNewsletterTools(server: McpServer): void {
     server.registerTool(
         "delete_contact",
         {
-            description: "Permanently deletes a SendLit contact (GDPR erasure).",
+            description:
+                "Permanently deletes a SendLit contact (GDPR erasure).",
             inputSchema: { contactId: z.string() },
             outputSchema: successMessageSchema,
-            annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: true,
+                openWorldHint: true,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -274,7 +318,11 @@ export function registerNewsletterTools(server: McpServer): void {
             description: "Adds a tag to a SendLit contact.",
             inputSchema: { contactId: z.string(), tag: z.string().min(1) },
             outputSchema: contactSchema,
-            annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                openWorldHint: true,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -282,7 +330,9 @@ export function registerNewsletterTools(server: McpServer): void {
             const apiKey = await getSendlitApiKey(teamId);
             if (!apiKey) return NOT_CONNECTED_ERROR;
             try {
-                return jsonResult(await addContactTag(apiKey, args.contactId, args.tag));
+                return jsonResult(
+                    await addContactTag(apiKey, args.contactId, args.tag),
+                );
             } catch {
                 return INTERNAL_ERROR;
             }
@@ -295,7 +345,11 @@ export function registerNewsletterTools(server: McpServer): void {
             description: "Removes a tag from a SendLit contact.",
             inputSchema: { contactId: z.string(), tag: z.string().min(1) },
             outputSchema: contactSchema,
-            annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: true,
+                openWorldHint: true,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -303,7 +357,9 @@ export function registerNewsletterTools(server: McpServer): void {
             const apiKey = await getSendlitApiKey(teamId);
             if (!apiKey) return NOT_CONNECTED_ERROR;
             try {
-                return jsonResult(await removeContactTag(apiKey, args.contactId, args.tag));
+                return jsonResult(
+                    await removeContactTag(apiKey, args.contactId, args.tag),
+                );
             } catch {
                 return INTERNAL_ERROR;
             }
@@ -316,7 +372,11 @@ export function registerNewsletterTools(server: McpServer): void {
             description: "Lists the current team's saved SendLit segments.",
             inputSchema: {},
             outputSchema: z.object({ items: z.array(segmentSchema) }),
-            annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
+            annotations: {
+                readOnlyHint: true,
+                idempotentHint: true,
+                openWorldHint: true,
+            },
         },
         async (_args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -334,10 +394,18 @@ export function registerNewsletterTools(server: McpServer): void {
     server.registerTool(
         "create_segment",
         {
-            description: "Creates a saved SendLit segment from filter conditions.",
-            inputSchema: { name: z.string().min(1), conditions: z.array(z.record(z.any())).default([]) },
+            description:
+                "Creates a saved SendLit segment from filter conditions.",
+            inputSchema: {
+                name: z.string().min(1),
+                conditions: z.array(z.record(z.any())).default([]),
+            },
             outputSchema: segmentSchema,
-            annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                openWorldHint: true,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -356,9 +424,17 @@ export function registerNewsletterTools(server: McpServer): void {
         "update_segment",
         {
             description: "Updates a saved SendLit segment.",
-            inputSchema: { segmentId: z.string(), name: z.string().optional(), conditions: z.array(z.record(z.any())).optional() },
+            inputSchema: {
+                segmentId: z.string(),
+                name: z.string().optional(),
+                conditions: z.array(z.record(z.any())).optional(),
+            },
             outputSchema: segmentSchema,
-            annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                openWorldHint: true,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -367,7 +443,9 @@ export function registerNewsletterTools(server: McpServer): void {
             if (!apiKey) return NOT_CONNECTED_ERROR;
             try {
                 const { segmentId, ...patch } = args;
-                return jsonResult(await updateSegment(apiKey, segmentId, patch));
+                return jsonResult(
+                    await updateSegment(apiKey, segmentId, patch),
+                );
             } catch {
                 return NOT_FOUND;
             }
@@ -380,7 +458,11 @@ export function registerNewsletterTools(server: McpServer): void {
             description: "Deletes a saved SendLit segment.",
             inputSchema: { segmentId: z.string() },
             outputSchema: successMessageSchema,
-            annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: true,
+                openWorldHint: true,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -399,10 +481,15 @@ export function registerNewsletterTools(server: McpServer): void {
     server.registerTool(
         "list_broadcasts",
         {
-            description: "Lists the current team's SendLit broadcasts (newsletter sends).",
+            description:
+                "Lists the current team's SendLit broadcasts (newsletter sends).",
             inputSchema: {},
             outputSchema: z.object({ items: z.array(broadcastSchema) }),
-            annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
+            annotations: {
+                readOnlyHint: true,
+                idempotentHint: true,
+                openWorldHint: true,
+            },
         },
         async (_args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -422,9 +509,16 @@ export function registerNewsletterTools(server: McpServer): void {
         "create_broadcast",
         {
             description: "Creates a draft broadcast (newsletter send).",
-            inputSchema: { name: z.string().min(1), subject: z.string().optional() },
+            inputSchema: {
+                name: z.string().min(1),
+                subject: z.string().optional(),
+            },
             outputSchema: broadcastSchema,
-            annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                openWorldHint: true,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -432,7 +526,9 @@ export function registerNewsletterTools(server: McpServer): void {
             const apiKey = await getSendlitApiKey(teamId);
             if (!apiKey) return NOT_CONNECTED_ERROR;
             try {
-                return jsonResult(toBroadcast(await createBroadcast(apiKey, args)));
+                return jsonResult(
+                    toBroadcast(await createBroadcast(apiKey, args)),
+                );
             } catch {
                 return INTERNAL_ERROR;
             }
@@ -443,9 +539,17 @@ export function registerNewsletterTools(server: McpServer): void {
         "update_broadcast",
         {
             description: "Updates a draft broadcast's name or subject.",
-            inputSchema: { broadcastId: z.string(), name: z.string().optional(), subject: z.string().optional() },
+            inputSchema: {
+                broadcastId: z.string(),
+                name: z.string().optional(),
+                subject: z.string().optional(),
+            },
             outputSchema: broadcastSchema,
-            annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                openWorldHint: true,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -454,7 +558,11 @@ export function registerNewsletterTools(server: McpServer): void {
             if (!apiKey) return NOT_CONNECTED_ERROR;
             try {
                 const { broadcastId, ...patch } = args;
-                return jsonResult(toBroadcast(await updateBroadcast(apiKey, broadcastId, patch)));
+                return jsonResult(
+                    toBroadcast(
+                        await updateBroadcast(apiKey, broadcastId, patch),
+                    ),
+                );
             } catch {
                 return NOT_FOUND;
             }
@@ -467,7 +575,11 @@ export function registerNewsletterTools(server: McpServer): void {
             description: "Sends a broadcast to its audience.",
             inputSchema: { broadcastId: z.string() },
             outputSchema: z.object({ status: z.string() }),
-            annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: true,
+                openWorldHint: true,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -475,7 +587,9 @@ export function registerNewsletterTools(server: McpServer): void {
             const apiKey = await getSendlitApiKey(teamId);
             if (!apiKey) return NOT_CONNECTED_ERROR;
             try {
-                return jsonResult(await sendBroadcast(apiKey, args.broadcastId));
+                return jsonResult(
+                    await sendBroadcast(apiKey, args.broadcastId),
+                );
             } catch {
                 return NOT_FOUND;
             }
@@ -488,7 +602,11 @@ export function registerNewsletterTools(server: McpServer): void {
             description: "Gets delivery/open/click stats for a broadcast.",
             inputSchema: { broadcastId: z.string() },
             outputSchema: z.record(z.any()),
-            annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
+            annotations: {
+                readOnlyHint: true,
+                idempotentHint: true,
+                openWorldHint: true,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -496,7 +614,9 @@ export function registerNewsletterTools(server: McpServer): void {
             const apiKey = await getSendlitApiKey(teamId);
             if (!apiKey) return NOT_CONNECTED_ERROR;
             try {
-                return jsonResult(await getBroadcastStats(apiKey, args.broadcastId));
+                return jsonResult(
+                    await getBroadcastStats(apiKey, args.broadcastId),
+                );
             } catch {
                 return NOT_FOUND;
             }

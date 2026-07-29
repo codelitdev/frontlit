@@ -1,7 +1,19 @@
 import { and, count, desc, eq, ilike, or } from "drizzle-orm";
 import { db } from "../db/client";
-import { accounts, teamMembers, ticketMessages, tickets, type TicketSource, type TicketStatus, type TextEditorContentRow } from "../db/schema";
-import { generateTicketToken, hashTicketToken, verifyTicketToken } from "./token";
+import {
+    accounts,
+    teamMembers,
+    ticketMessages,
+    tickets,
+    type TicketSource,
+    type TicketStatus,
+    type TextEditorContentRow,
+} from "../db/schema";
+import {
+    generateTicketToken,
+    hashTicketToken,
+    verifyTicketToken,
+} from "./token";
 
 export const textTicketMessage = (text: string): TextEditorContentRow => ({
     type: "doc",
@@ -51,11 +63,25 @@ export async function createTicket(input: {
     return { ticket, token };
 }
 
-export async function listTickets(input: { teamId: string; status?: TicketStatus; assigneeAccountId?: string; q?: string; offset?: number; itemsPerPage?: number }) {
+export async function listTickets(input: {
+    teamId: string;
+    status?: TicketStatus;
+    assigneeAccountId?: string;
+    q?: string;
+    offset?: number;
+    itemsPerPage?: number;
+}) {
     const conditions = [eq(tickets.teamId, input.teamId)];
     if (input.status) conditions.push(eq(tickets.status, input.status));
-    if (input.assigneeAccountId) conditions.push(eq(tickets.assigneeAccountId, input.assigneeAccountId));
-    if (input.q) conditions.push(or(ilike(tickets.subject, `%${input.q}%`), ilike(tickets.requesterEmail, `%${input.q}%`))!);
+    if (input.assigneeAccountId)
+        conditions.push(eq(tickets.assigneeAccountId, input.assigneeAccountId));
+    if (input.q)
+        conditions.push(
+            or(
+                ilike(tickets.subject, `%${input.q}%`),
+                ilike(tickets.requesterEmail, `%${input.q}%`),
+            )!,
+        );
 
     const offset = ((input.offset ?? 1) - 1) * (input.itemsPerPage ?? 20);
     const limit = input.itemsPerPage ?? 20;
@@ -68,22 +94,42 @@ export async function listTickets(input: { teamId: string; status?: TicketStatus
     });
 }
 
-export async function countTickets(input: { teamId: string; status?: TicketStatus; assigneeAccountId?: string; q?: string }) {
+export async function countTickets(input: {
+    teamId: string;
+    status?: TicketStatus;
+    assigneeAccountId?: string;
+    q?: string;
+}) {
     const conditions = [eq(tickets.teamId, input.teamId)];
     if (input.status) conditions.push(eq(tickets.status, input.status));
-    if (input.assigneeAccountId) conditions.push(eq(tickets.assigneeAccountId, input.assigneeAccountId));
-    if (input.q) conditions.push(or(ilike(tickets.subject, `%${input.q}%`), ilike(tickets.requesterEmail, `%${input.q}%`))!);
+    if (input.assigneeAccountId)
+        conditions.push(eq(tickets.assigneeAccountId, input.assigneeAccountId));
+    if (input.q)
+        conditions.push(
+            or(
+                ilike(tickets.subject, `%${input.q}%`),
+                ilike(tickets.requesterEmail, `%${input.q}%`),
+            )!,
+        );
 
-    const [{ value }] = await db.select({ value: count() }).from(tickets).where(and(...conditions));
+    const [{ value }] = await db
+        .select({ value: count() })
+        .from(tickets)
+        .where(and(...conditions));
     return value;
 }
 
 export async function getTicketByTicketId(teamId: string, ticketId: string) {
-    return db.query.tickets.findFirst({ where: and(eq(tickets.ticketId, ticketId), eq(tickets.teamId, teamId)) });
+    return db.query.tickets.findFirst({
+        where: and(eq(tickets.ticketId, ticketId), eq(tickets.teamId, teamId)),
+    });
 }
 
 export async function getTicketMessages(ticketDbId: string) {
-    return db.query.ticketMessages.findMany({ where: eq(ticketMessages.ticketId, ticketDbId), orderBy: ticketMessages.createdAt });
+    return db.query.ticketMessages.findMany({
+        where: eq(ticketMessages.ticketId, ticketDbId),
+        orderBy: ticketMessages.createdAt,
+    });
 }
 
 export async function addTicketMessage(input: {
@@ -104,12 +150,19 @@ export async function addTicketMessage(input: {
         })
         .returning();
 
-    await db.update(tickets).set({ lastMessageAt: new Date(), updatedAt: new Date() }).where(eq(tickets.id, input.ticketDbId));
+    await db
+        .update(tickets)
+        .set({ lastMessageAt: new Date(), updatedAt: new Date() })
+        .where(eq(tickets.id, input.ticketDbId));
 
     return message;
 }
 
-export async function updateTicket(teamId: string, ticketId: string, patch: Partial<{ status: TicketStatus; assigneeAccountId: string | null }>) {
+export async function updateTicket(
+    teamId: string,
+    ticketId: string,
+    patch: Partial<{ status: TicketStatus; assigneeAccountId: string | null }>,
+) {
     const existing = await getTicketByTicketId(teamId, ticketId);
     if (!existing) return null;
 
@@ -123,7 +176,10 @@ export async function updateTicket(teamId: string, ticketId: string, patch: Part
 
 /** Verifies a visitor-supplied magic-link token against the ticket's stored
  * hash (constant-time, architecture.md §13.4). */
-export function verifyTicketAccess(ticket: { accessTokenHash: string }, token: string): boolean {
+export function verifyTicketAccess(
+    ticket: { accessTokenHash: string },
+    token: string,
+): boolean {
     return verifyTicketToken(token, ticket.accessTokenHash);
 }
 
@@ -131,9 +187,14 @@ export function verifyTicketAccess(ticket: { accessTokenHash: string }, token: s
  * a fresh plaintext token is minted every time we email the requester a
  * link ("every requester email re-sends a fresh link", architecture.md
  * §13.4). Invalidates any previously issued link. */
-export async function reissueTicketAccessToken(ticketDbId: string): Promise<string> {
+export async function reissueTicketAccessToken(
+    ticketDbId: string,
+): Promise<string> {
     const { token, tokenHash } = generateTicketToken();
-    await db.update(tickets).set({ accessTokenHash: tokenHash, updatedAt: new Date() }).where(eq(tickets.id, ticketDbId));
+    await db
+        .update(tickets)
+        .set({ accessTokenHash: tokenHash, updatedAt: new Date() })
+        .where(eq(tickets.id, ticketDbId));
     return token;
 }
 
@@ -141,9 +202,14 @@ export { hashTicketToken };
 
 /** Resolves who to notify for a ticket event: the assignee if set, else the
  * team's owner (architecture.md §11.2 — "assignee or team owner"). */
-export async function getTicketNotificationRecipient(teamId: string, assigneeAccountId: string | null): Promise<string | null> {
+export async function getTicketNotificationRecipient(
+    teamId: string,
+    assigneeAccountId: string | null,
+): Promise<string | null> {
     if (assigneeAccountId) {
-        const account = await db.query.accounts.findFirst({ where: eq(accounts.id, assigneeAccountId) });
+        const account = await db.query.accounts.findFirst({
+            where: eq(accounts.id, assigneeAccountId),
+        });
         if (account) return account.email;
     }
 
@@ -151,7 +217,9 @@ export async function getTicketNotificationRecipient(teamId: string, assigneeAcc
         .select({ email: accounts.email })
         .from(teamMembers)
         .innerJoin(accounts, eq(teamMembers.accountId, accounts.id))
-        .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.role, "owner")))
+        .where(
+            and(eq(teamMembers.teamId, teamId), eq(teamMembers.role, "owner")),
+        )
         .limit(1);
     return row?.email ?? null;
 }

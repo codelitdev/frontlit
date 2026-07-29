@@ -4,11 +4,16 @@ import React from "react";
 import * as Icons from "lucide-react";
 import type { Widget } from "../models";
 
-function resolveIcon(name?: string): React.ComponentType<{ className?: string }> {
+function resolveIcon(
+    name?: string,
+): React.ComponentType<{ className?: string }> {
     if (name && name in Icons) {
-        return (Icons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[
-            name
-        ];
+        return (
+            Icons as unknown as Record<
+                string,
+                React.ComponentType<{ className?: string }>
+            >
+        )[name];
     }
     return Icons.LayoutTemplate;
 }

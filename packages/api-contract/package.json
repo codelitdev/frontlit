@@ -7,7 +7,9 @@
     "license": "MIT",
     "main": "dist/index.mjs",
     "types": "dist/index.d.mts",
-    "files": ["dist"],
+    "files": [
+        "dist"
+    ],
     "exports": {
         ".": {
             "types": "./dist/index.d.mts",

@@ -9,11 +9,15 @@ import { getMediaUploadSignature } from "./service";
  * (e.g. CI without MediaLit credentials) so the suite stays green without
  * a network dependency.
  */
-const hasCredentials = Boolean(process.env.MEDIALIT_APIKEY && process.env.MEDIALIT_SERVER);
+const hasCredentials = Boolean(
+    process.env.MEDIALIT_APIKEY && process.env.MEDIALIT_SERVER,
+);
 
 describe.skipIf(!hasCredentials)("MediaLit service (live)", () => {
     it("obtains a real upload signature scoped to a group", async () => {
-        const { signature, endpoint } = await getMediaUploadSignature("integration-test-team");
+        const { signature, endpoint } = await getMediaUploadSignature(
+            "integration-test-team",
+        );
 
         expect(typeof signature).toBe("string");
         expect(signature.length).toBeGreaterThan(0);

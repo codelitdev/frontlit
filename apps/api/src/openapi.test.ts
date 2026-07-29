@@ -34,13 +34,17 @@ describe("OpenAPI authentication", () => {
 
     it("documents the SendLit-backed ESP management surface", () => {
         expect(openApiDocument.paths["/settings/esp"]).toMatchObject({
-            get: { summary: "Get the team's default SendLit ESP configuration" },
+            get: {
+                summary: "Get the team's default SendLit ESP configuration",
+            },
             put: { summary: "Create or update the team's default SendLit ESP" },
             delete: { summary: "Remove the team's default SendLit ESP" },
         });
-        expect(openApiDocument.paths["/settings/esp/test"]?.post).toMatchObject({
-            summary: "Send a test email through the configured SendLit ESP",
-        });
+        expect(openApiDocument.paths["/settings/esp/test"]?.post).toMatchObject(
+            {
+                summary: "Send a test email through the configured SendLit ESP",
+            },
+        );
     });
 });
 
@@ -49,7 +53,9 @@ describe("OpenAPI HTTP surfaces", () => {
         const server = createApp().listen(0, "127.0.0.1");
 
         try {
-            await new Promise<void>((resolve) => server.once("listening", resolve));
+            await new Promise<void>((resolve) =>
+                server.once("listening", resolve),
+            );
             const { port } = server.address() as AddressInfo;
             const origin = `http://127.0.0.1:${port}`;
 

@@ -1,7 +1,18 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { mediaSchema, mediaUploadSignatureSchema, successMessageSchema } from "@frontlit/api-contract";
-import { countMedia, deleteMediaRecord, getMediaByMediaId, listMedia, registerMedia, updateMedia } from "../../media/queries";
+import {
+    mediaSchema,
+    mediaUploadSignatureSchema,
+    successMessageSchema,
+} from "@frontlit/api-contract";
+import {
+    countMedia,
+    deleteMediaRecord,
+    getMediaByMediaId,
+    listMedia,
+    registerMedia,
+    updateMedia,
+} from "../../media/queries";
 import { getMediaUploadSignature } from "../../media/service";
 import { AUTH_ERROR, INTERNAL_ERROR, NOT_FOUND, jsonResult } from "./responses";
 import { getTeamId } from "./auth";
@@ -19,7 +30,11 @@ export function registerMediaTools(server: McpServer): void {
                 "Returns a short-lived MediaLit upload signature and endpoint for the current team. Upload the file directly to `${endpoint}/media/create/resumable` (TUS resumable upload) with the signature in the `x-medialit-signature` header, then call register_media with the returned mediaId.",
             inputSchema: {},
             outputSchema: mediaUploadSignatureSchema,
-            annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                openWorldHint: false,
+            },
         },
         async (_args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -36,14 +51,19 @@ export function registerMediaTools(server: McpServer): void {
     server.registerTool(
         "register_media",
         {
-            description: "Seals a freshly-uploaded MediaLit file (temp \u2192 permanent) and adds it to the team's media library.",
+            description:
+                "Seals a freshly-uploaded MediaLit file (temp \u2192 permanent) and adds it to the team's media library.",
             inputSchema: {
                 mediaLitId: z.string().min(1),
                 alt: z.string().optional(),
                 caption: z.string().optional(),
             },
             outputSchema: mediaSchema,
-            annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -63,14 +83,24 @@ export function registerMediaTools(server: McpServer): void {
         {
             description: "Lists the current team's uploaded media library.",
             inputSchema: {},
-            outputSchema: z.object({ items: z.array(mediaSchema), total: z.number() }),
-            annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+            outputSchema: z.object({
+                items: z.array(mediaSchema),
+                total: z.number(),
+            }),
+            annotations: {
+                readOnlyHint: true,
+                idempotentHint: true,
+                openWorldHint: false,
+            },
         },
         async (_args: any, extra: any) => {
             const teamId = getTeamId(extra);
             if (!teamId) return AUTH_ERROR;
             try {
-                const [items, total] = await Promise.all([listMedia({ teamId }), countMedia({ teamId })]);
+                const [items, total] = await Promise.all([
+                    listMedia({ teamId }),
+                    countMedia({ teamId }),
+                ]);
                 return jsonResult({ items: items.map(toPublicMedia), total });
             } catch {
                 return INTERNAL_ERROR;
@@ -84,7 +114,11 @@ export function registerMediaTools(server: McpServer): void {
             description: "Fetches a single media item by id.",
             inputSchema: { mediaId: z.string() },
             outputSchema: mediaSchema,
-            annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+            annotations: {
+                readOnlyHint: true,
+                idempotentHint: true,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -103,9 +137,17 @@ export function registerMediaTools(server: McpServer): void {
         "update_media",
         {
             description: "Updates a media item's alt text and/or caption.",
-            inputSchema: { mediaId: z.string(), alt: z.string().optional(), caption: z.string().optional() },
+            inputSchema: {
+                mediaId: z.string(),
+                alt: z.string().optional(),
+                caption: z.string().optional(),
+            },
             outputSchema: mediaSchema,
-            annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
@@ -124,10 +166,15 @@ export function registerMediaTools(server: McpServer): void {
     server.registerTool(
         "delete_media",
         {
-            description: "Deletes a media item from MediaLit and the team's library.",
+            description:
+                "Deletes a media item from MediaLit and the team's library.",
             inputSchema: { mediaId: z.string() },
             outputSchema: successMessageSchema,
-            annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: true,
+                openWorldHint: false,
+            },
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);

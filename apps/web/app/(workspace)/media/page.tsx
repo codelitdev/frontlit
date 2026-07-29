@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api-client";
-import { deleteMedia, listMedia, registerMedia, updateMedia, type Media } from "@/lib/api";
+import {
+    deleteMedia,
+    listMedia,
+    registerMedia,
+    updateMedia,
+    type Media,
+} from "@/lib/api";
 import { useMediaLit } from "@/lib/use-medialit";
 import { PageHeader } from "@/components/workspace/page-header";
 import { Loading } from "@/components/workspace/loading";
@@ -52,7 +58,13 @@ export default function MediaPage() {
             await registerMedia({ mediaLitId: media.mediaId });
             await refresh();
         } catch (err) {
-            setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Upload failed.");
+            setError(
+                err instanceof ApiError
+                    ? err.message
+                    : err instanceof Error
+                      ? err.message
+                      : "Upload failed.",
+            );
         }
     }
 
@@ -61,12 +73,20 @@ export default function MediaPage() {
             await deleteMedia(mediaId);
             await refresh();
         } catch (err) {
-            setError(err instanceof ApiError ? err.message : "Failed to delete media.");
+            setError(
+                err instanceof ApiError
+                    ? err.message
+                    : "Failed to delete media.",
+            );
         }
     }
 
     async function handleAltChange(mediaId: string, alt: string) {
-        setItems((prev) => prev.map((item) => (item.mediaId === mediaId ? { ...item, alt } : item)));
+        setItems((prev) =>
+            prev.map((item) =>
+                item.mediaId === mediaId ? { ...item, alt } : item,
+            ),
+        );
     }
 
     async function handleAltBlur(mediaId: string, alt: string) {
@@ -88,9 +108,21 @@ export default function MediaPage() {
                     title="Media"
                     action={
                         <div>
-                            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelected} />
-                            <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} data-testid="upload-button">
-                                {isUploading ? `Uploading… ${Math.round(uploadProgress)}%` : "Upload image"}
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleFileSelected}
+                            />
+                            <Button
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isUploading}
+                                data-testid="upload-button"
+                            >
+                                {isUploading
+                                    ? `Uploading… ${Math.round(uploadProgress)}%`
+                                    : "Upload image"}
                             </Button>
                         </div>
                     }
@@ -102,11 +134,19 @@ export default function MediaPage() {
                     </div>
                 )}
 
-                {items.length === 0 && <p className="text-sm text-muted-foreground">No media yet. Upload an image to get started.</p>}
+                {items.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                        No media yet. Upload an image to get started.
+                    </p>
+                )}
 
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
                     {items.map((item) => (
-                        <Card key={item.mediaId} className="gap-2 py-2" data-testid="media-item">
+                        <Card
+                            key={item.mediaId}
+                            className="gap-2 py-2"
+                            data-testid="media-item"
+                        >
                             <CardContent className="space-y-1 px-2">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
@@ -118,13 +158,24 @@ export default function MediaPage() {
                                         // files; fall back to the full image rather than
                                         // showing a broken-image icon.
                                         const img = e.currentTarget;
-                                        if (img.src !== item.url) img.src = item.url;
+                                        if (img.src !== item.url)
+                                            img.src = item.url;
                                     }}
                                 />
                                 <Input
                                     value={item.alt || ""}
-                                    onChange={(e) => handleAltChange(item.mediaId, e.target.value)}
-                                    onBlur={(e) => handleAltBlur(item.mediaId, e.target.value)}
+                                    onChange={(e) =>
+                                        handleAltChange(
+                                            item.mediaId,
+                                            e.target.value,
+                                        )
+                                    }
+                                    onBlur={(e) =>
+                                        handleAltBlur(
+                                            item.mediaId,
+                                            e.target.value,
+                                        )
+                                    }
                                     placeholder="Alt text"
                                     className="h-7 text-xs"
                                 />
@@ -135,7 +186,11 @@ export default function MediaPage() {
                                     description={`Delete "${item.fileName}"? This cannot be undone.`}
                                     onConfirm={() => handleDelete(item.mediaId)}
                                     trigger={
-                                        <Button variant="ghost" size="sm" className="h-auto p-0 text-[10px] text-destructive hover:text-destructive">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-auto p-0 text-[10px] text-destructive hover:text-destructive"
+                                        >
                                             Delete
                                         </Button>
                                     }

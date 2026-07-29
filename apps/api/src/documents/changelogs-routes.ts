@@ -17,13 +17,23 @@ import {
     updateDocument,
 } from "./queries";
 import { omitInternal, serializeDates } from "../utils/public";
-import { deleteIntegration, getGithubIntegration, upsertGithubIntegration } from "../integrations/queries";
+import {
+    deleteIntegration,
+    getGithubIntegration,
+    upsertGithubIntegration,
+} from "../integrations/queries";
 import { listReleases, markdownToTipTap } from "../integrations/github";
 
 const KIND = "changelog" as const;
 
 function toPublicDocument<T extends Record<string, unknown>>(doc: T) {
-    return serializeDates(omitInternal({ ...doc, status: deriveDocumentStatus(doc as any) }, "teamId", "kind"));
+    return serializeDates(
+        omitInternal(
+            { ...doc, status: deriveDocumentStatus(doc as any) },
+            "teamId",
+            "kind",
+        ),
+    );
 }
 
 /**
@@ -52,7 +62,13 @@ const impl = s.router(contract.changelogs, {
     },
     getGithubIntegration: async ({ req }) => {
         const integration = await getGithubIntegration((req as any).teamId);
-        return { status: 200, body: { connected: Boolean(integration), repo: integration?.repo ?? null } };
+        return {
+            status: 200,
+            body: {
+                connected: Boolean(integration),
+                repo: integration?.repo ?? null,
+            },
+        };
     },
     disconnectGithub: async ({ req }) => {
         await deleteIntegration((req as any).teamId, "github");
@@ -61,9 +77,18 @@ const impl = s.router(contract.changelogs, {
     importGithubReleases: async ({ req }) => {
         const teamId = (req as any).teamId;
         const integration = await getGithubIntegration(teamId);
-        if (!integration) return { status: 400, body: { error: "No GitHub integration connected for this team" } };
+        if (!integration)
+            return {
+                status: 400,
+                body: {
+                    error: "No GitHub integration connected for this team",
+                },
+            };
 
-        const releases = await listReleases(integration.token, integration.repo);
+        const releases = await listReleases(
+            integration.token,
+            integration.repo,
+        );
         let imported = 0;
         let skipped = 0;
 
@@ -72,7 +97,10 @@ const impl = s.router(contract.changelogs, {
                 skipped++;
                 continue;
             }
-            const existing = await findChangelogByGithubReleaseId(teamId, release.id);
+            const existing = await findChangelogByGithubReleaseId(
+                teamId,
+                release.id,
+            );
             if (existing) {
                 skipped++;
                 continue;
@@ -87,7 +115,11 @@ const impl = s.router(contract.changelogs, {
                     version: release.tag_name,
                     labels: release.prerelease ? ["prerelease"] : [],
                     releaseDate: release.published_at ?? undefined,
-                    github: { releaseId: release.id, releaseUrl: release.html_url, tagName: release.tag_name },
+                    github: {
+                        releaseId: release.id,
+                        releaseUrl: release.html_url,
+                        tagName: release.tag_name,
+                    },
                 },
             });
             imported++;
@@ -96,39 +128,68 @@ const impl = s.router(contract.changelogs, {
         return { status: 200, body: { imported, skipped } };
     },
     create: async ({ body, req }) => {
-        const doc = await createDocument(KIND, { teamId: (req as any).teamId, ...body });
+        const doc = await createDocument(KIND, {
+            teamId: (req as any).teamId,
+            ...body,
+        });
         return { status: 201, body: toPublicDocument(doc) };
     },
     list: async ({ query, req }) => {
         const teamId = (req as any).teamId;
         const [items, total] = await Promise.all([
-            listDocuments(KIND, { teamId, q: query.q, offset: query.offset, itemsPerPage: query.itemsPerPage }),
+            listDocuments(KIND, {
+                teamId,
+                q: query.q,
+                offset: query.offset,
+                itemsPerPage: query.itemsPerPage,
+            }),
             countDocuments(KIND, { teamId, q: query.q }),
         ]);
-        return { status: 200, body: { items: items.map(toPublicDocument), total } };
+        return {
+            status: 200,
+            body: { items: items.map(toPublicDocument), total },
+        };
     },
     get: async ({ params, req }) => {
         const doc = await getDocumentByDocumentId(KIND, params.documentId);
-        if (!doc || doc.teamId !== (req as any).teamId) return { status: 404, body: { error: "Not found" } };
+        if (!doc || doc.teamId !== (req as any).teamId)
+            return { status: 404, body: { error: "Not found" } };
         return { status: 200, body: toPublicDocument(doc) };
     },
     update: async ({ params, body, req }) => {
-        const doc = await updateDocument(KIND, (req as any).teamId, params.documentId, body);
+        const doc = await updateDocument(
+            KIND,
+            (req as any).teamId,
+            params.documentId,
+            body,
+        );
         if (!doc) return { status: 404, body: { error: "Not found" } };
         return { status: 200, body: toPublicDocument(doc) };
     },
     publish: async ({ params, req }) => {
-        const doc = await publishDocument(KIND, (req as any).teamId, params.documentId);
+        const doc = await publishDocument(
+            KIND,
+            (req as any).teamId,
+            params.documentId,
+        );
         if (!doc) return { status: 404, body: { error: "Not found" } };
         return { status: 200, body: toPublicDocument(doc) };
     },
     discardDraft: async ({ params, req }) => {
-        const doc = await discardDocumentDraft(KIND, (req as any).teamId, params.documentId);
+        const doc = await discardDocumentDraft(
+            KIND,
+            (req as any).teamId,
+            params.documentId,
+        );
         if (!doc) return { status: 404, body: { error: "Not found" } };
         return { status: 200, body: toPublicDocument(doc) };
     },
     remove: async ({ params, req }) => {
-        const result = await deleteDocument(KIND, (req as any).teamId, params.documentId);
+        const result = await deleteDocument(
+            KIND,
+            (req as any).teamId,
+            params.documentId,
+        );
         if (!result.ok) return { status: 404, body: { error: "Not found" } };
         return { status: 204, body: undefined };
     },

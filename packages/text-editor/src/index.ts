@@ -1,4 +1,3 @@
-
 export { default as Editor } from "./editor";
 export type { EditorProps } from "./editor";
 export { default as emptyDoc } from "./empty-doc";

@@ -2,11 +2,7 @@ import React from "react";
 import type { WidgetEditorProps } from "../../models";
 import type { HeroSettings } from "./settings";
 import { Editor, emptyDoc } from "@frontlit/text-editor";
-import {
-    FieldGroup,
-    SelectField,
-    TextField,
-} from "../_shared/fields";
+import { FieldGroup, SelectField, TextField } from "../_shared/fields";
 
 export function HeroEditor({
     settings,
@@ -48,9 +44,7 @@ export function HeroEditor({
                     placeholder="https://..."
                     onChange={(file) =>
                         update({
-                            media: file
-                                ? { mediaId: file, file }
-                                : undefined,
+                            media: file ? { mediaId: file, file } : undefined,
                         })
                     }
                 />

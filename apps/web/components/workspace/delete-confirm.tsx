@@ -59,11 +59,19 @@ export function DeleteConfirm({
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>{title}</AlertDialogTitle>
-                    <AlertDialogDescription>{description}</AlertDialogDescription>
+                    <AlertDialogDescription>
+                        {description}
+                    </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={confirmDeletion} disabled={busy} variant="destructive">
+                    <AlertDialogCancel disabled={busy}>
+                        Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={confirmDeletion}
+                        disabled={busy}
+                        variant="destructive"
+                    >
                         {busy ? "Deleting…" : "Delete"}
                     </AlertDialogAction>
                 </AlertDialogFooter>
