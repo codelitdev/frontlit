@@ -1,24 +1,40 @@
 {
-  "name": "frontlit",
-  "version": "1.0.0",
-  "description": "The frontoffice of your SaaS",
-  "private": true,
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
-  "scripts": {
-    "dev:api": "pnpm --filter @frontlit/api dev",
-    "dev:web": "pnpm --filter @frontlit/web dev",
-    "dev:docs": "pnpm --filter @frontlit/docs dev",
-    "dev:sites": "pnpm --filter @frontlit/sites dev",
-    "build": "pnpm -r run build",
-    "lint": "pnpm -r run lint",
-    "test": "pnpm -r run test"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "packageManager": "pnpm@10.22.0",
-  "type": "module"
+    "name": "frontlit",
+    "version": "1.0.0",
+    "description": "The frontoffice of your SaaS",
+    "private": true,
+    "workspaces": [
+        "packages/*",
+        "apps/*"
+    ],
+    "scripts": {
+        "dev:api": "pnpm --filter @frontlit/api dev",
+        "dev:web": "pnpm --filter @frontlit/web dev",
+        "dev:docs": "pnpm --filter @frontlit/docs dev",
+        "dev:sites": "pnpm --filter @frontlit/sites dev",
+        "build": "pnpm -r run build",
+        "lint": "eslint packages apps --quiet",
+        "prettier": "prettier --write packages apps *.md",
+        "prepare": "husky",
+        "test": "pnpm -r run test"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "packageManager": "pnpm@10.22.0",
+    "devDependencies": {
+        "eslint": "^9.12.0",
+        "eslint-config-next": "16.0.3",
+        "eslint-config-prettier": "^8.5.0",
+        "eslint-plugin-import": "^2.32.0",
+        "eslint-plugin-react": "^7.37.5",
+        "eslint-plugin-react-hooks": "^7.0.1",
+        "eslint-plugin-unused-imports": "^4.3.0",
+        "globals": "^15.15.0",
+        "husky": "^9.1.7",
+        "lint-staged": "^15.2.2",
+        "prettier": "^3.0.2",
+        "typescript-eslint": "^8.46.0"
+    },
+    "type": "module"
 }
