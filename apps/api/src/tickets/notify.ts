@@ -34,7 +34,7 @@ export async function notifyRequesterOfReply(input: { teamId: string; teamPublic
 
 export async function notifyTeamOfRequesterMessage(input: { teamId: string; ticketId: string; recipientEmail: string; subject: string }) {
     const base = process.env.WEB_BASE_URL ?? "http://localhost:3001";
-    const url = `${base}/dashboard/support/${input.ticketId}`;
+    const url = `${base}/support/${input.ticketId}`;
     await notify(
         input.teamId,
         input.recipientEmail,

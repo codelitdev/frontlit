@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { eq } from "drizzle-orm";
 import { makeTestDb, seedTeam, type TestDb } from "../test/db";
 
 vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
@@ -6,209 +7,108 @@ vi.mock("node:dns", () => ({ promises: { resolveTxt: vi.fn() } }));
 
 import { promises as dns } from "node:dns";
 import { db as testDb } from "../db/client";
+import { teams } from "../db/schema";
 import {
     attachCustomDomain,
-    domainKind,
-    getBaseDomain,
+    getCustomDomainCnameTarget,
+    getPlatformSiteDomain,
     getDomainSettings,
-    provisionSubdomain,
+    getSubdomainHost,
+    normalizeHost,
     removeCustomDomain,
     resolveHost,
-    setPrimaryDomain,
     setTeamSubdomain,
     verifyCustomDomain,
 } from "./queries";
 
-// `domains.hostname` is unique across the whole table (not team-scoped), and
-// these tests share one PGlite instance per file with no truncation between
-// tests (matching this repo's other queries.test.ts files) — so every team
-// name is randomized to avoid cross-test slug collisions instead of
-// asserting against a hardcoded hostname.
 function uniqueName(label: string): string {
     return `${label} ${crypto.randomUUID().slice(0, 8)}`;
 }
 
-describe("domains", () => {
+describe("team website domains", () => {
     const db = testDb as unknown as TestDb;
     let teamId: string;
-    let teamName: string;
 
     beforeEach(async () => {
         vi.mocked(dns.resolveTxt).mockReset();
-        teamName = uniqueName("Acme Inc");
-        const seeded = await seedTeam(db, { name: teamName });
+        const seeded = await seedTeam(db, { name: uniqueName("Acme Inc") });
         teamId = seeded.team.id;
     });
 
-    it("provisions a verified, primary subdomain from the team name", async () => {
-        const subdomain = await provisionSubdomain(teamId, teamName);
-
-        expect(subdomain.hostname).toMatch(new RegExp(`^acme-inc-\\w+\\.${getBaseDomain()}$`));
-        expect(subdomain.status).toBe("verified");
-        expect(subdomain.isPrimary).toBe(true);
-        expect(domainKind(subdomain.hostname)).toBe("subdomain");
-    });
-
-    it("uniquifies the subdomain slug across teams sharing the same name", async () => {
-        const first = await provisionSubdomain(teamId, "Shared Name");
-        const { team: other } = await seedTeam(db, { name: "Shared Name" });
-        const second = await provisionSubdomain(other.id, "Shared Name");
-
-        expect(first.hostname).not.toBe(second.hostname);
-        expect(second.hostname.startsWith("shared-name")).toBe(true);
-    });
-
-    it("getDomainSettings backfills a subdomain for a team that has none yet", async () => {
+    it("keeps only an environment-independent subdomain label on the team", async () => {
         const settings = await getDomainSettings(teamId);
-
-        expect(settings.subdomain?.hostname.startsWith("acme-inc")).toBe(true);
-        expect(settings.customDomain).toBeNull();
-        expect(settings.verificationRecords).toBeNull();
+        expect(settings?.subdomain?.name).toMatch(/^team-/);
+        expect(settings?.subdomain?.hostname).toBe(getSubdomainHost(settings!.subdomain!.name));
+        expect(settings?.customDomain).toBeNull();
+        expect(settings?.canonicalHost).toBe(settings?.subdomain?.hostname);
     });
 
-    it("renames the subdomain slug, rejecting an already-taken hostname", async () => {
-        await provisionSubdomain(teamId, teamName);
+    it("does not resolve a team before it deliberately claims a subdomain", async () => {
+        const { team } = await seedTeam(db, { name: "Not Live" });
+        await db.update(teams).set({ subdomain: null }).where(eq(teams.id, team.id));
+
+        expect((await getDomainSettings(team.id))?.subdomain).toBeNull();
+        expect((await getDomainSettings(team.id))?.canonicalHost).toBeNull();
+        expect(await resolveHost("not-live.localhost")).toBeNull();
+        expect(await attachCustomDomain(team.id, "not-live.example.com")).toEqual({ ok: false, reason: "subdomain_required" });
+    });
+
+    it("renames a subdomain label and rejects a duplicate", async () => {
+        const newSubdomain = `new-${crypto.randomUUID().slice(0, 8)}`;
+        expect(await setTeamSubdomain(teamId, newSubdomain)).toEqual({ ok: true });
+        expect((await getDomainSettings(teamId))?.subdomain?.hostname).toBe(`${newSubdomain}.${getPlatformSiteDomain()}`);
+
         const { team: other } = await seedTeam(db, { name: "Other" });
-        const otherSubdomain = await provisionSubdomain(other.id, uniqueName("Other"));
-
-        const newSlug = uniqueName("new-slug").toLowerCase().replace(/\s+/g, "-");
-        const renamed = await setTeamSubdomain(teamId, newSlug);
-        expect(renamed.ok).toBe(true);
-        expect(renamed.ok && renamed.domain.hostname).toBe(`${newSlug}.${getBaseDomain()}`);
-
-        const takenSlug = otherSubdomain.hostname.slice(0, otherSubdomain.hostname.indexOf(`.${getBaseDomain()}`));
-        const clash = await setTeamSubdomain(teamId, takenSlug);
-        expect(clash).toEqual({ ok: false, reason: "taken" });
+        expect(await setTeamSubdomain(other.id, newSubdomain)).toEqual({ ok: false, reason: "taken" });
     });
 
-    it("attaches a custom domain as pending with verification records", async () => {
-        await provisionSubdomain(teamId, teamName);
-        const customHostname = `${crypto.randomUUID().slice(0, 8)}.com`;
-        const result = await attachCustomDomain(teamId, customHostname);
-
-        expect(result.ok).toBe(true);
-        expect(result.ok && result.domain.status).toBe("pending");
-        expect(result.ok && result.domain.isPrimary).toBe(false);
+    it("attaches a pending custom domain and exposes verification records", async () => {
+        const hostname = `${crypto.randomUUID().slice(0, 8)}.com`;
+        expect(await attachCustomDomain(teamId, hostname)).toEqual({ ok: true });
 
         const settings = await getDomainSettings(teamId);
-        expect(settings.verificationRecords).toEqual({
-            cnameTarget: `sites.${getBaseDomain()}`,
-            txtName: `_frontlit-verify.${customHostname}`,
-            txtValue: settings.customDomain!.verificationToken,
+        expect(settings?.customDomain).toMatchObject({ hostname, status: "pending", verifiedAt: null });
+        expect(settings?.verificationRecords).toMatchObject({
+            cnameTarget: getCustomDomainCnameTarget(),
+            txtName: `_frontlit-verify.${hostname}`,
         });
     });
 
-    it("refuses to attach a hostname under DOMAIN, a second custom domain, or one already claimed", async () => {
-        await provisionSubdomain(teamId, teamName);
-        const customHostname = `${crypto.randomUUID().slice(0, 8)}.com`;
-        await attachCustomDomain(teamId, customHostname);
-
-        expect(await attachCustomDomain(teamId, `foo.${getBaseDomain()}`)).toEqual({ ok: false, reason: "reserved" });
+    it("rejects a platform host, a second custom domain, and an already-claimed custom domain", async () => {
+        const hostname = `${crypto.randomUUID().slice(0, 8)}.com`;
+        await attachCustomDomain(teamId, hostname);
+        expect(await attachCustomDomain(teamId, `foo.${getPlatformSiteDomain()}`)).toEqual({ ok: false, reason: "reserved" });
         expect(await attachCustomDomain(teamId, "another.com")).toEqual({ ok: false, reason: "already_attached" });
 
         const { team: other } = await seedTeam(db, { name: "Other" });
-        await provisionSubdomain(other.id, uniqueName("Other"));
-        expect(await attachCustomDomain(other.id, customHostname)).toEqual({ ok: false, reason: "taken" });
+        expect(await attachCustomDomain(other.id, hostname)).toEqual({ ok: false, reason: "taken" });
     });
 
-    it("verifies via DNS TXT lookup and flips status on match", async () => {
-        await provisionSubdomain(teamId, teamName);
-        const result = (await attachCustomDomain(teamId, `${crypto.randomUUID().slice(0, 8)}.com`)) as {
-            ok: true;
-            domain: { verificationToken: string };
-        };
-
-        vi.mocked(dns.resolveTxt).mockResolvedValueOnce([[result.domain.verificationToken]]);
-        const verified = await verifyCustomDomain(teamId);
-        expect(verified?.status).toBe("verified");
-        expect(verified?.verifiedAt).not.toBeNull();
-    });
-
-    it("marks failed when the TXT record doesn't match", async () => {
-        await provisionSubdomain(teamId, teamName);
-        await attachCustomDomain(teamId, `${crypto.randomUUID().slice(0, 8)}.com`);
-
-        vi.mocked(dns.resolveTxt).mockResolvedValueOnce([["wrong-token"]]);
-        const result = await verifyCustomDomain(teamId);
-        expect(result?.status).toBe("failed");
-    });
-
-    it("marks failed when the DNS lookup throws (no record yet)", async () => {
-        await provisionSubdomain(teamId, teamName);
-        await attachCustomDomain(teamId, `${crypto.randomUUID().slice(0, 8)}.com`);
-
-        vi.mocked(dns.resolveTxt).mockRejectedValueOnce(new Error("ENOTFOUND"));
-        const result = await verifyCustomDomain(teamId);
-        expect(result?.status).toBe("failed");
-    });
-
-    it("refuses to switch primary to an unverified custom domain", async () => {
-        await provisionSubdomain(teamId, teamName);
-        await attachCustomDomain(teamId, `${crypto.randomUUID().slice(0, 8)}.com`);
-
-        const result = await setPrimaryDomain(teamId, "custom");
-        expect(result).toEqual({ ok: false, reason: "custom_not_verified" });
-    });
-
-    it("switches primary to a verified custom domain and back", async () => {
-        const subdomain = await provisionSubdomain(teamId, teamName);
-        await attachCustomDomain(teamId, `${crypto.randomUUID().slice(0, 8)}.com`);
-        vi.mocked(dns.resolveTxt).mockResolvedValue([[(await getDomainSettings(teamId)).customDomain!.verificationToken]]);
-        await verifyCustomDomain(teamId);
-
-        const switched = await setPrimaryDomain(teamId, "custom");
-        expect(switched.ok).toBe(true);
-
-        let settings = await getDomainSettings(teamId);
-        expect(settings.subdomain?.isPrimary).toBe(false);
-        expect(settings.customDomain?.isPrimary).toBe(true);
-
-        await setPrimaryDomain(teamId, "subdomain");
-        settings = await getDomainSettings(teamId);
-        expect(settings.subdomain?.isPrimary).toBe(true);
-        expect(settings.customDomain?.isPrimary).toBe(false);
-        expect(subdomain.hostname).toBe(settings.subdomain?.hostname);
-    });
-
-    it("removing the primary custom domain resets primary to the subdomain", async () => {
-        await provisionSubdomain(teamId, teamName);
-        const customHostname = `${crypto.randomUUID().slice(0, 8)}.com`;
-        await attachCustomDomain(teamId, customHostname);
-        vi.mocked(dns.resolveTxt).mockResolvedValue([[(await getDomainSettings(teamId)).customDomain!.verificationToken]]);
-        await verifyCustomDomain(teamId);
-        await setPrimaryDomain(teamId, "custom");
-
-        const removed = await removeCustomDomain(teamId);
-        expect(removed?.hostname).toBe(customHostname);
+    it("makes a verified custom domain canonical while both hosts resolve", async () => {
+        const hostname = `${crypto.randomUUID().slice(0, 8)}.com`;
+        await attachCustomDomain(teamId, hostname);
+        const pending = await getDomainSettings(teamId);
+        vi.mocked(dns.resolveTxt).mockResolvedValue([[pending!.verificationRecords!.txtValue]]);
+        expect(await verifyCustomDomain(teamId)).toBe("verified");
 
         const settings = await getDomainSettings(teamId);
-        expect(settings.customDomain).toBeNull();
-        expect(settings.subdomain?.isPrimary).toBe(true);
+        expect(settings?.canonicalHost).toBe(hostname);
+        expect(await resolveHost(`${settings!.subdomain!.hostname}:3002`)).toEqual({ teamId, canonicalHost: hostname });
+        expect(await resolveHost(hostname)).toEqual({ teamId, canonicalHost: hostname });
     });
 
-    it("resolveHost never resolves an unverified custom domain, and answers with the team's current primary", async () => {
-        await provisionSubdomain(teamId, teamName);
-        const customHostname = `${crypto.randomUUID().slice(0, 8)}.com`;
-        await attachCustomDomain(teamId, customHostname);
-
-        expect(await resolveHost(customHostname)).toBeNull();
-
+    it("does not resolve an unverified custom domain and clears all custom-domain state on removal", async () => {
+        const hostname = `${crypto.randomUUID().slice(0, 8)}.com`;
+        await attachCustomDomain(teamId, hostname);
+        expect(await resolveHost(hostname)).toBeNull();
+        expect(await removeCustomDomain(teamId)).toBe(true);
         const settings = await getDomainSettings(teamId);
-        const subdomainResolved = await resolveHost(settings.subdomain!.hostname);
-        expect(subdomainResolved).toEqual({ teamId, isPrimary: true, primaryHost: settings.subdomain!.hostname });
-
-        vi.mocked(dns.resolveTxt).mockResolvedValue([[settings.customDomain!.verificationToken]]);
-        await verifyCustomDomain(teamId);
-        await setPrimaryDomain(teamId, "custom");
-
-        const customResolved = await resolveHost(customHostname);
-        expect(customResolved).toEqual({ teamId, isPrimary: true, primaryHost: customHostname });
-
-        const nonPrimarySubdomainResolved = await resolveHost(settings.subdomain!.hostname);
-        expect(nonPrimarySubdomainResolved).toEqual({ teamId, isPrimary: false, primaryHost: customHostname });
+        expect(settings?.customDomain).toBeNull();
+        expect(settings?.verificationRecords).toBeNull();
+        expect(settings?.canonicalHost).toBe(settings?.subdomain?.hostname);
     });
 
-    it("resolveHost returns null for an unknown host", async () => {
-        expect(await resolveHost(`${crypto.randomUUID()}.example`)).toBeNull();
+    it("normalizes ports and casing in host headers", () => {
+        expect(normalizeHost("CoDeLiT.Localhost:3002")).toBe("codelit.localhost");
     });
 });

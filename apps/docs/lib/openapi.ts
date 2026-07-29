@@ -2,12 +2,16 @@ import { generateOpenApi } from "@ts-rest/open-api";
 import { contract } from "@frontlit/api-contract";
 import { createOpenAPI } from "fumadocs-openapi/server";
 
+const isProduction = process.env.NODE_ENV === "production";
+const localHost = `localhost:${process.env.PORT || 4000}`;
+
 const openApiDocument = generateOpenApi(
     contract,
     {
         info: {
             title: "FrontLit API",
-            description: "REST API for building and serving pages.",
+            description:
+                "FrontLit REST API for building and serving sites. Authenticate with a team-scoped API key or a Better Auth OAuth2 bearer token.",
             version: "0.1.0",
         },
         servers: [
@@ -15,8 +19,8 @@ const openApiDocument = generateOpenApi(
                 url: "{protocol}://{host}",
                 description: "API Server",
                 variables: {
-                    protocol: { default: "https", enum: ["https", "http"] },
-                    host: { default: "api.frontlit.dev" },
+                    protocol: { default: isProduction ? "https" : "http", enum: ["https", "http"] },
+                    host: { default: isProduction ? "api.frontlit.dev" : localHost },
                 },
             },
         ],
@@ -28,8 +32,20 @@ const openApiDocument = generateOpenApi(
                 description: "Team management (list/create/rename/delete), per-team API keys, and server-to-server provisioning.",
             },
             {
+                name: "Media",
+                description: "Team media library, backed by MediaLit. FrontLit servers never receive file bytes — uploads go direct-to-MediaLit using a short-lived signature.",
+            },
+            {
+                name: "Blog",
+                description: "Blog posts — one of three kinds built on the shared documents engine (blog/doc/changelog), with draft/publish state.",
+            },
+            {
+                name: "Public",
+                description: "Unauthenticated, published-only reads for public site rendering. Resolved by a team's public id.",
+            },
+            {
                 name: "Domains",
-                description: "A team's default `<slug>.<DOMAIN>` subdomain plus an optional attached, DNS-verified custom domain.",
+                description: "A team's default `<slug>.<PLATFORM_SITE_DOMAIN>` subdomain plus an optional attached, DNS-verified custom domain.",
             },
             {
                 name: "Settings",
@@ -39,10 +55,15 @@ const openApiDocument = generateOpenApi(
         components: {
             securitySchemes: {
                 apiKeyAuth: { type: "apiKey", in: "header", name: "x-frontlit-apikey" },
+                bearerAuth: {
+                    type: "http",
+                    scheme: "bearer",
+                    bearerFormat: "JWT",
+                },
                 provisioningSecretAuth: { type: "apiKey", in: "header", name: "X-Frontlit-Provisioning-Secret" },
             },
         },
-        security: [{ apiKeyAuth: [] }],
+        security: [{ apiKeyAuth: [] }, { bearerAuth: [] }],
     },
     {
         operationMapper: (operation, route) => {
@@ -52,7 +73,12 @@ const openApiDocument = generateOpenApi(
                 tags: (route.metadata as { tag?: string } | undefined)?.tag
                     ? [(route.metadata as { tag: string }).tag]
                     : operation.tags,
-                security: path === "/provisioning/teams" ? [{ provisioningSecretAuth: [] }] : operation.security,
+                security:
+                    path === "/provisioning/teams"
+                        ? [{ provisioningSecretAuth: [] }]
+                        : path?.startsWith("/public/")
+                          ? []
+                          : operation.security,
             };
         },
     },

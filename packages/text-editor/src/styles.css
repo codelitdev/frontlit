@@ -21,6 +21,24 @@
     word-break: break-word;
 }
 
+.tiptap-editor .ProseMirror.writing-editor-content {
+    min-height: 26rem;
+    padding: 0 2.5rem 8rem;
+    font-size: 1.0625rem;
+    line-height: 1.75;
+}
+
+.tiptap-editor .ProseMirror.writing-editor-content p {
+    margin: 0 0 1.35rem;
+}
+
+@media (max-width: 640px) {
+    .tiptap-editor .ProseMirror.writing-editor-content {
+        padding-right: 1.5rem;
+        padding-left: 1.5rem;
+    }
+}
+
 .tiptap-editor .ProseMirror p.is-editor-empty:first-child::before {
     color: hsl(var(--muted-foreground));
     content: attr(data-placeholder);

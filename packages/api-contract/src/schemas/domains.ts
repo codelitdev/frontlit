@@ -1,21 +1,18 @@
 import { z } from "zod";
 
-/** `subdomain` is the always-available `<slug>.<DOMAIN>` host; `custom` is
- * the optional attached domain, once verified (architecture.md §12.1).
- * Not a stored column — derived server-side from whether the hostname ends
- * in the deployment's `DOMAIN`. */
-export const domainKindSchema = z.enum(["subdomain", "custom"]);
-
 export const domainStatusSchema = z.enum(["pending", "verified", "failed"]);
 
-export const domainSchema = z.object({
-    domainId: z.string(),
+/** One team owns one website. The subdomain is chosen explicitly during
+ * setup and its full hostname is computed from `PLATFORM_SITE_DOMAIN`. */
+export const subdomainSchema = z.object({
+    name: z.string(),
     hostname: z.string(),
-    kind: domainKindSchema,
+});
+
+export const customDomainSchema = z.object({
+    hostname: z.string(),
     status: domainStatusSchema,
-    isPrimary: z.boolean(),
     verifiedAt: z.string().nullable(),
-    createdAt: z.string().nullable(),
 });
 
 /** The DNS records a team must create for their custom domain to verify —
@@ -27,13 +24,16 @@ export const domainVerificationRecordsSchema = z.object({
 });
 
 export const domainSettingsSchema = z.object({
-    subdomain: domainSchema,
-    customDomain: domainSchema.nullable(),
+    subdomain: subdomainSchema.nullable(),
+    customDomain: customDomainSchema.nullable(),
+    /** Null until the team has claimed a FrontLit subdomain. */
+    canonicalHost: z.string().nullable(),
     verificationRecords: domainVerificationRecordsSchema.nullable(),
 });
 
 export const setTeamSubdomainBodySchema = z.object({
-    /** The `<slug>` portion only, not the full hostname — `.{DOMAIN}` is
+    /** The `<slug>` portion only, not the full hostname —
+     * `.{PLATFORM_SITE_DOMAIN}` is
      * appended server-side. */
     slug: z
         .string()
@@ -51,10 +51,6 @@ export const attachCustomDomainBodySchema = z.object({
         .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/, "Must be a valid domain name"),
 });
 
-export const setPrimaryDomainBodySchema = z.object({
-    primary: domainKindSchema,
-});
-
 /** Answers `apps/sites`' tenant-resolution middleware and doubles as the
  * on-demand TLS "ask" (architecture.md §12.1/§12.2) — only ever answers
  * for hosts it actually knows. */
@@ -64,8 +60,6 @@ export const resolveHostQuerySchema = z.object({
 
 export const resolveHostResponseSchema = z.object({
     teamId: z.string(),
-    /** True if `host` is already this team's primary host — the caller
-     * should NOT redirect. False means the caller should 308 to `primaryHost`. */
-    isPrimary: z.boolean(),
-    primaryHost: z.string(),
+    /** Both known hosts serve the same site. This is used for canonical URLs. */
+    canonicalHost: z.string(),
 });

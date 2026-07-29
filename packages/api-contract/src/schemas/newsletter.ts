@@ -58,15 +58,15 @@ export const updateSegmentBodySchema = z.object({
 
 export const newsletterSettingsSchema = z.object({
     connected: z.boolean(),
-    fromName: z.string().nullable().optional(),
-    fromEmail: z.string().nullable().optional(),
-    replyTo: z.string().nullable().optional(),
+    /** Required by SendLit before it will send campaign or transactional
+     * email; rendered into the managed marketing footer. */
+    mailingAddress: z.string().nullable().optional(),
+    updatedAt: z.string().nullable().optional(),
 });
 
 export const updateNewsletterSettingsBodySchema = z.object({
-    fromName: z.string().optional(),
-    fromEmail: z.string().optional(),
-    replyTo: z.string().optional(),
+    /** Send an empty string to clear the address. */
+    mailingAddress: z.string().optional(),
 });
 
 export const broadcastSchema = z.object({

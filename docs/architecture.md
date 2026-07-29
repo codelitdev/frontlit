@@ -1,6 +1,6 @@
 # FrontLit Architecture: Pages, Blog, Docs, Help Desk, Chatbot, Changelog & Newsletter
 
-Status: **Proposed** · Last updated: 2026-07-16
+Status: **Living architecture** · Last verified: 2026-07-29
 
 This document designs the core content features of FrontLit — the "front
 office of your SaaS": draft/publish pages, blog (`/blog`), documentation
@@ -17,15 +17,17 @@ It follows the conventions already established in the repo:
 
 - **API-first, MCP-ready**: every capability lands in `packages/api-contract`
   (ts-rest + zod) first, then `apps/api/src/<module>/{queries,routes}.ts`,
-  then MCP tools in `apps/api/src/mcp/tools/`, then the dashboard UI in
-  `apps/web`. **Nothing ships dashboard-only** — see §2 for the parity rule
+  then MCP tools in `apps/api/src/mcp/tools/`, then the authenticated
+  workspace in `apps/web`. **Nothing ships workspace-only** — see §2 for the parity rule
   and the full endpoint ↔ tool matrix.
 - **Multi-tenancy**: team scope is derived from auth context (`requireAuth` +
   `requireTeam`), never encoded in resource URLs. On the public side, the
-  tenant is derived from the request **host**: every team gets
-  `<team-slug>.<DOMAIN>` and can attach a custom domain (§12.1).
-- **App split**: `apps/web` is the dashboard — every route behind auth
-  except webhook handlers (§12.4). Public sites are served by a separate
+  tenant is derived from the request **host**: every team can claim
+  `<subdomain>.<PLATFORM_SITE_DOMAIN>` and attach a custom domain (§12.1).
+- **App split**: `apps/web` is the authenticated team workspace; every
+  product page, including `/`, is behind auth. `/login` and the
+  authentication/BFF route handlers are infrastructure entry points, not
+  product pages (§12.4). Public sites are served by the separate
   `apps/sites` Next.js app (§12.2).
 - **IDs**: internal UUIDv7 `id` (never exposed) + public prefixed id
   (`pg_…`, `blog_…`) enforced with `publicIdCheck`.
@@ -44,7 +46,7 @@ It follows the conventions already established in the repo:
 
 ```mermaid
 graph TD
-    subgraph Authoring["Dashboard (apps/web) - fully behind auth"]
+    subgraph Authoring["Workspace (apps/web) - product pages behind auth"]
         PB[Page builder]
         TE[Text editor - blogs, docs, changelog]
         CB[Chatbot settings]
@@ -55,7 +57,7 @@ graph TD
         Pages[pages module - draft and publish]
         Docs[documents module - blog, doc, changelog kinds]
         Media[media module - MediaLit signatures and library]
-        Domains[domains module - subdomain and custom domain]
+        Domains[team website domain settings]
         News[newsletter module - lead capture, contact proxy, broadcasts]
         Embed[embedding worker]
         Chat[chat module - RAG]
@@ -76,7 +78,7 @@ graph TD
     end
 
     subgraph Public["Public sites (apps/sites) - host resolves the team"]
-        Host{{team-slug.DOMAIN or customdomain.tld}}
+        Host{{subdomain.PLATFORM_SITE_DOMAIN or customdomain.tld}}
         Home[/ standard pages/]
         Blog[/blog/]
         DocsR[/docs - documentation/]
@@ -94,6 +96,8 @@ graph TD
     GH --> Docs
     Host --> Home
     PagesT --> Home
+    PB -->|shared header/footer draft| Settings
+    Settings -->|published page shell + branding| Home
     DocsT --> Blog
     DocsT --> DocsR
     DocsT --> Change
@@ -110,11 +114,11 @@ draft state and a publish state". They share:
 - a single Drizzle table (`documents`) with a `kind` discriminator
   (`blog | doc | changelog`),
 - a single queries module implementing draft/publish/versioning,
-- a single dashboard editor built on `@frontlit/text-editor`.
+- a single workspace editor built on `@frontlit/text-editor`.
 
 They differ only in kind-specific metadata (kept in typed columns + a
 `meta` jsonb) and in their public REST surface, which is exposed as three
-thin kind-scoped routers (`/blogs`, `/docs`, `/changelogs`) so the OpenAPI
+thin kind-scoped routers (`/blogs`, `/help-docs`, `/changelogs`) so the OpenAPI
 spec and MCP tools stay self-explanatory for API consumers.
 
 ---
@@ -125,7 +129,7 @@ Every feature in this document is a first-class API citizen. The invariant,
 already established by the pages/teams/themes modules, is:
 
 > **One capability = one queries function = one ts-rest endpoint = one MCP
-> tool.** The dashboard UI is just another API consumer.
+> tool.** The workspace UI is just another API consumer.
 
 Mechanics (matching the existing code):
 
@@ -134,7 +138,8 @@ Mechanics (matching the existing code):
   handlers (`routes.ts`) and MCP tools (`mcp/tools/<module>.ts`) are both
   thin adapters over the *same* functions — no behavior drift possible.
 - Zod schemas in `packages/api-contract` are shared verbatim across ts-rest
-  validation, OpenAPI generation (`openapi.ts` → `apps/docs`), and MCP
+  validation, OpenAPI generation (`openapi.ts` → `/openapi.json`, Swagger
+  UI at `/docs/`, and `apps/docs`), and MCP
   `inputSchema`/`outputSchema` (as `mcp/tools/pages.ts` already does with
   `pageSchema`).
 - MCP tools follow the established conventions: `getTeamId(extra)` for team
@@ -145,6 +150,42 @@ Mechanics (matching the existing code):
   and the server `description` is extended to advertise the new
   capabilities.
 
+### Auth and middleware boundary
+
+FrontLit uses the organization-standard auth arrangement shared with
+SendLit and progressively extracted into `@codelitdev/oauth-server-kit`:
+
+- `resolveAuth()` is the single resolver for REST and MCP. It accepts a
+  Better Auth browser session, an OAuth bearer token, or an
+  `x-frontlit-apikey`; every successful result has one normalized account
+  and credential context.
+- `oauth-server-kit` supplies the central resolver/middleware primitives,
+  bearer verification, OAuth authorization/consent pages, MCP protected
+  resource discovery, and consistent `401`/`WWW-Authenticate` responses.
+  FrontLit supplies its persistence adapters (accounts, API keys,
+  memberships) and Better Auth configuration.
+- `requireAuth` and `mcpAuth` are thin mode-specific wrappers around that
+  resolver. `requireTeam` runs after them: API keys carry one fixed team;
+  OAuth tokens may carry a membership-checked `team_id` claim; browser
+  sessions use `X-Frontlit-Team-Id`. When credentials do not already fix a
+  team, a sole membership may be selected automatically and ambiguous
+  multi-team requests fail closed.
+- Middleware is scoped on each router prefix (`/pages`, `/tickets`, and so
+  on), rather than installed globally. Public, provisioning, OAuth, MCP,
+  health, OpenAPI and Swagger routes therefore keep their intentional auth
+  policies without depending on mount order.
+- MCP is Streamable HTTP at `/mcp`, protected by the same resolver and team
+  middleware as REST. OAuth discovery/resource metadata is mounted by
+  `oauth-server-kit`; API-key auth remains available for automation.
+
+The API exposes the generated OpenAPI document at `/openapi.json` and the
+interactive Swagger UI at `/docs/` (`/docs` redirects there, with
+authorization persistence and request timing), matching SendLit. Private
+help-document authoring uses
+`/help-docs`, deliberately avoiding the `/docs` collision. These
+documentation routes describe the API; the public customer help center
+still lives at `/docs` on `apps/sites`.
+
 ### Endpoint ↔ tool matrix
 
 | Feature | REST (team-scoped) | MCP tools |
@@ -152,19 +193,20 @@ Mechanics (matching the existing code):
 | Pages (existing) | `POST/GET/PATCH/DELETE /pages…` | `list/create/get/update/delete_page` |
 | Pages draft/publish (§4) | `POST /pages/:id/publish`, `POST /pages/:id/discard-draft` | `publish_page`, `discard_page_draft` |
 | Blog (§5) | `POST/GET/PATCH/DELETE /blogs…`, `…/publish`, `…/discard-draft` | `list/create/get/update/delete_blog_post`, `publish_blog_post`, `discard_blog_post_draft` |
-| Docs (§5) | `POST/GET/PATCH/DELETE /docs…`, `…/publish`, `…/discard-draft` | `list/create/get/update/delete_doc`, `publish_doc`, `discard_doc_draft` |
+| Docs (§5) | `POST/GET/PATCH/DELETE /help-docs…`, `…/publish`, `…/discard-draft` | `list_help_docs`, `create/get/update/delete_help_doc`, `publish_help_doc`, `discard_help_doc_draft` |
 | Doc sections (§5) | `POST/GET/PATCH/DELETE /doc-sections…` | `list/create/update/delete_doc_section` |
-| Docs search (§6) | `GET /docs/search?q=` (authed; public variant on `/public/…`) | `search_docs` (semantic search over published docs) |
+| Docs search (§6) | `GET /help-docs/search?q=` (authed; public variant on `/public/…`) | `search_docs` (semantic search over published docs) |
 | Changelog (§8) | `POST/GET/PATCH/DELETE /changelogs…`, `…/publish`, `…/discard-draft` | `list/create/get/update/delete_changelog_entry`, `publish_changelog_entry`, `discard_changelog_entry_draft` |
 | GitHub import (§8) | `POST /changelogs/import-github` | `import_github_releases` |
 | Chatbot settings (§7) | `GET/PATCH /chatbot` | `get_chatbot_settings`, `update_chatbot_settings` |
-| Team settings (§12.5) | `GET/PATCH /settings` (branding + code injection) | `get_team_settings`, `update_team_settings` |
-| Ask the docs (§7) | `POST /public/:teamId/chat` (public, SSE) | `ask_docs` (non-streaming RAG answer + cited sources) |
-| Help desk (§11) | `GET /tickets`, `GET /tickets/:ticketId`, `POST /tickets/:ticketId/replies`, `POST …/status`, `POST …/assign` (submission is public: `POST /public/:teamId/tickets`) | `list_tickets`, `get_ticket`, `reply_to_ticket`, `set_ticket_status`, `assign_ticket` |
-| Domains (§12.1) | `GET/PATCH /domain`, `POST /domain/custom`, `POST /domain/custom/verify`, `DELETE /domain/custom`, `POST /domain/primary` | `get_domain_settings`, `set_team_subdomain`, `attach_custom_domain`, `verify_custom_domain`, `remove_custom_domain`, `set_primary_domain` |
+| Team settings (§12.5) | `GET/PATCH /settings` (branding + code injection; the shared shell moves through page publish) | `get_team_settings`, `update_team_settings` |
+| Ask the docs (§7) | `POST /public/:teamId/chat` (public, persisted thread) | — (visitor widget only for now; no MCP twin yet) |
+| Help desk (§11) | `GET/POST /tickets`, `GET/PATCH /tickets/:ticketId`, `POST /tickets/:ticketId/messages` (submission is also public at `POST /public/:teamId/tickets`) | `create_ticket`, `list_tickets`, `get_ticket`, `reply_to_ticket`, `update_ticket_status`, `assign_ticket` |
+| Domains (§12.1) | `GET/PATCH /domain`, `POST /domain/custom`, `POST /domain/custom/verify`, `DELETE /domain/custom` | `get_domain_settings`, `set_team_subdomain`, `attach_custom_domain`, `verify_custom_domain`, `remove_custom_domain` |
 | Media (§9) | `POST /media/presigned`, `POST /media`, `GET/PATCH/DELETE /media…` | `get_media_upload_signature`, `register_media`, `list_media`, `get_media`, `update_media`, `delete_media` |
 | Contacts (§10.2, read-through to SendLit) | `GET /contacts` (with filter params), `GET/DELETE /contacts/:contactId`, `POST/DELETE /contacts/:contactId/tags/:tag` (capture itself is public: `POST /public/:teamId/leads`) | `list_contacts`, `get_contact`, `delete_contact`, `add_contact_tag`, `remove_contact_tag` |
 | Segments (§10.2, read-through to SendLit) | `GET/POST/PATCH/DELETE /newsletter/segments…` | `list_segments`, `create_segment`, `update_segment`, `delete_segment` |
+| ESP settings (§10.3, write-through to SendLit) | `GET/PUT/DELETE /settings/esp`, `POST /settings/esp/test` | `get_esp_config`, `update_esp_config`, `remove_esp_config`, `test_esp_config` |
 | Newsletter (§10.3) | `GET/PATCH /newsletter`, `GET/POST/PATCH /newsletter/broadcasts…`, `POST …/send`, `GET …/stats` | `get/update_newsletter_settings`, `list/create/update/send_broadcast`, `get_broadcast_stats` |
 
 Notes:
@@ -179,13 +221,12 @@ Notes:
   shape so agents can author content directly; input is normalized
   server-side (`normalizeTextEditorContent`) in the shared queries layer,
   identically for REST and MCP.
-- `ask_docs` and `search_docs` make the documentation itself
-  agent-consumable — a customer's support agent (or FrontLit's own MCP
-  clients) can answer questions from the vectorized docs without the web
-  widget.
+- `search_docs` makes the documentation itself agent-consumable for
+  retrieval. A full MCP "ask" twin of the public chat endpoint is deferred;
+  visitors use the widget / `POST /public/:teamId/chat` for now.
 
 **Definition of done for every milestone in §15:** contract + routes +
-regenerated OpenAPI + MCP tools + `apps/docs` REST reference updated +
+regenerated OpenAPI/Swagger + MCP tools + `apps/docs` REST reference updated +
 vitest coverage per §14. An endpoint without its MCP twin is an incomplete
 feature.
 
@@ -202,7 +243,7 @@ each publishable entity carries **both** its published fields and parallel
 - `POST …/:id/publish` copies draft → published in one transaction and stamps
   `publishedAt`.
 - `POST …/:id/discard-draft` copies published → draft (revert).
-- Public rendering reads published fields only; the dashboard reads drafts.
+- Public rendering reads published fields only; the workspace reads drafts.
 
 Why not a separate revisions table? A two-state model covers the actual
 product need (edit safely, then promote), keeps queries trivially cheap, and
@@ -263,6 +304,17 @@ they just can't be deleted and their slugs are reserved. `blog`, `docs`,
 `changelog` and `help` pages ship with the corresponding list/nav/form
 blocks pre-placed in their layout so the sections work out of the box.
 
+Every page layout also contains exactly two mandatory shell placeholders:
+a non-deleteable `header` first and `footer` last, both marked `shared`.
+Their settings are stored once per team (§12.5) in
+`team_settings.shared_widgets` / `draft_shared_widgets`, not copied into
+each page. Page reads hydrate the placeholders from those settings. Editing
+either block updates the team draft; publishing any page promotes the
+shared draft so navigation changes appear consistently on every published
+page. The API rejects layouts that omit or duplicate either block, while
+the builder repairs legacy empty layouts and never offers move/delete
+controls for them.
+
 ### 4.3 Contract & routes
 
 `packages/api-contract/src/schemas/pages.ts`:
@@ -284,10 +336,15 @@ Update `apps/api/src/mcp/tools/pages.ts`, `openapi.ts` output and
 
 ### 4.4 Migration
 
-One-off Drizzle migration: add columns, then backfill
-`draft_layout = layout`, `draft_title = title`, … and `published_at =
-updated_at` for existing rows (existing pages are considered published),
-and generate slugs from names (with the standard-page slugs reserved).
+The Drizzle migration adds the draft/publish columns and team-level
+published/draft shared-widget settings. It preserves an existing
+homepage's header/footer settings when available, seeds defaults otherwise,
+and rewrites every existing published and draft layout into the canonical
+locked `header → body blocks → footer` order. Existing content is treated
+as published (`published_at = updated_at`), draft fields are backfilled
+from their published counterparts, and reserved standard-page slugs are
+normalized. The migration is idempotent at the data level: every team ends
+with one shell pair and every page with exactly two shared placeholders.
 
 ---
 
@@ -314,7 +371,7 @@ export const documents = pgTable("documents", {
     featuredImage: jsonb("featured_image").$type<Record<string, unknown>>(),
     meta: jsonb("meta").$type<Record<string, unknown>>().notNull().default({}),
 
-    // draft side (dashboard edits these)
+    // draft side (workspace edits these)
     draftTitle: text("draft_title").notNull(),
     draftContent: jsonb("draft_content").$type<TextEditorContent>().notNull(),
     draftExcerpt: text("draft_excerpt"),
@@ -360,16 +417,16 @@ rows (§6) in the same transaction.
 
 ```mermaid
 sequenceDiagram
-    participant U as Dashboard editor
+    participant U as Workspace editor
     participant A as apps/api documents module
     participant DB as documents table
     participant W as embedding worker
 
-    U->>A: POST /docs { title }
+    U->>A: POST /help-docs { title }
     A->>DB: insert (draft only, publishedAt = null)
-    U->>A: PATCH /docs/:id { draftContent } (autosave)
+    U->>A: PATCH /help-docs/:id { draftContent } (autosave)
     A->>DB: update draft_* columns
-    U->>A: POST /docs/:id/publish
+    U->>A: POST /help-docs/:id/publish
     A->>DB: copy draft_* -> published columns, stamp published_at
     A->>W: enqueue embedding job (kind = doc only)
     W->>DB: chunk + embed -> document_chunks
@@ -387,7 +444,7 @@ holds all logic (create/list/get/update/publish/discard/delete, always
 `(teamId, kind)`-scoped). `packages/api-contract` exposes:
 
 - `contract.blogs` → `/blogs`, `/blogs/:documentId`, `…/publish`, `…/discard-draft`
-- `contract.docs` → `/docs` (+ `/doc-sections` CRUD)
+- `contract.docs` → `/help-docs` (+ `/doc-sections` CRUD)
 - `contract.changelogs` → `/changelogs` (+ `/changelogs/import-github`, §8)
 
 built from a shared `makeDocumentContract(kind, metaSchema)` factory in
@@ -412,7 +469,7 @@ public id (no session/API key; rate limits, CAPTCHA and budgets per §13):
 | `GET /public/:teamId/sitemap` | all published, robots-allowed URLs + `lastmod` — feeds sitemap.xml and RSS generation (§12.3) |
 | `POST /public/:teamId/leads` | email-form block submissions → queued sync to SendLit contacts (§10.2) |
 | `POST /public/:teamId/tickets`, `GET/POST …/tickets/:ticketId/messages` | help-desk submission + magic-token thread (§11) |
-| `POST /public/:teamId/chat` (SSE) | chatbot (§7) |
+| `POST /public/:teamId/chat` | persisted chatbot conversation (§7) |
 
 These return published fields only and never leak `draft*` columns
 (enforced in the serializer next to `omitInternal`).
@@ -495,44 +552,74 @@ export const chatbotSettings = pgTable("chatbot_settings", {
     name: text("name").notNull().default("Assistant"),
     greeting: text("greeting"),
     accentColor: text("accent_color"),
+    escalationEnabled: boolean("escalation_enabled").notNull().default(false),
     createdAt / updatedAt,
 });
 ```
 
 Contract: `contract.chatbot` — `GET /chatbot` / `PATCH /chatbot`
-(team-scoped), managed from a dashboard settings screen. LLM provider/model
-are server env config (`CHAT_MODEL`, default `gpt-4o-mini`-class), not
-per-team, until pricing/plans demand otherwise.
+(team-scoped), managed from the workspace settings screen. LLM
+provider/model are **server env config** (not per-team until pricing
+demands otherwise), selected via Vercel AI SDK in `apps/api/src/ai/`:
+
+All generative and embedding calls run **server-side in `apps/api`** via
+Vercel AI SDK Core (`ai` package) — never raw provider `fetch` from route
+handlers.
+
+| `CHAT_PROVIDER` | AI SDK package | key | default `CHAT_MODEL` |
+|---|---|---|---|
+| `opencode-go` (default when key present) | `@ai-sdk/openai-compatible` → Go gateway | `OPENCODE_API_KEY` | `deepseek-v4-flash` |
+| `openai` | `@ai-sdk/openai` | `OPENAI_API_KEY` | `gpt-4o-mini` |
+| `anthropic` | `@ai-sdk/anthropic` | `ANTHROPIC_API_KEY` | `claude-haiku-4-5-20251001` |
+| `local` | none (extractive top-chunk) | — | — |
+
+Embeddings use the same SDK (`embed` / `embedMany` + `@ai-sdk/openai`
+embedding models when `OPENAI_API_KEY` is set; otherwise a local
+deterministic vector for tests). OpenCode Go is preferred for chat.
 
 ### 7.2 Chat endpoint
 
-`POST /public/:teamId/chat` (SSE streaming; rate-limited per IP+team
-**and** capped by a per-team daily token budget — §13.2):
+`POST /public/:teamId/chat` (non-streaming today; rate-limited per IP+team
+**and** capped by a per-team daily token budget — §13.2). A streaming
+helper (`streamChatAnswer`) exists for a future SSE path:
 
 1. Reject if chatbot disabled for the team.
-2. Embed the user message (last user turn; client sends bounded history).
-3. `searchChunks(teamId, …)` → top-k chunks.
-4. Prompt: system instructions ("answer only from the provided help
+2. On the first message, create an anonymous `source: "chatbot"` ticket;
+   later messages provide the returned conversation id/token and append to
+   that same team-scoped thread.
+3. Embed the user message (last user turn; the API loads bounded history
+   from the persisted thread).
+4. `searchChunks(teamId, …)` → top-k chunks.
+5. Prompt: system instructions ("answer only from the provided help
    articles; say you don't know otherwise") + chunks with their
-   `/docs/:slug#anchor` source URLs + chat history.
-5. Stream tokens; finish with a `sources` event listing cited articles.
-
-No server-side conversation persistence in v1 (history lives in the widget's
-`sessionStorage`). A `chat_conversations` table is a natural v2 for
-analytics and "escalate to support".
+   `/docs/:slug#anchor` source URLs + chat history — via AI SDK
+   `generateText`.
+6. Persist the bot reply and return it with cited sources and the opaque
+   conversation credentials. The widget polls the magic-token thread so
+   replies sent by a human agent appear in the same chat.
 
 ### 7.3 Embedding on sites
 
 - **FrontLit-hosted pages**: when `chatbotSettings.enabled`, the public site
-  layout renders the floating chat widget automatically on every page.
+  layout renders the floating chat launcher automatically on every page.
+- **Site theme**: the launcher and chat panel use the **homepage page theme**
+  (same `themeId` / saved style resolution as published pages), so primary,
+  muted, border, and surface colors match the site. An optional chatbot
+  `accentColor` overrides the theme primary only.
+- **Launcher variants** (workspace `/settings/chatbot`):
+  - `bubble` — classic floating button; style: shape (circle/rounded/square),
+    icon (chat/message/sparkles/bot), size (sm/md/lg).
+  - `text_input` — bottom bar that looks like a message field; style: corner
+    radius, width, placeholder. Clicking opens the same chat panel.
+  Accent color is shared. Stored as `variant` + `widget_style` jsonb on
+  `chatbot_settings`; exposed on the public settings payload for the site
+  and the external embed loader.
 - **External sites**: `<script src="https://<team-host>/embed/chat.js">`
   — a tiny loader served by `apps/sites` (§12.2; the snippet uses the team's
-  primary host, so the team is implied by the host — no `data-team`
-  attribute needed) that mounts a floating button opening an iframe
-  (`/embed/chat`, same host), which hosts the actual React chat UI and
-  talks to the public chat endpoint. The iframe isolates styles and keeps
-  the loader ~1 KB. It never touches `apps/web`, which stays fully behind
-  auth (§12.4).
+  canonical host, so the team is implied by the host — no `data-team`
+  attribute needed) that mounts the same launcher variants and opens an
+  iframe (`/embed/chat`, same host) for the React chat UI. It never touches
+  `apps/web`, which stays fully behind auth (§12.4).
 
 ---
 
@@ -573,7 +660,7 @@ stack FrontLit uses, so `sendlit/apps/api/src/media/` +
 
 ```mermaid
 sequenceDiagram
-    participant B as Dashboard (browser)
+    participant B as Workspace (browser)
     participant A as apps/api media module
     participant M as MediaLit
 
@@ -712,8 +799,8 @@ contact rows. Capture is an outbox, not a database:
    source page slug — so newsletters can be segmented by which page
    captured the lead. SendLit upserts by email within the team, so
    resubmits and retries are idempotent; jobs retry with backoff and
-   surface in the dashboard only if they exhaust retries.
-3. **All contact management is read-through**: the dashboard's audience
+   surface in the workspace only if they exhaust retries.
+3. **All contact management is read-through**: the workspace's audience
    screens are thin proxies over SendLit's contacts API — list/search
    (`GET /contacts`), detail + delivery history
    (`GET /contacts/:id`, `…/deliveries`), tag add/remove
@@ -730,18 +817,19 @@ contact rows. Capture is an outbox, not a database:
 ### 10.3 Sending newsletters
 
 Newsletter composition and sending ride SendLit's broadcast stack through
-thin, team-scoped adapter endpoints in FrontLit's API. The dashboard and
+thin, team-scoped adapter endpoints in FrontLit's API. The workspace and
 MCP clients talk only to FrontLit; the API forwards each call to the
 hosted SendLit instance's REST API with the provisioned team's key:
 
 | FrontLit endpoint | hosted SendLit REST call |
 |---|---|
-| `GET /newsletter` / `PATCH /newsletter` | `GET/PUT /settings/general` (from name/address; plus FrontLit-local toggles like double-opt-in) |
+| `GET /newsletter` / `PATCH /newsletter` | `GET/PUT /settings/general` (physical mailing address required in managed marketing footers) |
+| `GET/PUT/DELETE /settings/esp`, `POST /settings/esp/test` | the matching SendLit default-ESP endpoints; credentials are write-only and SendLit returns only `hasPassword` |
 | `GET /newsletter/broadcasts`, `POST /newsletter/broadcasts` | `GET/POST /sequences` (SendLit models broadcasts as sequences, cf. its `/dashboard/broadcasts` UI) |
 | `PATCH /newsletter/broadcasts/:id`, `POST …/:id/send` | `PATCH /sequences/:id` + email endpoints, `POST /sequences/:id/start` |
 | `GET /newsletter/broadcasts/:id/stats` | `GET /sequences/:id/stats` |
 
-**Dashboard UI: `@sendlit/email-blocks`.** All newsletter screens in
+**Workspace UI: `@sendlit/email-blocks`.** All newsletter screens in
 `apps/web` are assembled from SendLit's headless component package rather
 than hand-built — its components are fully controlled (`value` in,
 `onChange` out, zero fetching/persistence inside), so they plug straight
@@ -754,6 +842,15 @@ into FrontLit's adapter endpoints via the existing BFF proxy:
 | Broadcast composer | re-exported `EmailEditor`, `TemplateChooser`, `EmailPreview` | `/newsletter/broadcasts…` |
 | Broadcast results | `SequenceAnalytics`, `SubscriberList` | `…/stats`, `…/subscribers` |
 
+The `/settings/esp` workspace screen configures the active FrontLit
+team's default SendLit ESP (provider, SMTP host/port/TLS, username,
+write-only password/API key, and sender identity), plus the physical
+mailing address SendLit requires before sending. The browser never sees
+the provisioned SendLit team key and never talks to SendLit directly:
+FrontLit resolves the encrypted per-team integration key server-side and
+forwards the request. Test sends also pass through FrontLit and always
+require an explicit recipient.
+
 Using the re-exported email editor (not `@frontlit/text-editor`) for
 broadcast content is deliberate: broadcast bodies must round-trip
 SendLit's sequence-email API and render through SendLit's outgoing-mail
@@ -762,7 +859,10 @@ pipeline, so they use SendLit's email content model. The
 (pages, blog, help, changelog), not to emails.
 
 The audience (SendLit contacts, read-through per §10.2) surfaces in the
-dashboard under `dashboard/newsletter/` next to the broadcasts UI.
+workspace as the standalone **Users** nav item (`/users`) —
+FrontLit's lead/contact view, not nested under Newsletter — since the
+same contact list is also where leads captured via support tickets and
+public-site forms show up, not just newsletter subscribers.
 
 Per §2: contacts, segments and newsletter endpoints get MCP twins —
 `list_contacts`, `get_contact`, `delete_contact`, `add_contact_tag`,
@@ -785,7 +885,7 @@ lone postgres service into a full two-product stack:
 | `sendlit-api` | `sendlit/apps/api/Dockerfile` | `SENDLIT_PROVISIONING_SECRET`, ESP credentials |
 | `sendlit-web` | `sendlit/apps/web/Dockerfile` | optional — SendLit's own dashboard for power users; FrontLit's UI covers the newsletter basics |
 | `frontlit-api` | `apps/api/Dockerfile` | `SENDLIT_API_URL=http://sendlit-api:<port>`, same provisioning secret, MediaLit + embeddings keys |
-| `frontlit-web` | `apps/web/Dockerfile` | authed dashboard |
+| `frontlit-web` | `apps/web/Dockerfile` | authenticated workspace |
 | `frontlit-sites` | `apps/sites/Dockerfile` | public sites (§12.2) |
 
 Provisioning, contact sync and broadcasts then work out of the box against
@@ -797,8 +897,9 @@ persist postgres data as today.
 
 ## 11. Help desk (support tickets)
 
-The README's "Help Desk" leg: visitors raise support tickets from the
-public site, teams work them in the dashboard. It deliberately composes
+The README's "Help Desk" leg: visitors raise support tickets and start chat
+conversations from the public site; teams work both in the workspace inbox.
+It deliberately composes
 the stacks already defined here — docs deflection (§6), chatbot
 escalation (§7), SendLit transactional email for notifications (§10) —
 rather than introducing new infrastructure. Tickets (unlike newsletter
@@ -815,8 +916,8 @@ export const tickets = pgTable("tickets", {
         .references(() => teams.id, { onDelete: "cascade" }),
     subject: text("subject").notNull(),
     status: text("status",
-        { enum: ["open", "pending", "closed"] }).notNull().default("open"),
-    requesterEmail: text("requester_email").notNull(),
+        { enum: ["open", "pending", "resolved", "closed"] }).notNull().default("open"),
+    requesterEmail: text("requester_email"), // null for anonymous chat
     requesterName: text("requester_name"),
     source: text("source",
         { enum: ["form", "chatbot", "api"] }).notNull().default("form"),
@@ -835,7 +936,7 @@ export const ticketMessages = pgTable("ticket_messages", {
     id, messageId /* tmsg_… */, teamId,
     ticketId: text("ticket_id").notNull()
         .references(() => tickets.id, { onDelete: "cascade" }),
-    author: text("author", { enum: ["requester", "agent"] }).notNull(),
+    author: text("author", { enum: ["requester", "agent", "bot"] }).notNull(),
     authorAccountId: text("author_account_id"),   // set for agent replies
     content: jsonb("content").$type<TextEditorContent>().notNull(),
     createdAt,
@@ -850,35 +951,32 @@ cascades messages; team deletion cascades everything.
 
 ### 11.2 Flows
 
-**Submission** — three doors, one endpoint
-(`POST /public/:teamId/tickets { subject, message, email, name?, source }`,
-guarded like lead capture — rate limits, honeypot, Turnstile CAPTCHA,
-§13.2–§13.3):
+**Submission** — three doors, one ticket/message model:
 
 1. A new `support-form` page-builder block (sibling of `email-form`),
    pre-placed on the seeded standard **Help desk** page (`/help`, §4.2).
    Before submitting, the form runs the documentation semantic search
    (§6.4) on the typed subject and suggests matching articles — deflection
    first, ticket second.
-2. **Chatbot escalation**: when the RAG bot can't answer (or on explicit
-   "talk to a human"), the widget offers a ticket form and attaches the
-   conversation transcript as the first message (`source: "chatbot"`).
+2. **Chatbot**: `POST /public/:teamId/chat` creates a ticket on the first
+   message and appends requester/bot messages on later turns. A human can
+   join at any time; no separate escalation copy is required.
 3. Headless consumers via the API/MCP surface (`source: "api"`).
 
 **The visitor side** is a magic-link thread page on `apps/sites`
 (`/help/tickets/:ticketId?token=…`, token checked against
 `accessTokenHash` — hashing, constant-time comparison, expiry and re-issue
 rules in §13.4 — `noindex`): full conversation, reply box, closed/open
-state. Every agent reply triggers a transactional email through SendLit's
+state. For tickets with an email address, every agent reply triggers a
+transactional email through SendLit's
 REST API (`POST /emails` with `x-sendlit-apikey`, the same per-team key
 from §10.1) containing the reply and the magic link — **no inbound email
 parsing in v1**; visitors reply on the thread page. New requester
 messages notify the team (assignee or team owner) the same way.
 
-**The agent side** is a `dashboard/support/` inbox: status columns
-(open / pending / closed), assignment, thread view with
-`@frontlit/text-editor` replies, requester context (their other tickets;
-their SendLit contact if one exists — read-through, §10.2).
+**The agent side** is the workspace root `/`: a unified, chronological inbox
+for chatbot conversations and support tickets, with open/done filtering,
+search, snooze/reopen/resolve controls, and a threaded agent reply composer.
 
 ### 11.3 Contract, tools & routes
 
@@ -887,82 +985,107 @@ team-scoped CRUD — list (filter by status/assignee/search), get with
 messages, reply, set status, assign — plus the public submission and
 thread endpoints (`POST /public/:teamId/tickets`,
 `GET/POST /public/:teamId/tickets/:ticketId/messages` guarded by the
-magic token). The chatbot settings (§7.1) gain an
+magic token). The chatbot settings (§7.1) include an
 `escalationEnabled` flag so teams can run the bot without the help desk
 or vice versa.
 
 ---
 
-## 12. Domains, settings, public sites & the dashboard
+## 12. Domains, settings, public sites & the workspace
 
 Two Next.js apps with strictly separated concerns:
 
 | app | audience | auth |
 |---|---|---|
-| `apps/web` | team members (dashboard, builder, editors) | **every route behind auth**, except `app/api/webhooks/*` |
-| `apps/sites` (new) | the teams' visitors (published sites) | fully public, tenant resolved from the request host |
+| `apps/web` | team members (inbox, builder, editors, settings) | **every product page behind auth** |
+| `apps/sites` | the teams' visitors (published sites) | fully public, tenant resolved from the request host |
 
 ### 12.1 Team URLs & custom domains
 
 Every team is reachable at two possible hosts:
 
-1. **Default subdomain** — `<team-slug>.<DOMAIN>` (e.g.
-   `acme.frontlit.app`), always available. `slug` is generated from the team
-   name at creation (uniquified), editable later.
+1. **Default subdomain** — `<subdomain>.<PLATFORM_SITE_DOMAIN>` (e.g.
+   `acme.frontlit.app`), available only after a team member deliberately
+   claims a unique `subdomain` in Domain settings. It is never derived from a
+   person's email or the initially generated team name.
 2. **Custom domain** — `customdomain.tld`, available once attached and
    verified.
 
-The team chooses which one is **primary**; the other host serves 308
-redirects to the primary, so links never break and SEO sees one canonical
-host. Switching primary is a single API call, effective immediately.
+FrontLit has one deliberately strong invariant: **one team is one website**.
+All authored content, public settings, support, newsletter state and hosts
+belong directly to that team; there is no intermediate `sites` resource or
+`domains` table. A new team's public site is inactive until its subdomain is
+claimed. Its FrontLit subdomain then always serves the website.
+Once the optional custom domain is verified, it also serves the website and
+becomes the canonical host automatically. This keeps a working FrontLit URL
+as a fallback without introducing user-managed primary-domain state.
 
-Schema — columns on `teams` (one custom domain per team in v1; a separate
-`team_domains` table only becomes necessary if we later allow several):
+Schema — domain state lives on `teams` (one custom domain per team in v1):
 
 ```ts
 // added to the existing `teams` table
-slug: text("slug").notNull().unique(),          // <slug>.<DOMAIN>
+subdomain: text("subdomain").unique(), // null until setup; then <subdomain>.<PLATFORM_SITE_DOMAIN>
 customDomain: text("custom_domain").unique(),   // apex or subdomain, lowercased
 customDomainStatus: text("custom_domain_status",
     { enum: ["pending", "verified", "failed"] }),
 customDomainVerificationToken: text("custom_domain_verification_token"),
-primaryDomain: text("primary_domain",
-    { enum: ["subdomain", "custom"] }).notNull().default("subdomain"),
+customDomainVerifiedAt: timestamp("custom_domain_verified_at"),
 ```
+
+`subdomain` is just the environment-independent label (for example,
+`acme`), never the full hostname. It starts as `null`, so signup cannot
+accidentally make a site live. At runtime the API builds
+`<subdomain>.<PLATFORM_SITE_DOMAIN>`, so the same database works for
+`acme.localhost`, `acme.frontlit.test` and `acme.frontlit.app`.
+
+Host-related deployment configuration has one owner:
+
+```env
+# apps/api only
+PLATFORM_SITE_DOMAIN=frontlit.app
+CUSTOM_DOMAIN_CNAME_TARGET=sites.frontlit.app
+```
+
+`apps/sites` forwards the normalized full `Host` and needs neither setting.
+It only knows how to contact the API. `PLATFORM_SITE_DOMAIN` classifies a
+host and extracts the label; it is not stored with the team and is not part
+of the eventual `teams.subdomain = <label>` query.
 
 Attach/verify flow (module `apps/api/src/domains/`):
 
 1. `POST /domain/custom { domain }` — validates shape, rejects hosts under
-   `<DOMAIN>` itself and domains already claimed by another team, stores
+   `<PLATFORM_SITE_DOMAIN>` itself and domains already claimed by another team, stores
    `pending` + a verification token.
-2. Team adds DNS records (shown in the dashboard): `CNAME → sites.<DOMAIN>`
+2. Team adds DNS records (shown in the workspace):
+   `CNAME → <CUSTOM_DOMAIN_CNAME_TARGET>`
    (or A/ALIAS for apex) and `TXT _frontlit-verify.<domain> = <token>`.
 3. `POST /domain/custom/verify` performs the DNS lookups and flips the
    status to `verified` (re-runnable; also retried by the pg-backed job
    queue from §6.3 so verification eventually succeeds without the user
    mashing the button). Only `verified` domains are ever resolved by
    `apps/sites`.
-4. `POST /domain/primary { primary: "custom" | "subdomain" }` — the switch.
-   Guarded: switching to `custom` requires a verified domain; clearing or
-   changing the custom domain resets `primaryDomain` to `subdomain` first.
 
 TLS: terminate at the edge with on-demand certificates (Caddy on-demand TLS
 or the hosting platform's domains API, e.g. Vercel). The on-demand `ask`
 endpoint is `GET /public/resolve-host?host=…` — the same cached endpoint
 `apps/sites` uses for tenant resolution — which answers 200 only for
-`<slug>.<DOMAIN>` and verified custom domains.
+`<subdomain>.<PLATFORM_SITE_DOMAIN>` and verified custom domains.
 
 Per §2, everything here is REST + MCP (see matrix): `get_domain_settings`,
 `set_team_subdomain`, `attach_custom_domain`, `verify_custom_domain`,
-`remove_custom_domain`, `set_primary_domain`.
+`remove_custom_domain`.
 
 ### 12.2 Public site delivery (`apps/sites`)
 
 A dedicated Next.js app serving all tenants' published sites. Middleware
-resolves `Host` → team via `GET /public/resolve-host` (exact custom-domain
-match first, then `*.<DOMAIN>` slug match; results cached with a short TTL
-and invalidated on domain changes), rewrites to `/_sites/[teamId]/…`, and
-308-redirects non-primary → primary host:
+normalizes the request `Host` (including a local-development port) and sends
+the complete hostname to `GET /public/resolve-host`. The API is the sole host
+authority: it performs an exact verified custom-domain match or recognizes
+`*.<PLATFORM_SITE_DOMAIN>`, extracts the one-label subdomain and queries
+`teams.subdomain`. `apps/sites` has no domain-suffix configuration of its own,
+which prevents configuration drift. It caches the result briefly,
+and rewrites to `/sites/[teamId]/…`. Both known hosts render normally; the
+resolver also supplies the canonical host to the rewritten request for SEO.
 
 | route | renders |
 |---|---|
@@ -1030,12 +1153,12 @@ shares never render bare.
 
 CourseLit stops at metadata — it has none of these — so this part is new
 build, not adaptation. All of it lives in `apps/sites`. Because the
-middleware rewrites every host to `/_sites/[teamId]/…` (§12.2), the
+middleware rewrites every host to `/sites/[teamId]/…` (§12.2), the
 Next.js single-file conventions (`app/sitemap.ts`, `app/robots.ts`) don't
 fit a multi-tenant app; these are plain **route handlers** under the tenant
 segment instead:
 
-| file (under `app/_sites/[teamId]/`) | serves |
+| file (under `app/sites/[teamId]/`) | serves |
 |---|---|
 | `sitemap.xml/route.ts` | per-tenant sitemap |
 | `robots.txt/route.ts` | per-tenant robots policy |
@@ -1043,11 +1166,10 @@ segment instead:
 | `changelog/rss.xml/route.ts` | changelog feed |
 
 **Canonical** — every route's `generateMetadata` sets
-`alternates.canonical` to `https://<primary-host>/<path>` (primary host
-from §12.1, path without query strings). Combined with the middleware's 308
-redirects from the non-primary host, crawlers see exactly one canonical
-URL per resource. CourseLit never needed this (one host per school); we do,
-because every FrontLit site has two.
+`alternates.canonical` to `https://<canonical-host>/<path>` (path without
+query strings). The host resolver chooses the verified custom domain when
+one exists and otherwise the permanent FrontLit subdomain. Both hosts remain
+operational, while crawlers see exactly one canonical URL per resource.
 
 **Sitemap** — **fully auto-generated; never authored or curated.** The
 sitemap is derived entirely from what is published: the API assembles it
@@ -1056,13 +1178,13 @@ straight from the `pages` and `documents` tables via one cached call,
 with its `lastmod`: pages (by slug), blog posts, docs (grouped under
 their sections), and `/changelog` itself (`lastmod` = latest published
 entry). The route handler renders `<urlset>` with absolute URLs on the
-**primary host** and `lastmod` from `publishedAt`/`updatedAt`.
+**canonical host** and `lastmod` from `publishedAt`/`updatedAt`.
 
 It stays fresh automatically: publish, unpublish, delete, slug edits and
-primary-domain switches all invalidate the sitemap's cache tag through the
+custom-domain verification/removal all invalidate the sitemap's cache tag through the
 same signed revalidation webhook that refreshes pages (§12.2) — there is no
 "regenerate sitemap" button, no cron, and nothing for the team (or the
-dashboard) to manage. Draft-only, unpublished and robots-disallowed
+workspace) to manage. Draft-only, unpublished and robots-disallowed
 content never appears; unpublished/deleted URLs themselves 404.
 
 **robots.txt** — generated per host:
@@ -1071,11 +1193,11 @@ content never appears; unpublished/deleted URLs themselves 404.
 User-agent: *
 Allow: /
 Disallow: /embed/
-Sitemap: https://<primary-host>/sitemap.xml
+Sitemap: https://<canonical-host>/sitemap.xml
 ```
 
-On the non-primary host this hardly matters (everything 308s to primary),
-but it is still served so cert checks and crawlers never 404 on it.
+It is served on both known hosts; the sitemap itself always lists canonical
+URLs.
 
 **JSON-LD** — a small `JsonLd` server component renders
 `<script type="application/ld+json">` (serialized with `<` escaped to
@@ -1084,7 +1206,7 @@ builder functions in `apps/sites/lib/json-ld.ts`:
 
 | route | schema.org type | fed by |
 |---|---|---|
-| homepage | `Organization` + `WebSite` | team name, logo, primary host |
+| homepage | `Organization` + `WebSite` | team name, logo, canonical host |
 | blog post | `BlogPosting` | published `title`, `excerpt`, `featuredImage`, `publishedAt`/`updatedAt`, author name |
 | doc | `TechArticle` + `BreadcrumbList` | doc fields + section → doc trail |
 | changelog | `WebPage` + `ItemList` | published entries (name + URL) |
@@ -1098,46 +1220,58 @@ static renderer. `/blog` and `/changelog` advertise their feeds with
 `<link rel="alternate" type="application/rss+xml">` (Next
 `alternates.types`) in their page heads.
 
-### 12.4 Dashboard (`apps/web`) — everything behind auth
+### 12.4 Workspace (`apps/web`) — everything behind auth
 
 `apps/web` follows the pattern proven in `sendlit/apps/web`:
 
 - **Auth gate in layouts**: `requireAuth()` (`lib/server-auth.ts` — checks
-  the server session, `redirect("/login")` otherwise) awaited in the
-  `dashboard/` and `editor/` layouts; the root `/` page redirects to
-  `/dashboard` or `/login` based on `hasServerSession()`. Every page route
-  in the app lives under one of these gated layouts — there is no public
-  page surface in `apps/web`.
-- **Sole exceptions — webhook route handlers** under `app/api/webhooks/*`
-  (server-to-server callbacks for teams: GitHub release webhooks (§8),
-  consumer provisioning callbacks). These skip session auth and are instead
-  authenticated by signed secrets (HMAC signature / shared header), the same
-  way `provisioning/routes.ts` uses `X-Frontlit-Provisioning-Secret`. The
-  existing `app/api/auth/[...path]` (Better Auth) and `app/api/proxy/*`
-  (BFF) handlers keep their current semantics: the proxy forwards only
-  httpOnly session cookies + the team-id cookie upstream, where the API
-  enforces membership.
+  the server session, `redirect("/login")` otherwise) is awaited in the
+  `(workspace)`, builder and editor layouts. The authed root `/` is the
+  unified chat/support inbox. Every page route lives under a gated layout;
+  there is no public page surface in `apps/web`.
+- **Infrastructure entry points**: `/login` establishes the session;
+  `app/api/auth/[...path]` is the Better Auth handler,
+  `app/api/proxy/[...path]` is the BFF, and `app/api/team/switch` updates
+  the selected-team cookie. They retain their protocol-specific policies.
+  The proxy forwards only the httpOnly session cookie and selected team id
+  upstream, where the API revalidates auth and membership. There are no
+  unauthenticated product pages in `apps/web`.
 - **App shell**: shadcn sidebar layout as in sendlit — `SidebarProvider` +
   `AppSidebar` + `SidebarInset` with a `SidebarTrigger` header
-  (`components/dashboard/app-sidebar.tsx`): grouped nav (content:
-  Pages, Blog, Docs, Changelog; engage: Newsletter, Support; library:
-  Themes, Media; secondary: Settings), team switcher + account footer in
-  the sidebar, `Banner` slot
-  for account-level notices.
-- **New dashboard routes**: `dashboard/blog/`, `dashboard/docs/` (sections
-  + documentation), `dashboard/support/` (help-desk inbox, §11.2),
-  `dashboard/changelog/`, `dashboard/media/` (team media library, as
-  in sendlit), `dashboard/newsletter/` (audience management, filtering,
-  segmentation and broadcasts built from `@sendlit/email-blocks`, §10.3),
-  `dashboard/settings/branding/` + `dashboard/settings/code-injection/`
-  (§12.5), `dashboard/settings/domain/` (subdomain,
-  custom domain attach/verify wizard, primary-domain switch, live DNS
-  status), `dashboard/settings/chatbot/`, plus a shared
-  `editor/documents/[documentId]` screen wrapping `@frontlit/text-editor`
-  with autosave, publish/discard buttons and the derived status badge —
-  mirroring sendlit's `editor/*` full-screen editor layout.
+  (`components/workspace/app-sidebar.tsx`). Nav is a single unlabeled
+  group rather than sendlit's content/engage/library split: **Inbox** (`/`),
+  **Website** (`/pages`), Blog, Docs, Newsletter, Changelog and Users. The
+  sidebar footer holds **Account** (`/teams` — team rename/
+  delete + API keys; frontlit has no separate personal-profile surface
+  yet, so this doubles as workspace settings), **Media library**
+  (`/media`), and a collapsible **Settings** group
+  (`components/ui/collapsible` + `SidebarMenuSub`) nesting Branding,
+  Domain, Code injection and Chatbot. A `details`/`summary` team
+  switcher lives in the header and an account dropdown (avatar, name/
+  email, sign out) sits below the footer nav, both matching sendlit's
+  native-disclosure pattern instead of a Radix dropdown. `Banner` is
+  used inline for account/team-load errors and connection-state notices
+  (e.g. "not connected to SendLit yet").
+- **Users (`/users`)**: FrontLit's leads/contacts view — a
+  read-through over SendLit contacts (§10.2/§10.3), reusing the exact
+  same `listContacts`/`deleteContact` calls as the Newsletter page's
+  audience section used to. FrontLit stores no contact rows of its own;
+  there is deliberately no separate `users`/`leads` table, to avoid a
+  second, drifting source of truth for the same data SendLit already
+  owns.
+- **Workspace routes have no common URL prefix**: `/blog`, `/docs`,
+  `/changelog`, `/media`, `/newsletter`, `/users`,
+  `/settings/branding`, `/settings/code-injection` (§12.5), and
+  `/settings/domain` (subdomain,
+  custom domain attach/verify wizard, canonical-domain explanation, live DNS
+  status), `/settings/chatbot`, plus four near-identical
+  `/editor/{pages,blog,docs,changelog}/[id]` screens (not a single shared
+  route) wrapping `@frontlit/text-editor` or `@frontlit/page-builder`
+  with autosave, a shared `EditorToolbar` (publish/discard-draft/status
+  badge) and per-type fields — mirroring sendlit's `editor/*`
+  full-screen editor layout.
 
-### 12.5 Team settings: branding & code injection
+### 12.5 Team settings: branding, code injection & shared page shell
 
 Per-team site-wide settings, modeled on CourseLit's `SiteInfo`
 (`courselit/packages/common-models/src/site-info.ts`: `title`, `subtitle`,
@@ -1156,9 +1290,24 @@ export const teamSettings = pgTable("team_settings", {
     // code injection
     codeInjectionHead: text("code_injection_head"),
     codeInjectionBody: text("code_injection_body"),
+    // page shell: exactly one header and footer per team
+    sharedWidgets: jsonb("shared_widgets")
+        .$type<SharedWidgetsRow>().notNull().default(DEFAULT_SHARED_WIDGETS),
+    draftSharedWidgets: jsonb("draft_shared_widgets")
+        .$type<SharedWidgetsRow>().notNull().default(DEFAULT_SHARED_WIDGETS),
     createdAt / updatedAt,
 });
 ```
+
+**Shared page shell** keeps navigation consistent across the whole public
+site. `sharedWidgets` is the published header/footer pair and
+`draftSharedWidgets` is its editable draft. Page layouts store only locked
+`shared: true` placeholders; `apps/api/src/pages/shared-widgets.ts`
+hydrates them on reads, extracts validated settings on writes, and rejects
+missing or duplicate shell blocks. Publishing any page promotes the team
+draft pair atomically with that page. Consequently a header/footer edit is
+authored once, cannot be deleted or moved out of the first/last positions,
+and becomes visible on every published page together.
 
 **Branding** feeds everything site-wide, replacing the loose "team
 settings" references in §12.3: `title` is the `<title>` template suffix
@@ -1173,7 +1322,7 @@ defaults from the team name.
 **Code injection** lets a team add third-party scripts (analytics, chat
 tools, pixels) to their public site. Semantics follow CourseLit: two
 free-form HTML snippets (`head` and `body`), rendered **only** on the
-team's `apps/sites` pages — never in the dashboard — by a `CodeInjector`
+team's `apps/sites` pages — never in the workspace — by a `CodeInjector`
 component adopted from
 `courselit/apps/web/components/public/code-injector.tsx` (parses the
 snippet, re-creates `<script>` elements with attributes copied so the
@@ -1195,9 +1344,11 @@ sanitization:
 - Stored verbatim (no lossy sanitization that would break legit
   snippets), size-capped (≈16 KB per slot).
 
-Contract: `GET /settings` / `PATCH /settings` (team-scoped; sendlit's
+Contract: `GET /settings` / `PATCH /settings` (team-scoped; SendLit's
 `/settings/general` shape as precedent) + MCP twins `get_team_settings`,
-`update_team_settings` (§2 matrix). `apps/sites` reads it through
+`update_team_settings` (§2 matrix). The generic settings payload excludes
+the internal shared-widget columns; those move only through page
+draft/publish operations. `apps/sites` reads public settings through
 `GET /public/:teamId/settings`, which returns branding **and** injection
 snippets (they're public by nature — they ship in the page HTML) but
 nothing else.
@@ -1279,8 +1430,13 @@ users may write from anywhere) but tags the ticket for review.
   strip-list (`draft*`, `teamId`, internal ids) is a shared helper with a
   unit test enumerating every schema's columns, so adding a column
   without classifying it fails CI.
-- **Prompt-injection containment** (chat): retrieved chunks are wrapped in
-  delimited context blocks; system prompt forbids tool use/URL fetching
+- **Prompt-injection containment** (chat): visitor turns are wrapped in
+  `<visitor_message>` (untrusted data); retrieved chunks live in
+  `<help_article>` blocks. Instructions force a support-only scope for the
+  team, refuse general inference / jailbreaks / prompt extraction, and
+  still allow a polite no-docs reply (with `escalate`) when retrieval is
+  empty — the bot is never a free open chat endpoint. System prompt also
+  forbids tool use/URL fetching
   (there are none to call); answers cite only `/docs/*` URLs from the
   retrieved set, never model-generated links; response length capped.
 - **XSS**: user-authored content is never rendered as raw HTML — TipTap
@@ -1313,7 +1469,7 @@ What keeps the design boring under load, and the known ceilings:
 - **The pg job queue** (embeddings, contact sync, domain verification,
   notifications) claims jobs with `FOR UPDATE SKIP LOCKED`, so multiple
   API instances can run workers concurrently without double-processing;
-  a `dead` state + dashboard surfacing prevents silent loss. If queue
+  a `dead` state + workspace surfacing prevents silent loss. If queue
   volume ever outgrows Postgres, the queue interface is one module —
   swap the backend, not the callers.
 - **pgvector ceiling**: per-team HNSW search over a shared index degrades
@@ -1395,10 +1551,10 @@ via `pnpm -r run test` (the root script already does this).
   `include: ["app/**/*.test.ts", "lib/**/*.test.ts"]` — sendlit's config
   verbatim.
 - Coverage targets what sendlit proves is worth testing at this layer:
-  the BFF proxy route (cookie/team-header forwarding, webhook exemptions
+  the BFF proxy route (cookie/team-header forwarding and response passthrough
   — sendlit's `app/api/proxy/[...path]/route.test.ts` is the template),
   `lib/` helpers (`login-url`, `server-session`, token/cookie handling),
-  and `apps/sites`' pure logic — host→team resolution + redirect
+  and `apps/sites`' pure logic — host→team resolution + rewrite
   decisions, SEO metadata fallback chains (§12.3), sitemap/RSS/JSON-LD
   builders, magic-token page guards. These are plain functions by
   design, so they need no browser emulation.
@@ -1418,7 +1574,7 @@ via `pnpm -r run test` (the root script already does this).
 
 ---
 
-## 15. Milestones
+## 15. Delivery sequence
 
 Each milestone's definition of done includes the full API surface from §2
 (contract schemas, REST routes, regenerated OpenAPI, MCP tools registered
@@ -1429,7 +1585,7 @@ coverage** for its queries logic and tools. Security and tests ship with
 the feature, not in a later pass.
 
 0. **Test harness** — vitest configs in `apps/api` + `apps/web` (and
-   `apps/sites` when it lands), PGlite `test/db.ts` + `setup.ts` ported
+   `apps/sites`), PGlite `test/db.ts` + `setup.ts` ported
    from sendlit, wired into root `pnpm test` and CI. *(Tiny; lands before
    or with milestone 1 so every subsequent module arrives tested.)*
 
@@ -1443,31 +1599,32 @@ the feature, not in a later pass.
    into pages draft/publish. *(Blocks featured images and editor uploads in
    3+.)*
 3. **Documents engine + Blog** — `documents` table, contract + MCP tool
-   factories, blog routes/tools, dashboard editor, public `/blog`.
+   factories, blog routes/tools, workspace editor, public `/blog`.
 4. **Documentation** — sections + doc routes/tools, `/docs` UI, pgvector
    image + extension, chunking/embedding worker, search endpoint +
    `search_docs` tool.
-5. **Chatbot** — settings routes/tools, RAG chat endpoint (SSE) +
-   `ask_docs` tool, widget + embed loader.
+5. **Chatbot** — settings routes/tools, persisted RAG chat endpoint
+   (public widget only; no MCP ask twin yet), widget + embed loader.
 6. **Changelog** — changelog routes/tools, `/changelog` UI, RSS, GitHub
    release import (v1 PAT) + `import_github_releases` tool.
 7. **Newsletter** — eager per-team SendLit provisioning (+ backfill
    script), typed REST client (`@sendlit/api-contract`), public capture
    endpoint wired into the `email-form` block, contact-sync outbox job,
    contact/segment read-through + broadcast adapter routes/tools,
-   `dashboard/newsletter/` assembled from `@sendlit/email-blocks`,
+   `/newsletter` assembled from `@sendlit/email-blocks`,
    docker-compose grown to boot both products (§10.4).
 8. **Help desk** — `tickets` + `ticket_messages` tables, tickets
    routes/tools, `support-form` block + `/help` standard page, magic-link
    thread page, SendLit transactional notifications, chatbot escalation,
-   `dashboard/support/` inbox. *(Needs 4 for deflection, 7 for
+   unified root `/` inbox. *(Needs 4 for deflection, 7 for
    notifications.)*
-9. **Domains, settings & public sites** — `teams` domain columns + slug
-   backfill, domains module (routes/tools), `team_settings` (branding +
+9. **Domains, settings & public sites** — one-team-one-website `teams`
+   domain columns (`subdomain` plus one optional custom domain), domain
+   routes/tools, `team_settings` (branding +
    code injection, §12.5) with `CodeInjector`, `resolve-host` endpoint,
-   `apps/sites` scaffold with host middleware + redirects, SEO plumbing
+   `apps/sites` scaffold with host middleware + canonical-host propagation, SEO plumbing
    (§12.3: `generateMetadata` from page SEO data + branding, canonical,
-   robots.txt, sitemap, JSON-LD, default OG images), dashboard domain +
+   robots.txt, sitemap, JSON-LD, default OG images), workspace domain +
    branding + code-injection settings. *(Can start in parallel with 3–6;
    blog/docs/changelog public routes land in `apps/sites` as their
    milestones complete.)*

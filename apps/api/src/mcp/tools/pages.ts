@@ -15,6 +15,7 @@ import {
 import { AUTH_ERROR, INTERNAL_ERROR, NOT_FOUND, errorResult, jsonResult } from "./responses";
 import { getTeamId } from "./auth";
 import { omitInternal, serializeDates } from "../../utils/public";
+import { InvalidPageLayoutError } from "../../pages/shared-widgets";
 
 function toPublicPage<T extends Record<string, unknown>>(page: T) {
     return serializeDates(omitInternal({ ...page, status: derivePageStatus(page as any) }, "teamId"));
@@ -50,7 +51,7 @@ export function registerPageTools(server: McpServer): void {
     server.registerTool(
         "create_page",
         {
-            description: "Creates a new, empty page (no blocks yet) for the current team.",
+            description: "Creates a new page with the team's required shared header and footer.",
             inputSchema: {
                 name: z.string().min(1),
                 type: z.enum(pageTypes),
@@ -116,7 +117,10 @@ export function registerPageTools(server: McpServer): void {
                 const page = await updatePage(teamId, pageId, patch);
                 if (!page) return NOT_FOUND;
                 return jsonResult(toPublicPage(page));
-            } catch {
+            } catch (error) {
+                if (error instanceof InvalidPageLayoutError) {
+                    return errorResult(error.message);
+                }
                 return INTERNAL_ERROR;
             }
         },

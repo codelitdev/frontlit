@@ -17,12 +17,16 @@
         "test": "vitest run"
     },
     "dependencies": {
+        "@ai-sdk/anthropic": "^4.0.23",
+        "@ai-sdk/openai": "^4.0.23",
+        "@ai-sdk/openai-compatible": "^3.0.16",
         "@better-auth/oauth-provider": "^1.6.23",
         "@codelitdev/oauth-server-kit": "file:../../../oauth-server-kit",
         "@frontlit/api-contract": "workspace:*",
         "@modelcontextprotocol/sdk": "^1.29.0",
         "@ts-rest/express": "^3.52.1",
         "@ts-rest/open-api": "^3.52.1",
+        "ai": "^7.0.41",
         "better-auth": "^1.6.23",
         "cors": "^2.8.5",
         "dotenv": "^17.2.3",

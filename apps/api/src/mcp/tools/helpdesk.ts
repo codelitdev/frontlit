@@ -125,7 +125,7 @@ export function registerHelpdeskTools(server: McpServer): void {
                 await addTicketMessage({ teamId, ticketDbId: ticket.id, author: "agent", authorAccountId: account?.id, content: args.content });
 
                 const team = await findTeamById(teamId);
-                if (team) {
+                if (team && ticket.requesterEmail) {
                     const token = await reissueTicketAccessToken(ticket.id);
                     notifyRequesterOfReply({
                         teamId,

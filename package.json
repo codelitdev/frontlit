@@ -8,7 +8,10 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "pnpm --filter @frontlit/web dev",
+    "dev:api": "pnpm --filter @frontlit/api dev",
+    "dev:web": "pnpm --filter @frontlit/web dev",
+    "dev:docs": "pnpm --filter @frontlit/docs dev",
+    "dev:sites": "pnpm --filter @frontlit/sites dev",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
     "test": "pnpm -r run test"

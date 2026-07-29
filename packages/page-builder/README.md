@@ -26,6 +26,12 @@ combined there instead of split the way CourseLit splits them.
 a ready-to-render, FrontLit-branded landing page layout using every block —
 handy both as a demo and as a sensible starting point for new pages.
 
+`header` and `footer` are required layout-level blocks. The builder repairs
+legacy or empty initial layouts by adding them, keeps them at the outer
+edges, and never permits moving or deleting them. In FrontLit applications
+their settings are hydrated from the team's shared published/draft state,
+so editing navigation on one page applies consistently across all pages.
+
 ## Usage
 
 ```tsx

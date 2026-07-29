@@ -2,146 +2,161 @@ import { randomBytes } from "node:crypto";
 import { promises as dns } from "node:dns";
 import { and, eq } from "drizzle-orm";
 import { db } from "../db/client";
-import { domains, teams, type DomainVerificationStatus } from "../db/schema";
-import { slugify, uniqueSlug } from "../utils/slug";
+import { teams, type CustomDomainStatus } from "../db/schema";
 
-export type DomainKind = "subdomain" | "custom";
-
-/** The deployment's base host — every team's default host is
- * `<slug>.<DOMAIN>` (architecture.md §12.1). Defaults to `localhost` for
- * local dev, where subdomain routing isn't exercised. */
-export function getBaseDomain(): string {
-    return process.env.DOMAIN || "localhost";
+/** The API is the sole authority for classifying public-site hosts. The
+ * stored `teams.subdomain` never includes this suffix, so the same database
+ * works in local, staging and production. */
+export function getPlatformSiteDomain(): string {
+    return (process.env.PLATFORM_SITE_DOMAIN || "localhost").trim().toLowerCase().replace(/\.$/, "");
 }
 
-function isSubdomainHostname(hostname: string): boolean {
-    const base = getBaseDomain();
-    return hostname === base || hostname.endsWith(`.${base}`);
+/** DNS target shown while verifying a custom domain. It is deliberately
+ * independent from the platform-site suffix because an edge/load-balancer
+ * hostname need not be `sites.<platform-domain>`. */
+export function getCustomDomainCnameTarget(): string {
+    return (process.env.CUSTOM_DOMAIN_CNAME_TARGET || `sites.${getPlatformSiteDomain()}`).trim().toLowerCase().replace(/\.$/, "");
 }
 
-/** Not a stored column — derived from whether the hostname falls under the
- * deployment's `DOMAIN` (architecture.md §12.1's `domainKindSchema`). */
-export function domainKind(hostname: string): DomainKind {
-    return isSubdomainHostname(hostname) ? "subdomain" : "custom";
+export function getSubdomainHost(subdomain: string): string {
+    return `${subdomain}.${getPlatformSiteDomain()}`;
 }
 
-async function isHostnameTaken(hostname: string): Promise<boolean> {
-    return Boolean(await db.query.domains.findFirst({ where: eq(domains.hostname, hostname) }));
-}
+/** A browser's Host header includes a non-default port. Normalize it at the
+ * API boundary so tenant resolution works identically locally and in prod. */
+export function normalizeHost(value: string): string {
+    const host = value.split(",")[0]?.trim().toLowerCase() || "";
+    if (!host) return "";
 
-async function getDomainsForTeam(teamId: string) {
-    return db.query.domains.findMany({ where: eq(domains.teamId, teamId) });
-}
-
-async function getSubdomainForTeam(teamId: string) {
-    const rows = await getDomainsForTeam(teamId);
-    return rows.find((r) => domainKind(r.hostname) === "subdomain") ?? null;
-}
-
-async function getCustomDomainForTeam(teamId: string) {
-    const rows = await getDomainsForTeam(teamId);
-    return rows.find((r) => domainKind(r.hostname) === "custom") ?? null;
-}
-
-/** Provisions a team's default `<slug>.<DOMAIN>` host at team creation
- * (architecture.md §12.1) — always available, verified immediately (no DNS
- * involved), and primary until a verified custom domain is switched to. */
-export async function provisionSubdomain(teamId: string, teamName: string) {
-    const base = slugify(teamName) || "team";
-    const slug = await uniqueSlug(base, (candidate) => isHostnameTaken(`${candidate}.${getBaseDomain()}`));
-    const [row] = await db
-        .insert(domains)
-        .values({
-            teamId,
-            hostname: `${slug}.${getBaseDomain()}`,
-            verificationToken: randomBytes(16).toString("hex"),
-            status: "verified",
-            isPrimary: true,
-            verifiedAt: new Date(),
-        })
-        .returning();
-    return row;
-}
-
-/** Full domain settings for the dashboard (architecture.md §12.1). Backfills
- * the subdomain for any team created before auto-provisioning shipped, so
- * this never 404s. */
-export async function getDomainSettings(teamId: string) {
-    let subdomain = await getSubdomainForTeam(teamId);
-    if (!subdomain) {
-        const team = await db.query.teams.findFirst({ where: eq(teams.id, teamId) });
-        subdomain = await provisionSubdomain(teamId, team?.name ?? "team");
+    try {
+        return new URL(`http://${host}`).hostname.replace(/\.$/, "");
+    } catch {
+        return host.replace(/:\d+$/, "").replace(/\.$/, "");
     }
-    const customDomain = await getCustomDomainForTeam(teamId);
+}
+
+function isPlatformHost(hostname: string): boolean {
+    const base = getPlatformSiteDomain();
+    return hostname.endsWith(`.${base}`) && hostname.length > base.length + 1;
+}
+
+function subdomainFromHost(hostname: string): string | null {
+    if (!isPlatformHost(hostname)) return null;
+    const base = getPlatformSiteDomain();
+    const subdomain = hostname.slice(0, -(base.length + 1));
+    return subdomain.includes(".") ? null : subdomain;
+}
+
+export type DomainSettings = {
+    subdomain: { name: string; hostname: string } | null;
+    customDomain: { hostname: string; status: CustomDomainStatus; verifiedAt: Date | null } | null;
+    canonicalHost: string | null;
+    verificationRecords: { cnameTarget: string; txtName: string; txtValue: string } | null;
+};
+
+/** Returns the one website's domain configuration. A null subdomain means
+ * the team has not deliberately made its public site live yet. */
+export async function getDomainSettings(teamId: string): Promise<DomainSettings | null> {
+    const team = await db.query.teams.findFirst({ where: eq(teams.id, teamId) });
+    if (!team) return null;
+
+    const customDomain = team.customDomain
+        ? {
+              hostname: team.customDomain,
+              status: team.customDomainStatus!,
+              verifiedAt: team.customDomainVerifiedAt,
+          }
+        : null;
+    const subdomain = team.subdomain
+        ? { name: team.subdomain, hostname: getSubdomainHost(team.subdomain) }
+        : null;
+    const canonicalHost = customDomain?.status === "verified" ? customDomain.hostname : subdomain?.hostname ?? null;
+
     return {
         subdomain,
         customDomain,
+        canonicalHost,
         verificationRecords:
             customDomain && customDomain.status !== "verified"
                 ? {
-                      cnameTarget: `sites.${getBaseDomain()}`,
+                      cnameTarget: getCustomDomainCnameTarget(),
                       txtName: `_frontlit-verify.${customDomain.hostname}`,
-                      txtValue: customDomain.verificationToken,
+                      txtValue: team.customDomainVerificationToken!,
                   }
                 : null,
     };
 }
 
-export type SetTeamSubdomainResult = { ok: true; domain: typeof domains.$inferSelect } | { ok: false; reason: "taken" };
+export type SetTeamSubdomainResult = { ok: true } | { ok: false; reason: "taken" };
 
-export async function setTeamSubdomain(teamId: string, slug: string): Promise<SetTeamSubdomainResult> {
-    const { subdomain } = await getDomainSettings(teamId);
-    const hostname = `${slug}.${getBaseDomain()}`;
-    if (hostname !== subdomain!.hostname && (await isHostnameTaken(hostname))) {
-        return { ok: false, reason: "taken" };
+export async function setTeamSubdomain(teamId: string, subdomain: string): Promise<SetTeamSubdomainResult> {
+    const existing = await db.query.teams.findFirst({ where: eq(teams.subdomain, subdomain) });
+    if (existing && existing.id !== teamId) return { ok: false, reason: "taken" };
+
+    try {
+        await db.update(teams).set({ subdomain, updatedAt: new Date() }).where(eq(teams.id, teamId));
+        return { ok: true };
+    } catch (error) {
+        // The pre-check gives a fast friendly response, while the unique
+        // constraint remains authoritative if two teams claim the same name
+        // concurrently.
+        let cause: unknown = error;
+        while (cause && typeof cause === "object") {
+            if ("code" in cause && cause.code === "23505") return { ok: false, reason: "taken" };
+            cause = "cause" in cause ? cause.cause : null;
+        }
+        throw error;
     }
-    const [updated] = await db.update(domains).set({ hostname }).where(eq(domains.id, subdomain!.id)).returning();
-    return { ok: true, domain: updated };
 }
 
-export type AttachCustomDomainResult =
-    | { ok: true; domain: typeof domains.$inferSelect }
-    | { ok: false; reason: "reserved" | "already_attached" | "taken" };
+export type AttachCustomDomainResult = { ok: true } | { ok: false; reason: "subdomain_required" | "reserved" | "already_attached" | "taken" };
 
-/** One custom domain per team in v1 (architecture.md §12.1) — attaching a
- * second requires removing the first. */
-export async function attachCustomDomain(teamId: string, hostname: string): Promise<AttachCustomDomainResult> {
-    if (isSubdomainHostname(hostname)) return { ok: false, reason: "reserved" };
-    if (await getCustomDomainForTeam(teamId)) return { ok: false, reason: "already_attached" };
-    if (await isHostnameTaken(hostname)) return { ok: false, reason: "taken" };
+/** One website has one optional custom domain. The FrontLit subdomain stays
+ * reachable forever; a verified custom domain becomes canonical automatically. */
+export async function attachCustomDomain(teamId: string, value: string): Promise<AttachCustomDomainResult> {
+    const hostname = normalizeHost(value);
+    if (hostname === getPlatformSiteDomain() || isPlatformHost(hostname)) return { ok: false, reason: "reserved" };
 
-    const [row] = await db
-        .insert(domains)
-        .values({
-            teamId,
-            hostname,
-            verificationToken: randomBytes(16).toString("hex"),
-            status: "pending",
-            isPrimary: false,
+    const team = await db.query.teams.findFirst({ where: eq(teams.id, teamId) });
+    if (!team) return { ok: false, reason: "already_attached" };
+    if (!team.subdomain) return { ok: false, reason: "subdomain_required" };
+    if (team.customDomain) return { ok: false, reason: "already_attached" };
+
+    const taken = await db.query.teams.findFirst({ where: eq(teams.customDomain, hostname) });
+    if (taken) return { ok: false, reason: "taken" };
+
+    await db
+        .update(teams)
+        .set({
+            customDomain: hostname,
+            customDomainStatus: "pending",
+            customDomainVerificationToken: randomBytes(16).toString("hex"),
+            customDomainVerifiedAt: null,
+            updatedAt: new Date(),
         })
-        .returning();
-    return { ok: true, domain: row };
+        .where(eq(teams.id, teamId));
+    return { ok: true };
 }
 
-/** Removing the custom domain resets `primaryDomain` to the subdomain first
- * (architecture.md §12.1) so a team is never left without a resolvable
- * primary host. */
-export async function removeCustomDomain(teamId: string) {
-    const existing = await getCustomDomainForTeam(teamId);
-    if (!existing) return null;
+export async function removeCustomDomain(teamId: string): Promise<boolean> {
+    const team = await db.query.teams.findFirst({ where: eq(teams.id, teamId) });
+    if (!team?.customDomain) return false;
 
-    await db.delete(domains).where(eq(domains.id, existing.id));
-    if (existing.isPrimary) {
-        const subdomain = await getSubdomainForTeam(teamId);
-        if (subdomain) await db.update(domains).set({ isPrimary: true }).where(eq(domains.id, subdomain.id));
-    }
-    return existing;
+    await db
+        .update(teams)
+        .set({
+            customDomain: null,
+            customDomainStatus: null,
+            customDomainVerificationToken: null,
+            customDomainVerifiedAt: null,
+            updatedAt: new Date(),
+        })
+        .where(eq(teams.id, teamId));
+    return true;
 }
 
 /** Looks up the TXT record a team was asked to create
- * (`_frontlit-verify.<domain>`) and checks it matches the issued token.
- * Exported standalone so tests can `vi.mock("node:dns")` without touching
- * the rest of the module. */
+ * (`_frontlit-verify.<domain>`) and checks it matches the issued token. */
 export async function verifyDnsTxtRecord(hostname: string, token: string): Promise<boolean> {
     try {
         const records = await dns.resolveTxt(`_frontlit-verify.${hostname}`);
@@ -151,50 +166,45 @@ export async function verifyDnsTxtRecord(hostname: string, token: string): Promi
     }
 }
 
-export async function verifyCustomDomain(teamId: string) {
-    const existing = await getCustomDomainForTeam(teamId);
-    if (!existing) return null;
+export async function verifyCustomDomain(teamId: string): Promise<CustomDomainStatus | null> {
+    const team = await db.query.teams.findFirst({ where: eq(teams.id, teamId) });
+    if (!team?.customDomain || !team.customDomainVerificationToken) return null;
 
-    const verified = await verifyDnsTxtRecord(existing.hostname, existing.verificationToken);
-    const status: DomainVerificationStatus = verified ? "verified" : "failed";
-    const [updated] = await db
-        .update(domains)
-        .set({ status, verifiedAt: verified ? new Date() : existing.verifiedAt })
-        .where(eq(domains.id, existing.id))
-        .returning();
-    return updated;
+    const verified = await verifyDnsTxtRecord(team.customDomain, team.customDomainVerificationToken);
+    const status: CustomDomainStatus = verified ? "verified" : "failed";
+    await db
+        .update(teams)
+        .set({
+            customDomainStatus: status,
+            customDomainVerifiedAt: verified ? new Date() : team.customDomainVerifiedAt,
+            updatedAt: new Date(),
+        })
+        .where(eq(teams.id, teamId));
+    return status;
 }
 
-export type SetPrimaryDomainResult = { ok: true } | { ok: false; reason: "no_subdomain" | "custom_not_verified" };
+export type ResolvedHost = { teamId: string; canonicalHost: string };
 
-export async function setPrimaryDomain(teamId: string, primary: DomainKind): Promise<SetPrimaryDomainResult> {
-    const subdomain = await getSubdomainForTeam(teamId);
-    if (!subdomain) return { ok: false, reason: "no_subdomain" };
-    const customDomain = await getCustomDomainForTeam(teamId);
+/** Resolves an incoming host to exactly one team website. Both the permanent
+ * subdomain and a verified custom domain serve the site; only the latter
+ * changes the canonical host. */
+export async function resolveHost(requestHost: string): Promise<ResolvedHost | null> {
+    const hostname = normalizeHost(requestHost);
+    if (!hostname) return null;
 
-    if (primary === "custom") {
-        if (!customDomain || customDomain.status !== "verified") return { ok: false, reason: "custom_not_verified" };
-        await db.update(domains).set({ isPrimary: true }).where(eq(domains.id, customDomain.id));
-        await db.update(domains).set({ isPrimary: false }).where(eq(domains.id, subdomain.id));
-    } else {
-        await db.update(domains).set({ isPrimary: true }).where(eq(domains.id, subdomain.id));
-        if (customDomain) await db.update(domains).set({ isPrimary: false }).where(eq(domains.id, customDomain.id));
-    }
-    return { ok: true };
-}
+    const subdomain = subdomainFromHost(hostname);
+    const team = subdomain
+        ? await db.query.teams.findFirst({ where: eq(teams.subdomain, subdomain) })
+        : await db.query.teams.findFirst({
+              where: and(eq(teams.customDomain, hostname), eq(teams.customDomainStatus, "verified")),
+          });
+    if (!team) return null;
 
-export type ResolvedHost = { teamId: string; isPrimary: boolean; primaryHost: string };
-
-/** Answers `apps/sites`' tenant-resolution middleware and doubles as the
- * on-demand TLS "ask" (architecture.md §12.1/§12.2) — only ever resolves a
- * host it actually knows, and never an unverified custom domain. */
-export async function resolveHost(hostname: string): Promise<ResolvedHost | null> {
-    const row = await db.query.domains.findFirst({ where: eq(domains.hostname, hostname) });
-    if (!row) return null;
-    if (domainKind(hostname) === "custom" && row.status !== "verified") return null;
-
-    const primary = await db.query.domains.findFirst({
-        where: and(eq(domains.teamId, row.teamId), eq(domains.isPrimary, true)),
-    });
-    return { teamId: row.teamId, isPrimary: row.isPrimary, primaryHost: primary?.hostname ?? row.hostname };
+    return {
+        teamId: team.id,
+        canonicalHost:
+            team.customDomainStatus === "verified" && team.customDomain
+                ? team.customDomain
+                : getSubdomainHost(team.subdomain!),
+    };
 }

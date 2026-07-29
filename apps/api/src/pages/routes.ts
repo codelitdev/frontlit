@@ -10,6 +10,7 @@ import {
     derivePageStatus,
     discardPageDraft,
     getPageByPageId,
+    InvalidThemeReferenceError,
     listPages,
     publishPage,
     updatePage,
@@ -17,10 +18,11 @@ import {
 import { omitInternal, serializeDates } from "../utils/public";
 import { findTeamById } from "../team/queries";
 import { revalidateTeam } from "../services/revalidate";
+import { InvalidPageLayoutError } from "./shared-widgets";
+import { InvalidSlugError, SlugConflictError } from "../utils/slug";
 
 const router = Router();
-router.use(requireAuth);
-router.use(requireTeam);
+router.use("/pages", requireAuth, requireTeam);
 
 const s = initServer();
 
@@ -34,8 +36,15 @@ function toPublicPage<T extends Record<string, unknown>>(page: T) {
  * `{ status, body }`. No business logic lives here. */
 const impl = s.router(contract.pages, {
     create: async ({ body, req }) => {
-        const page = await createPage({ teamId: (req as any).teamId, ...body });
-        return { status: 201, body: toPublicPage(page) };
+        try {
+            const page = await createPage({ teamId: (req as any).teamId, ...body });
+            return { status: 201, body: toPublicPage(page) };
+        } catch (error) {
+            if (error instanceof InvalidThemeReferenceError) {
+                return { status: 400, body: { error: error.message } };
+            }
+            throw error;
+        }
     },
     list: async ({ query, req }) => {
         const teamId = (req as any).teamId;
@@ -56,9 +65,27 @@ const impl = s.router(contract.pages, {
         return { status: 200, body: toPublicPage(page) };
     },
     update: async ({ params, body, req }) => {
-        const page = await updatePage((req as any).teamId, params.pageId, body);
-        if (!page) return { status: 404, body: { error: "Page not found" } };
-        return { status: 200, body: toPublicPage(page) };
+        try {
+            const page = await updatePage((req as any).teamId, params.pageId, body);
+            if (!page) return { status: 404, body: { error: "Page not found" } };
+            if (body.themeId !== undefined || body.slug !== undefined) {
+                const team = await findTeamById((req as any).teamId);
+                if (team) revalidateTeam(team.teamId).catch(() => {});
+            }
+            return { status: 200, body: toPublicPage(page) };
+        } catch (error) {
+            if (
+                error instanceof InvalidPageLayoutError ||
+                error instanceof InvalidThemeReferenceError ||
+                error instanceof InvalidSlugError
+            ) {
+                return { status: 400, body: { error: error.message } };
+            }
+            if (error instanceof SlugConflictError) {
+                return { status: 409, body: { error: error.message } };
+            }
+            throw error;
+        }
     },
     publish: async ({ params, req }) => {
         const page = await publishPage((req as any).teamId, params.pageId);

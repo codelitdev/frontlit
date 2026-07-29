@@ -17,6 +17,7 @@ import {
     publishDocument,
     updateDocument,
 } from "./queries";
+import { SlugConflictError } from "../utils/slug";
 
 describe("documents engine (blog kind)", () => {
     const db = testDb as unknown as TestDb;
@@ -47,6 +48,25 @@ describe("documents engine (blog kind)", () => {
         expect(second.slug).toBe("launch-2");
         // Different kind, same team: slug uniqueness is scoped per (team, kind).
         expect(doc.slug).toBe("launch");
+    });
+
+    it("normalizes an explicitly edited slug", async () => {
+        const doc = await createDocument("doc", { teamId, title: "Getting Started" });
+
+        const updated = await updateDocument("doc", teamId, doc.documentId, {
+            slug: "  Installation Guide  ",
+        });
+
+        expect(updated?.slug).toBe("installation-guide");
+    });
+
+    it("rejects an edited slug already used by the same document kind", async () => {
+        const first = await createDocument("doc", { teamId, title: "First" });
+        const second = await createDocument("doc", { teamId, title: "Second" });
+
+        await expect(
+            updateDocument("doc", teamId, second.documentId, { slug: first.slug }),
+        ).rejects.toBeInstanceOf(SlugConflictError);
     });
 
     it("update writes only the draft columns, leaving published fields untouched", async () => {

@@ -1,44 +1,50 @@
 "use client";
 
 import { use, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { Editor } from "@frontlit/text-editor";
 import type { TextEditorContent } from "@frontlit/text-editor";
-import {
-    discardBlogPostDraft,
-    getBlogPost,
-    publishBlogPost,
-    updateBlogPost,
-    type BlogPost,
-} from "@/lib/api";
-
-const STATUS_LABEL: Record<BlogPost["status"], string> = {
-    draft: "Draft",
-    published: "Published",
-    published_with_changes: "Published · unpublished changes",
-};
-
-const STATUS_CLASS: Record<BlogPost["status"], string> = {
-    draft: "bg-neutral-200 text-neutral-700",
-    published: "bg-emerald-100 text-emerald-700",
-    published_with_changes: "bg-amber-100 text-amber-700",
-};
+import { discardBlogPostDraft, getBlogPost, publishBlogPost, updateBlogPost, type BlogPost } from "@/lib/api";
+import { FullScreenLoading } from "@/components/workspace/loading";
+import { SlugEditor } from "@/components/workspace/slug-editor";
+import { WritingEditorDocumentHeader } from "@/components/workspace/writing-editor-document-header";
+import { WritingEditorShell } from "@/components/workspace/writing-editor-shell";
+import { Input } from "@/components/ui/codelit/input";
+import { Label } from "@/components/ui/codelit/label";
+import { Textarea } from "@/components/ui/codelit/textarea";
+import { parseTags } from "@/lib/writing-editor";
 
 export default function BlogEditorPage({ params }: { params: Promise<{ documentId: string }> }) {
     const { documentId } = use(params);
     const [post, setPost] = useState<BlogPost | null>(null);
     const [title, setTitle] = useState("");
+    const [description, setDescription] = useState("");
+    const [tags, setTags] = useState("");
     const [saving, setSaving] = useState(false);
     const [publishing, setPublishing] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
     const [resetKey, setResetKey] = useState(0);
     const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const descriptionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const tagsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
+        setSettingsOpen(window.matchMedia("(min-width: 768px)").matches);
         getBlogPost(documentId).then((loaded) => {
             setPost(loaded);
             setTitle(loaded.draftTitle);
+            setDescription(loaded.draftExcerpt ?? "");
+            setTags(loaded.draftMeta.tags.join(", "));
         });
     }, [documentId]);
+
+    useEffect(
+        () => () => {
+            if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
+            if (descriptionDebounceRef.current) clearTimeout(descriptionDebounceRef.current);
+            if (tagsDebounceRef.current) clearTimeout(tagsDebounceRef.current);
+        },
+        [],
+    );
 
     async function saveTitle(value: string) {
         setSaving(true);
@@ -53,6 +59,36 @@ export default function BlogEditorPage({ params }: { params: Promise<{ documentI
         setTitle(value);
         if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
         titleDebounceRef.current = setTimeout(() => saveTitle(value), 600);
+    }
+
+    function handleDescriptionChange(value: string) {
+        setDescription(value);
+        if (descriptionDebounceRef.current) clearTimeout(descriptionDebounceRef.current);
+        descriptionDebounceRef.current = setTimeout(async () => {
+            setSaving(true);
+            try {
+                setPost(await updateBlogPost(documentId, { excerpt: value }));
+            } finally {
+                setSaving(false);
+            }
+        }, 600);
+    }
+
+    function handleTagsChange(value: string) {
+        setTags(value);
+        if (tagsDebounceRef.current) clearTimeout(tagsDebounceRef.current);
+        tagsDebounceRef.current = setTimeout(async () => {
+            setSaving(true);
+            try {
+                setPost(
+                    await updateBlogPost(documentId, {
+                        meta: { tags: parseTags(value) },
+                    }),
+                );
+            } finally {
+                setSaving(false);
+            }
+        }, 600);
     }
 
     async function handleContentChange(json: TextEditorContent) {
@@ -74,66 +110,117 @@ export default function BlogEditorPage({ params }: { params: Promise<{ documentI
     }
 
     async function handleDiscardDraft() {
-        if (!confirm("Discard all unpublished changes on this post?")) return;
+        if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
+        if (descriptionDebounceRef.current) clearTimeout(descriptionDebounceRef.current);
+        if (tagsDebounceRef.current) clearTimeout(tagsDebounceRef.current);
         setPublishing(true);
         try {
             const reverted = await discardBlogPostDraft(documentId);
             setPost(reverted);
             setTitle(reverted.draftTitle);
+            setDescription(reverted.draftExcerpt ?? "");
+            setTags(reverted.draftMeta.tags.join(", "));
             setResetKey((key) => key + 1);
         } finally {
             setPublishing(false);
         }
     }
 
+    async function handleSlugSave(slug: string) {
+        const updated = await updateBlogPost(documentId, { slug });
+        setPost(updated);
+        return updated.slug;
+    }
+
     if (!post) {
-        return <div className="flex h-screen w-full items-center justify-center text-neutral-500">Loading post…</div>;
+        return <FullScreenLoading label="Loading post…" />;
     }
 
     return (
-        <div className="flex h-screen w-full flex-col">
-            <div className="flex h-11 shrink-0 items-center justify-between border-b border-neutral-200 bg-white px-4">
-                <Link href="/dashboard/blog" className="text-xs text-neutral-600 hover:underline">
-                    ← Blog
-                </Link>
-                <div className="flex items-center gap-2">
-                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_CLASS[post.status]}`} data-testid="blog-status-badge">
-                        {STATUS_LABEL[post.status]}
-                    </span>
-                    {saving && <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-500">Saving…</span>}
-                    <button
-                        onClick={handleDiscardDraft}
-                        disabled={publishing || post.status === "published"}
-                        className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs text-neutral-600 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                        Discard draft
-                    </button>
-                    <button
-                        onClick={handlePublish}
-                        disabled={publishing || post.status === "published"}
-                        className="rounded-full bg-neutral-900 px-3 py-1 text-xs text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
-                        data-testid="publish-button"
-                    >
-                        {publishing ? "Publishing…" : "Publish"}
-                    </button>
-                </div>
-            </div>
+        <WritingEditorShell
+            backHref="/blog"
+            backLabel="Blog"
+            contextLabel="Posts"
+            title={title || "Untitled post"}
+            status={post.status}
+            statusTestId="blog-status-badge"
+            updatedAt={post.updatedAt}
+            saving={saving}
+            publishing={publishing}
+            settingsOpen={settingsOpen}
+            onSettingsOpenChange={setSettingsOpen}
+            onPublish={handlePublish}
+            onDiscardDraft={handleDiscardDraft}
+            discardDescription="Discard all unpublished changes on this post? This cannot be undone."
+            settings={
+                <div className="space-y-7">
+                    <SlugEditor
+                        slug={post.slug}
+                        prefix="/blog/"
+                        onSave={handleSlugSave}
+                        testId="blog-slug-input"
+                    />
 
-            <div className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto px-6 py-8">
-                <input
-                    value={title}
-                    onChange={(e) => handleTitleChange(e.target.value)}
-                    placeholder="Post title"
-                    className="mb-6 w-full border-none text-3xl font-bold outline-none placeholder:text-neutral-300"
-                    data-testid="blog-title-input"
-                />
-                <Editor
-                    key={resetKey}
-                    initialContent={post.draftContent}
-                    onChange={handleContentChange}
-                    placeholder="Start writing…"
-                />
-            </div>
-        </div>
+                    <div>
+                        <div className="flex items-center justify-between gap-3">
+                            <Label htmlFor="blog-description">Excerpt</Label>
+                            <span className="text-xs tabular-nums text-muted-foreground">
+                                {description.length} characters
+                            </span>
+                        </div>
+                        <Textarea
+                            id="blog-description"
+                            value={description}
+                            onChange={(event) => handleDescriptionChange(event.target.value)}
+                            placeholder="A short description for blog listings."
+                            className="mt-1 min-h-28"
+                        />
+                    </div>
+
+                    <div>
+                        <Label htmlFor="blog-tags">Tags</Label>
+                        <Input
+                            id="blog-tags"
+                            value={tags}
+                            onChange={(event) => handleTagsChange(event.target.value)}
+                            placeholder="Product, engineering, launch"
+                            className="mt-1"
+                        />
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            Separate tags with commas.
+                        </p>
+                    </div>
+
+                    <div className="border-t pt-6">
+                        <h3 className="text-sm font-semibold">Publishing</h3>
+                        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                            Your title, excerpt, tags, and article content go live together
+                            when you publish changes.
+                        </p>
+                    </div>
+                </div>
+            }
+        >
+            <Editor
+                key={resetKey}
+                initialContent={post.draftContent}
+                onChange={handleContentChange}
+                placeholder="Start writing…"
+                className="h-full min-h-0 gap-0 overflow-x-hidden overflow-y-auto border-0"
+                contentClassName="max-w-[46rem]"
+                editorClassName="writing-editor-content min-h-[420px]"
+                beforeContent={
+                    <WritingEditorDocumentHeader
+                        title={title}
+                        titlePlaceholder="Post title"
+                        description={description}
+                        descriptionPlaceholder="Add a short description…"
+                        onTitleChange={handleTitleChange}
+                        onDescriptionChange={handleDescriptionChange}
+                        titleTestId="blog-title-input"
+                    />
+                }
+            />
+        </WritingEditorShell>
     );
 }

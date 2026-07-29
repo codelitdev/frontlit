@@ -1,146 +1,116 @@
 import { fromNodeHeaders } from "better-auth/node";
-import type { Response } from "express";
-import { verifyOAuthBearerToken } from "@codelitdev/oauth-server-kit";
-import { auth, authIssuer, mcpResourceUrl, oauthResourceClient, validOAuthAudiences } from "./better-auth";
-import { ensureAccountForAuthUser, ensureAccountForAuthUserId } from "../team/queries";
-import { getApiKeyBySecret } from "../apikey/queries";
+import {
+    createCentralAuthResolver,
+    sendCentralAuthError,
+    verifyOAuthBearerToken,
+    type CentralAuthInput,
+    type CentralAuthResult,
+} from "@codelitdev/oauth-server-kit";
+import {
+    ensureFrontLitAccountForBetterAuthUserId,
+    ensureFrontLitAccountForUser,
+    type Account,
+} from "../account/queries";
+import {
+    getApiKeyBySecret,
+    type ApiKey,
+} from "../apikey/queries";
+import { getTeamMembership } from "../team/queries";
+import {
+    auth,
+    authIssuer,
+    mcpResourceUrl,
+    oauthResourceClient,
+    validOAuthAudiences,
+} from "./better-auth";
 
-type Account = { id: string; email: string; authUserId: string | null };
+export type AuthInput = CentralAuthInput;
+export type AuthResult = CentralAuthResult<Account>;
 
-export type AuthInput = {
-    authorization?: unknown;
-    apiKeyHeader?: unknown;
-    bodyApiKey?: unknown;
-    headers?: Record<string, string | string[] | undefined>;
+export type AuthDependencies = {
+    getApiKeyBySecret: (secret: string) => Promise<ApiKey | null>;
+    getBetterAuthSession: (
+        headers: Record<string, string | string[] | undefined>,
+    ) => Promise<{
+        user: { id?: string; email: string; name?: string | null };
+    } | null>;
+    verifyBetterAuthBearerToken: (
+        token: string,
+    ) => Promise<{
+        sub?: string;
+        azp?: string;
+        scope?: string;
+        team_id?: string;
+    } | null>;
+    ensureAccountForBetterAuthUserId: (
+        userId: string,
+    ) => Promise<Account | null>;
+    ensureAccountForUser: (user: {
+        id?: string;
+        email: string;
+        name?: string | null;
+    }) => Promise<Account>;
+    getTeamMembership: (
+        teamId: string,
+        accountId: string,
+    ) => Promise<unknown | null>;
 };
 
-export type AuthResult =
-    | {
-          status: "authenticated";
-          kind: "oauth";
-          account: Account;
-          accountId: string;
-          clientId: string;
-          scopes: string[];
-          /** Not resolved here — a bearer-token account may belong to
-           * several teams. See `auth/require-team.ts`, which resolves it from
-           * an explicit header (falling back to the account's sole team, if
-           * it only has one). */
-          teamId?: undefined;
-      }
-    | {
-          status: "authenticated";
-          kind: "session";
-          account: Account;
-          accountId: string;
-          clientId?: undefined;
-          scopes: string[];
-          teamId?: undefined;
-      }
-    | {
-          status: "authenticated";
-          kind: "apikey";
-          /** A key has no single owning account — a team can have several
-           * members — so `account`/`accountId` are unset for key auth. */
-          account: null;
-          accountId?: undefined;
-          apiKey: string;
-          /** A key always authenticates as exactly one, fixed team. */
-          teamId: string;
-      }
-    | { status: "invalid_token" }
-    | { status: "unauthorized" }
-    | { status: "missing" };
+const defaultDependencies: AuthDependencies = {
+    getApiKeyBySecret,
+    async getBetterAuthSession(headers) {
+        return auth.api.getSession({
+            headers: fromNodeHeaders(headers),
+        }) as Promise<{
+            user: { id?: string; email: string; name?: string | null };
+        } | null>;
+    },
+    verifyBetterAuthBearerToken: (token) =>
+        verifyOAuthBearerToken(
+            {
+                oauthResourceClient,
+                validAudiences: validOAuthAudiences,
+                issuer: authIssuer,
+                mcpResourceUrl,
+            },
+            token,
+        ),
+    ensureAccountForBetterAuthUserId:
+        ensureFrontLitAccountForBetterAuthUserId,
+    ensureAccountForUser: ensureFrontLitAccountForUser,
+    getTeamMembership,
+};
 
-/** `resourceMetadataUrl`, when given, is sent back as a
- * `WWW-Authenticate: Bearer resource_metadata="..."` challenge (RFC 9728) so
- * spec-compliant OAuth/MCP clients can discover where to look up this
- * resource's metadata — and, in turn, learn to request a token with the
- * matching `resource` parameter instead of an unscoped (opaque) one. See
- * `mcpProtectedResourceMetadataUrl` in `./better-auth.ts`. */
-export function sendAuthError(res: Response, result: AuthResult, resourceMetadataUrl?: string): boolean {
-    if (resourceMetadataUrl && (result.status === "invalid_token" || result.status === "missing" || result.status === "unauthorized")) {
-        res.setHeader("WWW-Authenticate", `Bearer resource_metadata="${resourceMetadataUrl}"`);
-    }
-
-    if (result.status === "invalid_token") {
-        res.status(401).json({ error: "invalid_token", error_description: "Access token is invalid or expired" });
-        return true;
-    }
-
-    if (result.status === "missing") {
-        res.status(401).json({
-            error: "unauthorized",
-            error_description: "Missing authentication: provide Authorization: Bearer <token>, sign in, or provide an x-frontlit-apikey header",
-        });
-        return true;
-    }
-
-    if (result.status === "unauthorized") {
-        res.status(401).json({ error: "unauthorized" });
-        return true;
-    }
-
-    return false;
+function resolver(dependencies: AuthDependencies) {
+    return createCentralAuthResolver<Account, ApiKey>({
+        verifyBearerToken: dependencies.verifyBetterAuthBearerToken,
+        getApiKeyBySecret: dependencies.getApiKeyBySecret,
+        getApiKeyTeamId: (apiKey) => apiKey.teamId,
+        getSession: dependencies.getBetterAuthSession,
+        ensureAccountForBearerSubject:
+            dependencies.ensureAccountForBetterAuthUserId,
+        ensureAccountForSessionUser: dependencies.ensureAccountForUser,
+        hasTeamMembership: async (teamId, accountId) =>
+            Boolean(
+                await dependencies.getTeamMembership(teamId, accountId),
+            ),
+    });
 }
 
-function getHeaderValue(value: unknown): string | undefined {
-    if (Array.isArray(value)) {
-        return typeof value[0] === "string" ? value[0] : undefined;
-    }
-    return typeof value === "string" ? value : undefined;
+export function resolveAuth(
+    input: AuthInput,
+    dependencies: AuthDependencies = defaultDependencies,
+): Promise<AuthResult> {
+    return resolver(dependencies)(input);
 }
 
-export async function resolveAuth(input: AuthInput): Promise<AuthResult> {
-    const authorization = getHeaderValue(input.authorization);
-    if (authorization) {
-        const match = authorization.match(/^Bearer (.+)$/i);
-        if (match) {
-            const claims = await verifyOAuthBearerToken(
-                { oauthResourceClient, validAudiences: validOAuthAudiences, issuer: authIssuer, mcpResourceUrl },
-                match[1],
-            );
-            if (!claims?.sub) return { status: "invalid_token" };
-
-            const account = await ensureAccountForAuthUserId(claims.sub);
-            if (!account) return { status: "unauthorized" };
-
-            return {
-                status: "authenticated",
-                kind: "oauth",
-                account,
-                accountId: account.id,
-                clientId: String(claims.azp || "better-auth"),
-                scopes: typeof claims.scope === "string" ? claims.scope.split(/\s+/).filter(Boolean) : [],
-            };
-        }
-    }
-
-    if (input.headers) {
-        const session = await auth.api.getSession({ headers: fromNodeHeaders(input.headers) });
-        if (session?.user?.email) {
-            const account = await ensureAccountForAuthUser(session.user.id, session.user.email);
-            return {
-                status: "authenticated",
-                kind: "session",
-                account,
-                accountId: account.id,
-                scopes: ["web"],
-            };
-        }
-    }
-
-    const submittedApiKey = getHeaderValue(input.bodyApiKey) || getHeaderValue(input.apiKeyHeader);
-    if (!submittedApiKey) return { status: "missing" };
-
-    const apiKey = await getApiKeyBySecret(submittedApiKey);
-    if (!apiKey) return { status: "unauthorized" };
-
-    return {
-        status: "authenticated",
-        kind: "apikey",
-        account: null,
-        apiKey: submittedApiKey,
-        teamId: apiKey.teamId,
-    };
+export function sendAuthError(
+    res: any,
+    result: AuthResult,
+    resourceMetadataUrl?: string,
+): boolean {
+    return sendCentralAuthError(res, result, {
+        resourceMetadataUrl,
+        apiKeyHeaderName: "x-frontlit-apikey",
+    });
 }

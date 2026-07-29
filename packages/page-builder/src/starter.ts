@@ -24,6 +24,30 @@ export function createWidgetInstance(
     };
 }
 
+/** Ensures a builder layout always has one locked header and footer.
+ * API validation remains the hard boundary; this repair keeps legacy/empty
+ * initial layouts usable and prevents the UI from ever presenting a page
+ * without its shared navigation shell. */
+export function ensureRequiredSharedWidgets(
+    layout: WidgetInstance[],
+): WidgetInstance[] {
+    const header =
+        layout.find((widget) => widget.name === "header") ??
+        createWidgetInstance("header");
+    const footer =
+        layout.find((widget) => widget.name === "footer") ??
+        createWidgetInstance("footer");
+    const body = layout.filter(
+        (widget) => !["header", "footer"].includes(widget.name),
+    );
+
+    return [
+        { ...header, name: "header", deleteable: false, shared: true },
+        ...body,
+        { ...footer, name: "footer", deleteable: false, shared: true },
+    ];
+}
+
 /** The default theme new pages start out with. */
 export function getDefaultTheme(): Theme {
     return themes[0];
@@ -35,7 +59,7 @@ export function getDefaultTheme(): Theme {
  * as the page builder demo's starting point.
  */
 export function createDefaultLayout(): WidgetInstance[] {
-    return [
+    return ensureRequiredSharedWidgets([
         createWidgetInstance("header", { ctaHref: "/builder" }),
         createWidgetInstance("hero", { buttonAction: "/builder" }),
         createWidgetInstance("featured"),
@@ -44,5 +68,5 @@ export function createDefaultLayout(): WidgetInstance[] {
         createWidgetInstance("faq"),
         createWidgetInstance("email-form"),
         createWidgetInstance("footer"),
-    ];
+    ]);
 }

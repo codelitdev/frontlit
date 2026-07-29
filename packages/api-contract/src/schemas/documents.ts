@@ -56,10 +56,11 @@ export function makeCreateDocumentBodySchema<M extends z.ZodTypeAny>(metaSchema:
     });
 }
 
-/** Every field here is written to the document's *draft* columns, not the
- * published ones — see architecture.md §3. Promote with `publish`. */
+/** Content fields are written to the document's *draft* columns and promoted
+ * with `publish`. `slug` changes the public URL immediately. */
 export function makeUpdateDocumentBodySchema<M extends z.ZodTypeAny>(metaSchema: M) {
     return z.object({
+        slug: z.string().min(1).max(200).optional(),
         title: z.string().optional(),
         content: textEditorContentSchema.optional(),
         excerpt: z.string().optional(),

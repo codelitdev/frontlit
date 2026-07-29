@@ -7,12 +7,11 @@ import { createDocSection, deleteDocSection, listDocSections, searchChunks, upda
 import { omitInternal, serializeDates } from "../utils/public";
 
 /** Doc sections (help-center nav tree) + semantic search (architecture.md
- * §5.1/§6.4). Mounted *before* the generic `/docs/:documentId` router in
- * index.ts \u2014 its literal `/docs/search` path would otherwise be shadowed
+ * §5.1/§6.4). Mounted *before* the generic `/help-docs/:documentId` router in
+ * index.ts \u2014 its literal `/help-docs/search` path would otherwise be shadowed
  * by that router's `:documentId` wildcard. */
 const router = Router();
-router.use(requireAuth);
-router.use(requireTeam);
+router.use(["/doc-sections", "/help-docs/search"], requireAuth, requireTeam);
 
 const s = initServer();
 

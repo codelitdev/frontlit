@@ -7,18 +7,29 @@ import { findTeamById, getTeamMembership } from "../team/queries";
 import { getTeamSettings, updateTeamSettings } from "./queries";
 import { omitInternal, serializeDates } from "../utils/public";
 import { revalidateTeam } from "../services/revalidate";
+import {
+    deleteEspConfig,
+    getEspConfig,
+    testEspConfig,
+    upsertEspConfig,
+} from "../newsletter/sendlit-client";
+import { withSendlitKey } from "../newsletter/proxy";
 
 const router = Router();
-router.use(requireAuth);
-router.use(requireTeam);
+router.use("/settings", requireAuth, requireTeam);
 
 const s = initServer();
 
 function toPublicSettings<T extends Record<string, unknown>>(settings: T) {
-    return serializeDates(omitInternal(settings, "teamId"));
+    return serializeDates(omitInternal(settings, "teamId", "sharedWidgets", "draftSharedWidgets"));
 }
 
-const impl = s.router(contract.settings, {
+const teamSettingsContract = {
+    get: contract.settings.get,
+    update: contract.settings.update,
+};
+
+const impl = s.router(teamSettingsContract, {
     get: async ({ req }) => {
         const settings = await getTeamSettings((req as any).teamId);
         return { status: 200, body: toPublicSettings(settings) };
@@ -43,6 +54,29 @@ const impl = s.router(contract.settings, {
     },
 });
 
-createExpressEndpoints(contract.settings, impl, router);
+const espImpl = s.router(contract.settings.esp, {
+    get: async ({ req }) =>
+        withSendlitKey((req as any).teamId, getEspConfig) as any,
+    upsert: async ({ body, req }) =>
+        withSendlitKey((req as any).teamId, (apiKey) =>
+            upsertEspConfig(apiKey, body),
+        ) as any,
+    remove: async ({ req }) => {
+        const result = await withSendlitKey(
+            (req as any).teamId,
+            deleteEspConfig,
+        );
+        return (result.status === 200
+            ? { status: 204, body: undefined }
+            : result) as any;
+    },
+    test: async ({ body, req }) =>
+        withSendlitKey((req as any).teamId, (apiKey) =>
+            testEspConfig(apiKey, body.to),
+        ) as any,
+});
+
+createExpressEndpoints(teamSettingsContract, impl, router);
+createExpressEndpoints(contract.settings.esp, espImpl, router);
 
 export default router;

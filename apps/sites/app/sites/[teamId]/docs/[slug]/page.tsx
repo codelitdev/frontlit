@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { TextRenderer, extractHeadings } from "@frontlit/text-editor";
 import { getDocBySlug, getSettings } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
-import { getPrimaryHost } from "@/lib/request-host";
+import { getCanonicalHost } from "@/lib/request-host";
 import { serializeJsonLd, techArticleJsonLd } from "@/lib/json-ld";
 
 interface Props {
@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
     return {
         title: `${seo.title} | ${previous.title?.absolute}`,
         description: seo.description ?? undefined,
-        alternates: { canonical: `https://${await getPrimaryHost()}/docs/${slug}` },
+        alternates: { canonical: `https://${await getCanonicalHost()}/docs/${slug}` },
         openGraph: { title: seo.title, description: seo.description ?? undefined, images: seo.imageUrl ? [{ url: seo.imageUrl }] : undefined },
         robots: { index: seo.robotsIndex, follow: seo.robotsIndex },
     };
@@ -31,7 +31,7 @@ export default async function DocPage({ params }: Props) {
     const doc = await getDocBySlug(teamId, slug);
     if (!doc) notFound();
 
-    const primaryHost = await getPrimaryHost();
+    const canonicalHost = await getCanonicalHost();
     const headings = doc.content ? extractHeadings(doc.content as any) : [];
 
     return (
@@ -46,10 +46,10 @@ export default async function DocPage({ params }: Props) {
                             excerpt: doc.excerpt,
                             publishedAt: doc.publishedAt,
                             updatedAt: doc.updatedAt,
-                            url: `https://${primaryHost}/docs/${slug}`,
+                            url: `https://${canonicalHost}/docs/${slug}`,
                             breadcrumb: [
-                                { name: "Docs", url: `https://${primaryHost}/docs` },
-                                { name: doc.title ?? slug, url: `https://${primaryHost}/docs/${slug}` },
+                                { name: "Docs", url: `https://${canonicalHost}/docs` },
+                                { name: doc.title ?? slug, url: `https://${canonicalHost}/docs/${slug}` },
                             ],
                         }),
                     ),

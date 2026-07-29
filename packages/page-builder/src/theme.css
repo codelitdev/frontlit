@@ -9,9 +9,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Default (shadcn slate) tokens — overridden at runtime by the CSS
- * generated from the active theme, scoped under `.pb-theme`. */
-:root {
+/* Default (shadcn slate) tokens — the fallback for `.pb-theme`-scoped
+ * page-builder content before/without a runtime-generated theme (see
+ * generate-theme-styles.ts). Scoped so it doesn't leak into a consuming
+ * app's own chrome outside the page-builder-rendered subtree. */
+.pb-theme {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
@@ -47,7 +49,7 @@
     --sidebar-ring: 217.2 91.2% 59.8%;
 }
 
-.dark {
+.pb-theme:is(.dark, .dark *) {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;

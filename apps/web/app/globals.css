@@ -1,16 +1,88 @@
+/* Design-system tokens, imported by relative path (not the package's bare
+   specifier) so we can skip its `tokens/fonts.css` — that file is just a
+   `@import url(fonts.googleapis.com/...)`, and any nested network @import
+   has to be the very first rule in the whole compiled stylesheet, which a
+   multi-entry Next.js app can't guarantee. We self-host the same two fonts
+   via next/font/google in lib/fonts.ts instead (see hankenGrotesk /
+   splineSansMono), so nothing is lost by skipping it. */
+@import "../node_modules/@codelitdev/design-system/src/tokens/colors.css";
+@import "../node_modules/@codelitdev/design-system/src/tokens/products.css";
+@import "../node_modules/@codelitdev/design-system/src/tokens/typography.css";
+@import "../node_modules/@codelitdev/design-system/src/tokens/layout.css";
+@import "../node_modules/@codelitdev/design-system/src/components.css";
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@frontlit/page-builder/theme.css";
 
+@custom-variant dark (&:is(.dark *));
+
 @source "../../../packages/page-builder/src";
 @source "../../../packages/text-editor/src";
 
+/* @frontlit/page-builder/theme.css registers its own `@theme inline` block
+   (hsl(var(--x)) triplets, for its own HSL-based fallback tokens). Redeclare
+   the same utility keys here, pointing straight at @codelitdev/design-system's
+   tokens (plain oklch values, not HSL triplets) — this block comes later in
+   source order, so it wins the cascade for the workspace chrome. */
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary-soft: var(--primary-soft);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-success: var(--success);
+    --color-success-soft: var(--success-soft);
+    --color-warning: var(--warning);
+    --color-warning-soft: var(--warning-soft);
+    --color-destructive-soft: var(--destructive-soft);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+
+    /* --radius-sm and --radius-lg come from @codelitdev/design-system's unlayered
+       :root tokens, which win the cascade over any value declared here */
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-xl: calc(var(--radius) + 6px);
+}
+
+:root {
+    /* sidebar tokens — not shipped by @codelitdev/design-system, derived from its palette */
+    --sidebar: var(--card);
+    --sidebar-foreground: var(--foreground);
+    --sidebar-primary: var(--primary);
+    --sidebar-primary-foreground: var(--primary-foreground);
+    --sidebar-accent: var(--accent);
+    --sidebar-accent-foreground: var(--accent-foreground);
+    --sidebar-border: var(--border);
+    --sidebar-ring: var(--ring);
+}
+
 @layer base {
     * {
-        @apply border-border;
+        @apply border-border outline-ring/50;
     }
     body {
-        @apply bg-background text-foreground;
+        @apply bg-background text-foreground font-sans;
     }
 }
 

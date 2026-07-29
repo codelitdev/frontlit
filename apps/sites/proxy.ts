@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveHost } from "./lib/api";
-import { createHostCache, decideHost } from "./lib/host";
+import { createHostCache, decideHost, normalizeHost } from "./lib/host";
 
 // Module-level: persists across requests within one server instance
 // (architecture.md §12.2).
 const hostCache = createHostCache();
 
 export async function proxy(request: NextRequest) {
-    const host = request.headers.get("host");
+    const requestHost = request.headers.get("host");
+    if (!requestHost) return NextResponse.next();
+    const host = normalizeHost(requestHost);
     if (!host) return NextResponse.next();
 
     let resolved = hostCache.get(host);
@@ -23,7 +25,6 @@ export async function proxy(request: NextRequest) {
     });
 
     if (decision.action === "unknown") return NextResponse.next();
-    if (decision.action === "redirect") return NextResponse.redirect(decision.url, 308);
 
     const url = request.nextUrl.clone();
     // Not `_sites` — a leading underscore makes Next.js treat the folder as
@@ -35,6 +36,7 @@ export async function proxy(request: NextRequest) {
     // a header instead of restructuring routes, since a nested layout can't
     // opt out of what its parent renders.
     const headers = new Headers(request.headers);
+    headers.set("x-frontlit-canonical-host", resolved!.canonicalHost);
     if (request.nextUrl.pathname.startsWith("/embed/")) headers.set("x-frontlit-embed", "1");
 
     return NextResponse.rewrite(url, { request: { headers } });

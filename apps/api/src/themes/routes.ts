@@ -7,8 +7,7 @@ import { createTheme, deleteTheme, getThemeByThemeId, listThemes, updateTheme } 
 import { omitInternal, serializeDates } from "../utils/public";
 
 const router = Router();
-router.use(requireAuth);
-router.use(requireTeam);
+router.use("/themes", requireAuth, requireTeam);
 
 const s = initServer();
 

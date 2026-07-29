@@ -9,12 +9,21 @@ import { getChatAnswer } from "../chatbot/completion";
 import { findTeamById, findTeamByPublicId } from "../team/queries";
 import { omitInternal, serializeDates } from "../utils/public";
 import { enqueueOutboxJob } from "../newsletter/outbox";
-import { addTicketMessage, createTicket, getTicketByTicketId, getTicketMessages, getTicketNotificationRecipient, verifyTicketAccess } from "../tickets/queries";
+import {
+    addTicketMessage,
+    createTicket,
+    getTicketByTicketId,
+    getTicketMessages,
+    getTicketNotificationRecipient,
+    textTicketMessage,
+    ticketMessageText,
+    verifyTicketAccess,
+} from "../tickets/queries";
 import { notifyTeamOfRequesterMessage } from "../tickets/notify";
 import { resolveHost } from "../domains/queries";
 import { getTeamSettings } from "../settings/queries";
 import { getPublishedPageBySlug, listPublishedPages } from "../pages/queries";
-import { getThemeById } from "../themes/queries";
+import { getThemeByThemeId } from "../themes/queries";
 import { verifyCaptcha } from "../services/captcha";
 import { incrementCounter } from "../services/metrics";
 
@@ -130,7 +139,7 @@ const impl = s.router(contract.public, {
             if (!resolved) return { status: 404, body: { error: "Unknown host" } };
             const team = await findTeamById(resolved.teamId);
             if (!team) return { status: 404, body: { error: "Unknown host" } };
-            return { status: 200, body: { teamId: team.teamId, isPrimary: resolved.isPrimary, primaryHost: resolved.primaryHost } };
+            return { status: 200, body: { teamId: team.teamId, canonicalHost: resolved.canonicalHost } };
         },
     },
     getSettings: {
@@ -153,10 +162,13 @@ const impl = s.router(contract.public, {
             const page = await getPublishedPageBySlug(team.id, query.slug ?? "");
             if (!page) return { status: 404, body: { error: "Not found" } };
             const { pageId, name, type, slug, layout, themeId, title, description, socialImage, robotsAllowed, publishedAt, updatedAt } = page;
-            const theme = themeId ? ((await getThemeById(themeId))?.style ?? null) : null;
+            const savedTheme = themeId?.startsWith("thm_")
+                ? await getThemeByThemeId(themeId)
+                : null;
+            const theme = savedTheme?.teamId === team.id ? savedTheme.style : null;
             return {
                 status: 200,
-                body: serializeDates({ pageId, name, type, slug, layout, theme, title, description, socialImage, robotsAllowed, publishedAt, updatedAt }),
+                body: serializeDates({ pageId, name, type, slug, layout, themeId, theme, title, description, socialImage, robotsAllowed, publishedAt, updatedAt }),
             };
         },
     },
@@ -197,8 +209,8 @@ const impl = s.router(contract.public, {
             const team = await findTeamByPublicId(params.teamId);
             if (!team) return { status: 404, body: { error: "Team not found" } };
 
-            const { enabled, name, greeting, accentColor } = await getChatbotSettings(team.id);
-            return { status: 200, body: { enabled, name, greeting, accentColor } };
+            const { enabled, name, greeting, accentColor, variant, widgetStyle } = await getChatbotSettings(team.id);
+            return { status: 200, body: { enabled, name, greeting, accentColor, variant, widgetStyle } };
         },
     },
     listBlogs: async ({ params, query }) => {
@@ -281,9 +293,75 @@ const impl = s.router(contract.public, {
             const settings = await getChatbotSettings(team.id);
             if (!settings.enabled) return { status: 403, body: { error: "Chatbot is not enabled for this team" } };
 
+            if (Boolean(body.conversationId) !== Boolean(body.conversationToken)) {
+                return { status: 400, body: { error: "conversationId and conversationToken must be provided together" } };
+            }
+
+            let ticket: Awaited<ReturnType<typeof getTicketByTicketId>>;
+            let conversationToken: string;
+            let history = body.history ?? [];
+            let appendRequesterMessage = false;
+
+            if (body.conversationId && body.conversationToken) {
+                ticket = await getTicketByTicketId(team.id, body.conversationId);
+                if (!ticket || ticket.source !== "chatbot") {
+                    return { status: 404, body: { error: "Conversation not found" } };
+                }
+                if (!verifyTicketAccess(ticket, body.conversationToken)) {
+                    return { status: 401, body: { error: "Invalid conversation token" } };
+                }
+
+                const priorMessages = await getTicketMessages(ticket.id);
+                history = priorMessages.slice(-20).map((message) => ({
+                    role: message.author === "requester" ? "user" as const : "assistant" as const,
+                    content: ticketMessageText(message.content),
+                }));
+                appendRequesterMessage = true;
+                conversationToken = body.conversationToken;
+            } else {
+                const created = await createTicket({
+                    teamId: team.id,
+                    subject: body.message.trim().slice(0, 120) || "Chat conversation",
+                    message: body.message,
+                    requesterEmail: null,
+                    source: "chatbot",
+                });
+                ticket = created.ticket;
+                conversationToken = created.token;
+            }
+
             const chunks = await searchChunks(team.id, body.message);
-            const { answer, sources, escalate } = await getChatAnswer(body.message, chunks, body.history);
-            return { status: 200, body: { answer, sources, escalate: escalate && settings.escalationEnabled } };
+            // Team title is branding context only — keeps the model as "X's
+            // support assistant" without opening a general chat surface.
+            const teamSettings = await getTeamSettings(team.id);
+            const { answer, sources, escalate } = await getChatAnswer(body.message, chunks, history, {
+                teamName: teamSettings.title || team.name,
+            });
+            if (appendRequesterMessage) {
+                await addTicketMessage({
+                    teamId: team.id,
+                    ticketDbId: ticket.id,
+                    author: "requester",
+                    content: textTicketMessage(body.message),
+                });
+            }
+            await addTicketMessage({
+                teamId: team.id,
+                ticketDbId: ticket.id,
+                author: "bot",
+                content: textTicketMessage(answer),
+            });
+
+            return {
+                status: 200,
+                body: {
+                    answer,
+                    sources,
+                    conversationId: ticket.ticketId,
+                    conversationToken,
+                    escalate: escalate && settings.escalationEnabled,
+                },
+            };
         },
     },
     captureLead: {

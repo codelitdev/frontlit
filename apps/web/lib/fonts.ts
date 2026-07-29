@@ -1,4 +1,15 @@
 import localFont from "next/font/local";
+import { Hanken_Grotesk, Spline_Sans_Mono } from "next/font/google";
+
+export const hankenGrotesk = Hanken_Grotesk({
+    subsets: ["latin"],
+    variable: "--font-sans",
+});
+
+export const splineSansMono = Spline_Sans_Mono({
+    subsets: ["latin"],
+    variable: "--font-mono",
+});
 
 export const openSans = localFont({
     src: [

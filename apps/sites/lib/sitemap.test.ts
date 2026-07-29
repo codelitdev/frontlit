@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildRobotsTxt, buildSitemapXml } from "./sitemap";
 
 describe("buildSitemapXml", () => {
-    it("builds absolute URLs on the primary host with lastmod", () => {
+    it("builds absolute URLs on the canonical host with lastmod", () => {
         const xml = buildSitemapXml("acme.frontlit.app", [
             { kind: "page", path: "/", lastmod: "2026-01-01T00:00:00.000Z" },
             { kind: "blog", path: "/blog/hello", lastmod: null },
@@ -16,7 +16,7 @@ describe("buildSitemapXml", () => {
 });
 
 describe("buildRobotsTxt", () => {
-    it("disallows /embed/ and points to the primary host's sitemap", () => {
+    it("disallows /embed/ and points to the canonical host's sitemap", () => {
         const txt = buildRobotsTxt("acme.frontlit.app");
         expect(txt).toContain("Disallow: /embed/");
         expect(txt).toContain("Sitemap: https://acme.frontlit.app/sitemap.xml");

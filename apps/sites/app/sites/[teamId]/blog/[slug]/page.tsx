@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { TextRenderer } from "@frontlit/text-editor";
 import { getBlogBySlug, getSettings } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
-import { getPrimaryHost } from "@/lib/request-host";
+import { getCanonicalHost } from "@/lib/request-host";
 import { blogPostingJsonLd, serializeJsonLd } from "@/lib/json-ld";
 
 interface Props {
@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
     return {
         title: `${seo.title} | ${previous.title?.absolute}`,
         description: seo.description ?? undefined,
-        alternates: { canonical: `https://${await getPrimaryHost()}/blog/${slug}` },
+        alternates: { canonical: `https://${await getCanonicalHost()}/blog/${slug}` },
         openGraph: {
             type: "article",
             title: seo.title,
@@ -38,8 +38,8 @@ export default async function BlogPostPage({ params }: Props) {
     const post = await getBlogBySlug(teamId, slug);
     if (!post) notFound();
 
-    const primaryHost = await getPrimaryHost();
-    const url = `https://${primaryHost}/blog/${slug}`;
+    const canonicalHost = await getCanonicalHost();
+    const url = `https://${canonicalHost}/blog/${slug}`;
 
     return (
         <main className="mx-auto max-w-3xl px-6 py-16">

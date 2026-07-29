@@ -25,11 +25,9 @@ import metricsRoutes from "./metrics/routes";
 import { openApiDocument } from "./openapi";
 
 /** Builds the Express app with no side effects (no `listen()`, no DB/env
- * checks) so it can be exercised directly in tests \u2014 see
- * `app.routing.test.ts`, which boots this over `supertest` to catch
- * route-ordering/middleware-scoping bugs that a query-layer unit test
- * can't (e.g. a blanket `router.use(...)` in one router rejecting requests
- * actually bound for a different, later-mounted router). */
+ * checks) so routing and middleware composition can be exercised directly
+ * in tests. See `middleware-boundaries.test.ts` for the root-mounted router
+ * isolation checks. */
 export function createApp() {
     const app = express();
 
@@ -53,12 +51,11 @@ export function createApp() {
         res.json(openApiDocument);
     });
 
-    // Mounted at /api-docs, not /docs: /docs is the help-docs REST resource
-    // (`contract.docs`, matching `/blogs`/`/pages`) — an Express
-    // path-prefixed `app.use("/docs", ...)` mount would otherwise shadow
-    // all of it, including the literal `/docs/search` route.
+    // Keep this at the same organization-standard path as SendLit. Private
+    // help-document CRUD lives at `/help-docs`, leaving `/docs` exclusively
+    // for the interactive API reference.
     app.use(
-        "/api-docs",
+        "/docs",
         swaggerUi.serve,
         swaggerUi.setup(openApiDocument, {
             explorer: true,
@@ -71,16 +68,10 @@ export function createApp() {
         }),
     );
 
-    // Public/self-managed-auth routes first. This order matters: every
-    // router below applies a blanket `router.use(requireAuth)` with no path
-    // prefix, and Express runs that middleware for *any* request that
-    // reaches it — even one that doesn't match any of that router's own
-    // routes — rejecting it with 401 before the request ever gets a chance
-    // to reach a later, genuinely public router. The MCP endpoint and
-    // provisioning endpoint authenticate per-request via API keys or a
-    // shared secret, not `requireAuth`; the `/public/*` routes authenticate
-    // not at all (resolved by a team's public id instead —
-    // architecture.md §5.4). Both must be mounted first.
+    // Public/self-managed-auth routes stay grouped first for clarity. Domain
+    // routers scope their middleware to their own path prefixes, so adding a
+    // router can no longer cause its auth or rate limits to intercept an
+    // unrelated route mounted later.
     app.use(mcpRoutes);
     app.use(provisioningRoutes);
     app.use(publicRoutes);
@@ -90,8 +81,8 @@ export function createApp() {
     app.use(themesRoutes);
     app.use(mediaRoutes);
     app.use(blogsRoutes);
-    // Must precede docsRoutes: its literal `/docs/search` path would
-    // otherwise be shadowed by docsRoutes' `/docs/:documentId` wildcard.
+    // Must precede docsRoutes: its literal `/help-docs/search` path would
+    // otherwise be shadowed by docsRoutes' `/help-docs/:documentId` wildcard.
     app.use(docSectionsRoutes);
     app.use(docsRoutes);
     app.use(changelogsRoutes);

@@ -4,8 +4,8 @@
  * registry FrontLit can install from, so this is a small hand-written
  * `fetch` client matching SendLit's real REST surface (`sendlit/packages/
  * api-contract/src/contract.ts`) rather than an `initClient(...)` over the
- * shared contract package. Every shape below mirrors that contract exactly;
- * if SendLit's contract changes, update here.
+ * shared contract package. If SendLit's contract changes, update this
+ * adapter and its contract-level tests together.
  *
  * FrontLit talks to SendLit exclusively over this hosted REST API — no
  * shared DB, no imported server code. `SENDLIT_API_URL` points at either the
@@ -129,9 +129,12 @@ export async function deleteSegment(apiKey: string, segmentId: string) {
     return request<void>(`/segments/${segmentId}`, { method: "DELETE", apiKey });
 }
 
-// ---- Settings (newsletter "from" identity) ----------------------------------
+// ---- General settings (newsletter compliance) -------------------------------
 
-export type SendlitGeneralSettings = { fromName?: string; fromEmail?: string; replyTo?: string };
+export type SendlitGeneralSettings = {
+    mailingAddress: string | null;
+    updatedAt?: string | null;
+};
 
 export async function getGeneralSettings(apiKey: string) {
     return request<SendlitGeneralSettings>("/settings/general", { apiKey });
@@ -141,16 +144,132 @@ export async function updateGeneralSettings(apiKey: string, patch: Partial<Sendl
     return request<SendlitGeneralSettings>("/settings/general", { method: "PUT", apiKey, body: patch });
 }
 
+// ---- ESP (default email delivery provider) ---------------------------------
+
+export type SendlitEspProvider =
+    | "smtp"
+    | "sendgrid"
+    | "mailgun"
+    | "postmark"
+    | "ses"
+    | "resend"
+    | "custom";
+
+export type SendlitEspConfig = {
+    espId: string;
+    name: string;
+    isDefault: boolean;
+    provider: string;
+    host: string;
+    port: number;
+    secure: boolean;
+    username?: string | null;
+    hasPassword: boolean;
+    fromName?: string | null;
+    fromEmail?: string | null;
+    lastTestedAt?: string | null;
+    lastTestStatus?: "success" | "failed" | null;
+    lastTestError?: string | null;
+    updatedAt?: string | null;
+};
+
+export type SendlitEspInput = {
+    provider: SendlitEspProvider;
+    host: string;
+    port: number;
+    secure: boolean;
+    username?: string;
+    password?: string;
+    fromName?: string;
+    fromEmail?: string;
+};
+
+export async function getEspConfig(apiKey: string) {
+    return request<SendlitEspConfig | null>("/settings/esp", { apiKey });
+}
+
+export async function upsertEspConfig(
+    apiKey: string,
+    input: SendlitEspInput,
+) {
+    return request<SendlitEspConfig>("/settings/esp", {
+        method: "PUT",
+        apiKey,
+        body: input,
+    });
+}
+
+export async function deleteEspConfig(apiKey: string) {
+    return request<void>("/settings/esp", { method: "DELETE", apiKey });
+}
+
+export async function testEspConfig(apiKey: string, to: string) {
+    return request<{ success: boolean; error?: string }>("/settings/esp/test", {
+        method: "POST",
+        apiKey,
+        body: { to },
+    });
+}
+
 // ---- Broadcasts (SendLit models these as "sequences") -----------------------
+
+export type SendlitSequenceEmail = {
+    emailId: string;
+    subject: string;
+    content: Record<string, unknown>;
+    delayInMillis: number;
+    published: boolean;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+};
 
 export type SendlitSequence = {
     sequenceId: string;
+    type: string;
+    title: string;
+    status: string;
+    emails: SendlitSequenceEmail[];
+    createdAt?: string | null;
+    updatedAt?: string | null;
+};
+
+export type FrontlitBroadcast = {
+    broadcastId: string;
     name: string;
     status: string;
     subject?: string;
     body?: Record<string, unknown>;
-    createdAt?: string;
+    createdAt?: string | null;
 };
+
+/** SendLit's stable built-in marketing starter. It is intentionally a system
+ * template: every provisioned team can create its first broadcast without
+ * FrontLit having to maintain a duplicate template in SendLit. */
+const DEFAULT_BROADCAST_TEMPLATE_ID = "system:blank";
+
+function firstEmail(sequence: SendlitSequence): SendlitSequenceEmail {
+    const email = sequence.emails[0];
+    if (!email) {
+        throw new SendlitApiError(
+            "SendLit created a broadcast without an email draft",
+        );
+    }
+    return email;
+}
+
+/** Maps SendLit's sequence-plus-first-email model to FrontLit's one-off
+ * broadcast representation. */
+export function toBroadcast(sequence: SendlitSequence): FrontlitBroadcast {
+    const email = sequence.emails[0];
+    return {
+        broadcastId: sequence.sequenceId,
+        name: sequence.title,
+        status: sequence.status,
+        subject: email?.subject,
+        body: email?.content,
+        createdAt: sequence.createdAt,
+    };
+}
 
 export async function listBroadcasts(apiKey: string) {
     // SendLit's `GET /sequences` serves both broadcasts and drip sequences
@@ -160,11 +279,71 @@ export async function listBroadcasts(apiKey: string) {
 }
 
 export async function createBroadcast(apiKey: string, input: { name: string; subject?: string; body?: Record<string, unknown> }) {
-    return request<SendlitSequence>("/sequences", { method: "POST", apiKey, body: input });
+    // SendLit requires a marketing starter to create a sequence. Its initial
+    // title and subject come from that starter, so set FrontLit's title and
+    // the email draft explicitly afterwards.
+    let sequence = await request<SendlitSequence>("/sequences", {
+        method: "POST",
+        apiKey,
+        body: {
+            type: "broadcast",
+            templateId: DEFAULT_BROADCAST_TEMPLATE_ID,
+        },
+    });
+    sequence = await request<SendlitSequence>(
+        `/sequences/${sequence.sequenceId}`,
+        { method: "PATCH", apiKey, body: { title: input.name } },
+    );
+
+    const email = firstEmail(sequence);
+    return request<SendlitSequence>(
+        `/sequences/${sequence.sequenceId}/emails/${email.emailId}`,
+        {
+            method: "PATCH",
+            apiKey,
+            body: {
+                // A newly-created draft should never retain the starter's
+                // "Blank" subject. The name is a sensible default until an
+                // editor provides a distinct subject.
+                subject: input.subject ?? input.name,
+                ...(input.body === undefined ? {} : { content: input.body }),
+            },
+        },
+    );
 }
 
 export async function updateBroadcast(apiKey: string, sequenceId: string, patch: Partial<{ name: string; subject: string; body: Record<string, unknown> }>) {
-    return request<SendlitSequence>(`/sequences/${sequenceId}`, { method: "PATCH", apiKey, body: patch });
+    // Title lives on the sequence, while subject/content live on its sole
+    // email. Read first so the correct public email id is always used.
+    let sequence = await request<SendlitSequence>(`/sequences/${sequenceId}`, {
+        apiKey,
+    });
+
+    if (patch.name !== undefined) {
+        sequence = await request<SendlitSequence>(
+            `/sequences/${sequenceId}`,
+            { method: "PATCH", apiKey, body: { title: patch.name } },
+        );
+    }
+
+    if (patch.subject !== undefined || patch.body !== undefined) {
+        const email = firstEmail(sequence);
+        sequence = await request<SendlitSequence>(
+            `/sequences/${sequenceId}/emails/${email.emailId}`,
+            {
+                method: "PATCH",
+                apiKey,
+                body: {
+                    ...(patch.subject === undefined
+                        ? {}
+                        : { subject: patch.subject }),
+                    ...(patch.body === undefined ? {} : { content: patch.body }),
+                },
+            },
+        );
+    }
+
+    return sequence;
 }
 
 export async function sendBroadcast(apiKey: string, sequenceId: string) {

@@ -77,3 +77,17 @@ export async function deleteMediaRecord(teamId: string, mediaId: string) {
     await db.delete(media).where(eq(media.id, existing.id));
     return { ok: true as const };
 }
+
+/** Remove externally stored MediaLit objects before the owning team row
+ * cascades away. Database cascades clean up metadata, but cannot clean up
+ * object storage on their own. */
+export async function deleteTeamMediaFiles(teamId: string): Promise<void> {
+    const rows = await db
+        .select({ mediaLitId: media.mediaLitId })
+        .from(media)
+        .where(eq(media.teamId, teamId));
+
+    for (const row of rows) {
+        await deleteFromMediaLit(row.mediaLitId);
+    }
+}

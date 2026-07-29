@@ -94,10 +94,15 @@ import {
     domainSettingsSchema,
     resolveHostQuerySchema,
     resolveHostResponseSchema,
-    setPrimaryDomainBodySchema,
     setTeamSubdomainBodySchema,
 } from "./schemas/domains";
 import { publicTeamSettingsSchema, teamSettingsSchema, updateTeamSettingsBodySchema } from "./schemas/settings";
+import {
+    espConfigSchema,
+    testEspConfigBodySchema,
+    testEspConfigResponseSchema,
+    upsertEspConfigBodySchema,
+} from "./schemas/esp";
 
 const c = initContract();
 
@@ -213,10 +218,10 @@ const pagesContract = c.router(
             method: "PATCH",
             path: "/pages/:pageId",
             body: updatePageBodySchema,
-            responses: { 200: pageSchema, 404: errorSchema },
+            responses: { 200: pageSchema, 400: errorSchema, 404: errorSchema, 409: errorSchema },
             summary: "Update a page",
             description:
-                "Used both for metadata edits (name, SEO) and for persisting the builder's layout as the user edits.",
+                "Used for metadata edits and for persisting the builder's draft layout. Slug changes apply to the public URL immediately. Layouts must retain exactly one locked, team-shared header and footer.",
         },
         remove: {
             method: "DELETE",
@@ -335,7 +340,7 @@ const mediaContract = c.router(
 
 /**
  * Shared factory behind the three kind-scoped document routers
- * (`/blogs`, `/docs`, `/changelogs` — architecture.md §5.3). One
+ * (`/blogs`, `/help-docs`, `/changelogs` — architecture.md §5.3). One
  * implementation, kind-named endpoints, so the OpenAPI spec and MCP tool
  * list stay self-describing for API consumers instead of exposing a
  * generic `/documents?kind=`.
@@ -368,9 +373,10 @@ function makeDocumentContract(resource: string, tag: string, schema: z.ZodTypeAn
                 method: "PATCH",
                 path: `/${resource}/:documentId`,
                 body: updateBody,
-                responses: { 200: schema, 404: errorSchema },
+                responses: { 200: schema, 400: errorSchema, 404: errorSchema, 409: errorSchema },
                 summary: `Update a ${label}`,
-                description: "Writes only the draft fields (architecture.md §3). Call publish to make changes live.",
+                description:
+                    "Writes content to draft fields (architecture.md §3). Slug changes apply to the public URL immediately; publish content changes separately.",
             },
             publish: {
                 method: "POST",
@@ -398,7 +404,7 @@ function makeDocumentContract(resource: string, tag: string, schema: z.ZodTypeAn
 }
 
 const blogsContract = makeDocumentContract("blogs", "Blog", blogSchema, createBlogBodySchema, updateBlogBodySchema);
-const docsContract = makeDocumentContract("docs", "Doc", docSchema, createDocBodySchema, updateDocBodySchema);
+const docsContract = makeDocumentContract("help-docs", "Doc", docSchema, createDocBodySchema, updateDocBodySchema);
 const baseChangelogsContract = makeDocumentContract("changelogs", "Changelog", changelogSchema, createChangelogBodySchema, updateChangelogBodySchema);
 
 /** Changelog entries are documents (kind: "changelog") plus a GitHub
@@ -409,7 +415,7 @@ const changelogsContract = c.router(
         // `/changelogs/:documentId` CRUD routes below (spread last) — Express
         // matches routes in registration order, so a literal `/changelogs/github`
         // would otherwise be shadowed by the `:documentId` wildcard (same bug
-        // class as `/docs/search` vs `/docs/:documentId` — see §5.3).
+        // class as `/help-docs/search` vs `/help-docs/:documentId` — see §5.3).
         connectGithub: {
             method: "PUT",
             path: "/changelogs/github",
@@ -476,7 +482,7 @@ const docSectionsContract = c.router(
         },
         search: {
             method: "GET",
-            path: "/docs/search",
+            path: "/help-docs/search",
             query: searchDocsQuerySchema,
             responses: { 200: itemsList(docSearchResultSchema) },
             summary: "Semantic search over the team's published docs",
@@ -504,7 +510,7 @@ const publicContract = c.router(
             responses: { 200: resolveHostResponseSchema, 404: errorSchema },
             summary: "Resolve a request Host to a team (apps/sites tenant middleware + TLS \"ask\")",
             description:
-                "Answers only for hosts it actually knows: a team's `<slug>.<DOMAIN>` subdomain, or a verified custom domain (architecture.md §12.1/§12.2).",
+                "Answers only for hosts it actually knows: a team's `<slug>.<PLATFORM_SITE_DOMAIN>` subdomain, or a verified custom domain (architecture.md §12.1/§12.2).",
         },
         getSettings: {
             method: "GET",
@@ -594,10 +600,17 @@ const publicContract = c.router(
             method: "POST",
             path: "/public/:teamId/chat",
             body: chatRequestBodySchema,
-            responses: { 200: chatResponseSchema, 403: errorSchema, 404: errorSchema, 429: errorSchema },
+            responses: {
+                200: chatResponseSchema,
+                400: errorSchema,
+                401: errorSchema,
+                403: errorSchema,
+                404: errorSchema,
+                429: errorSchema,
+            },
             summary: "Ask the team's RAG chatbot a question",
             description:
-                "Embeds the message, retrieves the team's top matching published doc chunks, and returns an answer grounded in them plus cited sources (architecture.md §7.2). 403 if the chatbot is disabled for the team.",
+                "Persists the conversation, retrieves the team's top matching published doc chunks, and returns an answer grounded in them plus cited sources. The returned conversation credentials let the widget receive later agent replies. 403 if the chatbot is disabled for the team.",
         },
         captureLead: {
             method: "POST",
@@ -699,7 +712,7 @@ const chatbotContract = c.router(
     { metadata: { tag: "Chatbot" } },
 );
 
-/** A team's default `<slug>.<DOMAIN>` host plus an optional attached custom
+/** A team's default `<slug>.<PLATFORM_SITE_DOMAIN>` host plus an optional attached custom
  * domain (architecture.md §12.1). Team-scoped like `/chatbot` — not a
  * `/teams/:teamId` sub-resource, since it always operates on the caller's
  * current team. */
@@ -738,18 +751,61 @@ const domainsContract = c.router(
             path: "/domain/custom",
             responses: { 200: domainSettingsSchema, 404: errorSchema },
             summary: "Remove the team's custom domain",
-            description: "Resets the primary host back to the subdomain first if the custom domain was primary.",
-        },
-        setPrimary: {
-            method: "POST",
-            path: "/domain/primary",
-            body: setPrimaryDomainBodySchema,
-            responses: { 200: domainSettingsSchema, 409: errorSchema },
-            summary: "Switch which host is primary",
-            description: "Switching to `custom` requires a verified custom domain.",
         },
     },
     { metadata: { tag: "Domains" } },
+);
+
+/** SendLit-backed default email delivery provider for this FrontLit team. */
+const espSettingsContract = c.router(
+    {
+        get: {
+            method: "GET",
+            path: "/settings/esp",
+            responses: {
+                200: espConfigSchema.nullable(),
+                409: errorSchema,
+            },
+            summary: "Get the team's default SendLit ESP configuration",
+            description:
+                "Returns null when no ESP is configured. Passwords and API keys are never returned.",
+        },
+        upsert: {
+            method: "PUT",
+            path: "/settings/esp",
+            body: upsertEspConfigBodySchema,
+            responses: {
+                200: espConfigSchema,
+                409: errorSchema,
+            },
+            summary: "Create or update the team's default SendLit ESP",
+            description:
+                "Credentials are forwarded directly to the team's SendLit workspace. Omit password to retain the existing secret.",
+        },
+        remove: {
+            method: "DELETE",
+            path: "/settings/esp",
+            responses: {
+                204: c.noBody(),
+                409: errorSchema,
+            },
+            summary: "Remove the team's default SendLit ESP",
+        },
+        test: {
+            method: "POST",
+            path: "/settings/esp/test",
+            body: testEspConfigBodySchema,
+            responses: {
+                200: testEspConfigResponseSchema,
+                400: errorSchema,
+                409: errorSchema,
+                422: errorSchema,
+                502: errorSchema,
+            },
+            summary: "Send a test email through the configured SendLit ESP",
+        },
+    },
+    { metadata: { tag: "Settings" } },
 );
 
 /** Per-team site-wide branding + code injection (architecture.md §12.5). */
@@ -769,6 +825,7 @@ const settingsContract = c.router(
             summary: "Update the team's branding and code-injection settings",
             description: "Changing either code-injection field requires the caller to hold the team owner role.",
         },
+        esp: espSettingsContract,
     },
     { metadata: { tag: "Settings" } },
 );
@@ -852,14 +909,14 @@ const newsletterContract = c.router(
             method: "GET",
             path: "/newsletter",
             responses: { 200: newsletterSettingsSchema },
-            summary: "Get the team's newsletter (SendLit) settings",
+            summary: "Get the team's SendLit compliance settings",
         },
         updateSettings: {
             method: "PATCH",
             path: "/newsletter",
             body: updateNewsletterSettingsBodySchema,
             responses: { 200: newsletterSettingsSchema, 409: errorSchema },
-            summary: "Update the team's newsletter sender identity",
+            summary: "Update the team's SendLit compliance settings",
         },
         listBroadcasts: {
             method: "GET",

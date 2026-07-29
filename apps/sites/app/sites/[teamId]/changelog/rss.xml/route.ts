@@ -1,20 +1,20 @@
 import { getSettings, listChangelogs } from "@/lib/api";
 import { buildRssFeed } from "@/lib/rss";
-import { getPrimaryHost } from "@/lib/request-host";
+import { getCanonicalHost } from "@/lib/request-host";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ teamId: string }> }) {
     const { teamId } = await params;
-    const [settings, { items }, primaryHost] = await Promise.all([getSettings(teamId), listChangelogs(teamId, { itemsPerPage: 50 }), getPrimaryHost()]);
+    const [settings, { items }, canonicalHost] = await Promise.all([getSettings(teamId), listChangelogs(teamId, { itemsPerPage: 50 }), getCanonicalHost()]);
 
     const siteName = settings?.title || "FrontLit site";
     const xml = buildRssFeed({
         title: `${siteName} Changelog`,
         description: settings?.subtitle ?? null,
-        feedUrl: `https://${primaryHost}/changelog/rss.xml`,
-        siteUrl: `https://${primaryHost}/changelog`,
+        feedUrl: `https://${canonicalHost}/changelog/rss.xml`,
+        siteUrl: `https://${canonicalHost}/changelog`,
         items: items.map((entry) => ({
             title: entry.title ?? entry.slug,
-            url: `https://${primaryHost}/changelog`,
+            url: `https://${canonicalHost}/changelog`,
             description: entry.excerpt,
             pubDate: entry.publishedAt,
         })),

@@ -1,6 +1,5 @@
 import { logger } from "./services/log";
-import { createApiKey } from "./apikey/queries";
-import { createTeam, findAccountByEmail, findOrCreateBareAccount } from "./team/queries";
+import { createAccount, findAccountByEmail } from "./account/queries";
 
 /**
  * If `SUPER_ADMIN_EMAIL` is set and no account exists for it yet, create one
@@ -20,13 +19,20 @@ export async function createSuperAdminIfMissing(): Promise<void> {
         const existing = await findAccountByEmail(email.toLowerCase());
         if (existing) return;
 
-        const account = await findOrCreateBareAccount(email.toLowerCase());
-        const team = await createTeam({ ownerAccountId: account.id, name: "My Team", ownerEmail: account.email });
-        const { secret } = await createApiKey(team.id, "Super admin key");
+        const account = await createAccount(email.toLowerCase(), undefined, {
+            withDefaultApiKey: true,
+        });
 
         // Keys are stored hashed, so this log line is the only place the
         // secret ever appears.
-        logger.info({ accountId: account.id, teamId: team.teamId, apiKey: secret }, "Super admin account created");
+        logger.info(
+            {
+                accountId: account.id,
+                teamId: account.defaultTeamId,
+                apiKey: account.defaultApiKeySecret,
+            },
+            "Super admin account created",
+        );
     } catch (err) {
         logger.error({ error: (err as Error).message }, "Failed to create super admin account");
     }

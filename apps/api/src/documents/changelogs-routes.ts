@@ -34,8 +34,7 @@ function toPublicDocument<T extends Record<string, unknown>>(doc: T) {
  * also carries the GitHub-specific endpoints in the same router.
  */
 const router = Router();
-router.use(requireAuth);
-router.use(requireTeam);
+router.use("/changelogs", requireAuth, requireTeam);
 
 const s = initServer();
 
@@ -45,7 +44,7 @@ const s = initServer();
 // routes MUST come before the generic `/changelogs/:documentId` routes
 // (`get`/`update`/`publish`/`discardDraft`/`remove`), or Express's
 // first-match routing would shadow them with the wildcard (same bug class
-// as `/docs/search` vs `/docs/:documentId` — see §5.3).
+// as `/help-docs/search` vs `/help-docs/:documentId` — see §5.3).
 const impl = s.router(contract.changelogs, {
     connectGithub: async ({ body, req }) => {
         await upsertGithubIntegration((req as any).teamId, body);

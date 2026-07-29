@@ -17,6 +17,7 @@ import {
 import { omitInternal, serializeDates } from "../utils/public";
 import { findTeamById } from "../team/queries";
 import { revalidateTeam } from "../services/revalidate";
+import { InvalidSlugError, SlugConflictError } from "../utils/slug";
 
 function toPublicDocument<T extends Record<string, unknown>>(doc: T) {
     return serializeDates(omitInternal({ ...doc, status: deriveDocumentStatus(doc as any) }, "teamId", "kind"));
@@ -24,15 +25,18 @@ function toPublicDocument<T extends Record<string, unknown>>(doc: T) {
 
 /**
  * One implementation behind every kind-scoped document router (`/blogs`,
- * `/docs`, `/changelogs` \u2014 architecture.md \u00a75.3). `contractRouter` is the
+ * `/help-docs`, `/changelogs` \u2014 architecture.md \u00a75.3). `contractRouter` is the
  * ts-rest router produced by the matching `makeDocumentContract(...)` call;
  * this function is the thin REST adapter over the shared `./queries.ts`
  * functions, parameterized only by `kind`.
  */
-export function createDocumentsRouter<T extends Record<string, unknown>>(kind: DocumentKind, contractRouter: T) {
+export function createDocumentsRouter<T extends Record<string, unknown>>(
+    kind: DocumentKind,
+    path: string,
+    contractRouter: T,
+) {
     const router = Router();
-    router.use(requireAuth);
-    router.use(requireTeam);
+    router.use(path, requireAuth, requireTeam);
 
     const s = initServer();
 
@@ -55,9 +59,23 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(kind: D
             return { status: 200, body: toPublicDocument(doc) };
         },
         update: async ({ params, body, req }: any) => {
-            const doc = await updateDocument(kind, req.teamId, params.documentId, body);
-            if (!doc) return { status: 404, body: { error: "Not found" } };
-            return { status: 200, body: toPublicDocument(doc) };
+            try {
+                const doc = await updateDocument(kind, req.teamId, params.documentId, body);
+                if (!doc) return { status: 404, body: { error: "Not found" } };
+                if (body.slug !== undefined) {
+                    const team = await findTeamById(req.teamId);
+                    if (team) revalidateTeam(team.teamId).catch(() => {});
+                }
+                return { status: 200, body: toPublicDocument(doc) };
+            } catch (error) {
+                if (error instanceof InvalidSlugError) {
+                    return { status: 400, body: { error: error.message } };
+                }
+                if (error instanceof SlugConflictError) {
+                    return { status: 409, body: { error: error.message } };
+                }
+                throw error;
+            }
         },
         publish: async ({ params, req }: any) => {
             const doc = await publishDocument(kind, req.teamId, params.documentId);

@@ -15,12 +15,12 @@ API app's origin directly.
 
 ## Current status
 
-- `/` — the FrontLit marketing landing page, built with and rendered by
-  `@frontlit/page-builder`'s `PageRenderer` (see `app/page.tsx`).
-- `/builder` — a standalone, in-memory live demo of the WYSIWYG
+- `/` — the authenticated workspace overview.
+- `/builder` — an authenticated, standalone in-memory demo of the WYSIWYG
   `PageBuilder` from the same package (see `app/builder/page.tsx`).
 - `/login` — passwordless email-OTP sign-in.
-- `/dashboard` — team switcher, team/API-key management (`/dashboard/teams`),
-  and a pages list (`/dashboard/pages`) backed by the API.
+- `/teams` — team switcher and team/API-key management.
+- `/website/*`, `/blog`, `/docs`, `/support`, and the other top-level sections —
+  authenticated management routes backed by the API.
 - `/editor/pages/[pageId]` — loads a page's layout/theme from the API into
   `PageBuilder` and persists edits back through it.

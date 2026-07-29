@@ -2,8 +2,20 @@ import { describe, expect, it } from "vitest";
 import { isStaleTeamSelectionError, needsTeamSelection, resolveCurrentTeamId } from "./tokens";
 
 describe("needsTeamSelection", () => {
-    it("is true for a 409 (multiple teams, no selection)", () => {
-        expect(needsTeamSelection(409)).toBe(true);
+    it("is true for explicit missing-team selection errors", () => {
+        expect(needsTeamSelection(409, "no_team")).toBe(true);
+        expect(needsTeamSelection(409, "team_required")).toBe(true);
+    });
+
+    it("does not reinterpret unrelated 409 conflicts as team selection", () => {
+        expect(
+            needsTeamSelection(
+                409,
+                "SendLit is not connected for this team yet",
+            ),
+        ).toBe(false);
+        expect(needsTeamSelection(409, "duplicate_slug")).toBe(false);
+        expect(needsTeamSelection(409)).toBe(false);
     });
 
     it("is true for a 400 invalid_team_id", () => {

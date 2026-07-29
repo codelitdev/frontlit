@@ -17,6 +17,7 @@ import { createExtensions } from "./extensions";
 import Toolbar from "./toolbar";
 import BubbleMenu from "./bubble-menu";
 import type { ReactEditorProps } from "./types";
+import { cn } from "./lib/cn";
 
 export interface EditorProps {
     onChange: (json: JSONContent) => void;
@@ -31,6 +32,8 @@ export interface EditorProps {
     onError?: (...args: any[]) => void;
     className?: string;
     editorClassName?: string;
+    contentClassName?: string;
+    beforeContent?: React.ReactNode;
 }
 
 interface EditorType extends FC<PropsWithChildren<EditorProps>> {
@@ -53,6 +56,8 @@ const Editor: EditorType = Object.assign(
         onError,
         className,
         editorClassName,
+        contentClassName,
+        beforeContent,
     }) => {
         const [isUploading, setIsUploading] = useState(false);
         const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -85,12 +90,18 @@ const Editor: EditorType = Object.assign(
                     },
                 },
                 onUpdate: ({ editor: instance }) => {
+                    // TipTap may normalize loaded JSON during initialization
+                    // (notably `{ type: "doc", content: [] }` to
+                    // `{ type: "doc" }`). Do not turn that internal mount work
+                    // into a user-visible autosave.
+                    if (!hasInteractedRef.current) {
+                        return;
+                    }
                     if (changeTimeoutRef.current) {
                         clearTimeout(changeTimeoutRef.current);
                     }
 
                     changeTimeoutRef.current = setTimeout(() => {
-                        hasInteractedRef.current = true;
                         onChange(instance.getJSON());
                         changeTimeoutRef.current = null;
                     }, 1000);
@@ -212,7 +223,7 @@ const Editor: EditorType = Object.assign(
 
         return (
             <div
-                className={`tiptap-editor flex flex-col gap-4 border ${className ?? ""}`}
+                className={cn("tiptap-editor flex flex-col gap-4 border", className)}
             >
                 {editable && showToolbar && (
                     <div
@@ -230,12 +241,12 @@ const Editor: EditorType = Object.assign(
                 )}
                 <div className="flex w-full justify-center">
                     <div
-                        className={`flex w-full flex-col gap-4 ${
-                            editorClassName?.includes("max-w-")
-                                ? ""
-                                : "max-w-3xl"
-                        }`}
+                        className={cn(
+                            "flex w-full max-w-3xl flex-col",
+                            contentClassName,
+                        )}
                     >
+                        {beforeContent}
                         <EditorContent
                             editor={editor}
                             className={`${editorClassName ?? ""} ${editorClassName?.includes("min-h-") ? "" : "min-h-[200px]"}`}

@@ -1,6 +1,7 @@
 import { db } from "../db/client";
 import { genId } from "../db/id";
 import { pages, type WidgetInstanceRow } from "../db/schema";
+import { createRequiredSharedWidgetPlaceholders } from "./shared-widgets";
 
 const STANDARD_PAGES: { name: string; slug: string; type: "site" | "blog" | "custom"; layout?: WidgetInstanceRow[] }[] = [
     { name: "Homepage", slug: "", type: "site" },
@@ -29,15 +30,19 @@ const STANDARD_PAGES: { name: string; slug: string; type: "site" | "blog" | "cus
 export async function seedStandardPages(teamId: string) {
     const now = new Date();
     await db.insert(pages).values(
-        STANDARD_PAGES.map((p) => ({
-            teamId,
-            name: p.name,
-            type: p.type,
-            slug: p.slug,
-            deleteable: false,
-            layout: p.layout ?? [],
-            draftLayout: p.layout ?? [],
-            publishedAt: now,
-        })),
+        STANDARD_PAGES.map((p) => {
+            const [header, footer] = createRequiredSharedWidgetPlaceholders();
+            const layout = [header, ...(p.layout ?? []), footer];
+            return {
+                teamId,
+                name: p.name,
+                type: p.type,
+                slug: p.slug,
+                deleteable: false,
+                layout,
+                draftLayout: layout,
+                publishedAt: now,
+            };
+        }),
     );
 }

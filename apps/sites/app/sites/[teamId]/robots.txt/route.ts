@@ -1,9 +1,9 @@
 import { buildRobotsTxt } from "@/lib/sitemap";
-import { getPrimaryHost } from "@/lib/request-host";
+import { getCanonicalHost } from "@/lib/request-host";
 
 export async function GET() {
-    const primaryHost = await getPrimaryHost();
-    return new Response(buildRobotsTxt(primaryHost), {
+    const canonicalHost = await getCanonicalHost();
+    return new Response(buildRobotsTxt(canonicalHost), {
         headers: { "content-type": "text/plain; charset=utf-8" },
     });
 }

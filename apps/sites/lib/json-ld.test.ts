@@ -3,7 +3,7 @@ import { blogPostingJsonLd, changelogJsonLd, organizationAndWebsiteJsonLd, seria
 
 describe("json-ld builders", () => {
     it("builds Organization + WebSite for the homepage", () => {
-        const [org, site] = organizationAndWebsiteJsonLd({ siteName: "Acme", logoUrl: "https://cdn/logo.png", primaryHost: "acme.frontlit.app" });
+        const [org, site] = organizationAndWebsiteJsonLd({ siteName: "Acme", logoUrl: "https://cdn/logo.png", canonicalHost: "acme.frontlit.app" });
         expect(org).toMatchObject({ "@type": "Organization", name: "Acme", url: "https://acme.frontlit.app", logo: "https://cdn/logo.png" });
         expect(site).toMatchObject({ "@type": "WebSite", name: "Acme", url: "https://acme.frontlit.app" });
     });

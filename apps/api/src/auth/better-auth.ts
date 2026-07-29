@@ -4,11 +4,23 @@ import { emailOTP } from "better-auth/plugins/email-otp";
 import { jwt } from "better-auth/plugins/jwt";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { oauthProviderResourceClient } from "@better-auth/oauth-provider/resource-client";
+import {
+    createOAuthTeamSelectionHooks,
+    type OAuthTeamSelectionAdapter,
+} from "@codelitdev/oauth-server-kit";
 import { createTransport } from "nodemailer";
 import { db } from "../db/client";
 import * as schema from "../db/schema";
 import { logger } from "../services/log";
-import { ensureAccountForAuthUser } from "../team/queries";
+import {
+    ensureFrontLitAccountForBetterAuthUserId,
+    ensureFrontLitAccountForUser,
+} from "../account/queries";
+import {
+    getOAuthTeamSelection,
+    listTeamsForAccount,
+    setOAuthTeamSelection,
+} from "../team/queries";
 
 export const webClientUrl = process.env.WEB_CLIENT || "http://localhost:3000";
 const apiUrl = process.env.API_PUBLIC_URL || process.env.BETTER_AUTH_URL;
@@ -78,6 +90,22 @@ async function sendOtpEmail(email: string, otp: string) {
     });
 }
 
+export const oauthTeamSelectionAdapter: OAuthTeamSelectionAdapter = {
+    async listTeamsForUser(userId) {
+        const account =
+            await ensureFrontLitAccountForBetterAuthUserId(userId);
+        if (!account) return [];
+        const teams = await listTeamsForAccount(account.id);
+        return teams.map((team) => ({
+            id: team.id,
+            publicId: team.teamId,
+            name: team.name,
+        }));
+    },
+    getSelectedTeamId: getOAuthTeamSelection,
+    setSelectedTeamId: setOAuthTeamSelection,
+};
+
 export const auth = betterAuth({
     appName: "FrontLit",
     baseURL: authBaseUrl,
@@ -124,7 +152,11 @@ export const auth = betterAuth({
             create: {
                 async after(user) {
                     if (user.email) {
-                        await ensureAccountForAuthUser(user.id, user.email);
+                        await ensureFrontLitAccountForUser({
+                            id: user.id,
+                            email: user.email,
+                            name: user.name,
+                        });
                     }
                 },
             },
@@ -168,6 +200,10 @@ export const auth = betterAuth({
             allowUnauthenticatedClientRegistration: true,
             scopes: ["openid", "profile", "email", "offline_access", "pages:read", "pages:write", "themes:read", "themes:write"],
             validAudiences: validOAuthAudiences,
+            ...createOAuthTeamSelectionHooks({
+                page: `${authBaseUrl}/oauth/select-team`,
+                adapter: oauthTeamSelectionAdapter,
+            }),
         }),
     ],
 });

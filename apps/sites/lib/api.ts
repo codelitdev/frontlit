@@ -30,8 +30,7 @@ async function unwrapOrNull<T>(promise: Promise<{ status: number; body: unknown 
 
 export interface ResolvedHost {
     teamId: string;
-    isPrimary: boolean;
-    primaryHost: string;
+    canonicalHost: string;
 }
 
 export function resolveHost(host: string): Promise<ResolvedHost | null> {
@@ -56,6 +55,7 @@ export interface PublicPage {
     type: "site" | "blog" | "landing" | "post" | "custom";
     slug: string;
     layout: WidgetInstance[];
+    themeId: string | null;
     theme: Record<string, unknown> | null;
     title: string | null;
     description: string | null;
@@ -81,11 +81,23 @@ export async function getSitemap(teamId: string): Promise<SitemapEntry[]> {
     return result?.items ?? [];
 }
 
+export type ChatbotWidgetVariant = "bubble" | "text_input";
+export type ChatbotWidgetStyle = {
+    bubbleShape: "circle" | "rounded" | "square";
+    bubbleIcon: "chat" | "message" | "sparkles" | "bot";
+    bubbleSize: "sm" | "md" | "lg";
+    inputRadius: "none" | "sm" | "md" | "lg" | "full";
+    inputPlaceholder: string | null;
+    inputWidth: "sm" | "md" | "lg";
+};
+
 export interface PublicChatbotSettings {
     enabled: boolean;
     name: string;
     greeting: string | null;
     accentColor: string | null;
+    variant: ChatbotWidgetVariant;
+    widgetStyle: ChatbotWidgetStyle;
 }
 
 export async function getChatbotSettings(teamId: string): Promise<PublicChatbotSettings | null> {

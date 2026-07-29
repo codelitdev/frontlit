@@ -1,23 +1,36 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { broadcastSchema, contactSchema, newsletterSettingsSchema, segmentSchema, successMessageSchema } from "@frontlit/api-contract";
+import {
+    broadcastSchema,
+    contactSchema,
+    espConfigSchema,
+    espProviderSchema,
+    newsletterSettingsSchema,
+    segmentSchema,
+    successMessageSchema,
+} from "@frontlit/api-contract";
 import { getSendlitApiKey } from "../../integrations/queries";
 import {
     addContactTag,
     createBroadcast,
     createSegment,
     deleteContact,
+    deleteEspConfig,
     deleteSegment,
     getBroadcastStats,
     getContact,
+    getEspConfig,
     getGeneralSettings,
     listBroadcasts,
     listContacts,
     listSegments,
     removeContactTag,
     sendBroadcast,
+    testEspConfig,
+    toBroadcast,
     updateBroadcast,
     updateGeneralSettings,
+    upsertEspConfig,
     updateSegment,
 } from "../../newsletter/sendlit-client";
 import { AUTH_ERROR, errorResult, INTERNAL_ERROR, NOT_FOUND, jsonResult } from "./responses";
@@ -25,17 +38,13 @@ import { getTeamId } from "./auth";
 
 const NOT_CONNECTED_ERROR = errorResult("SendLit is not connected for this team yet.");
 
-function toBroadcast(item: { sequenceId: string; name: string; status: string; subject?: string; body?: Record<string, unknown>; createdAt?: string }) {
-    return { broadcastId: item.sequenceId, name: item.name, status: item.status, subject: item.subject, body: item.body, createdAt: item.createdAt };
-}
-
 /** All tools proxy the team's provisioned SendLit team \u2014 FrontLit has no
  * local contact/segment/broadcast data (architecture.md \u00a710). */
 export function registerNewsletterTools(server: McpServer): void {
     server.registerTool(
         "get_newsletter_settings",
         {
-            description: "Gets the current team's newsletter (SendLit sender identity) settings.",
+            description: "Gets the current team's SendLit compliance settings.",
             inputSchema: {},
             outputSchema: newsletterSettingsSchema,
             annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
@@ -56,8 +65,8 @@ export function registerNewsletterTools(server: McpServer): void {
     server.registerTool(
         "update_newsletter_settings",
         {
-            description: "Updates the current team's newsletter sender identity (from name/email, reply-to).",
-            inputSchema: { fromName: z.string().optional(), fromEmail: z.string().optional(), replyTo: z.string().optional() },
+            description: "Updates the physical mailing address SendLit requires in marketing email footers.",
+            inputSchema: { mailingAddress: z.string().optional() },
             outputSchema: newsletterSettingsSchema,
             annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
         },
@@ -68,6 +77,127 @@ export function registerNewsletterTools(server: McpServer): void {
             if (!apiKey) return NOT_CONNECTED_ERROR;
             try {
                 return jsonResult({ connected: true, ...(await updateGeneralSettings(apiKey, args)) });
+            } catch {
+                return INTERNAL_ERROR;
+            }
+        },
+    );
+
+    server.registerTool(
+        "get_esp_config",
+        {
+            description:
+                "Gets the current team's default SendLit email service provider configuration. Credentials are never returned.",
+            inputSchema: {},
+            outputSchema: z.object({
+                configured: z.boolean(),
+                config: espConfigSchema.nullable(),
+            }),
+            annotations: {
+                readOnlyHint: true,
+                idempotentHint: true,
+                openWorldHint: true,
+            },
+        },
+        async (_args: any, extra: any) => {
+            const teamId = getTeamId(extra);
+            if (!teamId) return AUTH_ERROR;
+            const apiKey = await getSendlitApiKey(teamId);
+            if (!apiKey) return NOT_CONNECTED_ERROR;
+            try {
+                const config = await getEspConfig(apiKey);
+                return jsonResult({ configured: Boolean(config), config });
+            } catch {
+                return INTERNAL_ERROR;
+            }
+        },
+    );
+
+    server.registerTool(
+        "update_esp_config",
+        {
+            description:
+                "Creates or updates the current team's default SendLit ESP. Omit password to retain the stored secret.",
+            inputSchema: {
+                provider: espProviderSchema,
+                host: z.string().min(1),
+                port: z.number().int().min(1).max(65535),
+                secure: z.boolean(),
+                username: z.string().optional(),
+                password: z.string().optional(),
+                fromName: z.string().optional(),
+                fromEmail: z.string().email().optional(),
+            },
+            outputSchema: espConfigSchema,
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                openWorldHint: true,
+            },
+        },
+        async (args: any, extra: any) => {
+            const teamId = getTeamId(extra);
+            if (!teamId) return AUTH_ERROR;
+            const apiKey = await getSendlitApiKey(teamId);
+            if (!apiKey) return NOT_CONNECTED_ERROR;
+            try {
+                return jsonResult(await upsertEspConfig(apiKey, args));
+            } catch {
+                return INTERNAL_ERROR;
+            }
+        },
+    );
+
+    server.registerTool(
+        "test_esp_config",
+        {
+            description:
+                "Sends a real test email through the current team's configured SendLit ESP.",
+            inputSchema: { to: z.string().email() },
+            outputSchema: z.object({
+                success: z.boolean(),
+                error: z.string().optional(),
+            }),
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: false,
+                openWorldHint: true,
+            },
+        },
+        async (args: any, extra: any) => {
+            const teamId = getTeamId(extra);
+            if (!teamId) return AUTH_ERROR;
+            const apiKey = await getSendlitApiKey(teamId);
+            if (!apiKey) return NOT_CONNECTED_ERROR;
+            try {
+                return jsonResult(await testEspConfig(apiKey, args.to));
+            } catch {
+                return INTERNAL_ERROR;
+            }
+        },
+    );
+
+    server.registerTool(
+        "remove_esp_config",
+        {
+            description:
+                "Removes the current team's default SendLit ESP. Email sending will stop until another ESP is configured.",
+            inputSchema: {},
+            outputSchema: successMessageSchema,
+            annotations: {
+                readOnlyHint: false,
+                destructiveHint: true,
+                openWorldHint: true,
+            },
+        },
+        async (_args: any, extra: any) => {
+            const teamId = getTeamId(extra);
+            if (!teamId) return AUTH_ERROR;
+            const apiKey = await getSendlitApiKey(teamId);
+            if (!apiKey) return NOT_CONNECTED_ERROR;
+            try {
+                await deleteEspConfig(apiKey);
+                return jsonResult({ message: "ESP configuration removed." });
             } catch {
                 return INTERNAL_ERROR;
             }

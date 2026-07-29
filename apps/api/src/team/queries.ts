@@ -1,57 +1,34 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../db/client";
-import { accounts, authUser, teamMembers, teams } from "../db/schema";
+import {
+    accounts,
+    oauthPostLoginTeamSelections,
+    teamMembers,
+    teams,
+} from "../db/schema";
 import { createApiKey } from "../apikey/queries";
 import { provisionSendlitForTeam } from "../newsletter/provisioning";
-import { provisionSubdomain } from "../domains/queries";
 import { seedStandardPages } from "../pages/seed";
+import { deleteTeamMediaFiles } from "../media/queries";
 
-export async function findAccountByAuthUserId(authUserId: string) {
-    return db.query.accounts.findFirst({ where: eq(accounts.authUserId, authUserId) });
-}
-
-export async function findAccountByEmail(email: string) {
-    return db.query.accounts.findFirst({ where: eq(accounts.email, email) });
-}
+export type Team = typeof teams.$inferSelect;
+export type TeamMember = typeof teamMembers.$inferSelect;
+export type CreatedTeam = Team & { defaultApiKeySecret?: string };
 
 /** Creates (or returns) an account by email without a linked Better Auth
  * user — used by provisioning, before the tenant's owner has ever logged in. */
 export async function findOrCreateBareAccount(email: string) {
-    const existing = await findAccountByEmail(email);
+    const normalized = email.toLowerCase();
+    const existing = await db.query.accounts.findFirst({
+        where: eq(accounts.email, normalized),
+    });
     if (existing) return existing;
 
-    const [account] = await db.insert(accounts).values({ email }).returning();
+    const [account] = await db
+        .insert(accounts)
+        .values({ email: normalized })
+        .returning();
     return account;
-}
-
-/** Links a bare (provisioned) account to its Better Auth user on first real
- * login, or creates a fresh account for a brand-new signup. Called from
- * `databaseHooks.user.create.after`. */
-export async function ensureAccountForAuthUser(authUserId: string, email: string) {
-    const existing = await findAccountByEmail(email);
-    if (existing) {
-        if (!existing.authUserId) {
-            const [updated] = await db
-                .update(accounts)
-                .set({ authUserId, updatedAt: new Date() })
-                .where(eq(accounts.id, existing.id))
-                .returning();
-            return updated;
-        }
-        return existing;
-    }
-
-    const [account] = await db.insert(accounts).values({ authUserId, email }).returning();
-    return account;
-}
-
-/** Resolves a bearer token's `sub` claim (a Better Auth user id) to the
- * domain account, looking up the auth user's email first. Used by
- * `resolve-auth.ts`'s OAuth bearer-token branch. */
-export async function ensureAccountForAuthUserId(authUserId: string) {
-    const user = await db.query.authUser.findFirst({ where: eq(authUser.id, authUserId) });
-    if (!user) return null;
-    return ensureAccountForAuthUser(authUserId, user.email);
 }
 
 export async function listTeamsForAccount(accountId: string) {
@@ -77,9 +54,13 @@ export async function findTeamByPublicId(teamId: string) {
     return db.query.teams.findFirst({ where: eq(teams.teamId, teamId) });
 }
 
+export const getTeamByTeamId = findTeamByPublicId;
+
 export async function findTeamById(id: string) {
     return db.query.teams.findFirst({ where: eq(teams.id, id) });
 }
+
+export const getTeam = findTeamById;
 
 export async function renameTeam(teamId: string, name: string) {
     const [team] = await db
@@ -91,6 +72,7 @@ export async function renameTeam(teamId: string, name: string) {
 }
 
 export async function deleteTeam(teamId: string) {
+    await deleteTeamMediaFiles(teamId);
     await db.delete(teams).where(eq(teams.id, teamId));
 }
 
@@ -103,17 +85,21 @@ export async function createTeam(input: {
     name: string;
     externalId?: string;
     ownerEmail?: string;
-}) {
+    withDefaultApiKey?: boolean;
+}): Promise<CreatedTeam> {
     const [team] = await db
         .insert(teams)
-        .values({ ownerAccountId: input.ownerAccountId, name: input.name, externalId: input.externalId })
+        .values({
+            ownerAccountId: input.ownerAccountId,
+            name: input.name,
+            externalId: input.externalId,
+        })
         .returning();
 
     await db.insert(teamMembers).values({ teamId: team.id, accountId: input.ownerAccountId, role: "owner" });
 
-    // Every team gets its default `<slug>.<DOMAIN>` host and its standard
-    // pages immediately (architecture.md §12.1, §4.2) — never lazy/optional.
-    await provisionSubdomain(team.id, team.name);
+    // Standard pages are provisioned immediately. The public website remains
+    // inactive until a member deliberately claims its subdomain in settings.
     await seedStandardPages(team.id);
 
     // Every FrontLit team gets its own SendLit team, 1:1 (architecture.md
@@ -125,7 +111,10 @@ export async function createTeam(input: {
         await provisionSendlitForTeam(team, ownerEmail);
     }
 
-    return team;
+    if (!input.withDefaultApiKey) return team;
+
+    const { secret } = await createApiKey(team.id, "Default");
+    return { ...team, defaultApiKeySecret: secret };
 }
 
 /** Idempotent find-or-create used by the provisioning endpoint: repeat
@@ -133,15 +122,42 @@ export async function createTeam(input: {
  * it or re-issuing an API key. */
 export async function findOrCreateTeamByExternalId(input: {
     externalId: string;
-    ownerEmail: string;
+    ownerAccountId: string;
     name: string;
-}) {
+    ownerEmail?: string;
+}): Promise<CreatedTeam> {
     const existing = await findTeamByExternalId(input.externalId);
-    if (existing) return { team: existing, created: false, apiKeySecret: undefined as string | undefined };
+    if (existing) return existing;
 
-    const account = await findOrCreateBareAccount(input.ownerEmail);
-    const team = await createTeam({ ownerAccountId: account.id, name: input.name, externalId: input.externalId, ownerEmail: input.ownerEmail });
-    const { secret } = await createApiKey(team.id, "Provisioning key");
+    return createTeam({
+        ownerAccountId: input.ownerAccountId,
+        name: input.name,
+        externalId: input.externalId,
+        ownerEmail: input.ownerEmail,
+        withDefaultApiKey: true,
+    });
+}
 
-    return { team, created: true, apiKeySecret: secret };
+export async function setOAuthTeamSelection(
+    sessionId: string,
+    teamId: string,
+): Promise<void> {
+    await db
+        .insert(oauthPostLoginTeamSelections)
+        .values({ sessionId, teamId })
+        .onConflictDoUpdate({
+            target: oauthPostLoginTeamSelections.sessionId,
+            set: { teamId, updatedAt: new Date() },
+        });
+}
+
+export async function getOAuthTeamSelection(
+    sessionId: string,
+): Promise<string | null> {
+    const [selection] = await db
+        .select({ teamId: oauthPostLoginTeamSelections.teamId })
+        .from(oauthPostLoginTeamSelections)
+        .where(eq(oauthPostLoginTeamSelections.sessionId, sessionId))
+        .limit(1);
+    return selection?.teamId ?? null;
 }

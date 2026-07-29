@@ -9,8 +9,7 @@ import { findTeamById } from "../team/queries";
 import { omitInternal, serializeDates } from "../utils/public";
 
 const router = Router();
-router.use(requireAuth);
-router.use(requireTeam);
+router.use("/tickets", requireAuth, requireTeam);
 
 const s = initServer();
 
@@ -57,7 +56,7 @@ const impl = s.router(contract.tickets, {
         // (architecture.md §13.4 — "every requester email re-sends a fresh
         // link"). Best-effort: notification failure never blocks the reply.
         const team = await findTeamById(teamId);
-        if (team) {
+        if (team && ticket.requesterEmail) {
             const token = await reissueTicketAccessToken(ticket.id);
             notifyRequesterOfReply({
                 teamId,

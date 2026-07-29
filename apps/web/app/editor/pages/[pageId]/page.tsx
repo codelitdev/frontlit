@@ -1,63 +1,88 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
-import Link from "next/link";
+import { use, useEffect, useRef, useState } from "react";
 import { PageBuilder, type PageBuilderState } from "@frontlit/page-builder/builder";
 import type { Theme as BuilderTheme } from "@frontlit/page-builder/models";
 import {
+    createTheme,
     discardPageDraft,
     getPage,
     getTheme,
+    listThemes,
     publishPage,
     updatePage,
+    updateTheme,
     type Page,
 } from "@/lib/api";
-
-const STATUS_LABEL: Record<Page["status"], string> = {
-    draft: "Draft",
-    published: "Published",
-    published_with_changes: "Published · unpublished changes",
-};
-
-const STATUS_CLASS: Record<Page["status"], string> = {
-    draft: "bg-neutral-200 text-neutral-700",
-    published: "bg-emerald-100 text-emerald-700",
-    published_with_changes: "bg-amber-100 text-amber-700",
-};
+import {
+    persistCustomThemes,
+    resolveEditorTheme,
+    themeSnapshot,
+} from "@/lib/page-theme";
+import { EditorToolbar } from "@/components/workspace/editor-toolbar";
+import { FullScreenLoading } from "@/components/workspace/loading";
+import { SlugEditor } from "@/components/workspace/slug-editor";
 
 export default function PageEditorPage({ params }: { params: Promise<{ pageId: string }> }) {
     const { pageId } = use(params);
     const [page, setPage] = useState<Page | null>(null);
     const [initialTheme, setInitialTheme] = useState<BuilderTheme | undefined>(undefined);
+    const [customThemes, setCustomThemes] = useState<BuilderTheme[] | null>(null);
     const [saving, setSaving] = useState(false);
     const [publishing, setPublishing] = useState(false);
     // Bumped only when the draft is reset from outside the builder (discard),
     // forcing a remount so the (otherwise uncontrolled) builder re-reads the
     // fresh draft fields instead of showing stale, already-discarded edits.
     const [resetKey, setResetKey] = useState(0);
+    const themeAliasesRef = useRef(new Map<string, string>());
+    const knownThemeIdsRef = useRef(new Set<string>());
+    const themeSnapshotsRef = useRef(new Map<string, string>());
 
     useEffect(() => {
-        getPage(pageId).then(async (loaded) => {
+        Promise.all([getPage(pageId), listThemes()]).then(async ([loaded, savedThemes]) => {
+            const mappedThemes = savedThemes.items.map(
+                (theme): BuilderTheme => ({
+                    id: theme.themeId,
+                    name: theme.name,
+                    theme: theme.style as unknown as BuilderTheme["theme"],
+                }),
+            );
+
+            knownThemeIdsRef.current = new Set(mappedThemes.map((theme) => theme.id));
+            themeAliasesRef.current = new Map();
+            themeSnapshotsRef.current = new Map(
+                mappedThemes.map((theme) => [theme.id, themeSnapshot(theme)]),
+            );
+            setInitialTheme(
+                await resolveEditorTheme(loaded.themeId, async (themeId) => {
+                    const loadedTheme = savedThemes.items.find(
+                        (theme) => theme.themeId === themeId,
+                    );
+                    return loadedTheme ?? getTheme(themeId);
+                }),
+            );
+            setCustomThemes(mappedThemes);
             setPage(loaded);
-            if (loaded.themeId) {
-                const theme = await getTheme(loaded.themeId);
-                setInitialTheme({ id: theme.themeId, name: theme.name, theme: theme.style as unknown as BuilderTheme["theme"] });
-            }
         });
     }, [pageId]);
 
     async function handleChange(state: PageBuilderState) {
         setSaving(true);
         try {
+            await persistCustomThemes(state.customThemes, {
+                aliases: themeAliasesRef.current,
+                knownIds: knownThemeIdsRef.current,
+                snapshots: themeSnapshotsRef.current,
+                create: createTheme,
+                update: updateTheme,
+            });
             const updated = await updatePage(pageId, {
                 layout: state.layout,
                 title: state.seo.title,
                 description: state.seo.description,
                 socialImage: state.seo.socialImage as unknown as Record<string, unknown> | undefined,
                 robotsAllowed: state.seo.robotsAllowed,
-                // Only persist the theme reference if the active theme is one of
-                // this team's saved themes (not a built-in preset).
-                themeId: state.theme.id === initialTheme?.id ? initialTheme.id : undefined,
+                themeId: themeAliasesRef.current.get(state.theme.id) ?? state.theme.id,
             });
             setPage(updated);
         } finally {
@@ -75,7 +100,6 @@ export default function PageEditorPage({ params }: { params: Promise<{ pageId: s
     }
 
     async function handleDiscardDraft() {
-        if (!confirm("Discard all unpublished changes on this page?")) return;
         setPublishing(true);
         try {
             setPage(await discardPageDraft(pageId));
@@ -85,44 +109,46 @@ export default function PageEditorPage({ params }: { params: Promise<{ pageId: s
         }
     }
 
-    if (!page) {
-        return <div className="flex h-screen w-screen items-center justify-center text-neutral-500">Loading page…</div>;
+    async function handleSlugSave(slug: string) {
+        const updated = await updatePage(pageId, { slug });
+        setPage(updated);
+        return updated.slug;
+    }
+
+    if (!page || customThemes === null) {
+        return <FullScreenLoading label="Loading page…" />;
     }
 
     return (
-        <div className="flex h-screen w-screen flex-col">
-            <div className="flex h-11 shrink-0 items-center justify-between border-b border-neutral-200 bg-white px-4">
-                <Link href="/dashboard/pages" className="text-xs text-neutral-600 hover:underline">
-                    ← Pages
-                </Link>
-                <div className="flex items-center gap-2">
-                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_CLASS[page.status]}`} data-testid="page-status-badge">
-                        {STATUS_LABEL[page.status]}
-                    </span>
-                    {saving && <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-500">Saving…</span>}
-                    <button
-                        onClick={handleDiscardDraft}
-                        disabled={publishing || page.status === "published"}
-                        className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs text-neutral-600 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                        Discard draft
-                    </button>
-                    <button
-                        onClick={handlePublish}
-                        disabled={publishing || page.status === "published"}
-                        className="rounded-full bg-neutral-900 px-3 py-1 text-xs text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
-                        data-testid="publish-button"
-                    >
-                        {publishing ? "Publishing…" : "Publish"}
-                    </button>
-                </div>
+        <div className="flex h-dvh min-h-0 w-full min-w-0 flex-col overflow-hidden">
+            <EditorToolbar
+                backHref="/website/pages"
+                backLabel="Pages"
+                status={page.status}
+                statusTestId="page-status-badge"
+                saving={saving}
+                publishing={publishing}
+                onPublish={handlePublish}
+                onDiscardDraft={handleDiscardDraft}
+                discardDescription="Discard all unpublished changes on this page? This cannot be undone."
+            />
+            <div className="border-b bg-muted/20 px-4 py-3">
+                <SlugEditor
+                    slug={page.slug}
+                    prefix="/"
+                    onSave={handleSlugSave}
+                    disabled={page.slug === ""}
+                    disabledReason="The homepage URL is fixed at /."
+                    testId="page-slug-input"
+                />
             </div>
-            <div className="relative min-h-0 flex-1">
+            <div className="relative min-h-0 flex-1 overflow-hidden">
                 <PageBuilder
                     key={resetKey}
                     pageData={{ pageType: page.type }}
                     initialLayout={page.draftLayout}
                     initialTheme={initialTheme}
+                    themes={{ custom: customThemes }}
                     initialSeo={{
                         title: page.draftTitle ?? undefined,
                         description: page.draftDescription ?? undefined,

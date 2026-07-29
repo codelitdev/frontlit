@@ -1,7 +1,13 @@
-import { and, count, eq, ilike, isNotNull } from "drizzle-orm";
+import { and, count, eq, ilike, isNotNull, ne } from "drizzle-orm";
 import { db } from "../db/client";
 import { documents, type DocumentKind, type TextEditorContentRow } from "../db/schema";
-import { slugify, uniqueSlug } from "../utils/slug";
+import {
+    isUniqueConstraintViolation,
+    normalizeEditableSlug,
+    slugify,
+    SlugConflictError,
+    uniqueSlug,
+} from "../utils/slug";
 import { reindexDocument } from "../documentation/queries";
 
 export type DocumentStatus = "draft" | "published" | "published_with_changes";
@@ -33,9 +39,11 @@ export function deriveDocumentStatus(doc: {
     return hasChanges ? "published_with_changes" : "published";
 }
 
-async function slugTaken(teamId: string, kind: DocumentKind, slug: string): Promise<boolean> {
+async function slugTaken(teamId: string, kind: DocumentKind, slug: string, excludeDocumentId?: string): Promise<boolean> {
+    const conditions = [eq(documents.teamId, teamId), eq(documents.kind, kind), eq(documents.slug, slug)];
+    if (excludeDocumentId) conditions.push(ne(documents.id, excludeDocumentId));
     const existing = await db.query.documents.findFirst({
-        where: and(eq(documents.teamId, teamId), eq(documents.kind, kind), eq(documents.slug, slug)),
+        where: and(...conditions),
     });
     return Boolean(existing);
 }
@@ -84,8 +92,8 @@ export async function getDocumentByDocumentId(kind: DocumentKind, documentId: st
     return db.query.documents.findFirst({ where: and(eq(documents.documentId, documentId), eq(documents.kind, kind)) });
 }
 
-/** Writes only the draft columns \u2014 used by every editor save. Published
- * fields are untouched until `publishDocument` promotes them
+/** Writes content to draft columns while applying `slug` immediately.
+ * Published content remains untouched until `publishDocument` promotes it
  * (architecture.md \u00a73). `meta` is shallow-merged into the existing draft
  * meta so callers can patch one field (e.g. `tags`) without resending all
  * of it. */
@@ -95,6 +103,7 @@ export async function updateDocument(
     documentId: string,
     patch: Partial<{
         title: string;
+        slug: string;
         content: TextEditorContentRow;
         excerpt: string;
         featuredImage: Record<string, unknown>;
@@ -104,21 +113,33 @@ export async function updateDocument(
     const existing = await getDocumentByDocumentId(kind, documentId);
     if (!existing || existing.teamId !== teamId) return null;
 
-    const { title, content, excerpt, featuredImage, meta } = patch;
+    const { title, slug: requestedSlug, content, excerpt, featuredImage, meta } = patch;
+    const slug = requestedSlug === undefined ? undefined : normalizeEditableSlug(requestedSlug);
+    if (slug !== undefined && await slugTaken(teamId, kind, slug, existing.id)) {
+        throw new SlugConflictError("That slug is already in use.");
+    }
 
-    const [doc] = await db
-        .update(documents)
-        .set({
-            ...(title !== undefined ? { draftTitle: title } : {}),
-            ...(content !== undefined ? { draftContent: content } : {}),
-            ...(excerpt !== undefined ? { draftExcerpt: excerpt } : {}),
-            ...(featuredImage !== undefined ? { draftFeaturedImage: featuredImage } : {}),
-            ...(meta !== undefined ? { draftMeta: { ...(existing.draftMeta as Record<string, unknown>), ...meta } } : {}),
-            updatedAt: new Date(),
-        })
-        .where(eq(documents.id, existing.id))
-        .returning();
-    return doc;
+    try {
+        const [doc] = await db
+            .update(documents)
+            .set({
+                ...(title !== undefined ? { draftTitle: title } : {}),
+                ...(slug !== undefined ? { slug } : {}),
+                ...(content !== undefined ? { draftContent: content } : {}),
+                ...(excerpt !== undefined ? { draftExcerpt: excerpt } : {}),
+                ...(featuredImage !== undefined ? { draftFeaturedImage: featuredImage } : {}),
+                ...(meta !== undefined ? { draftMeta: { ...(existing.draftMeta as Record<string, unknown>), ...meta } } : {}),
+                updatedAt: new Date(),
+            })
+            .where(eq(documents.id, existing.id))
+            .returning();
+        return doc;
+    } catch (error) {
+        if (slug !== undefined && isUniqueConstraintViolation(error)) {
+            throw new SlugConflictError("That slug is already in use.");
+        }
+        throw error;
+    }
 }
 
 /** Promotes the draft state to published: copies draft_* -> published

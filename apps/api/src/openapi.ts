@@ -10,7 +10,7 @@ export const openApiDocument = generateOpenApi(
         info: {
             title: "FrontLit API",
             description:
-                "FrontLit REST API for building and serving pages. Authenticate with a team-scoped API key or a signed-in session.",
+                "FrontLit REST API for building and serving sites. Authenticate with a team-scoped API key or a Better Auth OAuth2 bearer token.",
             version: "0.1.0",
         },
         servers: [
@@ -45,22 +45,34 @@ export const openApiDocument = generateOpenApi(
                 name: "Public",
                 description: "Unauthenticated, published-only reads for public site rendering. Resolved by a team's public id.",
             },
+            { name: "Doc", description: "Private help-center document authoring and publishing." },
+            { name: "Docs", description: "Help-center section management and semantic search." },
+            { name: "Changelog", description: "Changelog authoring, publishing, and GitHub release import." },
+            { name: "Newsletter", description: "SendLit-backed contacts, segments, settings, broadcasts, and analytics." },
+            { name: "Chatbot", description: "Team chatbot configuration." },
+            { name: "Help Desk", description: "The team's unified support-ticket and chatbot-conversation inbox." },
             {
                 name: "Domains",
-                description: "A team's default `<slug>.<DOMAIN>` subdomain plus an optional attached, DNS-verified custom domain.",
+                description: "A team's default `<slug>.<PLATFORM_SITE_DOMAIN>` subdomain plus an optional attached, DNS-verified custom domain.",
             },
             {
                 name: "Settings",
-                description: "Per-team site-wide branding (title, subtitle, logo) and code-injection snippets for the public site.",
+                description:
+                    "Per-team site-wide branding/code injection plus the SendLit-backed email delivery provider.",
             },
         ],
         components: {
             securitySchemes: {
                 apiKeyAuth: { type: "apiKey", in: "header", name: "x-frontlit-apikey" },
+                bearerAuth: {
+                    type: "http",
+                    scheme: "bearer",
+                    bearerFormat: "JWT",
+                },
                 provisioningSecretAuth: { type: "apiKey", in: "header", name: "X-Frontlit-Provisioning-Secret" },
             },
         },
-        security: [{ apiKeyAuth: [] }],
+        security: [{ apiKeyAuth: [] }, { bearerAuth: [] }],
     },
     {
         operationMapper: (operation, route) => {
@@ -71,7 +83,12 @@ export const openApiDocument = generateOpenApi(
                 tags: (route.metadata as { tag?: string } | undefined)?.tag
                     ? [(route.metadata as { tag: string }).tag]
                     : operation.tags,
-                security: path === "/provisioning/teams" ? [{ provisioningSecretAuth: [] }] : operation.security,
+                security:
+                    path === "/provisioning/teams"
+                        ? [{ provisioningSecretAuth: [] }]
+                        : path?.startsWith("/public/")
+                          ? []
+                          : operation.security,
             };
         },
     },

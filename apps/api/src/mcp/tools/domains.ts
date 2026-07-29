@@ -3,26 +3,20 @@ import { z } from "zod";
 import { domainSettingsSchema } from "@frontlit/api-contract";
 import {
     attachCustomDomain,
-    domainKind,
     getDomainSettings,
     removeCustomDomain,
-    setPrimaryDomain,
     setTeamSubdomain,
     verifyCustomDomain,
 } from "../../domains/queries";
 import { AUTH_ERROR, INTERNAL_ERROR, errorResult, jsonResult } from "./responses";
 import { getTeamId } from "./auth";
-import { omitInternal, serializeDates } from "../../utils/public";
 
-function toPublicDomain<T extends Record<string, unknown> & { hostname: string }>(row: T) {
-    return serializeDates({ ...omitInternal(row, "teamId"), kind: domainKind(row.hostname) });
-}
-
-function toPublicSettings(settings: Awaited<ReturnType<typeof getDomainSettings>>) {
+function toPublicSettings(settings: NonNullable<Awaited<ReturnType<typeof getDomainSettings>>>) {
     return {
-        subdomain: toPublicDomain(settings.subdomain!),
-        customDomain: settings.customDomain ? toPublicDomain(settings.customDomain) : null,
-        verificationRecords: settings.verificationRecords,
+        ...settings,
+        customDomain: settings.customDomain
+            ? { ...settings.customDomain, verifiedAt: settings.customDomain.verifiedAt?.toISOString() ?? null }
+            : null,
     };
 }
 
@@ -39,7 +33,8 @@ export function registerDomainTools(server: McpServer): void {
             const teamId = getTeamId(extra);
             if (!teamId) return AUTH_ERROR;
             try {
-                return jsonResult(toPublicSettings(await getDomainSettings(teamId)));
+                const settings = await getDomainSettings(teamId);
+                return settings ? jsonResult(toPublicSettings(settings)) : errorResult("Team not found");
             } catch {
                 return INTERNAL_ERROR;
             }
@@ -49,7 +44,7 @@ export function registerDomainTools(server: McpServer): void {
     server.registerTool(
         "set_team_subdomain",
         {
-            description: "Changes the current team's default `<slug>.<DOMAIN>` subdomain.",
+            description: "Changes the current team's default `<slug>.<PLATFORM_SITE_DOMAIN>` subdomain.",
             inputSchema: { slug: z.string().min(1).max(63) },
             outputSchema: domainSettingsSchema,
             annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
@@ -60,7 +55,7 @@ export function registerDomainTools(server: McpServer): void {
             try {
                 const result = await setTeamSubdomain(teamId, args.slug);
                 if (!result.ok) return errorResult("That subdomain is already taken");
-                return jsonResult(toPublicSettings(await getDomainSettings(teamId)));
+                return jsonResult(toPublicSettings((await getDomainSettings(teamId))!));
             } catch {
                 return INTERNAL_ERROR;
             }
@@ -81,7 +76,7 @@ export function registerDomainTools(server: McpServer): void {
             try {
                 const result = await attachCustomDomain(teamId, args.hostname);
                 if (!result.ok) return errorResult(result.reason);
-                return jsonResult(toPublicSettings(await getDomainSettings(teamId)));
+                return jsonResult(toPublicSettings((await getDomainSettings(teamId))!));
             } catch {
                 return INTERNAL_ERROR;
             }
@@ -102,7 +97,7 @@ export function registerDomainTools(server: McpServer): void {
             try {
                 const updated = await verifyCustomDomain(teamId);
                 if (!updated) return errorResult("No custom domain attached");
-                return jsonResult(toPublicSettings(await getDomainSettings(teamId)));
+                return jsonResult(toPublicSettings((await getDomainSettings(teamId))!));
             } catch {
                 return INTERNAL_ERROR;
             }
@@ -112,7 +107,7 @@ export function registerDomainTools(server: McpServer): void {
     server.registerTool(
         "remove_custom_domain",
         {
-            description: "Removes the current team's custom domain, resetting the primary host back to the subdomain if needed.",
+            description: "Removes the current team's custom domain. Its permanent FrontLit subdomain remains available and canonical.",
             inputSchema: {},
             outputSchema: domainSettingsSchema,
             annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
@@ -123,31 +118,11 @@ export function registerDomainTools(server: McpServer): void {
             try {
                 const removed = await removeCustomDomain(teamId);
                 if (!removed) return errorResult("No custom domain attached");
-                return jsonResult(toPublicSettings(await getDomainSettings(teamId)));
+                return jsonResult(toPublicSettings((await getDomainSettings(teamId))!));
             } catch {
                 return INTERNAL_ERROR;
             }
         },
     );
 
-    server.registerTool(
-        "set_primary_domain",
-        {
-            description: "Switches which host is primary for the current team. Switching to `custom` requires a verified custom domain.",
-            inputSchema: { primary: z.enum(["subdomain", "custom"]) },
-            outputSchema: domainSettingsSchema,
-            annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-        },
-        async (args: any, extra: any) => {
-            const teamId = getTeamId(extra);
-            if (!teamId) return AUTH_ERROR;
-            try {
-                const result = await setPrimaryDomain(teamId, args.primary);
-                if (!result.ok) return errorResult(result.reason);
-                return jsonResult(toPublicSettings(await getDomainSettings(teamId)));
-            } catch {
-                return INTERNAL_ERROR;
-            }
-        },
-    );
 }

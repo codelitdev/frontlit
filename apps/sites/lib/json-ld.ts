@@ -4,8 +4,8 @@
  * before serializing, to prevent script injection from user-authored
  * titles. */
 
-export function organizationAndWebsiteJsonLd(input: { siteName: string; logoUrl: string | null; primaryHost: string }) {
-    const url = `https://${input.primaryHost}`;
+export function organizationAndWebsiteJsonLd(input: { siteName: string; logoUrl: string | null; canonicalHost: string }) {
+    const url = `https://${input.canonicalHost}`;
     return [
         {
             "@context": "https://schema.org",

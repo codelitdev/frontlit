@@ -8,8 +8,7 @@ import { getMediaUploadSignature } from "./service";
 import { omitInternal, serializeDates } from "../utils/public";
 
 const router = Router();
-router.use(requireAuth);
-router.use(requireTeam);
+router.use("/media", requireAuth, requireTeam);
 
 const s = initServer();
 

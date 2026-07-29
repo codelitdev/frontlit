@@ -1,7 +1,7 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { TextRenderer } from "@frontlit/text-editor";
 import { getSettings, listChangelogs } from "@/lib/api";
-import { getPrimaryHost } from "@/lib/request-host";
+import { getCanonicalHost } from "@/lib/request-host";
 import { changelogJsonLd, serializeJsonLd } from "@/lib/json-ld";
 
 interface Props {
@@ -25,7 +25,7 @@ const LABEL_CLASS: Record<string, string> = {
 
 export default async function ChangelogPage({ params }: Props) {
     const { teamId } = await params;
-    const [settings, { items }, primaryHost] = await Promise.all([getSettings(teamId), listChangelogs(teamId, { itemsPerPage: 100 }), getPrimaryHost()]);
+    const [settings, { items }, canonicalHost] = await Promise.all([getSettings(teamId), listChangelogs(teamId, { itemsPerPage: 100 }), getCanonicalHost()]);
 
     return (
         <main className="mx-auto max-w-3xl px-6 py-16">
@@ -36,8 +36,8 @@ export default async function ChangelogPage({ params }: Props) {
                     __html: serializeJsonLd(
                         changelogJsonLd({
                             siteName: settings?.title || "FrontLit site",
-                            url: `https://${primaryHost}/changelog`,
-                            entries: items.map((entry) => ({ name: entry.title ?? entry.slug, url: `https://${primaryHost}/changelog` })),
+                            url: `https://${canonicalHost}/changelog`,
+                            entries: items.map((entry) => ({ name: entry.title ?? entry.slug, url: `https://${canonicalHost}/changelog` })),
                         }),
                     ),
                 }}

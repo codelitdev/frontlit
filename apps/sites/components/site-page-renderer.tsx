@@ -2,7 +2,8 @@
 
 import { PageRenderer } from "@frontlit/page-builder/renderer";
 import { getDefaultTheme } from "@frontlit/page-builder";
-import type { PageData, Theme, WidgetInstance } from "@frontlit/page-builder/models";
+import type { PageData, WidgetInstance } from "@frontlit/page-builder/models";
+import { resolvePageTheme } from "@/lib/page-theme";
 
 /**
  * Thin client wrapper around `PageRenderer`. `getDefaultTheme()` lives in
@@ -13,6 +14,17 @@ import type { PageData, Theme, WidgetInstance } from "@frontlit/page-builder/mod
  * the fallback theme here, inside an already-client module, sidesteps that
  * rather than fighting the page-builder package's bundling.
  */
-export function SitePageRenderer({ layout, theme, pageData }: { layout: WidgetInstance[]; theme: Theme | null; pageData: PageData }) {
+export function SitePageRenderer({
+    layout,
+    themeId,
+    themeStyle,
+    pageData,
+}: {
+    layout: WidgetInstance[];
+    themeId: string | null;
+    themeStyle: Record<string, unknown> | null;
+    pageData: PageData;
+}) {
+    const theme = resolvePageTheme(themeId, themeStyle);
     return <PageRenderer layout={layout} theme={theme ?? getDefaultTheme()} pageData={pageData} />;
 }

@@ -3,7 +3,10 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { createExpressEndpoints, initServer } from "@ts-rest/express";
 import { contract } from "@frontlit/api-contract";
-import { findOrCreateTeamByExternalId } from "../team/queries";
+import {
+    findOrCreateBareAccount,
+    findOrCreateTeamByExternalId,
+} from "../team/queries";
 import { logger } from "../services/log";
 
 const router = Router();
@@ -15,7 +18,9 @@ const provisioningLimiter = rateLimit({
     legacyHeaders: false,
     message: { error: "too_many_requests", error_description: "Too many requests." },
 });
-router.use(provisioningLimiter);
+// This router is mounted at the API root, so an unqualified middleware
+// would rate-limit unrelated dashboard and public requests.
+router.use("/provisioning", provisioningLimiter);
 
 /** Constant-time comparison so an invalid secret can't be brute-forced via
  * response-time differences. */
@@ -47,14 +52,20 @@ const impl = s.router(contract.provisioning, {
         }
 
         try {
-            const result = await findOrCreateTeamByExternalId({
+            const account = await findOrCreateBareAccount(body.ownerEmail);
+            const team = await findOrCreateTeamByExternalId({
                 externalId: body.externalId,
-                ownerEmail: body.ownerEmail,
+                ownerAccountId: account.id,
                 name: body.name,
+                ownerEmail: body.ownerEmail,
             });
             return {
                 status: 200,
-                body: { teamId: result.team.teamId, name: result.team.name, apiKey: result.apiKeySecret },
+                body: {
+                    teamId: team.teamId,
+                    name: team.name,
+                    apiKey: team.defaultApiKeySecret,
+                },
             };
         } catch (err) {
             logger.error({ error: (err as Error).message }, "Team provisioning failed");

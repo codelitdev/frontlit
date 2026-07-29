@@ -1,4 +1,4 @@
-/** Which team the dashboard is currently "in" — forwarded as the
+/** Which team the workspace is currently "in" — forwarded as the
  * `X-Frontlit-Team-Id` header by the BFF proxy so the API can resolve
  * `req.teamId` for this session (see `apps/api/src/auth/require-team.ts`).
  * Not a secret; just a stable selection, re-validated against team
@@ -19,11 +19,17 @@ export function clearTeamIdCookie(): void {
     document.cookie = `${TEAM_ID_COOKIE}=; Max-Age=0; path=/`;
 }
 
-/** True for API error responses that mean "the caller must pick/has no valid
- * team": an account with several teams and no selection, or a
- * `frontlit_team_id` cookie the API rejected. */
+/** True only for API errors that mean "the caller must pick/has no valid
+ * team". A bare 409 is not enough: domain endpoints also use 409 for valid
+ * conflicts such as an unprovisioned SendLit integration or a duplicate
+ * slug, and those errors must stay on their originating screen. */
 export function needsTeamSelection(status: number, error?: string): boolean {
-    return status === 409 || (status === 400 && error === "invalid_team_id") || (status === 403 && error === "not_a_team_member");
+    return (
+        (status === 409 &&
+            (error === "no_team" || error === "team_required")) ||
+        (status === 400 && error === "invalid_team_id") ||
+        (status === 403 && error === "not_a_team_member")
+    );
 }
 
 /** Whether that error means the cookie itself is stale (as opposed to just
@@ -32,7 +38,7 @@ export function isStaleTeamSelectionError(error?: string): boolean {
     return error === "invalid_team_id" || error === "not_a_team_member";
 }
 
-/** Resolves which team the dashboard should treat as "current": the
+/** Resolves which team the workspace should treat as "current": the
  * cookie's team if the account still belongs to it, else its sole team, or
  * `null` if it has none/several and no valid selection. Clears the cookie as
  * a side effect when it's stale. */

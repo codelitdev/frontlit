@@ -31,7 +31,7 @@ export {
     authOAuthAccessToken,
     authOAuthConsent,
 } from "@codelitdev/oauth-server-kit";
-import { authUser } from "@codelitdev/oauth-server-kit";
+import { authSession, authUser } from "@codelitdev/oauth-server-kit";
 
 /**
  * ID convention: every table has an internal UUIDv7 `id` (surrogate PK,
@@ -62,6 +62,14 @@ export const accounts = pgTable("accounts", {
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+/** A team owns exactly one website. Its FrontLit subdomain is selected during
+ * setup (not inferred from a person's name or email), and is
+ * environment-independent; the full hostname is assembled from
+ * `PLATFORM_SITE_DOMAIN` at runtime. A team may additionally attach one
+ * verified custom domain. */
+export const customDomainStatuses = ["pending", "verified", "failed"] as const;
+export type CustomDomainStatus = (typeof customDomainStatuses)[number];
+
 export const teams = pgTable(
     "teams",
     {
@@ -75,10 +83,33 @@ export const teams = pgTable(
             .notNull()
             .references(() => accounts.id, { onDelete: "cascade" }),
         externalId: text("external_id").unique(),
+        subdomain: text("subdomain").unique(),
+        customDomain: text("custom_domain").unique(),
+        customDomainStatus: text("custom_domain_status", {
+            enum: customDomainStatuses,
+        }),
+        customDomainVerificationToken: text("custom_domain_verification_token"),
+        customDomainVerifiedAt: timestamp("custom_domain_verified_at"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().defaultNow(),
     },
-    (table) => [publicIdCheck("team_id", "team")],
+    () => [
+        publicIdCheck("team_id", "team"),
+        check(
+            "teams_custom_domain_state_check",
+            sql`(
+                ("custom_domain" IS NULL
+                    AND "custom_domain_status" IS NULL
+                    AND "custom_domain_verification_token" IS NULL
+                    AND "custom_domain_verified_at" IS NULL)
+                OR
+                ("custom_domain" IS NOT NULL
+                    AND "custom_domain_status" IS NOT NULL
+                    AND "custom_domain_verification_token" IS NOT NULL
+                    AND ("custom_domain_status" <> 'verified' OR "custom_domain_verified_at" IS NOT NULL))
+            )`,
+        ),
+    ],
 );
 
 export const teamMembers = pgTable(
@@ -95,6 +126,25 @@ export const teamMembers = pgTable(
         createdAt: timestamp("created_at").notNull().defaultNow(),
     },
     (table) => [uniqueIndex("team_members_team_account_idx").on(table.teamId, table.accountId)],
+);
+
+/**
+ * Team selected during an OAuth authorization flow. Generic OAuth/MCP
+ * clients do not send FrontLit's dashboard-specific team header, so the
+ * selected internal team id is carried through Better Auth's referenceId and
+ * emitted as a `team_id` access-token claim.
+ */
+export const oauthPostLoginTeamSelections = pgTable(
+    "oauth_post_login_team_selections",
+    {
+        sessionId: text("session_id")
+            .primaryKey()
+            .references(() => authSession.id, { onDelete: "cascade" }),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
 );
 
 export const apiKeys = pgTable(
@@ -141,6 +191,31 @@ export type WidgetInstanceRow = {
     deleteable: boolean;
     shared: boolean;
     settings?: Record<string, unknown>;
+};
+
+export type SharedWidgetsRow = {
+    header: WidgetInstanceRow;
+    footer: WidgetInstanceRow;
+};
+
+/** Team-level shared layout blocks. Page rows retain only a header/footer
+ * placeholder (and its page-local widget id); these settings are hydrated
+ * into every page at read time, matching CourseLit's shared-widget model. */
+export const DEFAULT_SHARED_WIDGETS: SharedWidgetsRow = {
+    header: {
+        widgetId: "shared-header",
+        name: "header",
+        deleteable: false,
+        shared: true,
+        settings: {},
+    },
+    footer: {
+        widgetId: "shared-footer",
+        name: "footer",
+        deleteable: false,
+        shared: true,
+        settings: {},
+    },
 };
 
 // ---------------------------------------------------------------------------
@@ -264,6 +339,16 @@ export const documentChunks = pgTable(
 // Chatbot (architecture.md §7): per-team RAG chat settings.
 // ---------------------------------------------------------------------------
 
+export type ChatbotWidgetVariant = "bubble" | "text_input";
+export type ChatbotWidgetStyleRow = {
+    bubbleShape?: "circle" | "rounded" | "square";
+    bubbleIcon?: "chat" | "message" | "sparkles" | "bot";
+    bubbleSize?: "sm" | "md" | "lg";
+    inputRadius?: "none" | "sm" | "md" | "lg" | "full";
+    inputPlaceholder?: string | null;
+    inputWidth?: "sm" | "md" | "lg";
+};
+
 export const chatbotSettings = pgTable("chatbot_settings", {
     id: text("id").primaryKey().$defaultFn(genId),
     teamId: text("team_id")
@@ -277,6 +362,10 @@ export const chatbotSettings = pgTable("chatbot_settings", {
     /** Offer "talk to a human" (creates a help-desk ticket, §11.3) when the
      * bot can't answer. Independent of the help desk being used at all. */
     escalationEnabled: boolean("escalation_enabled").notNull().default(false),
+    /** Public launcher: classic bubble button vs bottom text-input bar. */
+    variant: text("variant", { enum: ["bubble", "text_input"] }).notNull().default("bubble"),
+    /** Visual knobs for the selected launcher variant. */
+    widgetStyle: jsonb("widget_style").$type<ChatbotWidgetStyleRow>().notNull().default({}),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -357,42 +446,24 @@ export const teamSettings = pgTable("team_settings", {
     logo: jsonb("logo").$type<Record<string, unknown>>(),
     codeInjectionHead: text("code_injection_head"),
     codeInjectionBody: text("code_injection_body"),
+    /** Published and draft copies follow the same promotion model as page
+     * layouts. They are intentionally not exposed by the generic settings
+     * API; page reads hydrate them into the layout instead. */
+    sharedWidgets: jsonb("shared_widgets")
+        .$type<SharedWidgetsRow>()
+        .notNull()
+        .default(DEFAULT_SHARED_WIDGETS),
+    draftSharedWidgets: jsonb("draft_shared_widgets")
+        .$type<SharedWidgetsRow>()
+        .notNull()
+        .default(DEFAULT_SHARED_WIDGETS),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // ---------------------------------------------------------------------------
-// Domains (architecture.md §12.1): every team gets a subdomain; a custom
-// domain can additionally be attached and verified.
-// ---------------------------------------------------------------------------
-
-export const domainVerificationStatuses = ["pending", "verified", "failed"] as const;
-export type DomainVerificationStatus = (typeof domainVerificationStatuses)[number];
-
-export const domains = pgTable(
-    "domains",
-    {
-        id: text("id").primaryKey().$defaultFn(genId),
-        domainId: text("domain_id")
-            .notNull()
-            .unique()
-            .$defaultFn(() => genPublicId("dom")),
-        teamId: text("team_id")
-            .notNull()
-            .references(() => teams.id, { onDelete: "cascade" }),
-        hostname: text("hostname").notNull().unique(),
-        verificationToken: text("verification_token").notNull(),
-        status: text("status", { enum: domainVerificationStatuses }).notNull().default("pending"),
-        isPrimary: boolean("is_primary").notNull().default(false),
-        verifiedAt: timestamp("verified_at"),
-        createdAt: timestamp("created_at").notNull().defaultNow(),
-    },
-    (table) => [index("domains_team_idx").on(table.teamId), publicIdCheck("domain_id", "dom")],
-);
-
-// ---------------------------------------------------------------------------
-// Help desk (architecture.md §11): support tickets raised from the public
-// site (widget/form) or the dashboard, threaded messages.
+// Help desk (architecture.md §11): support tickets and persisted chatbot
+// conversations raised from the public site, API, or workspace.
 // ---------------------------------------------------------------------------
 
 export const ticketStatuses = ["open", "pending", "resolved", "closed"] as const;
@@ -416,7 +487,9 @@ export const tickets = pgTable(
             .references(() => teams.id, { onDelete: "cascade" }),
         subject: text("subject").notNull(),
         status: text("status", { enum: ticketStatuses }).notNull().default("open"),
-        requesterEmail: text("requester_email").notNull(),
+        /** Null for an anonymous chatbot visitor. Support-form and API
+         * tickets always provide an email address. */
+        requesterEmail: text("requester_email"),
         requesterName: text("requester_name"),
         source: text("source", { enum: ticketSources }).notNull().default("form"),
         /** SHA-256 hash of the visitor's magic-link token (§13.4); never store
@@ -506,7 +579,11 @@ export const pages = pgTable(
         type: text("type", { enum: ["site", "blog", "landing", "post", "custom"] }).notNull(),
         slug: text("slug").notNull(),
         deleteable: boolean("deleteable").notNull().default(true),
-        themeId: text("theme_id").references(() => themes.id, { onDelete: "set null" }),
+        // Logical theme reference: a built-in id such as "learning", or a
+        // saved theme's public `thm_*` id. Public ids keep this boundary
+        // consistent with the pages/themes API and let system themes work
+        // without manufacturing database rows for them.
+        themeId: text("theme_id"),
 
         // Published side — read by public rendering. Only ever written by
         // `publish()`, which copies the draft columns below into these.

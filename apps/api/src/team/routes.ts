@@ -14,26 +14,20 @@ import { createApiKey, deleteApiKey, getApiKeysByTeamId } from "../apikey/querie
 import { serializeDates } from "../utils/public";
 
 const router = Router();
-router.use(requireAuth);
+router.use("/teams", requireAuth);
 
 /**
  * Team management is account-level (list/create/rename/delete which teams
  * an account belongs to), not team-scoped — unlike every other router, this
- * one does not run `requireTeam`. It's also restricted to session auth: an
+ * one does not run `requireTeam`. It's also restricted to user auth: an
  * API key is intentionally scoped to exactly one team, so letting it
  * enumerate/manage every team its owning account belongs to would defeat
  * that isolation.
- *
- * Scoped to `/teams` (not a blanket `router.use(...)`): this router is
- * mounted path-less via `app.use(teamRoutes)`, so an unscoped `.use()` here
- * would run for *every* request that reaches this point in the middleware
- * chain — including ones bound for a later-mounted router like
- * `/docs/search` — and reject any of them made with an API key, before
- * they ever got a chance to match their real route. (The same class of bug
- * fixed for `/public/*` in index.ts — see the comment there.)
+ * Both middleware layers are scoped to `/teams` because this router is
+ * mounted at the API root; neither may intercept another domain's routes.
  */
 router.use("/teams", (req: Request, res: Response, next: NextFunction) => {
-    if ((req as any).authKind !== "session") {
+    if (!["oauth", "session"].includes((req as any).authKind)) {
         res.status(403).json({
             error: "user_auth_required",
             error_description: "Team management requires a user-authenticated session, not an API key.",

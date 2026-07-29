@@ -16,8 +16,9 @@ const client = initClient(contract, {
     baseHeaders: {},
 });
 
-// Broadcast so components with their own team-list fetch (e.g. the sidebar
-// TeamSwitcher) can refresh without a route change or full reload.
+// Broadcast so components with their own team-list fetch (e.g. the
+// AppSidebar's team switcher) can refresh without a route change or full
+// reload.
 export const TEAMS_CHANGED_EVENT = "frontlit:teams-changed";
 function notifyTeamsChanged() {
     if (typeof window !== "undefined") window.dispatchEvent(new Event(TEAMS_CHANGED_EVENT));
@@ -38,11 +39,11 @@ async function unwrap<T>(promise: Promise<{ status: number; body: unknown }>): P
 
     const errorBody = result.body as { error?: string } | undefined;
     if (typeof window !== "undefined") {
-        if (needsTeamSelection(result.status, errorBody?.error) && !window.location.pathname.startsWith("/dashboard/teams")) {
+        if (needsTeamSelection(result.status, errorBody?.error) && !window.location.pathname.startsWith("/teams")) {
             if (isStaleTeamSelectionError(errorBody?.error)) {
                 clearTeamIdCookie();
             }
-            window.location.href = "/dashboard/teams";
+            window.location.href = "/teams";
             return new Promise<T>(() => {});
         }
     }
@@ -62,6 +63,7 @@ export interface Team {
     name: string;
     ownerAccountId?: string;
     externalId?: string | null;
+    subdomain?: string | null;
     createdAt?: string | null;
     updatedAt?: string | null;
 }
@@ -151,7 +153,7 @@ export interface Page {
     updatedAt: string | null;
 }
 
-export function listPages(params: { type?: PageType; q?: string } = {}) {
+export function listPages(params: { type?: PageType; q?: string; offset?: number; itemsPerPage?: number } = {}) {
     return unwrap<Paginated<Page>>(client.pages.list({ query: params }));
 }
 
@@ -167,6 +169,7 @@ export function updatePage(
     pageId: string,
     patch: Partial<{
         name: string;
+        slug: string;
         layout: WidgetInstance[];
         themeId: string | null;
         title: string;
@@ -279,7 +282,7 @@ export interface BlogPost {
     updatedAt: string | null;
 }
 
-export function listBlogPosts(params: { q?: string } = {}) {
+export function listBlogPosts(params: { q?: string; offset?: number; itemsPerPage?: number } = {}) {
     return unwrap<Paginated<BlogPost>>(client.blogs.list({ query: params }));
 }
 
@@ -294,6 +297,7 @@ export function getBlogPost(documentId: string) {
 export function updateBlogPost(
     documentId: string,
     patch: Partial<{
+        slug: string;
         title: string;
         content: TextEditorContent;
         excerpt: string;
@@ -342,7 +346,7 @@ export interface HelpDoc {
     updatedAt: string | null;
 }
 
-export function listHelpDocs(params: { q?: string } = {}) {
+export function listHelpDocs(params: { q?: string; offset?: number; itemsPerPage?: number } = {}) {
     return unwrap<Paginated<HelpDoc>>(client.docs.list({ query: params }));
 }
 
@@ -357,6 +361,7 @@ export function getHelpDoc(documentId: string) {
 export function updateHelpDoc(
     documentId: string,
     patch: Partial<{
+        slug: string;
         title: string;
         content: TextEditorContent;
         excerpt: string;
@@ -461,6 +466,7 @@ export function getChangelogEntry(documentId: string) {
 export function updateChangelogEntry(
     documentId: string,
     patch: Partial<{
+        slug: string;
         title: string;
         content: TextEditorContent;
         excerpt: string;
@@ -555,17 +561,73 @@ export function deleteSegment(segmentId: string) {
 
 export interface NewsletterSettings {
     connected: boolean;
-    fromName?: string | null;
-    fromEmail?: string | null;
-    replyTo?: string | null;
+    mailingAddress?: string | null;
+    updatedAt?: string | null;
 }
 
 export function getNewsletterSettings() {
     return unwrap<NewsletterSettings>(client.newsletter.getSettings());
 }
 
-export function updateNewsletterSettings(patch: Partial<{ fromName: string; fromEmail: string; replyTo: string }>) {
+export function updateNewsletterSettings(patch: { mailingAddress?: string }) {
     return unwrap<NewsletterSettings>(client.newsletter.updateSettings({ body: patch }));
+}
+
+export type EspProvider =
+    | "smtp"
+    | "sendgrid"
+    | "mailgun"
+    | "postmark"
+    | "ses"
+    | "resend"
+    | "custom";
+
+export interface EspConfig {
+    espId: string;
+    name: string;
+    isDefault: boolean;
+    provider: EspProvider;
+    host: string;
+    port: number;
+    secure: boolean;
+    username?: string | null;
+    hasPassword: boolean;
+    fromName?: string | null;
+    fromEmail?: string | null;
+    lastTestedAt?: string | null;
+    lastTestStatus?: "success" | "failed" | null;
+    lastTestError?: string | null;
+    updatedAt?: string | null;
+}
+
+export interface EspConnectionInput {
+    provider: EspProvider;
+    host: string;
+    port: number;
+    secure: boolean;
+    username?: string;
+    /** Omit to retain the secret already stored by SendLit. */
+    password?: string;
+    fromName?: string;
+    fromEmail?: string;
+}
+
+export function getEspConfig() {
+    return unwrap<EspConfig | null>(client.settings.esp.get());
+}
+
+export function updateEspConfig(input: EspConnectionInput) {
+    return unwrap<EspConfig>(client.settings.esp.upsert({ body: input }));
+}
+
+export function deleteEspConfig() {
+    return unwrap<void>(client.settings.esp.remove());
+}
+
+export function testEspConfig(to: string) {
+    return unwrap<{ success: boolean; error?: string }>(
+        client.settings.esp.test({ body: { to } }),
+    );
 }
 
 export interface Broadcast {
@@ -594,12 +656,24 @@ export function sendBroadcast(broadcastId: string) {
 
 // ---- Chatbot --------------------------------------------------------------
 
+export type ChatbotWidgetVariant = "bubble" | "text_input";
+export type ChatbotWidgetStyle = {
+    bubbleShape: "circle" | "rounded" | "square";
+    bubbleIcon: "chat" | "message" | "sparkles" | "bot";
+    bubbleSize: "sm" | "md" | "lg";
+    inputRadius: "none" | "sm" | "md" | "lg" | "full";
+    inputPlaceholder: string | null;
+    inputWidth: "sm" | "md" | "lg";
+};
+
 export interface ChatbotSettings {
     enabled: boolean;
     name: string;
     greeting?: string | null;
     accentColor?: string | null;
     escalationEnabled: boolean;
+    variant: ChatbotWidgetVariant;
+    widgetStyle: ChatbotWidgetStyle;
     createdAt: string | null;
     updatedAt: string | null;
 }
@@ -608,7 +682,18 @@ export function getChatbotSettings() {
     return unwrap<ChatbotSettings>(client.chatbot.get());
 }
 
-export function updateChatbotSettings(patch: Partial<{ enabled: boolean; name: string; greeting: string; accentColor: string; escalationEnabled: boolean }>) {
+export function updateChatbotSettings(
+    patch: Partial<{
+        enabled: boolean;
+        name: string;
+        greeting: string;
+        /** `null` clears the override so the public widget uses the site theme primary. */
+        accentColor: string | null;
+        escalationEnabled: boolean;
+        variant: ChatbotWidgetVariant;
+        widgetStyle: Partial<ChatbotWidgetStyle>;
+    }>,
+) {
     return unwrap<ChatbotSettings>(client.chatbot.update({ body: patch }));
 }
 
@@ -629,7 +714,7 @@ export interface Ticket {
     ticketId: string;
     subject: string;
     status: TicketStatus;
-    requesterEmail: string;
+    requesterEmail: string | null;
     requesterName?: string | null;
     source: TicketSource;
     assigneeAccountId?: string | null;
@@ -642,7 +727,15 @@ export interface TicketWithMessages extends Ticket {
     messages: TicketMessage[];
 }
 
-export function listTickets(params: { status?: TicketStatus; assigneeAccountId?: string; q?: string } = {}) {
+export function listTickets(
+    params: {
+        status?: TicketStatus;
+        assigneeAccountId?: string;
+        q?: string;
+        offset?: number;
+        itemsPerPage?: number;
+    } = {},
+) {
     return unwrap<Paginated<Ticket>>(client.tickets.list({ query: params }));
 }
 
@@ -660,19 +753,21 @@ export function updateTicket(ticketId: string, patch: Partial<{ status: TicketSt
 
 // ---- Domains ----------------------------------------------------------------
 
-export interface Domain {
-    domainId: string;
+export interface Subdomain {
+    name: string;
     hostname: string;
-    kind: "subdomain" | "custom";
+}
+
+export interface CustomDomain {
+    hostname: string;
     status: "pending" | "verified" | "failed";
-    isPrimary: boolean;
     verifiedAt: string | null;
-    createdAt: string | null;
 }
 
 export interface DomainSettings {
-    subdomain: Domain;
-    customDomain: Domain | null;
+    subdomain: Subdomain | null;
+    customDomain: CustomDomain | null;
+    canonicalHost: string | null;
     verificationRecords: { cnameTarget: string; txtName: string; txtValue: string } | null;
 }
 
@@ -694,10 +789,6 @@ export function verifyCustomDomain() {
 
 export function removeCustomDomain() {
     return unwrap<DomainSettings>(client.domains.removeCustomDomain());
-}
-
-export function setPrimaryDomain(primary: "subdomain" | "custom") {
-    return unwrap<DomainSettings>(client.domains.setPrimary({ body: { primary } }));
 }
 
 // ---- Team settings (branding + code injection) -------------------------------

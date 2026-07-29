@@ -6,6 +6,8 @@ import { checkDatabaseConnection } from "./db/client";
 import { createSuperAdminIfMissing } from "./bootstrap";
 import { createApp } from "./app";
 import { startOutboxWorker } from "./newsletter/worker";
+import { describeChatProvider } from "./ai/provider";
+import { resolveEmbeddingsProvider } from "./ai/embeddings";
 
 const app = createApp();
 const port = process.env.PORT || 4000;
@@ -16,6 +18,8 @@ checkConfig()
     .then(() => {
         app.listen(port, () => {
             logger.info(`FrontLit API running at ${port}`);
+            logger.info(describeChatProvider());
+            logger.info(`embeddings=${resolveEmbeddingsProvider()} (Vercel AI SDK)`);
         });
         startOutboxWorker();
     })

@@ -1,16 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { API_URL } from "@/lib/config";
+import { hasServerSession } from "@/lib/server-session";
 import { TEAM_ID_COOKIE } from "@/lib/tokens";
 
 async function forward(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+    const cookieHeader = req.headers.get("cookie") ?? "";
+    if (!(await hasServerSession(cookieHeader))) {
+        return NextResponse.json(
+            { error: "unauthorized" },
+            {
+                status: 401,
+                headers: { "X-Auth-Error": "session_expired" },
+            },
+        );
+    }
+
     const { path } = await params;
-    const cookieHeader = req.headers.get("cookie");
     const targetUrl = `${API_URL}/${path.join("/")}${req.nextUrl.search}`;
     const method = req.method;
     const hasBody = method !== "GET" && method !== "HEAD" && method !== "DELETE";
     const body = hasBody ? await req.text() : undefined;
-    const isTeamManagementRoute = path[0] === "teams";
-    const teamId = isTeamManagementRoute ? undefined : req.cookies.get(TEAM_ID_COOKIE)?.value;
+    // Listing/creating teams is account-level. Nested team routes still
+    // identify a concrete team and should carry the workspace selection just
+    // like every other resource request.
+    const isTeamCollectionRoute = path.length === 1 && path[0] === "teams";
+    const teamId = isTeamCollectionRoute
+        ? undefined
+        : req.cookies.get(TEAM_ID_COOKIE)?.value;
 
     const upstream = await fetch(targetUrl, {
         method,

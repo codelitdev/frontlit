@@ -1,5 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
-import { findTeamByPublicId, isTeamMember, listTeamsForAccount } from "../team/queries";
+import {
+    getTeamByTeamId,
+    getTeamMembership,
+    listTeamsForAccount,
+} from "../team/queries";
 
 function getHeaderValue(value: unknown): string | undefined {
     if (Array.isArray(value)) {
@@ -29,7 +33,7 @@ export async function requireTeam(req: Request, res: Response, next: NextFunctio
 
     const headerTeamId = getHeaderValue(req.headers["x-frontlit-team-id"]);
     if (headerTeamId) {
-        const team = await findTeamByPublicId(headerTeamId);
+        const team = await getTeamByTeamId(headerTeamId);
         if (!team) {
             res.status(400).json({
                 error: "invalid_team_id",
@@ -37,8 +41,20 @@ export async function requireTeam(req: Request, res: Response, next: NextFunctio
             });
             return;
         }
-        const member = await isTeamMember(team.id, anyReq.accountId);
-        if (!member) {
+        let membership;
+        try {
+            membership = await getTeamMembership(
+                team.id,
+                anyReq.accountId,
+            );
+        } catch {
+            res.status(400).json({
+                error: "invalid_team_id",
+                error_description: "The provided team ID is not valid.",
+            });
+            return;
+        }
+        if (!membership) {
             res.status(403).json({
                 error: "not_a_team_member",
                 error_description: "You are not a member of this team.",

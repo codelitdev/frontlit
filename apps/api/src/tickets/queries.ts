@@ -3,16 +3,27 @@ import { db } from "../db/client";
 import { accounts, teamMembers, ticketMessages, tickets, type TicketSource, type TicketStatus, type TextEditorContentRow } from "../db/schema";
 import { generateTicketToken, hashTicketToken, verifyTicketToken } from "./token";
 
-const TEXT_MESSAGE = (text: string): TextEditorContentRow => ({
+export const textTicketMessage = (text: string): TextEditorContentRow => ({
     type: "doc",
     content: [{ type: "paragraph", content: [{ type: "text", text }] }],
 });
+
+export function ticketMessageText(content: unknown): string {
+    if (typeof content === "string") return content;
+    if (!content || typeof content !== "object") return "";
+    const value = content as Record<string, unknown>;
+    const ownText = typeof value.text === "string" ? value.text : "";
+    const childText = Array.isArray(value.content)
+        ? value.content.map(ticketMessageText).join("")
+        : "";
+    return `${ownText}${childText}`;
+}
 
 export async function createTicket(input: {
     teamId: string;
     subject: string;
     message: string;
-    requesterEmail: string;
+    requesterEmail: string | null;
     requesterName?: string;
     source: TicketSource;
 }) {
@@ -34,7 +45,7 @@ export async function createTicket(input: {
         teamId: input.teamId,
         ticketId: ticket.id,
         author: "requester",
-        content: TEXT_MESSAGE(input.message),
+        content: textTicketMessage(input.message),
     });
 
     return { ticket, token };

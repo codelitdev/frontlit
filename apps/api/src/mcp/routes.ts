@@ -14,7 +14,13 @@ router.use(
         auth,
         mcpResourceUrl,
         oauthResourceClient,
-        scopesSupported: ["pages:read", "pages:write", "themes:read", "themes:write"],
+        scopesSupported: [
+            "pages:read",
+            "pages:write",
+            "themes:read",
+            "themes:write",
+        ],
+        apiKeyHeaderName: "x-frontlit-apikey",
     }),
 );
 

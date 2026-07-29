@@ -27,9 +27,11 @@ export const publicPageSchema = z.object({
     type: z.enum(["site", "blog", "landing", "post", "custom"]),
     slug: z.string(),
     layout: z.array(widgetInstanceSchema),
-    // Resolved server-side from the page's `themeId` FK so apps/sites never
-    // needs the (authed) themes contract — `null` means "use the
-    // page-builder's default theme".
+    // A built-in id such as "learning", or a saved theme's public `thm_*`
+    // id. Saved theme styles are resolved server-side below; built-ins are
+    // resolved by apps/sites from the page-builder catalog.
+    themeId: z.string().nullable(),
+    // `null` means the logical id refers to a built-in theme (or no theme).
     theme: z.record(z.any()).nullable(),
     title: z.string().nullable(),
     description: z.string().nullable(),

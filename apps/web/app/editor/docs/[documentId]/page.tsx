@@ -1,55 +1,56 @@
 "use client";
 
 import { use, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { Editor } from "@frontlit/text-editor";
 import type { TextEditorContent } from "@frontlit/text-editor";
-import {
-    discardHelpDocDraft,
-    getHelpDoc,
-    listDocSections,
-    publishHelpDoc,
-    updateHelpDoc,
-    type DocSection,
-    type HelpDoc,
-} from "@/lib/api";
+import { discardHelpDocDraft, getHelpDoc, listDocSections, publishHelpDoc, updateHelpDoc, type DocSection, type HelpDoc } from "@/lib/api";
+import { FullScreenLoading } from "@/components/workspace/loading";
+import { SlugEditor } from "@/components/workspace/slug-editor";
+import { WritingEditorDocumentHeader } from "@/components/workspace/writing-editor-document-header";
+import { WritingEditorShell } from "@/components/workspace/writing-editor-shell";
+import { Label } from "@/components/ui/codelit/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/codelit/select";
+import { Textarea } from "@/components/ui/codelit/textarea";
 
-const STATUS_LABEL: Record<HelpDoc["status"], string> = {
-    draft: "Draft",
-    published: "Published",
-    published_with_changes: "Published · unpublished changes",
-};
-
-const STATUS_CLASS: Record<HelpDoc["status"], string> = {
-    draft: "bg-neutral-200 text-neutral-700",
-    published: "bg-emerald-100 text-emerald-700",
-    published_with_changes: "bg-amber-100 text-amber-700",
-};
+const NO_SECTION = "none";
 
 export default function HelpDocEditorPage({ params }: { params: Promise<{ documentId: string }> }) {
     const { documentId } = use(params);
     const [doc, setDoc] = useState<HelpDoc | null>(null);
     const [sections, setSections] = useState<DocSection[]>([]);
     const [title, setTitle] = useState("");
+    const [description, setDescription] = useState("");
     const [saving, setSaving] = useState(false);
     const [publishing, setPublishing] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
     const [resetKey, setResetKey] = useState(0);
     const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const descriptionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
+        setSettingsOpen(window.matchMedia("(min-width: 768px)").matches);
         getHelpDoc(documentId).then((loaded) => {
             setDoc(loaded);
             setTitle(loaded.draftTitle);
+            setDescription(loaded.draftExcerpt ?? "");
         });
         listDocSections().then(({ items }) => setSections(items));
     }, [documentId]);
+
+    useEffect(
+        () => () => {
+            if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
+            if (descriptionDebounceRef.current) clearTimeout(descriptionDebounceRef.current);
+        },
+        [],
+    );
 
     async function handleSectionChange(sectionId: string) {
         setSaving(true);
         try {
             setDoc(
                 await updateHelpDoc(documentId, {
-                    meta: { sectionId: sectionId || undefined, order: doc?.draftMeta.order ?? 0 },
+                    meta: { sectionId: sectionId === NO_SECTION ? undefined : sectionId, order: doc?.draftMeta.order ?? 0 },
                 }),
             );
         } finally {
@@ -72,6 +73,19 @@ export default function HelpDocEditorPage({ params }: { params: Promise<{ docume
         titleDebounceRef.current = setTimeout(() => saveTitle(value), 600);
     }
 
+    function handleDescriptionChange(value: string) {
+        setDescription(value);
+        if (descriptionDebounceRef.current) clearTimeout(descriptionDebounceRef.current);
+        descriptionDebounceRef.current = setTimeout(async () => {
+            setSaving(true);
+            try {
+                setDoc(await updateHelpDoc(documentId, { excerpt: value }));
+            } finally {
+                setSaving(false);
+            }
+        }, 600);
+    }
+
     async function handleContentChange(json: TextEditorContent) {
         setSaving(true);
         try {
@@ -91,79 +105,129 @@ export default function HelpDocEditorPage({ params }: { params: Promise<{ docume
     }
 
     async function handleDiscardDraft() {
-        if (!confirm("Discard all unpublished changes on this doc?")) return;
+        if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
+        if (descriptionDebounceRef.current) clearTimeout(descriptionDebounceRef.current);
         setPublishing(true);
         try {
             const reverted = await discardHelpDocDraft(documentId);
             setDoc(reverted);
             setTitle(reverted.draftTitle);
+            setDescription(reverted.draftExcerpt ?? "");
             setResetKey((key) => key + 1);
         } finally {
             setPublishing(false);
         }
     }
 
-    if (!doc) {
-        return <div className="flex h-screen w-full items-center justify-center text-neutral-500">Loading doc…</div>;
+    async function handleSlugSave(slug: string) {
+        const updated = await updateHelpDoc(documentId, { slug });
+        setDoc(updated);
+        return updated.slug;
     }
 
-    return (
-        <div className="flex h-screen w-full flex-col">
-            <div className="flex h-11 shrink-0 items-center justify-between border-b border-neutral-200 bg-white px-4">
-                <Link href="/dashboard/docs" className="text-xs text-neutral-600 hover:underline">
-                    ← Docs
-                </Link>
-                <div className="flex items-center gap-2">
-                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_CLASS[doc.status]}`} data-testid="doc-status-badge">
-                        {STATUS_LABEL[doc.status]}
-                    </span>
-                    {saving && <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-500">Saving…</span>}
-                    <button
-                        onClick={handleDiscardDraft}
-                        disabled={publishing || doc.status === "published"}
-                        className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs text-neutral-600 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                        Discard draft
-                    </button>
-                    <button
-                        onClick={handlePublish}
-                        disabled={publishing || doc.status === "published"}
-                        className="rounded-full bg-neutral-900 px-3 py-1 text-xs text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
-                        data-testid="publish-button"
-                    >
-                        {publishing ? "Publishing…" : "Publish"}
-                    </button>
-                </div>
-            </div>
+    if (!doc) {
+        return <FullScreenLoading label="Loading doc…" />;
+    }
 
-            <div className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto px-6 py-8">
-                <input
-                    value={title}
-                    onChange={(e) => handleTitleChange(e.target.value)}
-                    placeholder="Doc title"
-                    className="mb-2 w-full border-none text-3xl font-bold outline-none placeholder:text-neutral-300"
-                    data-testid="doc-title-input"
-                />
-                <select
-                    value={doc.draftMeta.sectionId ?? ""}
-                    onChange={(e) => handleSectionChange(e.target.value)}
-                    className="mb-6 rounded-md border border-neutral-300 px-2 py-1 text-xs text-neutral-600 outline-none focus:border-neutral-500"
-                    data-testid="doc-section-select"
-                >
-                    <option value="">No section</option>
-                    {sections.map((section) => (
-                        <option key={section.sectionId} value={section.sectionId}>
-                            {section.name}
-                        </option>
-                    ))}
-                </select>
-                <Editor
-                    key={resetKey}
-                    initialContent={doc.draftContent}
-                    onChange={handleContentChange}
-                    placeholder="Write the doc… use headings to organize into sections."
-                />
-            </div>
-        </div>
+    const activeSection =
+        sections.find((section) => section.sectionId === doc.draftMeta.sectionId);
+
+    return (
+        <WritingEditorShell
+            backHref="/docs"
+            backLabel="Docs"
+            contextLabel={activeSection?.name}
+            title={title || "Untitled doc"}
+            status={doc.status}
+            statusTestId="doc-status-badge"
+            updatedAt={doc.updatedAt}
+            saving={saving}
+            publishing={publishing}
+            publishingLabel="Publishing & indexing…"
+            settingsOpen={settingsOpen}
+            onSettingsOpenChange={setSettingsOpen}
+            onPublish={handlePublish}
+            onDiscardDraft={handleDiscardDraft}
+            discardDescription="Discard all unpublished changes on this doc? This cannot be undone."
+            settings={
+                <div className="space-y-7">
+                    <SlugEditor
+                        slug={doc.slug}
+                        prefix="/docs/"
+                        onSave={handleSlugSave}
+                        testId="doc-slug-input"
+                    />
+
+                    <div>
+                        <Label htmlFor="doc-section">Section</Label>
+                        <Select
+                            value={doc.draftMeta.sectionId ?? NO_SECTION}
+                            onValueChange={handleSectionChange}
+                        >
+                            <SelectTrigger
+                                id="doc-section"
+                                className="mt-1"
+                                data-testid="doc-section-select"
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={NO_SECTION}>No section</SelectItem>
+                                {sections.map((section) => (
+                                    <SelectItem key={section.sectionId} value={section.sectionId}>
+                                        {section.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div>
+                        <div className="flex items-center justify-between gap-3">
+                            <Label htmlFor="doc-description">Search description</Label>
+                            <span className="text-xs tabular-nums text-muted-foreground">
+                                {description.length} characters
+                            </span>
+                        </div>
+                        <Textarea
+                            id="doc-description"
+                            value={description}
+                            onChange={(event) => handleDescriptionChange(event.target.value)}
+                            placeholder="A short description for search results and doc listings."
+                            className="mt-1 min-h-28"
+                        />
+                    </div>
+
+                    <div className="border-t pt-6">
+                        <h3 className="text-sm font-semibold">Search indexing</h3>
+                        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                            This doc is chunked and indexed for semantic search every time
+                            you publish it.
+                        </p>
+                    </div>
+                </div>
+            }
+        >
+            <Editor
+                key={resetKey}
+                initialContent={doc.draftContent}
+                onChange={handleContentChange}
+                placeholder="Write the doc… use headings to organize it."
+                className="h-full min-h-0 gap-0 overflow-x-hidden overflow-y-auto border-0"
+                contentClassName="max-w-[46rem]"
+                editorClassName="writing-editor-content min-h-[420px]"
+                beforeContent={
+                    <WritingEditorDocumentHeader
+                        title={title}
+                        titlePlaceholder="Doc title"
+                        description={description}
+                        descriptionPlaceholder="Add a short description…"
+                        onTitleChange={handleTitleChange}
+                        onDescriptionChange={handleDescriptionChange}
+                        titleTestId="doc-title-input"
+                    />
+                }
+            />
+        </WritingEditorShell>
     );
 }

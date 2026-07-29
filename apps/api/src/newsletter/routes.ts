@@ -18,35 +18,24 @@ import {
     listSegments,
     removeContactTag,
     sendBroadcast,
-    SendlitApiError,
+    toBroadcast,
     updateBroadcast,
     updateGeneralSettings,
     updateSegment,
 } from "./sendlit-client";
-
-const NOT_CONNECTED = { status: 409 as const, body: { error: "SendLit is not connected for this team yet" } };
+import { withSendlitKey } from "./proxy";
 
 /** Every handler in this module is a thin, team-scoped proxy over the
  * team's provisioned SendLit team \u2014 FrontLit stores no contact, segment or
  * broadcast data of its own (architecture.md \u00a710.2/\u00a710.3). A team without a
  * SendLit integration yet (provisioning still retrying, or newsletter
  * disabled in this deployment) gets a 409 rather than a crash. */
-async function withSendlitKey<T>(teamId: string, fn: (apiKey: string) => Promise<T>): Promise<{ status: number; body: unknown }> {
-    const apiKey = await getSendlitApiKey(teamId);
-    if (!apiKey) return NOT_CONNECTED;
-    try {
-        return { status: 200, body: await fn(apiKey) };
-    } catch (err) {
-        if (err instanceof SendlitApiError && err.status) {
-            return { status: err.status, body: { error: err.message } };
-        }
-        throw err;
-    }
-}
-
 const router = Router();
-router.use(requireAuth);
-router.use(requireTeam);
+router.use(
+    ["/contacts", "/newsletter"],
+    requireAuth,
+    requireTeam,
+);
 
 const s = initServer();
 
@@ -95,30 +84,27 @@ const newsletterImpl = s.router(contract.newsletter, {
             return { status: 200, body: { connected: true } };
         }
     },
-    updateSettings: async ({ body, req }) => withSendlitKey((req as any).teamId, (apiKey) => updateGeneralSettings(apiKey, body)) as any,
+    updateSettings: async ({ body, req }) =>
+        withSendlitKey((req as any).teamId, async (apiKey) => ({
+            connected: true,
+            ...(await updateGeneralSettings(apiKey, body)),
+        })) as any,
     listBroadcasts: async ({ req }) =>
         withSendlitKey((req as any).teamId, async (apiKey) => {
             const { items } = await listBroadcasts(apiKey);
-            return items.map((item) => ({
-                broadcastId: item.sequenceId,
-                name: item.name,
-                status: item.status,
-                subject: item.subject,
-                body: item.body,
-                createdAt: item.createdAt,
-            }));
+            return items.map(toBroadcast);
         }).then((r) => (r.status === 200 ? { status: 200, body: { items: r.body } } : r)) as any,
     createBroadcast: async ({ body, req }) => {
         const result = await withSendlitKey((req as any).teamId, async (apiKey) => {
             const created = await createBroadcast(apiKey, body);
-            return { broadcastId: created.sequenceId, name: created.name, status: created.status, subject: created.subject, body: created.body, createdAt: created.createdAt };
+            return toBroadcast(created);
         });
         return (result.status === 200 ? { status: 201, body: result.body } : result) as any;
     },
     updateBroadcast: async ({ params, body, req }) =>
         withSendlitKey((req as any).teamId, async (apiKey) => {
             const updated = await updateBroadcast(apiKey, params.broadcastId, body);
-            return { broadcastId: updated.sequenceId, name: updated.name, status: updated.status, subject: updated.subject, body: updated.body, createdAt: updated.createdAt };
+            return toBroadcast(updated);
         }) as any,
     sendBroadcast: async ({ params, req }) => withSendlitKey((req as any).teamId, (apiKey) => sendBroadcast(apiKey, params.broadcastId)) as any,
     getBroadcastStats: async ({ params, req }) => withSendlitKey((req as any).teamId, (apiKey) => getBroadcastStats(apiKey, params.broadcastId)) as any,

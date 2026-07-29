@@ -17,7 +17,9 @@ export const ticketSchema = z.object({
     ticketId: z.string(),
     subject: z.string(),
     status: ticketStatusSchema,
-    requesterEmail: z.string(),
+    /** Chat conversations can start anonymously; form/API tickets always
+     * provide an email address. */
+    requesterEmail: z.string().nullable(),
     requesterName: z.string().nullable().optional(),
     source: ticketSourceSchema,
     assigneeAccountId: z.string().nullable().optional(),
@@ -30,7 +32,7 @@ export const ticketWithMessagesSchema = ticketSchema.extend({
     messages: z.array(ticketMessageSchema),
 });
 
-// ---- Dashboard (authed) -----------------------------------------------------
+// ---- Workspace (authed) -----------------------------------------------------
 
 export const listTicketsQuerySchema = z.object({
     status: ticketStatusSchema.optional(),

@@ -21,6 +21,7 @@ export const pageSeoSchema = z.object({
 });
 
 export const pageStatusSchema = z.enum(["draft", "published", "published_with_changes"]);
+const themeReferenceSchema = z.string().min(1).max(128);
 
 export const pageSchema = z.object({
     pageId: z.string(),
@@ -32,7 +33,7 @@ export const pageSchema = z.object({
     publishedAt: z.string().nullable().optional(),
     // Published fields — what the public site renders.
     layout: z.array(widgetInstanceSchema),
-    themeId: z.string().nullable().optional(),
+    themeId: themeReferenceSchema.nullable().optional(),
     title: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
     socialImage: z.record(z.any()).nullable().optional(),
@@ -50,15 +51,16 @@ export const pageSchema = z.object({
 export const createPageBodySchema = z.object({
     name: z.string().min(1),
     type: z.enum(pageTypes),
-    themeId: z.string().optional(),
+    themeId: themeReferenceSchema.optional(),
 });
 
-/** Every field here is written to the page's *draft* columns, not the
- * published ones — see architecture.md §3. Promote with `publish`. */
+/** Page content/SEO fields are written to draft columns and promoted by
+ * publish. `themeId` and `slug` apply immediately. */
 export const updatePageBodySchema = z.object({
     name: z.string().optional(),
+    slug: z.string().min(1).max(200).optional(),
     layout: z.array(widgetInstanceSchema).optional(),
-    themeId: z.string().nullable().optional(),
+    themeId: themeReferenceSchema.nullable().optional(),
     title: z.string().optional(),
     description: z.string().optional(),
     socialImage: z.record(z.any()).optional(),

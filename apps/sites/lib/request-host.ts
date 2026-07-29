@@ -1,14 +1,12 @@
 import { headers } from "next/headers";
 
 /**
- * The request's `Host` header. Within any `/sites/[teamId]/...` route this
- * is guaranteed to already be the team's *primary* host — the middleware
- * only rewrites (rather than 308-redirecting) once a host resolves as
- * primary (architecture.md §12.1/§12.2) — so routes can use it directly for
- * canonical URLs, JSON-LD and RSS/sitemap absolute links without a second
- * lookup.
+ * The middleware resolves this team's canonical host and injects it into the
+ * rewritten request. Both the permanent FrontLit subdomain and a verified
+ * custom domain render normally; metadata, JSON-LD and feeds use the
+ * canonical host without another API lookup.
  */
-export async function getPrimaryHost(): Promise<string> {
+export async function getCanonicalHost(): Promise<string> {
     const h = await headers();
-    return h.get("host") ?? "localhost";
+    return h.get("x-frontlit-canonical-host") ?? h.get("host") ?? "localhost";
 }

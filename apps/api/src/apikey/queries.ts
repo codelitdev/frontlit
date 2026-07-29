@@ -3,6 +3,8 @@ import { db } from "../db/client";
 import { apiKeys } from "../db/schema";
 import { generateApiKey, hashApiKey } from "./secret";
 
+export type ApiKey = typeof apiKeys.$inferSelect;
+
 export async function getApiKeyBySecret(secret: string) {
     const keyHash = hashApiKey(secret);
     const apiKey = await db.query.apiKeys.findFirst({ where: eq(apiKeys.keyHash, keyHash) });

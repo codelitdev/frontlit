@@ -8,6 +8,7 @@ import { getAddableBlocks, getWidget } from "../registry";
 import {
   createDefaultLayout,
   createWidgetInstance,
+  ensureRequiredSharedWidgets,
   getDefaultTheme,
 } from "../starter";
 import { debounce } from "../utils";
@@ -73,7 +74,10 @@ export function PageBuilder({
   className,
 }: PageBuilderProps) {
   const [layout, setLayout] = useState<WidgetInstance[]>(
-    () => initialLayout ?? createDefaultLayout(),
+    () =>
+      initialLayout
+        ? ensureRequiredSharedWidgets(initialLayout)
+        : createDefaultLayout(),
   );
   const [theme, setTheme] = useState<Theme>(
     () => initialTheme ?? getDefaultTheme(),
@@ -126,8 +130,19 @@ export function PageBuilder({
 
   function moveWidget(widgetId: string, direction: -1 | 1) {
     const index = layout.findIndex((w) => w.widgetId === widgetId);
+    if (
+      index === -1 ||
+      ["header", "footer"].includes(layout[index].name) ||
+      !layout[index].deleteable
+    ) {
+      return;
+    }
     const targetIndex = index + direction;
-    if (index === -1 || targetIndex < 0 || targetIndex >= layout.length) {
+    if (
+      targetIndex < 0 ||
+      targetIndex >= layout.length ||
+      ["header", "footer"].includes(layout[targetIndex].name)
+    ) {
       return;
     }
     setLayout((prev) => {
@@ -141,7 +156,17 @@ export function PageBuilder({
   }
 
   function deleteWidget(widgetId: string) {
-    setLayout((prev) => prev.filter((w) => w.widgetId !== widgetId));
+    setLayout((prev) => {
+      const widget = prev.find((item) => item.widgetId === widgetId);
+      if (
+        !widget ||
+        !widget.deleteable ||
+        ["header", "footer"].includes(widget.name)
+      ) {
+        return prev;
+      }
+      return prev.filter((item) => item.widgetId !== widgetId);
+    });
     setPanel((current) =>
       current?.mode === "block" && current.widgetId === widgetId
         ? null
