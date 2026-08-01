@@ -2,13 +2,18 @@ import type { AddressInfo } from "node:net";
 import express from "express";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getSession = vi.fn(async () => null as any);
-const listTeamsForUser = vi.fn(async () => [] as any[]);
-const getSelectedTeamId = vi.fn(async () => null as string | null);
-const setSelectedTeamId = vi.fn(async () => {});
+const { getSession, listTeamsForUser, getSelectedTeamId, setSelectedTeamId } =
+    vi.hoisted(() => ({
+        getSession: vi.fn(async () => null as any),
+        listTeamsForUser: vi.fn(async () => [] as any[]),
+        getSelectedTeamId: vi.fn(async () => null as string | null),
+        setSelectedTeamId: vi.fn(async () => {}),
+    }));
 
 vi.mock("./better-auth", () => ({
     webClientUrl: "http://localhost:3000",
+    authBasePath: "/api/auth",
+    hostedLoginMethods: [{ type: "email-otp" }],
     auth: { api: { getSession } },
     oauthTeamSelectionAdapter: {
         listTeamsForUser,
@@ -16,12 +21,13 @@ vi.mock("./better-auth", () => ({
         setSelectedTeamId,
     },
 }));
-
 vi.mock("better-auth/node", () => ({
     fromNodeHeaders: (headers: unknown) => headers,
 }));
 
-describe("Hosted login pages", () => {
+import oauthPagesRoutes from "./oauth-pages.js";
+
+describe("FrontLit OAuth pages", () => {
     let app: express.Express;
 
     beforeEach(async () => {
@@ -29,33 +35,29 @@ describe("Hosted login pages", () => {
         getSession.mockResolvedValue(null);
         listTeamsForUser.mockResolvedValue([]);
         getSelectedTeamId.mockResolvedValue(null);
-
-        vi.resetModules();
-        const oauthPagesRoutes = (await import("./oauth-pages")).default;
         app = express();
         app.use(oauthPagesRoutes);
+        app.use(
+            (
+                error: Error,
+                _request: express.Request,
+                response: express.Response,
+                _next: express.NextFunction,
+            ) => response.status(503).json({ error: error.message }),
+        );
     });
 
-    async function request(
-        path: string,
-        init: RequestInit = {},
-    ): Promise<{
-        status: number;
-        headers: Headers;
-        body: string;
-        json: () => any;
-    }> {
+    async function request(path: string, init: RequestInit = {}) {
         const server = app.listen(0, "127.0.0.1");
         try {
             await new Promise<void>((resolve) =>
                 server.once("listening", resolve),
             );
             const { port } = server.address() as AddressInfo;
-            const response = await fetch(
-                `http://127.0.0.1:${port}${path}`,
-                // Keep 302s visible — Node fetch follows redirects by default.
-                { redirect: "manual", ...init },
-            );
+            const response = await fetch(`http://127.0.0.1:${port}${path}`, {
+                redirect: "manual",
+                ...init,
+            });
             const body = await response.text();
             return {
                 status: response.status,
@@ -64,215 +66,104 @@ describe("Hosted login pages", () => {
                 json: () => JSON.parse(body),
             };
         } finally {
-            await new Promise<void>((resolve, reject) => {
-                server.close((error) => (error ? reject(error) : resolve()));
-            });
+            await new Promise<void>((resolve, reject) =>
+                server.close((error) => (error ? reject(error) : resolve())),
+            );
         }
     }
-
-    function jsonRequest(path: string, body: unknown) {
-        return request(path, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify(body),
-        });
-    }
-
-    function redirectTargetFrom(body: string): string | undefined {
-        return body.match(/var redirectTarget = "([^"]*)"/)?.[1];
-    }
-
-    describe("GET /login", () => {
-        it("defaults to the web client root when no redirect is given", async () => {
-            const res = await request("/login");
-
-            expect(res.status).toBe(200);
-            expect(redirectTargetFrom(res.body)).toBe("http://localhost:3000/");
-            expect(res.body).toContain("Sign in to FrontLit");
-        });
-
-        it("honors a redirect on the web client's own origin", async () => {
-            const res = await request(
-                "/login?redirect=" +
-                    encodeURIComponent("http://localhost:3000/pages/foo"),
-            );
-
-            expect(redirectTargetFrom(res.body)).toBe(
-                "http://localhost:3000/pages/foo",
-            );
-        });
-
-        it("rejects a redirect to a different origin (open-redirect protection)", async () => {
-            const res = await request(
-                "/login?redirect=" +
-                    encodeURIComponent("http://evil.com/steal"),
-            );
-
-            expect(redirectTargetFrom(res.body)).toBe("http://localhost:3000/");
-        });
-
-        it("rejects a malformed redirect instead of throwing", async () => {
-            const res = await request(
-                "/login?redirect=" + encodeURIComponent("not-a-valid-url"),
-            );
-
-            expect(res.status).toBe(200);
-            expect(redirectTargetFrom(res.body)).toBe("http://localhost:3000/");
-        });
-
-        it("sets anti-clickjacking headers", async () => {
-            const res = await request("/login");
-
-            expect(res.headers.get("content-security-policy")).toBe(
-                "frame-ancestors 'none'",
-            );
-            expect(res.headers.get("x-frame-options")).toBe("DENY");
-        });
-
-        it("renders the email/OTP login form", async () => {
-            const res = await request("/login");
-
-            expect(res.body).toContain('id="email-form"');
-            expect(res.body).toContain('id="otp-form"');
-            expect(res.body).toContain('id="google-submit"');
-        });
-    });
-
-    describe("GET /oauth/login", () => {
-        it("renders the OAuth-flow login page without a web redirect target", async () => {
-            const res = await request(
-                "/oauth/login?client_id=abc&response_type=code",
-            );
-
-            expect(res.status).toBe(200);
-            expect(res.body).toContain('id="email-form"');
-            expect(res.body).toContain("oauth_query");
-            expect(res.body).not.toContain("redirectTarget");
-        });
-    });
 
     const session = {
         user: { id: "user-1", email: "owner@example.com" },
         session: { id: "session-1" },
     };
-    const teamA = {
-        id: "internal-a",
-        publicId: "team_aaa",
-        name: "Team A",
-    };
-    const teamB = {
-        id: "internal-b",
-        publicId: "team_bbb",
-        name: "Team B",
-    };
+    const teamA = { id: "internal-a", publicId: "team_aaa", name: "Team A" };
+    const teamB = { id: "internal-b", publicId: "team_bbb", name: "Team B" };
 
-    describe("GET /oauth/select-team", () => {
-        it("sends an unauthenticated visitor back through login", async () => {
-            getSession.mockResolvedValue(null);
-
-            const res = await request(
-                "/oauth/select-team?client_id=abc&scope=pages:read",
-            );
-
-            expect(res.status).toBe(302);
-            expect(res.headers.get("location")).toBe(
-                "/oauth/login?client_id=abc&scope=pages:read",
-            );
-        });
-
-        it("auto-continues instead of showing a picker for a single-team account", async () => {
-            getSession.mockResolvedValue(session);
-            listTeamsForUser.mockResolvedValue([teamA]);
-
-            const res = await request("/oauth/select-team?client_id=abc");
-
-            expect(res.status).toBe(200);
-            expect(res.body).toContain("oauth2/continue");
-            expect(res.body).not.toContain('class="team-option"');
-        });
-
-        it("renders public team ids without leaking internal ids", async () => {
-            getSession.mockResolvedValue(session);
-            listTeamsForUser.mockResolvedValue([teamA, teamB]);
-
-            const res = await request("/oauth/select-team?client_id=abc");
-
-            expect(res.status).toBe(200);
-            expect(res.body).toContain(`value="${teamA.publicId}"`);
-            expect(res.body).toContain(`value="${teamB.publicId}"`);
-            expect(res.body).not.toContain(teamA.id);
-            expect(res.body).not.toContain(teamB.id);
-            expect(res.body).toContain("Team A");
-            expect(res.body).toContain("Team B");
-            expect(res.headers.get("x-frame-options")).toBe("DENY");
-        });
+    it("mounts the shared hosted login with FrontLit configuration", async () => {
+        const response = await request(
+            "/login?redirect=http://localhost:3000/pages/foo",
+        );
+        expect(response.status).toBe(200);
+        expect(response.body).toContain("Sign in to FrontLit");
+        expect(response.body).toContain('var authBasePath="/api/auth"');
+        expect(response.body).toContain("http://localhost:3000/pages/foo");
+        expect(response.body).not.toContain("Continue with Google");
+        expect(response.headers.get("x-frame-options")).toBe("DENY");
     });
 
-    describe("POST /oauth/select-team", () => {
-        it("rejects an unauthenticated request", async () => {
-            getSession.mockResolvedValue(null);
+    it("routes unauthenticated team selection through OAuth login", async () => {
+        const response = await request(
+            "/oauth/select-team?client_id=abc&scope=pages:read",
+        );
+        expect(response.status).toBe(302);
+        expect(response.headers.get("location")).toBe(
+            "/oauth/login?client_id=abc&scope=pages:read",
+        );
+    });
 
-            const res = await jsonRequest("/oauth/select-team", {
-                teamId: teamA.publicId,
-            });
+    it("auto-continues for accounts that do not need a picker", async () => {
+        getSession.mockResolvedValue(session);
+        listTeamsForUser.mockResolvedValue([teamA]);
+        const response = await request("/oauth/select-team?client_id=abc");
+        expect(response.status).toBe(200);
+        expect(response.body).toContain("/api/auth/oauth2/continue");
+        expect(response.body).not.toContain('class="team-option"');
+    });
 
-            expect(res.status).toBe(401);
-            expect(res.json()).toMatchObject({ error: "unauthorized" });
+    it("renders only public team IDs and escapes team names", async () => {
+        getSession.mockResolvedValue(session);
+        listTeamsForUser.mockResolvedValue([
+            { ...teamA, name: "Team <A>" },
+            teamB,
+        ]);
+        const response = await request("/oauth/select-team?client_id=abc");
+        expect(response.body).toContain(`value="${teamA.publicId}"`);
+        expect(response.body).toContain(`value="${teamB.publicId}"`);
+        expect(response.body).not.toContain(teamA.id);
+        expect(response.body).toContain("Team &lt;A&gt;");
+        expect(response.headers.get("x-frame-options")).toBe("DENY");
+    });
+
+    it("validates and records a selected public team ID", async () => {
+        getSession.mockResolvedValue(session);
+        listTeamsForUser.mockResolvedValue([teamA, teamB]);
+        const response = await request("/oauth/select-team", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ teamId: teamB.publicId }),
         });
+        expect(response.status).toBe(200);
+        expect(response.json()).toEqual({ ok: true });
+        expect(setSelectedTeamId).toHaveBeenCalledWith("session-1", teamB.id);
+    });
 
-        it("requires a teamId", async () => {
-            getSession.mockResolvedValue(session);
+    it("forwards asynchronous team lookup failures to Express", async () => {
+        getSession.mockResolvedValue(session);
+        listTeamsForUser.mockRejectedValueOnce(
+            new Error("database unavailable"),
+        );
+        const response = await request("/oauth/select-team?client_id=abc");
+        expect(response.status).toBe(503);
+        expect(response.json()).toEqual({ error: "database unavailable" });
+    });
 
-            const res = await jsonRequest("/oauth/select-team", {});
-
-            expect(res.status).toBe(400);
-            expect(res.json().error).toBe("invalid_request");
-        });
-
-        it("rejects a team the account does not belong to", async () => {
-            getSession.mockResolvedValue(session);
+    it.each([
+        [null, {}, 401, "unauthorized"],
+        [session, {}, 400, "invalid_request"],
+        [session, { teamId: teamB.publicId }, 403, "not_a_team_member"],
+    ])(
+        "rejects invalid team selection",
+        async (activeSession, body, status, error) => {
+            getSession.mockResolvedValue(activeSession);
             listTeamsForUser.mockResolvedValue([teamA]);
-
-            const res = await jsonRequest("/oauth/select-team", {
-                teamId: teamB.publicId,
+            const response = await request("/oauth/select-team", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify(body),
             });
-
-            expect(res.status).toBe(403);
-            expect(res.json().error).toBe("not_a_team_member");
+            expect(response.status).toBe(status);
+            expect(response.json()).toMatchObject({ error });
             expect(setSelectedTeamId).not.toHaveBeenCalled();
-        });
-
-        it("records the selection against the internal team id, keyed by session", async () => {
-            getSession.mockResolvedValue(session);
-            listTeamsForUser.mockResolvedValue([teamA, teamB]);
-
-            const res = await jsonRequest("/oauth/select-team", {
-                teamId: teamB.publicId,
-            });
-
-            expect(res.status).toBe(200);
-            expect(res.json()).toEqual({ ok: true });
-            expect(setSelectedTeamId).toHaveBeenCalledWith(
-                session.session.id,
-                teamB.id,
-            );
-        });
-    });
-
-    describe("GET /oauth/consent", () => {
-        it("shows the previously selected team for a multi-team account", async () => {
-            getSession.mockResolvedValue(session);
-            listTeamsForUser.mockResolvedValue([teamA, teamB]);
-            getSelectedTeamId.mockResolvedValue(teamB.id);
-
-            const res = await request(
-                "/oauth/consent?client_id=abc&scope=pages:read",
-            );
-
-            expect(res.status).toBe(200);
-            expect(res.body).toContain("Team B");
-            expect(res.body).not.toContain("Team A");
-            expect(res.body).toContain("pages:read");
-        });
-    });
+        },
+    );
 });

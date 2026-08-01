@@ -6,7 +6,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../auth/better-auth", () => ({
-    auth: {},
+    auth: {
+        options: { baseURL: "http://localhost:4000", basePath: "/api/auth" },
+        api: {},
+    },
     mcpResourceUrl: "http://localhost:4000/mcp",
     oauthResourceClient: {
         getActions: () => ({

@@ -43,7 +43,7 @@ describe("newsletter outbox lifecycle", () => {
 
         await markOutboxJobDone(job.id);
         const done = await db.query.outboxJobs.findFirst({
-            where: (row, { eq }) => eq(row.id, job.id),
+            where: eq(outboxJobs.id, job.id),
         });
         expect(done?.status).toBe("done");
         expect(await claimNextOutboxJob()).toBeNull();
@@ -59,7 +59,7 @@ describe("newsletter outbox lifecycle", () => {
 
         await markOutboxJobFailed(job.id, 0, "SendLit down");
         const retried = await db.query.outboxJobs.findFirst({
-            where: (row, { eq }) => eq(row.id, job.id),
+            where: eq(outboxJobs.id, job.id),
         });
         expect(retried?.status).toBe("pending");
         expect(retried?.attempts).toBe(1);
@@ -78,7 +78,7 @@ describe("newsletter outbox lifecycle", () => {
         // Force permanent failure: attempts + 1 >= 8 when attempts is 7.
         await markOutboxJobFailed(job.id, 7, "still down");
         const failed = await db.query.outboxJobs.findFirst({
-            where: (row, { eq }) => eq(row.id, job.id),
+            where: eq(outboxJobs.id, job.id),
         });
         expect(failed?.status).toBe("failed");
         expect(failed?.attempts).toBe(8);

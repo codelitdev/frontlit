@@ -4,28 +4,22 @@ import { emailOTP } from "better-auth/plugins/email-otp";
 import { jwt } from "better-auth/plugins/jwt";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { oauthProviderResourceClient } from "@better-auth/oauth-provider/resource-client";
-import {
-    createOAuthTeamSelectionHooks,
-    type OAuthTeamSelectionAdapter,
-} from "@codelitdev/oauth-server-kit";
+import { createOAuthProviderOptions } from "@codelitdev/oauth-server-kit/better-auth";
+import type { HostedLoginMethod } from "@codelitdev/oauth-server-kit/express";
 import { createTransport } from "nodemailer";
 import { db } from "../db/client";
 import * as schema from "../db/schema";
 import { logger } from "../services/log";
+import { ensureFrontLitAccountForUser } from "../account/queries";
 import {
-    ensureFrontLitAccountForBetterAuthUserId,
-    ensureFrontLitAccountForUser,
-} from "../account/queries";
-import {
-    getOAuthTeamSelection,
-    listTeamsForAccount,
-    setOAuthTeamSelection,
-} from "../team/queries";
+    createFrontLitOAuthTeamSelectionHooks,
+    oauthTeamSelectionAdapter,
+} from "./oauth-team-selection";
 
 export const webClientUrl = process.env.WEB_CLIENT || "http://localhost:3000";
 const apiUrl = process.env.API_PUBLIC_URL || process.env.BETTER_AUTH_URL;
 const authBaseUrl = apiUrl || "http://localhost:4000";
-const authBasePath = "/api/auth";
+export const authBasePath = "/api/auth";
 
 /** Parent domain shared by `apps/web` and `apps/api` in production. When
  * set, the session cookie is scoped to this domain instead of being
@@ -93,20 +87,20 @@ async function sendOtpEmail(email: string, otp: string) {
     });
 }
 
-export const oauthTeamSelectionAdapter: OAuthTeamSelectionAdapter = {
-    async listTeamsForUser(userId) {
-        const account = await ensureFrontLitAccountForBetterAuthUserId(userId);
-        if (!account) return [];
-        const teams = await listTeamsForAccount(account.id);
-        return teams.map((team) => ({
-            id: team.id,
-            publicId: team.teamId,
-            name: team.name,
-        }));
-    },
-    getSelectedTeamId: getOAuthTeamSelection,
-    setSelectedTeamId: setOAuthTeamSelection,
-};
+export { oauthTeamSelectionAdapter };
+
+export const hostedLoginMethods: HostedLoginMethod[] = [
+    { type: "email-otp" },
+    ...(googleClientId && googleClientSecret
+        ? [
+              {
+                  type: "social" as const,
+                  providerId: "google",
+                  label: "Continue with Google",
+              },
+          ]
+        : []),
+];
 
 export const auth = betterAuth({
     appName: "FrontLit",
@@ -179,6 +173,31 @@ export const auth = betterAuth({
         }),
         jwt(),
         oauthProvider({
+            ...createOAuthProviderOptions({
+                loginPage: `${authBaseUrl}/oauth/login`,
+                consentPage: `${authBaseUrl}/oauth/consent`,
+                allowDynamicClientRegistration: true,
+                allowUnauthenticatedDynamicClientRegistration: true,
+                scopes: [
+                    "openid",
+                    "profile",
+                    "email",
+                    "offline_access",
+                    "pages:read",
+                    "pages:write",
+                    "themes:read",
+                    "themes:write",
+                ],
+                validAudiences: validOAuthAudiences,
+                clientRegistrationDefaultScopes: ["openid", "profile", "email"],
+                clientRegistrationAllowedScopes: [
+                    "offline_access",
+                    "pages:read",
+                    "pages:write",
+                    "themes:read",
+                    "themes:write",
+                ],
+            }),
             schema: {
                 oauthClient: {
                     modelName: "authOAuthClient",
@@ -193,25 +212,7 @@ export const auth = betterAuth({
                     modelName: "authOAuthConsent",
                 },
             },
-            // Self-hosted by this API (see ./oauth-pages.ts), not the web
-            // dashboard — so a new MCP/OAuth client can complete its first
-            // authorization even where the web app isn't deployed at all.
-            loginPage: `${authBaseUrl}/oauth/login`,
-            consentPage: `${authBaseUrl}/oauth/consent`,
-            allowDynamicClientRegistration: true,
-            allowUnauthenticatedClientRegistration: true,
-            scopes: [
-                "openid",
-                "profile",
-                "email",
-                "offline_access",
-                "pages:read",
-                "pages:write",
-                "themes:read",
-                "themes:write",
-            ],
-            validAudiences: validOAuthAudiences,
-            ...createOAuthTeamSelectionHooks({
+            ...createFrontLitOAuthTeamSelectionHooks({
                 page: `${authBaseUrl}/oauth/select-team`,
                 adapter: oauthTeamSelectionAdapter,
             }),

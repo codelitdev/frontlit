@@ -1,7 +1,7 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { createMcpOAuthDiscoveryRoutes } from "@codelitdev/oauth-server-kit";
+import { createMcpOAuthDiscoveryRoutes } from "@codelitdev/oauth-server-kit/mcp";
 import { mcpAuth } from "../auth/middleware";
 import { requireTeam } from "../auth/require-team";
 import { auth, mcpResourceUrl, oauthResourceClient } from "../auth/better-auth";
@@ -12,7 +12,7 @@ const router = Router();
 router.use(
     createMcpOAuthDiscoveryRoutes({
         auth,
-        mcpResourceUrl,
+        resourceUrl: mcpResourceUrl,
         oauthResourceClient,
         scopesSupported: [
             "pages:read",
@@ -20,7 +20,7 @@ router.use(
             "themes:read",
             "themes:write",
         ],
-        apiKeyHeaderName: "x-frontlit-apikey",
+        allowedOrigins: "*",
     }),
 );
 

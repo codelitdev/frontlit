@@ -1,9 +1,11 @@
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeTestDb, seedTeam, type TestDb } from "../test/db";
 
 vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 
 import { db as testDb } from "../db/client";
+import { pages as pagesTable } from "../db/schema";
 import { createPage } from "../pages/queries";
 import {
     createTheme,
@@ -87,7 +89,7 @@ describe("themes", () => {
         expect(await getThemeByThemeId(theme.themeId)).toBeUndefined();
 
         const pages = await db.query.pages.findMany({
-            where: (row, { eq }) => eq(row.teamId, teamId),
+            where: eq(pagesTable.teamId, teamId),
         });
         const themed = pages.find((row) => row.pageId === page.pageId);
         expect(themed?.themeId).toBeNull();

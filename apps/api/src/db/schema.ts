@@ -13,13 +13,6 @@ import {
 import { sql } from "drizzle-orm";
 import { genId, genPublicId } from "./id";
 
-/**
- * Better Auth core tables + the `jwt()`/`oauthProvider()` plugin tables
- * (OAuth2 authorization server), shared verbatim across CodeLit's
- * Express/Drizzle apps — see `@codelitdev/oauth-server-kit`. Custom
- * modelNames configured in auth/better-auth.ts to avoid colliding with the
- * app's own `accounts`/`teams` tables below.
- */
 export {
     authUser,
     authSession,
@@ -30,8 +23,8 @@ export {
     authOAuthRefreshToken,
     authOAuthAccessToken,
     authOAuthConsent,
-} from "@codelitdev/oauth-server-kit";
-import { authSession, authUser } from "@codelitdev/oauth-server-kit";
+} from "./auth-schema";
+import { authSession, authUser } from "./auth-schema";
 
 /**
  * ID convention: every table has an internal UUIDv7 `id` (surrogate PK,

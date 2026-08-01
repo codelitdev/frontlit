@@ -1,29 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
+import type { AuthenticationResult } from "@codelitdev/oauth-server-kit";
 
 vi.mock("../account/queries", () => ({
     ensureFrontLitAccountForBetterAuthUserId: vi.fn(),
     ensureFrontLitAccountForUser: vi.fn(),
 }));
-vi.mock("../apikey/queries", () => ({
-    getApiKeyBySecret: vi.fn(),
-}));
-vi.mock("../team/queries", () => ({
-    getTeamMembership: vi.fn(),
-}));
+vi.mock("../apikey/queries", () => ({ getApiKeyBySecret: vi.fn() }));
+vi.mock("../team/queries", () => ({ getTeamMembership: vi.fn() }));
 vi.mock("./better-auth", () => ({
     auth: { api: { getSession: vi.fn(async () => null) } },
     authIssuer: "https://frontlit.test/api/auth",
     mcpResourceUrl: "https://frontlit.test/mcp",
     validOAuthAudiences: ["https://frontlit.test", "https://frontlit.test/mcp"],
-    oauthResourceClient: {
-        getActions: () => ({ verifyAccessToken: vi.fn(async () => null) }),
-    },
+    oauthResourceClient: { getActions: () => ({ verifyAccessToken: vi.fn() }) },
 }));
 vi.mock("better-auth/node", () => ({
     fromNodeHeaders: vi.fn((headers) => headers),
 }));
 
-import { resolveAuth, type AuthDependencies } from "./resolve-auth";
+import { resolveAuth, type AuthDependencies } from "./resolve-auth.js";
 
 const account = {
     id: "account-1",
@@ -31,6 +26,22 @@ const account = {
     email: "owner@example.com",
     createdAt: new Date(),
     updatedAt: new Date(),
+};
+const oauthIdentity = {
+    method: "oauth" as const,
+    issuer: "https://frontlit.test/api/auth",
+    subject: "auth-user-1",
+    clientId: "mcp-client",
+    scopes: ["pages:read", "themes:write"],
+    audiences: ["https://frontlit.test/mcp"],
+};
+const sessionIdentity = {
+    method: "session" as const,
+    issuer: "https://frontlit.test/api/auth",
+    subject: "auth-user-1",
+    email: "owner@example.com",
+    name: "Owner",
+    scopes: [] as [],
 };
 
 function dependencies(
@@ -45,8 +56,10 @@ function dependencies(
             name: "Default",
             createdAt: new Date(),
         })),
-        getBetterAuthSession: vi.fn(async () => null),
-        verifyBetterAuthBearerToken: vi.fn(async () => null),
+        resolveSession: vi.fn(async (): Promise<AuthenticationResult> => ({
+            status: "missing",
+        })),
+        authenticateBearer: vi.fn(async () => null),
         ensureAccountForBetterAuthUserId: vi.fn(async () => account),
         ensureAccountForUser: vi.fn(async () => account),
         getTeamMembership: vi.fn(async () => null),
@@ -54,11 +67,9 @@ function dependencies(
     };
 }
 
-describe("resolveAuth", () => {
-    it("does not fall back when an explicitly supplied bearer token is invalid", async () => {
-        const deps = dependencies({
-            verifyBetterAuthBearerToken: vi.fn(async () => null),
-        });
+describe("FrontLit auth composition", () => {
+    it("fails closed without falling back from an invalid explicit bearer", async () => {
+        const deps = dependencies();
         await expect(
             resolveAuth(
                 {
@@ -69,15 +80,14 @@ describe("resolveAuth", () => {
             ),
         ).resolves.toEqual({ status: "invalid_token" });
         expect(deps.getApiKeyBySecret).not.toHaveBeenCalled();
+        expect(deps.resolveSession).not.toHaveBeenCalled();
     });
 
-    it("prefers an explicit API key over an ambient browser session", async () => {
+    it("keeps FrontLit API-key precedence and projection product-owned", async () => {
         const deps = dependencies({
-            getBetterAuthSession: vi.fn(async () => ({
-                user: {
-                    id: "auth-user-1",
-                    email: "owner@example.com",
-                },
+            resolveSession: vi.fn(async (): Promise<AuthenticationResult> => ({
+                status: "authenticated",
+                identity: sessionIdentity,
             })),
         });
         await expect(
@@ -93,16 +103,14 @@ describe("resolveAuth", () => {
             kind: "apikey",
             teamId: "team-internal-1",
         });
-        expect(deps.getBetterAuthSession).not.toHaveBeenCalled();
+        expect(deps.resolveSession).not.toHaveBeenCalled();
     });
 
-    it("retains an OAuth team claim only while membership is live", async () => {
+    it("maps neutral OAuth identity and retains a team claim only with live membership", async () => {
         const deps = dependencies({
-            verifyBetterAuthBearerToken: vi.fn(async () => ({
-                sub: "auth-user-1",
-                azp: "mcp-client",
-                scope: "pages:read themes:write",
-                team_id: "team-internal-1",
+            authenticateBearer: vi.fn(async () => ({
+                identity: oauthIdentity,
+                teamId: "team-internal-1",
             })),
             getTeamMembership: vi.fn(async () => ({ role: "owner" })),
         });
@@ -111,37 +119,44 @@ describe("resolveAuth", () => {
         ).resolves.toMatchObject({
             status: "authenticated",
             kind: "oauth",
+            accountId: "account-1",
             teamId: "team-internal-1",
             scopes: ["pages:read", "themes:write"],
         });
 
         vi.mocked(deps.getTeamMembership).mockResolvedValueOnce(null);
         const revoked = await resolveAuth(
-            { authorization: "Bearer valid" },
+            { authorization: ["Bearer valid"] },
             deps,
         );
         expect(revoked).toMatchObject({
             status: "authenticated",
             kind: "oauth",
         });
-        expect((revoked as any).teamId).toBeUndefined();
+        expect(revoked).toHaveProperty("teamId", undefined);
     });
 
-    it("resolves signed-in web sessions through the same account identity", async () => {
+    it("rejects OAuth subjects that cannot map to a FrontLit account", async () => {
         const deps = dependencies({
-            getBetterAuthSession: vi.fn(async () => ({
-                user: {
-                    id: "auth-user-1",
-                    email: "owner@example.com",
-                    name: "Owner",
-                },
+            authenticateBearer: vi.fn(async () => ({
+                identity: oauthIdentity,
+            })),
+            ensureAccountForBetterAuthUserId: vi.fn(async () => null),
+        });
+        await expect(
+            resolveAuth({ authorization: "Bearer valid" }, deps),
+        ).resolves.toEqual({ status: "unauthorized" });
+    });
+
+    it("maps a valid browser session and preserves unavailable status", async () => {
+        const deps = dependencies({
+            resolveSession: vi.fn(async (): Promise<AuthenticationResult> => ({
+                status: "authenticated",
+                identity: sessionIdentity,
             })),
         });
         await expect(
-            resolveAuth(
-                { headers: { cookie: "better-auth.session_token=s" } },
-                deps,
-            ),
+            resolveAuth({ headers: { cookie: "session=s" } }, deps),
         ).resolves.toMatchObject({
             status: "authenticated",
             kind: "session",
@@ -151,6 +166,20 @@ describe("resolveAuth", () => {
             id: "auth-user-1",
             email: "owner@example.com",
             name: "Owner",
+        });
+
+        vi.mocked(deps.resolveSession).mockResolvedValueOnce({
+            status: "unavailable",
+            cause: new Error("database offline"),
+        });
+        await expect(
+            resolveAuth({ headers: { cookie: "session=s" } }, deps),
+        ).resolves.toEqual({ status: "unavailable" });
+    });
+
+    it("returns missing when no supported credential authenticates", async () => {
+        await expect(resolveAuth({}, dependencies())).resolves.toEqual({
+            status: "missing",
         });
     });
 });

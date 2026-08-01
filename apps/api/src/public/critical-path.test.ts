@@ -1,4 +1,5 @@
 import type { AddressInfo } from "node:net";
+import { eq } from "drizzle-orm";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeTestDb, seedTeam, type TestDb } from "../test/db";
@@ -11,6 +12,7 @@ vi.mock("../tickets/notify", () => ({
 }));
 
 import { db as testDb } from "../db/client";
+import { outboxJobs } from "../db/schema";
 import { updateChatbotSettings } from "../chatbot/queries";
 import {
     createDocument,
@@ -174,7 +176,12 @@ describe("public critical paths", () => {
                 },
             );
             expect(enabled.status).toBe(200);
-            const body = await enabled.json();
+            const body = (await enabled.json()) as {
+                answer: string;
+                conversationId: string;
+                conversationToken: string;
+                sources: unknown[];
+            };
             expect(body.answer).toEqual(expect.any(String));
             expect(body.conversationId).toMatch(/^tkt_/);
             expect(body.conversationToken).toEqual(expect.any(String));
@@ -200,7 +207,7 @@ describe("public critical paths", () => {
         });
 
         const jobs = await db.query.outboxJobs.findMany({
-            where: (row, { eq }) => eq(row.teamId, teamInternalId),
+            where: eq(outboxJobs.teamId, teamInternalId),
         });
         expect(jobs).toHaveLength(1);
         expect(jobs[0]).toMatchObject({
@@ -231,7 +238,7 @@ describe("public critical paths", () => {
         });
 
         const afterReject = await db.query.outboxJobs.findMany({
-            where: (row, { eq }) => eq(row.teamId, teamInternalId),
+            where: eq(outboxJobs.teamId, teamInternalId),
         });
         expect(afterReject).toHaveLength(1);
     });
@@ -264,7 +271,13 @@ describe("public critical paths", () => {
                 `${origin}/public/${teamPublicId}/tickets/${ticketId}/messages?token=${encodeURIComponent(token)}`,
             );
             expect(thread.status).toBe(200);
-            const body = await thread.json();
+            const body = (await thread.json()) as {
+                ticketId: string;
+                subject: string;
+                requesterEmail: string;
+                messages: unknown[];
+                accessTokenHash?: string;
+            };
             expect(body).toMatchObject({
                 ticketId,
                 subject: "Billing question",
