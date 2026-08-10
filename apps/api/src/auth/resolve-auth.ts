@@ -34,6 +34,7 @@ export type AuthResult =
           identity: Extract<AuthenticatedIdentity, { method: "oauth" }>;
           account: Account;
           accountId: string;
+          oauthToken: string;
           clientId: string;
           scopes: string[];
           teamId?: string;
@@ -50,7 +51,7 @@ export type AuthResult =
           status: "authenticated";
           kind: "apikey";
           account: null;
-          apiKey: string;
+          apiKeyId: string;
           teamId: string;
       }
     | { status: "invalid_token" }
@@ -170,6 +171,7 @@ export async function resolveAuth(
                 identity: authenticated.identity,
                 account,
                 accountId: account.id,
+                oauthToken: match[1],
                 clientId: authenticated.identity.clientId,
                 scopes: authenticated.identity.scopes,
                 teamId,
@@ -186,7 +188,7 @@ export async function resolveAuth(
             status: "authenticated",
             kind: "apikey",
             account: null,
-            apiKey: submittedApiKey,
+            apiKeyId: apiKey.id,
             teamId: apiKey.teamId,
         };
     }
@@ -216,6 +218,25 @@ export async function resolveAuth(
     return { status: "missing" };
 }
 
+export function setBearerChallenge(
+    response: { setHeader(name: string, value: string): unknown },
+    resourceMetadataUrl?: string,
+    scopes: readonly string[] = [],
+) {
+    const parameters = [
+        resourceMetadataUrl
+            ? `resource_metadata="${resourceMetadataUrl}"`
+            : null,
+        scopes.length > 0 ? `scope="${scopes.join(" ")}"` : null,
+    ].filter(Boolean);
+    if (parameters.length > 0) {
+        response.setHeader(
+            "WWW-Authenticate",
+            `Bearer ${parameters.join(", ")}`,
+        );
+    }
+}
+
 export function sendAuthError(
     response: {
         setHeader(name: string, value: string): unknown;
@@ -225,18 +246,14 @@ export function sendAuthError(
     },
     result: AuthResult,
     resourceMetadataUrl?: string,
+    challengeScopes: readonly string[] = [],
 ): boolean {
     if (result.status === "authenticated") return false;
     if (result.status === "unavailable") {
         response.status(503).json({ error: "authentication_unavailable" });
         return true;
     }
-    if (resourceMetadataUrl) {
-        response.setHeader(
-            "WWW-Authenticate",
-            `Bearer resource_metadata="${resourceMetadataUrl}"`,
-        );
-    }
+    setBearerChallenge(response, resourceMetadataUrl, challengeScopes);
     if (result.status === "invalid_token") {
         response.status(401).json({
             error: "invalid_token",

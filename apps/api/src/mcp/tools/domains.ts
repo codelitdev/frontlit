@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
 import { domainSettingsSchema } from "@frontlit/api-contract";
 import {
@@ -31,7 +31,7 @@ function toPublicSettings(
     };
 }
 
-export function registerDomainTools(server: McpServer): void {
+export function registerDomainTools(server: McpToolRegistrar): void {
     server.registerTool(
         "get_domain_settings",
         {

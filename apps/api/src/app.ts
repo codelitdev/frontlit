@@ -36,6 +36,10 @@ export function createApp() {
         process.env.ENABLE_TRUST_PROXY === "true" ? 1 : false,
     );
 
+    // MCP and its discovery routes own their body parsing and CORS contract.
+    // Keep them ahead of the global CORS/body-parser middleware so SDK 2 can
+    // validate the wire protocol directly.
+    app.use(mcpRoutes);
     app.use(cors());
     // Mounted before express.json(): Better Auth's Node handler parses its
     // own body from the raw request.
@@ -75,7 +79,6 @@ export function createApp() {
     // routers scope their middleware to their own path prefixes, so adding a
     // router can no longer cause its auth or rate limits to intercept an
     // unrelated route mounted later.
-    app.use(mcpRoutes);
     app.use(provisioningRoutes);
     app.use(publicRoutes);
 

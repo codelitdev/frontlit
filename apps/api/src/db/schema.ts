@@ -20,9 +20,12 @@ export {
     authVerification,
     jwks,
     authOAuthClient,
+    authOAuthResource,
+    authOAuthClientResource,
     authOAuthRefreshToken,
     authOAuthAccessToken,
     authOAuthConsent,
+    authOAuthClientAssertion,
 } from "./auth-schema";
 import { authSession, authUser } from "./auth-schema";
 

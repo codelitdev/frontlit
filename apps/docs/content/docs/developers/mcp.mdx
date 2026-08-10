@@ -1,0 +1,117 @@
+---
+title: MCP connections
+description: Connect OAuth and API-key clients to FrontLit's stateless MCP server.
+---
+
+FrontLit exposes one remote MCP endpoint:
+
+```text
+https://<api-host>/mcp
+```
+
+The endpoint supports the stateless MCP `2026-07-28` protocol and older
+Streamable HTTP clients through the official SDK 2 stateless compatibility
+mode. FrontLit does not expose the retired standalone SSE transport: `GET
+/mcp` is intentionally not a connection endpoint, and no client receives an
+`Mcp-Session-Id`.
+
+## OAuth
+
+OAuth-capable clients should be given only the HTTPS `/mcp` URL. They discover
+the protected resource at:
+
+```text
+/.well-known/oauth-protected-resource/mcp
+```
+
+That document points to FrontLit's authorization server. Current clients can
+onboard through a Client ID Metadata Document (CIMD); Dynamic Client
+Registration remains available for clients such as MCP Inspector. Both use
+authorization code with PKCE, resource binding, user consent, and explicit
+tool scopes.
+
+An OAuth user must already belong to a FrontLit team. If the account has no
+team, FrontLit pauses before consent and links to the teams screen. Create or
+join a team, return to the OAuth page, and continue. Multi-team accounts are
+asked which team the connection should use.
+
+FrontLit configures an identity-only registration baseline (`openid profile
+email`). Better Auth represents the combined identity and allowed MCP scopes
+as a client's _capability set_, so a DCR response can list every MCP scope.
+That is not an access grant: authorization requests with missing or blank
+`scope` are rejected, and only explicitly requested and approved scopes are
+issued in a token. A consent screen may therefore show many scopes because
+the client requested them.
+
+Scope families include teams, API keys, pages, themes, media, blogs, help
+documents, changelogs, contacts, segments, broadcasts, ESP configuration,
+chatbot, helpdesk, domains, and settings. Read and write scopes are separate,
+and sending a broadcast requires the distinct `broadcasts:send` scope.
+
+## API key
+
+A team API key is a full-team credential until scoped keys are introduced as a
+separate product feature. Configure the client to send:
+
+```text
+x-frontlit-apikey: fl_live_...
+```
+
+For example, clients that accept a JSON header configuration can use:
+
+```json
+{
+    "url": "https://<api-host>/mcp",
+    "headers": {
+        "x-frontlit-apikey": "fl_live_..."
+    }
+}
+```
+
+The submitted secret is verified at the HTTP boundary and is never copied
+into MCP tool context or logs. API keys cannot call account-only tools such as
+`list_teams`, `create_team`, or `delete_team`.
+
+## Local development
+
+Desktop and hosted clients commonly require public HTTPS. Start the API, then
+use a controlled tunnel or Funnel that proxies the public hostname to the
+local API port. Set `ENABLE_TRUST_PROXY=true` only when the deployment really
+has the configured one trusted proxy hop.
+
+The API validates every browser `Origin` as required by Streamable HTTP. The
+API and `WEB_CLIENT` origins are allowed automatically. Add other exact
+browser origins as a comma-separated `MCP_ALLOWED_ORIGINS` value; desktop and
+server clients normally send no `Origin`. Wildcards are not accepted.
+
+Check each layer before opening a GUI client:
+
+```bash
+curl -i http://localhost:4000/health
+curl -i http://localhost:4000/.well-known/oauth-protected-resource/mcp
+curl -i http://localhost:4000/.well-known/oauth-authorization-server/api/auth
+curl -i -X POST http://localhost:4000/mcp \
+  -H 'content-type: application/json' \
+  -H 'accept: application/json, text/event-stream'
+```
+
+The final request should return `401` with a `WWW-Authenticate` challenge that
+contains the protected-resource metadata URL. Repeat the health and discovery
+checks against the public hostname before starting OAuth.
+
+## Troubleshooting
+
+- If the browser completes OAuth but the client fails, inspect the first
+  subsequent `POST /mcp` status and body.
+- Some clients try `GET /mcp` as standalone SSE after a failed POST. The
+  resulting `404 Cannot GET /mcp` is expected and is usually secondary to the
+  earlier POST failure; do not add SSE to hide it.
+- `409 no_team` means authentication succeeded but the user has no tenant.
+  Create or join a team and reconnect.
+- `invalid_client_metadata` involving Device Authorization or JWT Bearer means
+  the client's published CIMD grants changed or the exact compatibility rule
+  no longer matched. FrontLit does not globally relax grant validation.
+- `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR` means the proxy is forwarding client IPs
+  while Express is not configured to trust that deployment hop.
+- Reconnect after changing scopes, discovery metadata, tool schemas, or the
+  tool catalog because clients may cache them.

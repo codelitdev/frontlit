@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
 import {
     docSearchResultSchema,
@@ -21,7 +21,7 @@ function toPublicSection<T extends Record<string, unknown>>(section: T) {
     return serializeDates(omitInternal(section, "teamId"));
 }
 
-export function registerDocumentationTools(server: McpServer): void {
+export function registerDocumentationTools(server: McpToolRegistrar): void {
     server.registerTool(
         "search_docs",
         {

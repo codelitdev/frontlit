@@ -32,6 +32,7 @@ router.use(
         auth,
         adapter: oauthTeamSelectionAdapter,
         authBasePath,
+        webClientUrl,
     }),
 );
 

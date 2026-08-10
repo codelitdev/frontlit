@@ -4,7 +4,9 @@ import {
     type AuthResult,
     resolveAuth,
     sendAuthError,
+    setBearerChallenge,
 } from "./resolve-auth";
+import { MCP_SCOPES_SUPPORTED } from "../mcp/policy";
 import { mcpProtectedResourceMetadataUrl } from "./better-auth";
 
 type AuthResolver = (input: AuthInput) => Promise<AuthResult>;
@@ -13,6 +15,7 @@ export function createAuthMiddleware(
     mode: "rest" | "mcp",
     authResolver: AuthResolver = resolveAuth,
     resourceMetadataUrl?: string,
+    challengeScopes: readonly string[] = [],
 ) {
     return async function frontLitAuthMiddleware(
         request: Request,
@@ -26,14 +29,38 @@ export function createAuthMiddleware(
                 bodyApiKey: request.body?.apikey,
                 headers: request.headers,
             });
-            if (sendAuthError(response, result, resourceMetadataUrl)) return;
+            if (
+                sendAuthError(
+                    response,
+                    result,
+                    resourceMetadataUrl,
+                    challengeScopes,
+                )
+            )
+                return;
             if (result.status !== "authenticated") return;
+
+            if (mode === "mcp" && result.kind === "session") {
+                if (resourceMetadataUrl) {
+                    setBearerChallenge(
+                        response,
+                        resourceMetadataUrl,
+                        challengeScopes,
+                    );
+                }
+                response.status(401).json({
+                    error: "unauthorized",
+                    error_description:
+                        "MCP requires an OAuth bearer token or x-frontlit-apikey; browser sessions are not accepted.",
+                });
+                return;
+            }
 
             const productRequest = request as any;
             productRequest.authKind = result.kind;
             productRequest.account = result.account;
             if (result.kind === "apikey") {
-                productRequest.apikey = result.apiKey;
+                productRequest.apiKeyId = result.apiKeyId;
                 productRequest.teamId = result.teamId;
             } else {
                 request.auth = result.identity;
@@ -43,6 +70,7 @@ export function createAuthMiddleware(
                 }
             }
             if (mode === "mcp" && result.kind === "oauth") {
+                productRequest.oauthToken = result.oauthToken;
                 productRequest.clientId = result.clientId;
                 productRequest.scopes = result.scopes;
             }
@@ -58,4 +86,5 @@ export const mcpAuth = createAuthMiddleware(
     "mcp",
     resolveAuth,
     mcpProtectedResourceMetadataUrl,
+    MCP_SCOPES_SUPPORTED,
 );

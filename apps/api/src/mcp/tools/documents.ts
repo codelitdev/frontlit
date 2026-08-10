@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
 import {
     documentStatusSchema,
@@ -38,9 +38,9 @@ function toPublicDocument<T extends Record<string, unknown>>(doc: T) {
  * documents the kind-specific `meta` shape for MCP clients.
  */
 export function registerDocumentTools(
-    server: McpServer,
+    server: McpToolRegistrar,
     kind: DocumentKind,
-    label: string,
+    label: "blog_post" | "help_doc" | "changelog_entry",
     metaSchema: z.ZodTypeAny,
 ): void {
     const documentSchema = z.object({

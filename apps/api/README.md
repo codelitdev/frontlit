@@ -17,3 +17,23 @@ their public `/public/:teamId/docs/*` URLs.
 
 The separate `@frontlit/docs` application also generates its interactive
 `/api-reference` pages from the shared ts-rest contract.
+
+## MCP
+
+FrontLit exposes one authenticated Streamable HTTP endpoint at `POST /mcp`.
+The direct server implementation uses the MCP TypeScript SDK 2 packages:
+
+- modern `2026-07-28` requests use the stateless protocol core;
+- older Streamable HTTP clients use SDK 2's stateless legacy mode; and
+- standalone HTTP+SSE and `Mcp-Session-Id` sessions are not implemented.
+
+OAuth uses CIMD-first client discovery with DCR compatibility. A fixed-team
+FrontLit API key can also be supplied as `x-frontlit-apikey`. The exhaustive
+tool-to-scope policy is in `src/mcp/policy.ts`.
+
+Focused verification:
+
+```bash
+pnpm --filter @frontlit/api exec vitest run src/mcp src/auth/cimd-fetch.test.ts src/auth/better-auth-mcp.test.ts
+pnpm --filter @frontlit/api check-types
+```

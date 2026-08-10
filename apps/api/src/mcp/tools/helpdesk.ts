@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
 import {
     ticketSchema,
@@ -42,7 +42,7 @@ async function toTicketWithMessages(
 /** Support ticket inbox (architecture.md §11.3) — team-scoped CRUD twin of
  * the `contract.tickets` REST router. Public submission and the magic-link
  * thread endpoints are visitor-facing only and have no MCP equivalent. */
-export function registerHelpdeskTools(server: McpServer): void {
+export function registerHelpdeskTools(server: McpToolRegistrar): void {
     server.registerTool(
         "create_ticket",
         {

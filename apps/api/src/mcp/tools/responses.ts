@@ -30,9 +30,27 @@ export function errorResult(message: string) {
     };
 }
 
+function serializeStructuredValue(value: unknown): unknown {
+    if (value instanceof Date) return value.toISOString();
+    if (Array.isArray(value)) return value.map(serializeStructuredValue);
+    if (value && typeof value === "object") {
+        return Object.fromEntries(
+            Object.entries(value).map(([key, item]) => [
+                key,
+                serializeStructuredValue(item),
+            ]),
+        );
+    }
+    return value;
+}
+
 export function jsonResult(data: unknown) {
+    const serialized = serializeStructuredValue(data ?? {}) as Record<
+        string,
+        unknown
+    >;
     return {
-        content: [{ type: "text" as const, text: JSON.stringify(data) }],
-        structuredContent: (data ?? {}) as Record<string, unknown>,
+        content: [{ type: "text" as const, text: JSON.stringify(serialized) }],
+        structuredContent: serialized,
     };
 }

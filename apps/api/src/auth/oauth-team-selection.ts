@@ -38,8 +38,15 @@ async function resolveSelection(
     sessionId: string,
 ) {
     const teams = await adapter.listTeamsForUser(userId);
-    if (teams.length <= 1) {
-        return { requiresSelection: false, selectedTeamId: null };
+    if (teams.length === 0) {
+        // Stop before consent/token issuance so generic MCP clients do not hide
+        // a later `409 no_team` behind a vague connection failure.
+        return { requiresSelection: true, selectedTeamId: null };
+    }
+    if (teams.length === 1) {
+        // A single-team user does not need an interaction, but the selected
+        // tenant must still be bound to consent and the issued access token.
+        return { requiresSelection: false, selectedTeamId: teams[0].id };
     }
     const selectedTeamId = await adapter.getSelectedTeamId(sessionId);
     const valid =

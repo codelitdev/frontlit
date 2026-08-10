@@ -10,7 +10,11 @@ vi.mock("./better-auth", () => ({
 
 import { createAuthMiddleware } from "./middleware.js";
 
-async function requestFor(result: AuthResult | Error) {
+async function requestFor(
+    result: AuthResult | Error,
+    resourceMetadataUrl?: string,
+    challengeScopes: readonly string[] = [],
+) {
     const resolver = vi.fn(async () => {
         if (result instanceof Error) throw result;
         return result;
@@ -18,7 +22,12 @@ async function requestFor(result: AuthResult | Error) {
     const app = express();
     app.get(
         "/protected",
-        createAuthMiddleware("mcp", resolver),
+        createAuthMiddleware(
+            "mcp",
+            resolver,
+            resourceMetadataUrl,
+            challengeScopes,
+        ),
         (request, response) => {
             const productRequest = request as any;
             response.json({
@@ -28,7 +37,9 @@ async function requestFor(result: AuthResult | Error) {
                 teamId: productRequest.teamId,
                 clientId: productRequest.clientId,
                 scopes: productRequest.scopes,
-                apiKey: productRequest.apikey,
+                oauthToken: productRequest.oauthToken,
+                apiKeyId: productRequest.apiKeyId,
+                apiKeySecret: productRequest.apikey,
             });
         },
     );
@@ -79,6 +90,7 @@ describe("FrontLit auth middleware projection", () => {
             identity,
             account,
             accountId: account.id,
+            oauthToken: "oauth-token",
             clientId: identity.clientId,
             scopes: identity.scopes,
             teamId: "team-1",
@@ -91,6 +103,7 @@ describe("FrontLit auth middleware projection", () => {
             teamId: "team-1",
             clientId: "mcp-client",
             scopes: ["pages:read"],
+            oauthToken: "oauth-token",
         });
         expect(resolver).toHaveBeenCalledOnce();
     });
@@ -100,16 +113,39 @@ describe("FrontLit auth middleware projection", () => {
             status: "authenticated",
             kind: "apikey",
             account: null,
-            apiKey: "fl_live_secret",
+            apiKeyId: "key-1",
             teamId: "team-1",
         });
         const body = (await response.json()) as Record<string, unknown>;
         expect(body).toMatchObject({
             authKind: "apikey",
             teamId: "team-1",
-            apiKey: "fl_live_secret",
+            apiKeyId: "key-1",
         });
         expect(body.auth).toBeUndefined();
+        expect(body.apiKeySecret).toBeUndefined();
+    });
+
+    it("rejects browser sessions in MCP mode", async () => {
+        const { response } = await requestFor({
+            status: "authenticated",
+            kind: "session",
+            identity: {
+                method: "session",
+                issuer: "https://frontlit.test/api/auth",
+                subject: "auth-user-1",
+                email: "owner@example.com",
+                scopes: [],
+            },
+            account,
+            accountId: account.id,
+            scopes: ["web"],
+        });
+        expect(response.status).toBe(401);
+        await expect(response.json()).resolves.toMatchObject({
+            error: "unauthorized",
+            error_description: expect.stringContaining("browser sessions"),
+        });
     });
 
     it("stops before the product handler on authentication errors", async () => {
@@ -118,6 +154,20 @@ describe("FrontLit auth middleware projection", () => {
         await expect(response.json()).resolves.toMatchObject({
             error: "invalid_token",
         });
+    });
+
+    it("returns the protected-resource challenge needed for OAuth discovery", async () => {
+        const metadataUrl =
+            "https://frontlit.test/.well-known/oauth-protected-resource/mcp";
+        const { response } = await requestFor(
+            { status: "missing" },
+            metadataUrl,
+            ["pages:read", "pages:write"],
+        );
+        expect(response.status).toBe(401);
+        expect(response.headers.get("www-authenticate")).toBe(
+            `Bearer resource_metadata="${metadataUrl}", scope="pages:read pages:write"`,
+        );
     });
 
     it("forwards product resolver failures to Express error handling", async () => {

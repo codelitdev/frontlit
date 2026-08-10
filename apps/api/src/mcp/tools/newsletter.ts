@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
 import {
     broadcastSchema,
@@ -48,7 +48,7 @@ const NOT_CONNECTED_ERROR = errorResult(
 
 /** All tools proxy the team's provisioned SendLit team \u2014 FrontLit has no
  * local contact/segment/broadcast data (architecture.md \u00a710). */
-export function registerNewsletterTools(server: McpServer): void {
+export function registerNewsletterTools(server: McpToolRegistrar): void {
     server.registerTool(
         "get_newsletter_settings",
         {

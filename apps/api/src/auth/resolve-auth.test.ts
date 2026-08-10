@@ -12,7 +12,9 @@ vi.mock("./better-auth", () => ({
     authIssuer: "https://frontlit.test/api/auth",
     mcpResourceUrl: "https://frontlit.test/mcp",
     validOAuthAudiences: ["https://frontlit.test", "https://frontlit.test/mcp"],
-    oauthResourceClient: { getActions: () => ({ verifyAccessToken: vi.fn() }) },
+    oauthResourceClient: {
+        getActions: () => ({ verifyBearerToken: vi.fn() }),
+    },
 }));
 vi.mock("better-auth/node", () => ({
     fromNodeHeaders: vi.fn((headers) => headers),
@@ -101,6 +103,7 @@ describe("FrontLit auth composition", () => {
         ).resolves.toMatchObject({
             status: "authenticated",
             kind: "apikey",
+            apiKeyId: "key-1",
             teamId: "team-internal-1",
         });
         expect(deps.resolveSession).not.toHaveBeenCalled();
@@ -120,6 +123,7 @@ describe("FrontLit auth composition", () => {
             status: "authenticated",
             kind: "oauth",
             accountId: "account-1",
+            oauthToken: "valid",
             teamId: "team-internal-1",
             scopes: ["pages:read", "themes:write"],
         });

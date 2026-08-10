@@ -1,76 +1,326 @@
-import express from "express";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AddressInfo } from "node:net";
+import express, { Router } from "express";
+import {
+    afterEach,
+    beforeAll,
+    beforeEach,
+    describe,
+    expect,
+    it,
+    vi,
+} from "vitest";
+import {
+    Client,
+    StreamableHTTPClientTransport,
+} from "@modelcontextprotocol/client";
+import { McpServer } from "@modelcontextprotocol/server";
 
 const mocks = vi.hoisted(() => ({
-    getProtectedResourceMetadata: vi.fn(),
+    createDiscoveryRoutes: vi.fn(),
+    buildServer: vi.fn(),
+    mcpAuth: vi.fn((req: any, _res: any, next: any) => {
+        req.authKind = "apikey";
+        req.apiKeyId = "key-test";
+        req.teamId = "team-1";
+        next();
+    }),
 }));
 
 vi.mock("../auth/better-auth", () => ({
     auth: {
         options: { baseURL: "http://localhost:4000", basePath: "/api/auth" },
-        api: {},
     },
+    mcpProtectedResourceMetadataUrl:
+        "http://localhost:4000/.well-known/oauth-protected-resource/mcp",
     mcpResourceUrl: "http://localhost:4000/mcp",
-    oauthResourceClient: {
-        getActions: () => ({
-            getProtectedResourceMetadata: mocks.getProtectedResourceMetadata,
-        }),
-    },
+    oauthResourceClient: {},
+    webClientUrl: "https://client.example",
+}));
+vi.mock("@codelitdev/oauth-server-kit/mcp", () => ({
+    createMcpOAuthDiscoveryRoutes: mocks.createDiscoveryRoutes,
 }));
 vi.mock("../auth/middleware", () => ({
-    mcpAuth: (_req: any, _res: any, next: () => void) => next(),
+    mcpAuth: mocks.mcpAuth,
 }));
 vi.mock("../auth/require-team", () => ({
-    requireTeam: (_req: any, _res: any, next: () => void) => next(),
+    requireTeam: vi.fn((_req, _res, next) => next()),
 }));
-vi.mock("./server", () => ({ createMCPSession: vi.fn() }));
+vi.mock("./server", () => ({
+    buildMcpServer: () => mocks.buildServer(),
+}));
 
-async function request(app: express.Express, path: string) {
-    const server = app.listen(0);
+type ListeningApp = {
+    origin: string;
+    close(): Promise<void>;
+};
+
+const listeningApps: ListeningApp[] = [];
+const clients: Client[] = [];
+let routes: Router;
+
+async function listen(app: express.Express): Promise<ListeningApp> {
+    const server = app.listen(0, "127.0.0.1");
     await new Promise<void>((resolve) => server.once("listening", resolve));
-    const address = server.address();
-    if (!address || typeof address === "string") throw new Error("No port");
-    try {
-        return await fetch(`http://127.0.0.1:${address.port}${path}`);
-    } finally {
-        await new Promise<void>((resolve, reject) =>
-            server.close((error) => (error ? reject(error) : resolve())),
-        );
-    }
+    const { port } = server.address() as AddressInfo;
+    const instance = {
+        origin: `http://127.0.0.1:${port}`,
+        close: () =>
+            new Promise<void>((resolve, reject) =>
+                server.close((error) => (error ? reject(error) : resolve())),
+            ),
+    };
+    listeningApps.push(instance);
+    return instance;
 }
 
-describe("MCP OAuth discovery", () => {
-    let app: express.Express;
+afterEach(async () => {
+    await Promise.allSettled(clients.splice(0).map((client) => client.close()));
+    await Promise.allSettled(listeningApps.splice(0).map((app) => app.close()));
+});
 
-    beforeEach(async () => {
-        vi.clearAllMocks();
-        vi.resetModules();
-        const routes = ((await import("./routes.js")) as any).default;
-        app = express();
-        app.use(routes);
+describe("MCP Streamable HTTP route", () => {
+    beforeAll(async () => {
+        mocks.buildServer.mockImplementation(
+            () => new McpServer({ name: "FrontLit Test", version: "2.0.0" }),
+        );
+        mocks.createDiscoveryRoutes.mockImplementation(() => {
+            const discovery = Router();
+            discovery.get(
+                "/.well-known/oauth-protected-resource/mcp",
+                (_req, res) =>
+                    res.json({ resource: "http://localhost:4000/mcp" }),
+            );
+            return discovery;
+        });
+        routes = ((await import("./routes.js")) as any).default;
     });
 
-    it("serves protected-resource metadata at the RFC 9728 MCP path", async () => {
-        mocks.getProtectedResourceMetadata.mockResolvedValue({
+    beforeEach(() => {
+        mocks.buildServer.mockClear();
+        mocks.mcpAuth.mockClear();
+    });
+
+    async function createApp(trustProxy = false) {
+        const app = express();
+        app.set("trust proxy", trustProxy ? 1 : false);
+        app.use(routes);
+        return listen(app);
+    }
+
+    it("publishes protected-resource metadata with every enforced scope", async () => {
+        const listening = await createApp();
+        const response = await fetch(
+            `${listening.origin}/.well-known/oauth-protected-resource/mcp`,
+        );
+
+        expect(response.status).toBe(200);
+        await expect(response.json()).resolves.toEqual({
             resource: "http://localhost:4000/mcp",
-            scopes_supported: ["pages:read"],
-            bearer_methods_supported: ["header"],
+        });
+        expect(mocks.createDiscoveryRoutes).toHaveBeenCalledWith(
+            expect.objectContaining({
+                resourceUrl: "http://localhost:4000/mcp",
+                allowedOrigins: expect.arrayContaining([
+                    "http://localhost:4000",
+                    "https://client.example",
+                ]),
+                scopesSupported: expect.arrayContaining([
+                    "pages:read",
+                    "blogs:write",
+                    "broadcasts:send",
+                    "api_keys:write",
+                    "domains:write",
+                ]),
+            }),
+        );
+    });
+
+    it("connects a client pinned to the modern protocol", async () => {
+        const listening = await createApp();
+        const client = new Client(
+            { name: "route-test", version: "1.0.0" },
+            { versionNegotiation: { mode: { pin: "2026-07-28" } } },
+        );
+        clients.push(client);
+        const transport = new StreamableHTTPClientTransport(
+            new URL(`${listening.origin}/mcp`),
+            {
+                requestInit: {
+                    headers: { "x-frontlit-apikey": "fl_live_test" },
+                },
+            },
+        );
+
+        await client.connect(transport);
+        expect(client.getProtocolEra()).toBe("modern");
+        expect(mocks.buildServer).toHaveBeenCalled();
+    });
+
+    it("serves the older initialize handshake statelessly", async () => {
+        const listening = await createApp();
+        const response = await fetch(`${listening.origin}/mcp`, {
+            method: "POST",
+            headers: {
+                accept: "application/json, text/event-stream",
+                "content-type": "application/json",
+                "x-frontlit-apikey": "fl_live_test",
+            },
+            body: JSON.stringify({
+                jsonrpc: "2.0",
+                id: 1,
+                method: "initialize",
+                params: {
+                    protocolVersion: "2025-11-25",
+                    capabilities: {},
+                    clientInfo: { name: "legacy", version: "1.0.0" },
+                },
+            }),
         });
 
-        const response = await request(
-            app,
-            "/.well-known/oauth-protected-resource/mcp",
+        expect(response.ok).toBe(true);
+        expect(response.headers.has("mcp-session-id")).toBe(false);
+        expect(response.headers.get("content-type")).toContain(
+            "text/event-stream",
         );
-        expect(response.status).toBe(200);
-        await expect(response.json()).resolves.toMatchObject({
-            resource: "http://localhost:4000/mcp",
+        await expect(response.text()).resolves.toContain(
+            '"protocolVersion":"2025-11-25"',
+        );
+    });
+
+    it("does not expose standalone SSE", async () => {
+        const listening = await createApp();
+        const response = await fetch(`${listening.origin}/mcp`, {
+            headers: { "x-frontlit-apikey": "fl_live_test" },
         });
-        expect(mocks.getProtectedResourceMetadata).toHaveBeenCalledWith(
-            expect.objectContaining({
-                resource: "http://localhost:4000/mcp",
-                bearer_methods_supported: ["header"],
-            }),
-            { silenceWarnings: { oidcScopes: true } },
+        expect(response.status).toBe(404);
+    });
+
+    it("rejects non-JSON bodies before protocol dispatch", async () => {
+        const listening = await createApp();
+        const response = await fetch(`${listening.origin}/mcp`, {
+            method: "POST",
+            headers: {
+                accept: "application/json",
+                "content-type": "text/plain",
+                "x-frontlit-apikey": "fl_live_test",
+            },
+            body: "not an MCP envelope",
+        });
+        expect(response.status).toBe(415);
+        expect(mocks.buildServer).not.toHaveBeenCalled();
+    });
+
+    it("allows modern headers in browser preflight without session headers", async () => {
+        const listening = await createApp();
+        const response = await fetch(`${listening.origin}/mcp`, {
+            method: "OPTIONS",
+            headers: {
+                origin: "https://client.example",
+                "access-control-request-method": "POST",
+                "access-control-request-headers":
+                    "mcp-protocol-version,mcp-method,mcp-name,authorization",
+            },
+        });
+
+        expect(response.status).toBe(204);
+        expect(response.headers.get("access-control-allow-origin")).toBe(
+            "https://client.example",
         );
+        const allowed =
+            response.headers.get("access-control-allow-headers") || "";
+        expect(allowed).toContain("MCP-Protocol-Version");
+        expect(allowed).toContain("Mcp-Method");
+        expect(allowed).toContain("Mcp-Name");
+        expect(allowed).not.toContain("Mcp-Session-Id");
+    });
+
+    it("rejects an untrusted browser Origin before authentication", async () => {
+        const listening = await createApp();
+        const response = await fetch(`${listening.origin}/mcp`, {
+            method: "OPTIONS",
+            headers: {
+                origin: "https://attacker.example",
+                "access-control-request-method": "POST",
+            },
+        });
+
+        expect(response.status).toBe(403);
+        await expect(response.json()).resolves.toEqual({
+            error: "forbidden_origin",
+            error_description: "The request Origin is not allowed.",
+        });
+    });
+
+    it("returns an OAuth scope challenge before a modern unauthorized tool call", async () => {
+        mocks.mcpAuth.mockImplementationOnce((req, _res, next) => {
+            req.authKind = "oauth";
+            req.oauthToken = "oauth-token";
+            req.clientId = "client-1";
+            req.scopes = ["pages:read"];
+            req.teamId = "team-1";
+            req.account = { id: "account-1", email: "owner@example.com" };
+            next();
+        });
+        const listening = await createApp();
+        const response = await fetch(`${listening.origin}/mcp`, {
+            method: "POST",
+            headers: {
+                accept: "application/json, text/event-stream",
+                "content-type": "application/json",
+                "mcp-protocol-version": "2026-07-28",
+                "mcp-method": "tools/call",
+                "mcp-name": "send_broadcast",
+            },
+            body: JSON.stringify({
+                jsonrpc: "2.0",
+                id: 1,
+                method: "tools/call",
+                params: {
+                    name: "send_broadcast",
+                    arguments: {},
+                    _meta: {
+                        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                        "io.modelcontextprotocol/clientCapabilities": {},
+                    },
+                },
+            }),
+        });
+
+        expect(response.status).toBe(403);
+        expect(response.headers.get("www-authenticate")).toContain(
+            'error="insufficient_scope"',
+        );
+        expect(response.headers.get("www-authenticate")).toContain(
+            'scope="broadcasts:send"',
+        );
+        await expect(response.json()).resolves.toMatchObject({
+            error: "insufficient_scope",
+            scope: "broadcasts:send",
+        });
+        expect(mocks.buildServer).not.toHaveBeenCalled();
+    });
+
+    it("accepts forwarded client addresses when the deployment trusts one proxy", async () => {
+        const listening = await createApp(true);
+        const response = await fetch(`${listening.origin}/mcp`, {
+            method: "POST",
+            headers: {
+                accept: "application/json, text/event-stream",
+                "content-type": "application/json",
+                "x-forwarded-for": "203.0.113.20",
+                "x-frontlit-apikey": "fl_live_test",
+            },
+            body: JSON.stringify({
+                jsonrpc: "2.0",
+                id: 1,
+                method: "initialize",
+                params: {
+                    protocolVersion: "2025-11-25",
+                    capabilities: {},
+                    clientInfo: { name: "proxy-test", version: "1.0.0" },
+                },
+            }),
+        });
+        expect(response.status).toBe(200);
     });
 });

@@ -29,6 +29,20 @@
             "when": 1785340000000,
             "tag": "0003_chatbot_widget_style",
             "breakpoints": true
+        },
+        {
+            "idx": 4,
+            "version": "7",
+            "when": 1786342088453,
+            "tag": "0004_great_maginty",
+            "breakpoints": true
+        },
+        {
+            "idx": 5,
+            "version": "7",
+            "when": 1786362570604,
+            "tag": "0005_abandoned_moonstone",
+            "breakpoints": true
         }
     ]
 }

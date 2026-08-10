@@ -31,7 +31,7 @@ It follows the conventions already established in the repo:
   `apps/sites` Next.js app (§12.2).
 - **IDs**: internal UUIDv7 `id` (never exposed) + public prefixed id
   (`pg_…`, `blog_…`) enforced with `publicIdCheck`.
-- **Editing/rendering**: all *site* content rich text uses
+- **Editing/rendering**: all _site_ content rich text uses
   `@frontlit/text-editor` (TipTap JSON documents, rendered with its static
   `TextRenderer`). No markdown, no HTML storage. The one exception is
   newsletter emails, which use SendLit's email content model via
@@ -136,7 +136,7 @@ Mechanics (matching the existing code):
 - All business logic lives in framework-agnostic
   `apps/api/src/<module>/queries.ts` functions, always `teamId`-scoped. REST
   handlers (`routes.ts`) and MCP tools (`mcp/tools/<module>.ts`) are both
-  thin adapters over the *same* functions — no behavior drift possible.
+  thin adapters over the _same_ functions — no behavior drift possible.
 - Zod schemas in `packages/api-contract` are shared verbatim across ts-rest
   validation, OpenAPI generation (`openapi.ts` → `/openapi.json`, Swagger
   UI at `/docs/`, and `apps/docs`), and MCP
@@ -144,21 +144,28 @@ Mechanics (matching the existing code):
   `pageSchema`).
 - MCP tools follow the established conventions: `getTeamId(extra)` for team
   resolution, `jsonResult`/`AUTH_ERROR`/`NOT_FOUND`/`INTERNAL_ERROR` from
-  `tools/responses.ts`, `omitInternal` + `serializeDates` serialization, and
-  honest `annotations` (`readOnlyHint`, `destructiveHint`, `idempotentHint`).
-- New tool modules are registered in `mcp/server.ts`'s `registerAllTools`,
-  and the server `description` is extended to advertise the new
-  capabilities.
+  `tools/responses.ts`, public-shape serialization, and honest `annotations`
+  (`readOnlyHint`, `destructiveHint`, `idempotentHint`). `jsonResult`
+  recursively converts `Date` values to ISO strings before producing both
+  text and `structuredContent`.
+- REST remains on Zod 3. `mcp/schema.ts` is the single Standard Schema boundary
+  (`zod-to-json-schema` then SDK 2 `fromJsonSchema`), and immutable compiled
+  adapters are cached by tool name. The cache contains no client or tenant
+  state.
+- New tool modules are registered through `mcp/tool-registry.ts` from
+  `mcp/server.ts`'s deterministic `registerAllTools`. Registration fails if a
+  tool is missing from the exhaustive, default-deny `mcp/policy.ts` registry.
 
 ### Auth and middleware boundary
 
 FrontLit uses the organization-standard auth arrangement shared with
 SendLit and progressively extracted into `@codelitdev/oauth-server-kit`:
 
-- `resolveAuth()` is the single resolver for REST and MCP. It accepts a
+- `resolveAuth()` is the single resolver for REST and MCP. It recognizes a
   Better Auth browser session, an OAuth bearer token, or an
-  `x-frontlit-apikey`; every successful result has one normalized account
-  and credential context.
+  `x-frontlit-apikey`. REST accepts the appropriate product credentials;
+  remote MCP deliberately rejects browser-session cookies and accepts only
+  OAuth or a team API key.
 - `oauth-server-kit` supplies the central resolver/middleware primitives,
   bearer verification, OAuth authorization/consent pages, MCP protected
   resource discovery, and consistent `401`/`WWW-Authenticate` responses.
@@ -174,9 +181,21 @@ SendLit and progressively extracted into `@codelitdev/oauth-server-kit`:
   on), rather than installed globally. Public, provisioning, OAuth, MCP,
   health, OpenAPI and Swagger routes therefore keep their intentional auth
   policies without depending on mount order.
-- MCP is Streamable HTTP at `/mcp`, protected by the same resolver and team
-  middleware as REST. OAuth discovery/resource metadata is mounted by
-  `oauth-server-kit`; API-key auth remains available for automation.
+- MCP is one authenticated `POST /mcp` Streamable HTTP endpoint. SDK 2 serves
+  modern stateless `2026-07-28` envelopes and older Streamable HTTP clients
+  through `legacy: "stateless"`; both create a request-local server and use
+  the same catalog and policy. FrontLit has no MCP session map,
+  `Mcp-Session-Id`, SDK 1 server, or standalone SSE `GET` route.
+- The MCP router is mounted before Express body parsing and owns its narrow
+  CORS contract. Every present browser Origin is checked against the API,
+  web-client, and configured MCP origin allowlist before authentication. The
+  official Node adapter parses protocol bodies and returns MCP-compliant
+  content-type/parse errors.
+- OAuth discovery/resource metadata is mounted by `oauth-server-kit`. Better
+  Auth uses CIMD for modern clients and retains public DCR for clients such as
+  Inspector. OAuth client defaults are identity-only; every MCP tool requires
+  its explicit policy scope. API-key auth remains fixed-team and the submitted
+  secret is never copied into SDK context.
 
 The API exposes the generated OpenAPI document at `/openapi.json` and the
 interactive Swagger UI at `/docs/` (`/docs` redirects there, with
@@ -188,31 +207,31 @@ still lives at `/docs` on `apps/sites`.
 
 ### Endpoint ↔ tool matrix
 
-| Feature | REST (team-scoped) | MCP tools |
-|---|---|---|
-| Pages (existing) | `POST/GET/PATCH/DELETE /pages…` | `list/create/get/update/delete_page` |
-| Pages draft/publish (§4) | `POST /pages/:id/publish`, `POST /pages/:id/discard-draft` | `publish_page`, `discard_page_draft` |
-| Blog (§5) | `POST/GET/PATCH/DELETE /blogs…`, `…/publish`, `…/discard-draft` | `list/create/get/update/delete_blog_post`, `publish_blog_post`, `discard_blog_post_draft` |
-| Docs (§5) | `POST/GET/PATCH/DELETE /help-docs…`, `…/publish`, `…/discard-draft` | `list_help_docs`, `create/get/update/delete_help_doc`, `publish_help_doc`, `discard_help_doc_draft` |
-| Doc sections (§5) | `POST/GET/PATCH/DELETE /doc-sections…` | `list/create/update/delete_doc_section` |
-| Docs search (§6) | `GET /help-docs/search?q=` (authed; public variant on `/public/…`) | `search_docs` (semantic search over published docs) |
-| Changelog (§8) | `POST/GET/PATCH/DELETE /changelogs…`, `…/publish`, `…/discard-draft` | `list/create/get/update/delete_changelog_entry`, `publish_changelog_entry`, `discard_changelog_entry_draft` |
-| GitHub import (§8) | `POST /changelogs/import-github` | `import_github_releases` |
-| Chatbot settings (§7) | `GET/PATCH /chatbot` | `get_chatbot_settings`, `update_chatbot_settings` |
-| Team settings (§12.5) | `GET/PATCH /settings` (branding + code injection; the shared shell moves through page publish) | `get_team_settings`, `update_team_settings` |
-| Ask the docs (§7) | `POST /public/:teamId/chat` (public, persisted thread) | — (visitor widget only for now; no MCP twin yet) |
-| Help desk (§11) | `GET/POST /tickets`, `GET/PATCH /tickets/:ticketId`, `POST /tickets/:ticketId/messages` (submission is also public at `POST /public/:teamId/tickets`) | `create_ticket`, `list_tickets`, `get_ticket`, `reply_to_ticket`, `update_ticket_status`, `assign_ticket` |
-| Domains (§12.1) | `GET/PATCH /domain`, `POST /domain/custom`, `POST /domain/custom/verify`, `DELETE /domain/custom` | `get_domain_settings`, `set_team_subdomain`, `attach_custom_domain`, `verify_custom_domain`, `remove_custom_domain` |
-| Media (§9) | `POST /media/presigned`, `POST /media`, `GET/PATCH/DELETE /media…` | `get_media_upload_signature`, `register_media`, `list_media`, `get_media`, `update_media`, `delete_media` |
-| Contacts (§10.2, read-through to SendLit) | `GET /contacts` (with filter params), `GET/DELETE /contacts/:contactId`, `POST/DELETE /contacts/:contactId/tags/:tag` (capture itself is public: `POST /public/:teamId/leads`) | `list_contacts`, `get_contact`, `delete_contact`, `add_contact_tag`, `remove_contact_tag` |
-| Segments (§10.2, read-through to SendLit) | `GET/POST/PATCH/DELETE /newsletter/segments…` | `list_segments`, `create_segment`, `update_segment`, `delete_segment` |
-| ESP settings (§10.3, write-through to SendLit) | `GET/PUT/DELETE /settings/esp`, `POST /settings/esp/test` | `get_esp_config`, `update_esp_config`, `remove_esp_config`, `test_esp_config` |
-| Newsletter (§10.3) | `GET/PATCH /newsletter`, `GET/POST/PATCH /newsletter/broadcasts…`, `POST …/send`, `GET …/stats` | `get/update_newsletter_settings`, `list/create/update/send_broadcast`, `get_broadcast_stats` |
+| Feature                                        | REST (team-scoped)                                                                                                                                                             | MCP tools                                                                                                           |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| Pages (existing)                               | `POST/GET/PATCH/DELETE /pages…`                                                                                                                                                | `list/create/get/update/delete_page`                                                                                |
+| Pages draft/publish (§4)                       | `POST /pages/:id/publish`, `POST /pages/:id/discard-draft`                                                                                                                     | `publish_page`, `discard_page_draft`                                                                                |
+| Blog (§5)                                      | `POST/GET/PATCH/DELETE /blogs…`, `…/publish`, `…/discard-draft`                                                                                                                | `list/create/get/update/delete_blog_post`, `publish_blog_post`, `discard_blog_post_draft`                           |
+| Docs (§5)                                      | `POST/GET/PATCH/DELETE /help-docs…`, `…/publish`, `…/discard-draft`                                                                                                            | `list_help_docs`, `create/get/update/delete_help_doc`, `publish_help_doc`, `discard_help_doc_draft`                 |
+| Doc sections (§5)                              | `POST/GET/PATCH/DELETE /doc-sections…`                                                                                                                                         | `list/create/update/delete_doc_section`                                                                             |
+| Docs search (§6)                               | `GET /help-docs/search?q=` (authed; public variant on `/public/…`)                                                                                                             | `search_docs` (semantic search over published docs)                                                                 |
+| Changelog (§8)                                 | `POST/GET/PATCH/DELETE /changelogs…`, `…/publish`, `…/discard-draft`                                                                                                           | `list/create/get/update/delete_changelog_entry`, `publish_changelog_entry`, `discard_changelog_entry_draft`         |
+| GitHub import (§8)                             | `POST /changelogs/import-github`                                                                                                                                               | `import_github_releases`                                                                                            |
+| Chatbot settings (§7)                          | `GET/PATCH /chatbot`                                                                                                                                                           | `get_chatbot_settings`, `update_chatbot_settings`                                                                   |
+| Team settings (§12.5)                          | `GET/PATCH /settings` (branding + code injection; the shared shell moves through page publish)                                                                                 | `get_team_settings`, `update_team_settings`                                                                         |
+| Ask the docs (§7)                              | `POST /public/:teamId/chat` (public, persisted thread)                                                                                                                         | — (visitor widget only for now; no MCP twin yet)                                                                    |
+| Help desk (§11)                                | `GET/POST /tickets`, `GET/PATCH /tickets/:ticketId`, `POST /tickets/:ticketId/messages` (submission is also public at `POST /public/:teamId/tickets`)                          | `create_ticket`, `list_tickets`, `get_ticket`, `reply_to_ticket`, `update_ticket_status`, `assign_ticket`           |
+| Domains (§12.1)                                | `GET/PATCH /domain`, `POST /domain/custom`, `POST /domain/custom/verify`, `DELETE /domain/custom`                                                                              | `get_domain_settings`, `set_team_subdomain`, `attach_custom_domain`, `verify_custom_domain`, `remove_custom_domain` |
+| Media (§9)                                     | `POST /media/presigned`, `POST /media`, `GET/PATCH/DELETE /media…`                                                                                                             | `get_media_upload_signature`, `register_media`, `list_media`, `get_media`, `update_media`, `delete_media`           |
+| Contacts (§10.2, read-through to SendLit)      | `GET /contacts` (with filter params), `GET/DELETE /contacts/:contactId`, `POST/DELETE /contacts/:contactId/tags/:tag` (capture itself is public: `POST /public/:teamId/leads`) | `list_contacts`, `get_contact`, `delete_contact`, `add_contact_tag`, `remove_contact_tag`                           |
+| Segments (§10.2, read-through to SendLit)      | `GET/POST/PATCH/DELETE /newsletter/segments…`                                                                                                                                  | `list_segments`, `create_segment`, `update_segment`, `delete_segment`                                               |
+| ESP settings (§10.3, write-through to SendLit) | `GET/PUT/DELETE /settings/esp`, `POST /settings/esp/test`                                                                                                                      | `get_esp_config`, `update_esp_config`, `remove_esp_config`, `test_esp_config`                                       |
+| Newsletter (§10.3)                             | `GET/PATCH /newsletter`, `GET/POST/PATCH /newsletter/broadcasts…`, `POST …/send`, `GET …/stats`                                                                                | `get/update_newsletter_settings`, `list/create/update/send_broadcast`, `get_broadcast_stats`                        |
 
 Notes:
 
 - Since blogs/docs/changelogs share one engine (§5), their REST routers
-  *and* MCP tool registrations come from the same per-kind factory.
+  _and_ MCP tool registrations come from the same per-kind factory.
   Kind-named tools (`create_blog_post`, not a generic `create_document`
   with a `kind` arg) keep the tool list self-describing for agents at
   near-zero marginal code cost.
@@ -252,10 +271,10 @@ audit table can be layered on later without changing the API surface.
 
 Derived status (not stored, computed in serializers):
 
-| status | condition |
-|---|---|
-| `draft` | never published (`publishedAt IS NULL`) |
-| `published` | published and draft == published |
+| status              | condition                                             |
+| ------------------- | ----------------------------------------------------- |
+| `draft`             | never published (`publishedAt IS NULL`)               |
+| `published`         | published and draft == published                      |
 | `published+changes` | published and draft differs (`hasUnpublishedChanges`) |
 
 ---
@@ -267,21 +286,29 @@ Derived status (not stored, computed in serializers):
 Extend the existing `pages` table:
 
 ```ts
-export const pages = pgTable("pages", {
-    // …existing columns (published side): layout, title, description,
-    // socialImage, robotsAllowed …
-    slug: text("slug").notNull(),               // route on the public site
-    deleteable: boolean("deleteable").notNull().default(true),
-    draftLayout: jsonb("draft_layout").$type<WidgetInstanceRow[]>().notNull().default([]),
-    draftTitle: text("draft_title"),
-    draftDescription: text("draft_description"),
-    draftSocialImage: jsonb("draft_social_image").$type<Record<string, unknown>>(),
-    draftRobotsAllowed: boolean("draft_robots_allowed"),
-    publishedAt: timestamp("published_at"),
-}, (table) => [
-    uniqueIndex("pages_team_slug_idx").on(table.teamId, table.slug),
-    // …existing indexes
-]);
+export const pages = pgTable(
+    "pages",
+    {
+        // …existing columns (published side): layout, title, description,
+        // socialImage, robotsAllowed …
+        slug: text("slug").notNull(), // route on the public site
+        deleteable: boolean("deleteable").notNull().default(true),
+        draftLayout: jsonb("draft_layout")
+            .$type<WidgetInstanceRow[]>()
+            .notNull()
+            .default([]),
+        draftTitle: text("draft_title"),
+        draftDescription: text("draft_description"),
+        draftSocialImage:
+            jsonb("draft_social_image").$type<Record<string, unknown>>(),
+        draftRobotsAllowed: boolean("draft_robots_allowed"),
+        publishedAt: timestamp("published_at"),
+    },
+    (table) => [
+        uniqueIndex("pages_team_slug_idx").on(table.teamId, table.slug),
+        // …existing indexes
+    ],
+);
 ```
 
 ### 4.2 Standard pages
@@ -289,15 +316,15 @@ export const pages = pgTable("pages", {
 Seeded per team at provisioning time (`provisioning/routes.ts` +
 `teams/queries.ts` `createTeam`), all `deleteable: false`:
 
-| name | slug | type | notes |
-|---|---|---|---|
-| Homepage | `` (empty) | `site` | root of the public site |
-| Blog | `blog` | `blog` | index shell; post list is a builder block |
-| Changelog | `changelog` | `custom` | entry list is a builder block |
-| Docs | `docs` | `custom` | doc nav/search is a builder block |
-| Help desk | `help` | `custom` | `support-form` block pre-placed (§11.2) |
-| Terms of Service | `terms` | `custom` | |
-| Privacy policy | `privacy` | `custom` | |
+| name             | slug        | type     | notes                                     |
+| ---------------- | ----------- | -------- | ----------------------------------------- |
+| Homepage         | `` (empty)  | `site`   | root of the public site                   |
+| Blog             | `blog`      | `blog`   | index shell; post list is a builder block |
+| Changelog        | `changelog` | `custom` | entry list is a builder block             |
+| Docs             | `docs`      | `custom` | doc nav/search is a builder block         |
+| Help desk        | `help`      | `custom` | `support-form` block pre-placed (§11.2)   |
+| Terms of Service | `terms`     | `custom` |                                           |
+| Privacy policy   | `privacy`   | `custom` |                                           |
 
 Standard pages are ordinary pages — same builder, same draft/publish flow —
 they just can't be deleted and their slugs are reserved. `blog`, `docs`,
@@ -326,9 +353,9 @@ controls for them.
 
 New endpoints in `contract.pages`:
 
-| method & path | purpose |
-|---|---|
-| `POST /pages/:pageId/publish` | promote draft → published |
+| method & path                       | purpose                        |
+| ----------------------------------- | ------------------------------ |
+| `POST /pages/:pageId/publish`       | promote draft → published      |
 | `POST /pages/:pageId/discard-draft` | reset draft to published state |
 
 Update `apps/api/src/mcp/tools/pages.ts`, `openapi.ts` output and
@@ -355,57 +382,91 @@ with one shell pair and every page with exactly two shared placeholders.
 ```ts
 export const documentKinds = ["blog", "doc", "changelog"] as const;
 
-export const documents = pgTable("documents", {
-    id: text("id").primaryKey().$defaultFn(genId),
-    documentId: text("document_id").notNull().unique()
-        .$defaultFn(() => genPublicId("doc")),        // doc_…
-    teamId: text("team_id").notNull()
-        .references(() => teams.id, { onDelete: "cascade" }),
-    kind: text("kind", { enum: documentKinds }).notNull(),
-    slug: text("slug").notNull(),
+export const documents = pgTable(
+    "documents",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        documentId: text("document_id")
+            .notNull()
+            .unique()
+            .$defaultFn(() => genPublicId("doc")), // doc_…
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        kind: text("kind", { enum: documentKinds }).notNull(),
+        slug: text("slug").notNull(),
 
-    // published side (public site + public API read these)
-    title: text("title"),
-    content: jsonb("content").$type<TextEditorContent>(),   // TipTap JSON
-    excerpt: text("excerpt"),
-    featuredImage: jsonb("featured_image").$type<Record<string, unknown>>(),
-    meta: jsonb("meta").$type<Record<string, unknown>>().notNull().default({}),
+        // published side (public site + public API read these)
+        title: text("title"),
+        content: jsonb("content").$type<TextEditorContent>(), // TipTap JSON
+        excerpt: text("excerpt"),
+        featuredImage: jsonb("featured_image").$type<Record<string, unknown>>(),
+        meta: jsonb("meta")
+            .$type<Record<string, unknown>>()
+            .notNull()
+            .default({}),
 
-    // draft side (workspace edits these)
-    draftTitle: text("draft_title").notNull(),
-    draftContent: jsonb("draft_content").$type<TextEditorContent>().notNull(),
-    draftExcerpt: text("draft_excerpt"),
-    draftFeaturedImage: jsonb("draft_featured_image").$type<Record<string, unknown>>(),
-    draftMeta: jsonb("draft_meta").$type<Record<string, unknown>>().notNull().default({}),
+        // draft side (workspace edits these)
+        draftTitle: text("draft_title").notNull(),
+        draftContent: jsonb("draft_content")
+            .$type<TextEditorContent>()
+            .notNull(),
+        draftExcerpt: text("draft_excerpt"),
+        draftFeaturedImage: jsonb("draft_featured_image").$type<
+            Record<string, unknown>
+        >(),
+        draftMeta: jsonb("draft_meta")
+            .$type<Record<string, unknown>>()
+            .notNull()
+            .default({}),
 
-    authorAccountId: text("author_account_id")
-        .references(() => accounts.id, { onDelete: "set null" }),
-    publishedAt: timestamp("published_at"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-}, (table) => [
-    uniqueIndex("documents_team_kind_slug_idx").on(table.teamId, table.kind, table.slug),
-    index("documents_team_kind_idx").on(table.teamId, table.kind),
-    index("documents_published_idx").on(table.teamId, table.kind, table.publishedAt),
-    publicIdCheck("document_id", "doc"),
-]);
+        authorAccountId: text("author_account_id").references(
+            () => accounts.id,
+            { onDelete: "set null" },
+        ),
+        publishedAt: timestamp("published_at"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => [
+        uniqueIndex("documents_team_kind_slug_idx").on(
+            table.teamId,
+            table.kind,
+            table.slug,
+        ),
+        index("documents_team_kind_idx").on(table.teamId, table.kind),
+        index("documents_published_idx").on(
+            table.teamId,
+            table.kind,
+            table.publishedAt,
+        ),
+        publicIdCheck("document_id", "doc"),
+    ],
+);
 ```
 
 Kind-specific `meta` (validated per-kind by zod in the contract, stored as
 jsonb so the core engine stays generic):
 
-| kind | meta fields |
-|---|---|
-| *all kinds* | `seo?: { title?, description? }` — optional overrides for public metadata (§12.3) |
-| `blog` | `tags: string[]` |
-| `doc` | `sectionId: string`, `order: number` (help-center nav tree) |
+| kind        | meta fields                                                                                                                              |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| _all kinds_ | `seo?: { title?, description? }` — optional overrides for public metadata (§12.3)                                                        |
+| `blog`      | `tags: string[]`                                                                                                                         |
+| `doc`       | `sectionId: string`, `order: number` (help-center nav tree)                                                                              |
 | `changelog` | `version?: string`, `labels: ("added"\|"fixed"\|"improved"\|"removed")[]`, `releaseDate: string`, `github?: { releaseId, tag, htmlUrl }` |
 
 Help-center sections get a small companion table:
 
 ```ts
 export const docSections = pgTable("doc_sections", {
-    id, sectionId /* sec_… */, teamId, name, slug, order, createdAt, updatedAt,
+    id,
+    sectionId /* sec_… */,
+    teamId,
+    name,
+    slug,
+    order,
+    createdAt,
+    updatedAt,
 });
 ```
 
@@ -458,18 +519,18 @@ Public site rendering (and any headless consumer) needs unauthenticated,
 published-only reads. Add a `public` contract group, resolved by team
 public id (no session/API key; rate limits, CAPTCHA and budgets per §13):
 
-| endpoint | serves |
-|---|---|
-| `GET /public/resolve-host?host=` | host → team resolution for `apps/sites` + TLS "ask" (§12) |
-| `GET /public/:teamId/settings` | branding (title, subtitle, logo/favicon) + code-injection snippets for the site shell (§12.5) |
-| `GET /public/:teamId/pages/:slug` | published page layout for the renderer |
-| `GET /public/:teamId/blogs` / `…/blogs/:slug` | `/blog` index + post pages |
-| `GET /public/:teamId/docs` / `…/docs/:slug` | `/docs` nav tree + doc pages |
-| `GET /public/:teamId/changelogs` | `/changelog` feed |
-| `GET /public/:teamId/sitemap` | all published, robots-allowed URLs + `lastmod` — feeds sitemap.xml and RSS generation (§12.3) |
-| `POST /public/:teamId/leads` | email-form block submissions → queued sync to SendLit contacts (§10.2) |
-| `POST /public/:teamId/tickets`, `GET/POST …/tickets/:ticketId/messages` | help-desk submission + magic-token thread (§11) |
-| `POST /public/:teamId/chat` | persisted chatbot conversation (§7) |
+| endpoint                                                                | serves                                                                                        |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `GET /public/resolve-host?host=`                                        | host → team resolution for `apps/sites` + TLS "ask" (§12)                                     |
+| `GET /public/:teamId/settings`                                          | branding (title, subtitle, logo/favicon) + code-injection snippets for the site shell (§12.5) |
+| `GET /public/:teamId/pages/:slug`                                       | published page layout for the renderer                                                        |
+| `GET /public/:teamId/blogs` / `…/blogs/:slug`                           | `/blog` index + post pages                                                                    |
+| `GET /public/:teamId/docs` / `…/docs/:slug`                             | `/docs` nav tree + doc pages                                                                  |
+| `GET /public/:teamId/changelogs`                                        | `/changelog` feed                                                                             |
+| `GET /public/:teamId/sitemap`                                           | all published, robots-allowed URLs + `lastmod` — feeds sitemap.xml and RSS generation (§12.3) |
+| `POST /public/:teamId/leads`                                            | email-form block submissions → queued sync to SendLit contacts (§10.2)                        |
+| `POST /public/:teamId/tickets`, `GET/POST …/tickets/:ticketId/messages` | help-desk submission + magic-token thread (§11)                                               |
+| `POST /public/:teamId/chat`                                             | persisted chatbot conversation (§7)                                                           |
 
 These return published fields only and never leak `draft*` columns
 (enforced in the serializer next to `omitInternal`).
@@ -490,22 +551,30 @@ These return published fields only and never leak `draft*` columns
 ### 6.2 Schema
 
 ```ts
-export const documentChunks = pgTable("document_chunks", {
-    id: text("id").primaryKey().$defaultFn(genId),
-    teamId: text("team_id").notNull()
-        .references(() => teams.id, { onDelete: "cascade" }),
-    documentId: text("document_id").notNull()
-        .references(() => documents.id, { onDelete: "cascade" }),
-    heading: text("heading"),          // nearest heading, for citations
-    anchor: text("anchor"),            // #fragment on /docs/:slug
-    content: text("content").notNull(),// plain text of the chunk
-    embedding: vector("embedding", { dimensions: 1536 }).notNull(),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-}, (table) => [
-    index("document_chunks_team_idx").on(table.teamId),
-    index("document_chunks_embedding_idx")
-        .using("hnsw", table.embedding.op("vector_cosine_ops")),
-]);
+export const documentChunks = pgTable(
+    "document_chunks",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        documentId: text("document_id")
+            .notNull()
+            .references(() => documents.id, { onDelete: "cascade" }),
+        heading: text("heading"), // nearest heading, for citations
+        anchor: text("anchor"), // #fragment on /docs/:slug
+        content: text("content").notNull(), // plain text of the chunk
+        embedding: vector("embedding", { dimensions: 1536 }).notNull(),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => [
+        index("document_chunks_team_idx").on(table.teamId),
+        index("document_chunks_embedding_idx").using(
+            "hnsw",
+            table.embedding.op("vector_cosine_ops"),
+        ),
+    ],
+);
 ```
 
 ### 6.3 Chunking & indexing pipeline
@@ -566,12 +635,12 @@ All generative and embedding calls run **server-side in `apps/api`** via
 Vercel AI SDK Core (`ai` package) — never raw provider `fetch` from route
 handlers.
 
-| `CHAT_PROVIDER` | AI SDK package | key | default `CHAT_MODEL` |
-|---|---|---|---|
-| `opencode-go` (default when key present) | `@ai-sdk/openai-compatible` → Go gateway | `OPENCODE_API_KEY` | `deepseek-v4-flash` |
-| `openai` | `@ai-sdk/openai` | `OPENAI_API_KEY` | `gpt-4o-mini` |
-| `anthropic` | `@ai-sdk/anthropic` | `ANTHROPIC_API_KEY` | `claude-haiku-4-5-20251001` |
-| `local` | none (extractive top-chunk) | — | — |
+| `CHAT_PROVIDER`                          | AI SDK package                           | key                 | default `CHAT_MODEL`        |
+| ---------------------------------------- | ---------------------------------------- | ------------------- | --------------------------- |
+| `opencode-go` (default when key present) | `@ai-sdk/openai-compatible` → Go gateway | `OPENCODE_API_KEY`  | `deepseek-v4-flash`         |
+| `openai`                                 | `@ai-sdk/openai`                         | `OPENAI_API_KEY`    | `gpt-4o-mini`               |
+| `anthropic`                              | `@ai-sdk/anthropic`                      | `ANTHROPIC_API_KEY` | `claude-haiku-4-5-20251001` |
+| `local`                                  | none (extractive top-chunk)              | —                   | —                           |
 
 Embeddings use the same SDK (`embed` / `embedMany` + `@ai-sdk/openai`
 embedding models when `OPENAI_API_KEY` is set; otherwise a local
@@ -607,13 +676,13 @@ helper (`streamChatAnswer`) exists for a future SSE path:
   muted, border, and surface colors match the site. An optional chatbot
   `accentColor` overrides the theme primary only.
 - **Launcher variants** (workspace `/settings/chatbot`):
-  - `bubble` — classic floating button; style: shape (circle/rounded/square),
-    icon (chat/message/sparkles/bot), size (sm/md/lg).
-  - `text_input` — bottom bar that looks like a message field; style: corner
-    radius, width, placeholder. Clicking opens the same chat panel.
-  Accent color is shared. Stored as `variant` + `widget_style` jsonb on
-  `chatbot_settings`; exposed on the public settings payload for the site
-  and the external embed loader.
+    - `bubble` — classic floating button; style: shape (circle/rounded/square),
+      icon (chat/message/sparkles/bot), size (sm/md/lg).
+    - `text_input` — bottom bar that looks like a message field; style: corner
+      radius, width, placeholder. Clicking opens the same chat panel.
+      Accent color is shared. Stored as `variant` + `widget_style` jsonb on
+      `chatbot_settings`; exposed on the public settings payload for the site
+      and the external embed loader.
 - **External sites**: `<script src="https://<team-host>/embed/chat.js">`
   — a tiny loader served by `apps/sites` (§12.2; the snippet uses the team's
   canonical host, so the team is implied by the host — no `data-team`
@@ -637,7 +706,7 @@ Per-team connection stored in a generic `integrations` table
 
 - **v1 (ship first)**: connect with a fine-grained PAT + repo name.
   `POST /changelogs/import-github` lists GitHub **Releases** and creates one
-  *draft* changelog entry per release (release notes markdown → TipTap JSON
+  _draft_ changelog entry per release (release notes markdown → TipTap JSON
   via a small converter in the API). Idempotent by `meta.github.releaseId`.
   Nothing is auto-published — a human reviews and publishes.
 - **v2**: proper GitHub App (install flow, webhook on `release: published`
@@ -699,13 +768,13 @@ exactly this.
 
 Contract (`contract.media`, per §2 REST + MCP):
 
-| endpoint | purpose |
-|---|---|
-| `POST /media/presigned` | short-lived MediaLit signature + endpoint |
-| `POST /media` | register an uploaded file in the team library |
-| `GET /media`, `GET /media/:mediaId` | browse the library (paginated, mime filter) |
-| `PATCH /media/:mediaId` | edit `alt`/`caption` |
-| `DELETE /media/:mediaId` | delete from MediaLit + library (409 if still referenced) |
+| endpoint                            | purpose                                                  |
+| ----------------------------------- | -------------------------------------------------------- |
+| `POST /media/presigned`             | short-lived MediaLit signature + endpoint                |
+| `POST /media`                       | register an uploaded file in the team library            |
+| `GET /media`, `GET /media/:mediaId` | browse the library (paginated, mime filter)              |
+| `PATCH /media/:mediaId`             | edit `alt`/`caption`                                     |
+| `DELETE /media/:mediaId`            | delete from MediaLit + library (409 if still referenced) |
 
 MCP tools: `get_media_upload_signature`, `register_media`, `list_media`,
 `get_media`, `update_media`, `delete_media` — so agents can attach images
@@ -774,7 +843,7 @@ FrontLit team is created (signup or `provisioning/routes.ts`), the API
 calls SendLit's `POST /provisioning/teams` with
 `X-Sendlit-Provisioning-Secret`, `externalId` = the FrontLit team's public
 id — idempotent find-or-create, exactly how FrontLit's own provisioning
-endpoint serves *its* consumers. The returned `apiKey` (only present on
+endpoint serves _its_ consumers. The returned `apiKey` (only present on
 the creating call) is stored encrypted in the `integrations` table
 (`provider: "sendlit"`, alongside `github` from §8.1). A maintenance
 script backfills SendLit teams for any FrontLit team created before this
@@ -812,7 +881,7 @@ contact rows. Capture is an outbox, not a database:
    adapter forwards filter conditions (tags, email, subscription state,
    signup date) as SendLit query params, and saved segments proxy
    SendLit's `/segments` CRUD via `GET/POST/PATCH/DELETE
-   /newsletter/segments…`. FrontLit stores no filter or segment state.
+/newsletter/segments…`. FrontLit stores no filter or segment state.
 
 ### 10.3 Sending newsletters
 
@@ -821,13 +890,13 @@ thin, team-scoped adapter endpoints in FrontLit's API. The workspace and
 MCP clients talk only to FrontLit; the API forwards each call to the
 hosted SendLit instance's REST API with the provisioned team's key:
 
-| FrontLit endpoint | hosted SendLit REST call |
-|---|---|
-| `GET /newsletter` / `PATCH /newsletter` | `GET/PUT /settings/general` (physical mailing address required in managed marketing footers) |
-| `GET/PUT/DELETE /settings/esp`, `POST /settings/esp/test` | the matching SendLit default-ESP endpoints; credentials are write-only and SendLit returns only `hasPassword` |
-| `GET /newsletter/broadcasts`, `POST /newsletter/broadcasts` | `GET/POST /sequences` (SendLit models broadcasts as sequences, cf. its `/dashboard/broadcasts` UI) |
-| `PATCH /newsletter/broadcasts/:id`, `POST …/:id/send` | `PATCH /sequences/:id` + email endpoints, `POST /sequences/:id/start` |
-| `GET /newsletter/broadcasts/:id/stats` | `GET /sequences/:id/stats` |
+| FrontLit endpoint                                           | hosted SendLit REST call                                                                                      |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `GET /newsletter` / `PATCH /newsletter`                     | `GET/PUT /settings/general` (physical mailing address required in managed marketing footers)                  |
+| `GET/PUT/DELETE /settings/esp`, `POST /settings/esp/test`   | the matching SendLit default-ESP endpoints; credentials are write-only and SendLit returns only `hasPassword` |
+| `GET /newsletter/broadcasts`, `POST /newsletter/broadcasts` | `GET/POST /sequences` (SendLit models broadcasts as sequences, cf. its `/dashboard/broadcasts` UI)            |
+| `PATCH /newsletter/broadcasts/:id`, `POST …/:id/send`       | `PATCH /sequences/:id` + email endpoints, `POST /sequences/:id/start`                                         |
+| `GET /newsletter/broadcasts/:id/stats`                      | `GET /sequences/:id/stats`                                                                                    |
 
 **Workspace UI: `@sendlit/email-blocks`.** All newsletter screens in
 `apps/web` are assembled from SendLit's headless component package rather
@@ -835,12 +904,12 @@ than hand-built — its components are fully controlled (`value` in,
 `onChange` out, zero fetching/persistence inside), so they plug straight
 into FrontLit's adapter endpoints via the existing BFF proxy:
 
-| screen | email-blocks components | backed by adapters for |
-|---|---|---|
+| screen                          | email-blocks components                                                                                               | backed by adapters for                                      |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | Audience list + lead management | `ContactFilterBuilder` (filter conditions, applied-filter chips, segment picker + save/delete) over the contact table | `GET /contacts` with filter params, `/newsletter/segments…` |
-| Contact detail | `TagEditor` (chips, existing-tag dropdown, create-new) | `POST/DELETE /contacts/:id/tags/:tag` |
-| Broadcast composer | re-exported `EmailEditor`, `TemplateChooser`, `EmailPreview` | `/newsletter/broadcasts…` |
-| Broadcast results | `SequenceAnalytics`, `SubscriberList` | `…/stats`, `…/subscribers` |
+| Contact detail                  | `TagEditor` (chips, existing-tag dropdown, create-new)                                                                | `POST/DELETE /contacts/:id/tags/:tag`                       |
+| Broadcast composer              | re-exported `EmailEditor`, `TemplateChooser`, `EmailPreview`                                                          | `/newsletter/broadcasts…`                                   |
+| Broadcast results               | `SequenceAnalytics`, `SubscriberList`                                                                                 | `…/stats`, `…/subscribers`                                  |
 
 The `/settings/esp` workspace screen configures the active FrontLit
 team's default SendLit ESP (provider, SMTP host/port/TLS, username,
@@ -855,7 +924,7 @@ Using the re-exported email editor (not `@frontlit/text-editor`) for
 broadcast content is deliberate: broadcast bodies must round-trip
 SendLit's sequence-email API and render through SendLit's outgoing-mail
 pipeline, so they use SendLit's email content model. The
-"`@frontlit/text-editor` everywhere" rule applies to *site* content
+"`@frontlit/text-editor` everywhere" rule applies to _site_ content
 (pages, blog, help, changelog), not to emails.
 
 The audience (SendLit contacts, read-through per §10.2) surfaces in the
@@ -879,14 +948,14 @@ integration contract is identical either way — REST via `SENDLIT_API_URL`
 — only the URL changes. `frontlit/docker-compose.yml` grows from today's
 lone postgres service into a full two-product stack:
 
-| service | image / build | notes |
-|---|---|---|
-| `postgres` | `pgvector/pgvector:pg16` | one server, two databases (`frontlit`, `sendlit`) created by an init script; pgvector needed only by the `frontlit` DB, harmless to the other |
-| `sendlit-api` | `sendlit/apps/api/Dockerfile` | `SENDLIT_PROVISIONING_SECRET`, ESP credentials |
-| `sendlit-web` | `sendlit/apps/web/Dockerfile` | optional — SendLit's own dashboard for power users; FrontLit's UI covers the newsletter basics |
-| `frontlit-api` | `apps/api/Dockerfile` | `SENDLIT_API_URL=http://sendlit-api:<port>`, same provisioning secret, MediaLit + embeddings keys |
-| `frontlit-web` | `apps/web/Dockerfile` | authenticated workspace |
-| `frontlit-sites` | `apps/sites/Dockerfile` | public sites (§12.2) |
+| service          | image / build                 | notes                                                                                                                                         |
+| ---------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `postgres`       | `pgvector/pgvector:pg16`      | one server, two databases (`frontlit`, `sendlit`) created by an init script; pgvector needed only by the `frontlit` DB, harmless to the other |
+| `sendlit-api`    | `sendlit/apps/api/Dockerfile` | `SENDLIT_PROVISIONING_SECRET`, ESP credentials                                                                                                |
+| `sendlit-web`    | `sendlit/apps/web/Dockerfile` | optional — SendLit's own dashboard for power users; FrontLit's UI covers the newsletter basics                                                |
+| `frontlit-api`   | `apps/api/Dockerfile`         | `SENDLIT_API_URL=http://sendlit-api:<port>`, same provisioning secret, MediaLit + embeddings keys                                             |
+| `frontlit-web`   | `apps/web/Dockerfile`         | authenticated workspace                                                                                                                       |
+| `frontlit-sites` | `apps/sites/Dockerfile`       | public sites (§12.2)                                                                                                                          |
 
 Provisioning, contact sync and broadcasts then work out of the box against
 the local SendLit exactly as they do against the hosted one. The compose
@@ -995,10 +1064,10 @@ or vice versa.
 
 Two Next.js apps with strictly separated concerns:
 
-| app | audience | auth |
-|---|---|---|
-| `apps/web` | team members (inbox, builder, editors, settings) | **every product page behind auth** |
-| `apps/sites` | the teams' visitors (published sites) | fully public, tenant resolved from the request host |
+| app          | audience                                         | auth                                                |
+| ------------ | ------------------------------------------------ | --------------------------------------------------- |
+| `apps/web`   | team members (inbox, builder, editors, settings) | **every product page behind auth**                  |
+| `apps/sites` | the teams' visitors (published sites)            | fully public, tenant resolved from the request host |
 
 ### 12.1 Team URLs & custom domains
 
@@ -1087,16 +1156,16 @@ which prevents configuration drift. It caches the result briefly,
 and rewrites to `/sites/[teamId]/…`. Both known hosts render normally; the
 resolver also supplies the canonical host to the rewritten request for SEO.
 
-| route | renders |
-|---|---|
-| `/[[...slug]]` | published page layout via `@frontlit/page-builder` renderer |
-| `/blog`, `/blog/[slug]` | blog index block / post page (`TextRenderer`) |
-| `/docs`, `/docs/[slug]` | documentation: section nav + search / doc page with heading anchors |
-| `/help`, `/help/tickets/[ticketId]` | help desk: support form page / magic-link ticket thread (`noindex`) |
-| `/changelog` | changelog feed |
-| `/sitemap.xml`, `/robots.txt` | per-tenant crawler plumbing (§12.3) |
-| `/blog/rss.xml`, `/changelog/rss.xml` | RSS feeds (§12.3) |
-| `/embed/chat`, `/embed/chat.js` | chatbot iframe + loader |
+| route                                 | renders                                                             |
+| ------------------------------------- | ------------------------------------------------------------------- |
+| `/[[...slug]]`                        | published page layout via `@frontlit/page-builder` renderer         |
+| `/blog`, `/blog/[slug]`               | blog index block / post page (`TextRenderer`)                       |
+| `/docs`, `/docs/[slug]`               | documentation: section nav + search / doc page with heading anchors |
+| `/help`, `/help/tickets/[ticketId]`   | help desk: support form page / magic-link ticket thread (`noindex`) |
+| `/changelog`                          | changelog feed                                                      |
+| `/sitemap.xml`, `/robots.txt`         | per-tenant crawler plumbing (§12.3)                                 |
+| `/blog/rss.xml`, `/changelog/rss.xml` | RSS feeds (§12.3)                                                   |
+| `/embed/chat`, `/embed/chat.js`       | chatbot iframe + loader                                             |
 
 All public pages are statically cached (ISR, tagged per team) and
 revalidated on publish and on domain changes via a signed webhook from the
@@ -1158,12 +1227,12 @@ Next.js single-file conventions (`app/sitemap.ts`, `app/robots.ts`) don't
 fit a multi-tenant app; these are plain **route handlers** under the tenant
 segment instead:
 
-| file (under `app/sites/[teamId]/`) | serves |
-|---|---|
-| `sitemap.xml/route.ts` | per-tenant sitemap |
-| `robots.txt/route.ts` | per-tenant robots policy |
-| `blog/rss.xml/route.ts` | blog feed |
-| `changelog/rss.xml/route.ts` | changelog feed |
+| file (under `app/sites/[teamId]/`) | serves                   |
+| ---------------------------------- | ------------------------ |
+| `sitemap.xml/route.ts`             | per-tenant sitemap       |
+| `robots.txt/route.ts`              | per-tenant robots policy |
+| `blog/rss.xml/route.ts`            | blog feed                |
+| `changelog/rss.xml/route.ts`       | changelog feed           |
 
 **Canonical** — every route's `generateMetadata` sets
 `alternates.canonical` to `https://<canonical-host>/<path>` (path without
@@ -1204,12 +1273,12 @@ URLs.
 `\u003c` to prevent script injection from user-authored titles) from typed
 builder functions in `apps/sites/lib/json-ld.ts`:
 
-| route | schema.org type | fed by |
-|---|---|---|
-| homepage | `Organization` + `WebSite` | team name, logo, canonical host |
-| blog post | `BlogPosting` | published `title`, `excerpt`, `featuredImage`, `publishedAt`/`updatedAt`, author name |
-| doc | `TechArticle` + `BreadcrumbList` | doc fields + section → doc trail |
-| changelog | `WebPage` + `ItemList` | published entries (name + URL) |
+| route     | schema.org type                  | fed by                                                                                |
+| --------- | -------------------------------- | ------------------------------------------------------------------------------------- |
+| homepage  | `Organization` + `WebSite`       | team name, logo, canonical host                                                       |
+| blog post | `BlogPosting`                    | published `title`, `excerpt`, `featuredImage`, `publishedAt`/`updatedAt`, author name |
+| doc       | `TechArticle` + `BreadcrumbList` | doc fields + section → doc trail                                                      |
+| changelog | `WebPage` + `ItemList`           | published entries (name + URL)                                                        |
 
 **RSS** — the feed handlers reuse the public read API (`…/blogs`,
 `…/changelogs`, ordered by `publishedAt`, capped at the 50 newest) and
@@ -1328,8 +1397,8 @@ component adopted from
 snippet, re-creates `<script>` elements with attributes copied so the
 browser actually executes them, appends into `document.head`/`body`).
 
-Security posture (reconciling with §13.4's CSP): code injection is *by
-design* arbitrary script on the team's **own** site — the same trust
+Security posture (reconciling with §13.4's CSP): code injection is _by
+design_ arbitrary script on the team's **own** site — the same trust
 model as CourseLit and every site builder. Containment, not
 sanitization:
 
@@ -1377,15 +1446,15 @@ in-memory store** — the API must stay correct when horizontally scaled.
 Keys combine IP and team so one tenant's traffic (or attacker) can't
 exhaust another's budget:
 
-| endpoint class | key | default limit | on breach |
-|---|---|---|---|
-| Public reads (pages/blogs/docs/changelogs/sitemap) | IP | generous (≈300/min) — mostly absorbed by ISR anyway | 429 |
-| Lead capture, ticket submission | IP+team **and** team-global | strict (≈5/min/IP, ≈100/day/team-global) | 429 + CAPTCHA escalation (§13.3) |
-| Ticket thread reads/replies (magic token) | token+IP | moderate (≈30/min) | 429 |
-| Chat (`POST /public/:teamId/chat`) | IP+team **and** per-team daily token budget | ≈10 msg/min/IP; team budget caps LLM spend (tracked in a `usage_counters` table, checked before each call) | 429 / "budget exhausted" event |
-| Docs search | IP+team | ≈60/min (embeds one query per call) | 429 |
-| Authed API (session or API key) | API key / account | ≈600/min | 429 |
-| Webhooks | source + signature | ≈60/min | 429 |
+| endpoint class                                     | key                                         | default limit                                                                                              | on breach                        |
+| -------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Public reads (pages/blogs/docs/changelogs/sitemap) | IP                                          | generous (≈300/min) — mostly absorbed by ISR anyway                                                        | 429                              |
+| Lead capture, ticket submission                    | IP+team **and** team-global                 | strict (≈5/min/IP, ≈100/day/team-global)                                                                   | 429 + CAPTCHA escalation (§13.3) |
+| Ticket thread reads/replies (magic token)          | token+IP                                    | moderate (≈30/min)                                                                                         | 429                              |
+| Chat (`POST /public/:teamId/chat`)                 | IP+team **and** per-team daily token budget | ≈10 msg/min/IP; team budget caps LLM spend (tracked in a `usage_counters` table, checked before each call) | 429 / "budget exhausted" event   |
+| Docs search                                        | IP+team                                     | ≈60/min (embeds one query per call)                                                                        | 429                              |
+| Authed API (session or API key)                    | API key / account                           | ≈600/min                                                                                                   | 429                              |
+| Webhooks                                           | source + signature                          | ≈60/min                                                                                                    | 429                              |
 
 `apps/sites` and the embed iframe pass the visitor's IP upstream via
 `X-Forwarded-For` (trusted only from known proxy hops — Express
@@ -1492,9 +1561,9 @@ What keeps the design boring under load, and the known ceilings:
   `services/log.ts`) with `teamId` + request id on every line; queue
   jobs log attempt counts.
 - **Metrics that matter**: rate-limit hits, CAPTCHA failures, queue depth
-  + oldest-pending age, chat token spend per team, webhook signature
-  failures, `resolve-host` cache hit rate. Exposed via a `/metrics`
-  endpoint (Prometheus format) on the API, not public.
+    - oldest-pending age, chat token spend per team, webhook signature
+      failures, `resolve-host` cache hit rate. Exposed via a `/metrics`
+      endpoint (Prometheus format) on the API, not public.
 - **Backups/restore**: pg_dump schedule + MediaLit holds media (restore =
   DB + env secrets); document chunks rebuild from documents via a
   re-embed maintenance script.
@@ -1586,18 +1655,18 @@ the feature, not in a later pass.
 
 0. **Test harness** — vitest configs in `apps/api` + `apps/web` (and
    `apps/sites`), PGlite `test/db.ts` + `setup.ts` ported
-   from sendlit, wired into root `pnpm test` and CI. *(Tiny; lands before
-   or with milestone 1 so every subsequent module arrives tested.)*
+   from sendlit, wired into root `pnpm test` and CI. _(Tiny; lands before
+   or with milestone 1 so every subsequent module arrives tested.)_
 
 1. **Pages draft/publish** — schema + migration, PATCH→draft semantics,
    publish/discard endpoints + `publish_page`/`discard_page_draft` tools,
-   standard-page seeding, builder wiring. *(Everything else reuses this
-   pattern.)*
+   standard-page seeding, builder wiring. _(Everything else reuses this
+   pattern.)_
 2. **Media library (MediaLit)** — media module ported from sendlit
    (service, `media` table, presigned + library routes/tools), `useMediaLit`
    hook + shared media-picker dialog, courselit-style orphan cleanup wired
-   into pages draft/publish. *(Blocks featured images and editor uploads in
-   3+.)*
+   into pages draft/publish. _(Blocks featured images and editor uploads in
+   3+.)_
 3. **Documents engine + Blog** — `documents` table, contract + MCP tool
    factories, blog routes/tools, workspace editor, public `/blog`.
 4. **Documentation** — sections + doc routes/tools, `/docs` UI, pgvector
@@ -1616,8 +1685,8 @@ the feature, not in a later pass.
 8. **Help desk** — `tickets` + `ticket_messages` tables, tickets
    routes/tools, `support-form` block + `/help` standard page, magic-link
    thread page, SendLit transactional notifications, chatbot escalation,
-   unified root `/` inbox. *(Needs 4 for deflection, 7 for
-   notifications.)*
+   unified root `/` inbox. _(Needs 4 for deflection, 7 for
+   notifications.)_
 9. **Domains, settings & public sites** — one-team-one-website `teams`
    domain columns (`subdomain` plus one optional custom domain), domain
    routes/tools, `team_settings` (branding +
@@ -1625,9 +1694,9 @@ the feature, not in a later pass.
    `apps/sites` scaffold with host middleware + canonical-host propagation, SEO plumbing
    (§12.3: `generateMetadata` from page SEO data + branding, canonical,
    robots.txt, sitemap, JSON-LD, default OG images), workspace domain +
-   branding + code-injection settings. *(Can start in parallel with 3–6;
+   branding + code-injection settings. _(Can start in parallel with 3–6;
    blog/docs/changelog public routes land in `apps/sites` as their
-   milestones complete.)*
+   milestones complete.)_
 10. **Hardening & operability** — verification pass over §13 (load-test
     the public endpoints, abuse-test CAPTCHA escalation, restore drill),
     `/metrics` endpoint + dashboards, ISR revalidation webhook, RSS feeds,

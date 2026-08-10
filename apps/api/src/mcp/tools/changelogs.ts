@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
 import { successMessageSchema } from "@frontlit/api-contract";
 import {
@@ -23,7 +23,7 @@ const githubIntegrationSchema = z.object({
  * `registerDocumentTools(server, "changelog", "changelog_entry", ...)` call
  * in server.ts covers standard CRUD/draft-publish; this file adds the
  * import-specific tools. */
-export function registerChangelogTools(server: McpServer): void {
+export function registerChangelogTools(server: McpToolRegistrar): void {
     server.registerTool(
         "connect_github_changelog",
         {

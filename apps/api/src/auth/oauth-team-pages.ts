@@ -40,6 +40,7 @@ export function createFrontLitOAuthTeamPages(options: {
     };
     adapter: FrontLitOAuthTeamSelectionAdapter;
     authBasePath: string;
+    webClientUrl: string;
 }) {
     const router = Router();
 
@@ -64,7 +65,22 @@ export function createFrontLitOAuthTeamPages(options: {
             const teams = await options.adapter.listTeamsForUser(
                 session.user.id,
             );
-            if (teams.length <= 1) {
+            if (teams.length === 0) {
+                const createTeamUrl = new URL(
+                    "/teams",
+                    options.webClientUrl,
+                ).toString();
+                response
+                    .status(409)
+                    .type("html")
+                    .send(
+                        page(
+                            `<h1>Create or join a team</h1><p>Your FrontLit account does not belong to a team yet. Create a team before authorizing this MCP client.</p><p><a href="${escapeHtml(createTeamUrl)}" target="_blank" rel="noopener noreferrer">Open FrontLit teams</a></p><button type="button" onclick="location.reload()">I have created or joined a team</button>`,
+                        ),
+                    );
+                return;
+            }
+            if (teams.length === 1) {
                 response
                     .type("html")
                     .send(

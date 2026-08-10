@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
 import {
     pageSchema,
@@ -36,7 +36,7 @@ function toPublicPage<T extends Record<string, unknown>>(page: T) {
     );
 }
 
-export function registerPageTools(server: McpServer): void {
+export function registerPageTools(server: McpToolRegistrar): void {
     server.registerTool(
         "list_pages",
         {

@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
 import {
     chatbotSettingsSchema,
@@ -17,7 +17,7 @@ function toPublicSettings<T extends Record<string, unknown>>(settings: T) {
     return serializeDates(omitInternal(settings, "teamId"));
 }
 
-export function registerChatbotTools(server: McpServer): void {
+export function registerChatbotTools(server: McpToolRegistrar): void {
     server.registerTool(
         "get_chatbot_settings",
         {

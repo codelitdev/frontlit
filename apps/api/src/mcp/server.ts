@@ -1,11 +1,10 @@
-import crypto from "node:crypto";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import {
     blogMetaSchema,
-    docMetaSchema,
     changelogMetaSchema,
+    docMetaSchema,
 } from "@frontlit/api-contract";
+import { createMcpToolRegistrar, type McpToolRegistrar } from "./tool-registry";
 import { registerTeamTools } from "./tools/teams";
 import { registerPageTools } from "./tools/pages";
 import { registerThemeTools } from "./tools/themes";
@@ -19,50 +18,59 @@ import { registerHelpdeskTools } from "./tools/helpdesk";
 import { registerDomainTools } from "./tools/domains";
 import { registerSettingsTools } from "./tools/settings";
 
-function registerAllTools(server: McpServer): void {
-    registerTeamTools(server);
-    registerPageTools(server);
-    registerThemeTools(server);
-    registerMediaTools(server);
-    registerDocumentTools(server, "blog", "blog_post", blogMetaSchema);
-    registerDocumentTools(server, "doc", "help_doc", docMetaSchema);
+const FRONTLIT_MCP_VERSION = "2.0.0";
+
+export function registerAllTools(tools: McpToolRegistrar): void {
+    // Keep registration deterministic for discovery and upstream caches.
+    registerTeamTools(tools);
+    registerPageTools(tools);
+    registerThemeTools(tools);
+    registerMediaTools(tools);
+    registerDocumentTools(tools, "blog", "blog_post", blogMetaSchema);
+    registerDocumentTools(tools, "doc", "help_doc", docMetaSchema);
     registerDocumentTools(
-        server,
+        tools,
         "changelog",
         "changelog_entry",
         changelogMetaSchema,
     );
-    registerChangelogTools(server);
-    registerNewsletterTools(server);
-    registerDocumentationTools(server);
-    registerChatbotTools(server);
-    registerHelpdeskTools(server);
-    registerDomainTools(server);
-    registerSettingsTools(server);
+    registerChangelogTools(tools);
+    registerNewsletterTools(tools);
+    registerDocumentationTools(tools);
+    registerChatbotTools(tools);
+    registerHelpdeskTools(tools);
+    registerDomainTools(tools);
+    registerSettingsTools(tools);
 }
 
 /**
- * Create a new MCP session (transport + server pair). Each connecting client
- * must get its own session — the StreamableHTTPServerTransport is
- * single-session by design.
+ * Builds one request-local server for both modern 2026 and older stateless
+ * Streamable HTTP requests. Tenant and principal data arrives through the SDK
+ * request context; durable product state remains in FrontLit's services.
  */
-export function createMCPSession(
-    onsessioninitialized: (sessionId: string) => void,
-    onsessionclosed: (sessionId: string) => void,
-): StreamableHTTPServerTransport {
-    const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => crypto.randomUUID(),
-        enableJsonResponse: true,
-        onsessioninitialized,
-        onsessionclosed,
-    });
-    const server = new McpServer({
-        name: "FrontLit",
-        version: "1.0.0",
-        description:
-            "FrontLit MCP server — build and manage pages for a FrontLit team. Supports team management (teams, API keys), pages (create, edit block layout, SEO metadata), saved themes, the team's MediaLit-backed media library, blog posts, help docs (draft/publish, TipTap content, help-center sections, semantic search), a RAG chatbot over the published docs, a help-desk ticket inbox, domains (default subdomain, custom domain attach/verify), and team-wide branding + code-injection settings.",
-    });
-    registerAllTools(server);
-    server.connect(transport);
-    return transport;
+export function buildMcpServer(): McpServer {
+    const server = new McpServer(
+        {
+            name: "FrontLit",
+            version: FRONTLIT_MCP_VERSION,
+            description:
+                "FrontLit MCP server — build and operate a FrontLit team's website, content, newsletter, support, domains, media, chatbot, and settings.",
+        },
+        {
+            instructions:
+                "Inspect existing state with read tools before mutations. Publishing, sending, deletion, key management, ESP changes, and domain changes have external or destructive effects; confirm the target and inputs before calling them.",
+            cacheHints: {
+                "server/discover": {
+                    ttlMs: 300_000,
+                    cacheScope: "private",
+                },
+                "tools/list": {
+                    ttlMs: 300_000,
+                    cacheScope: "private",
+                },
+            },
+        },
+    );
+    registerAllTools(createMcpToolRegistrar(server));
+    return server;
 }
