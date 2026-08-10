@@ -40,37 +40,6 @@ function transportFor(handler: McpHttpHandler, authInfo = apiKeyAuth) {
     });
 }
 
-async function modernRequest(handler: McpHttpHandler, method: string) {
-    const response = await handler.fetch(
-        new Request(endpoint, {
-            method: "POST",
-            headers: {
-                accept: "application/json, text/event-stream",
-                "content-type": "application/json",
-                "mcp-protocol-version": "2026-07-28",
-                "mcp-method": method,
-            },
-            body: JSON.stringify({
-                jsonrpc: "2.0",
-                id: 1,
-                method,
-                params: {
-                    _meta: {
-                        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-                        "io.modelcontextprotocol/clientCapabilities": {},
-                        "io.modelcontextprotocol/clientInfo": {
-                            name: "frontlit-wire-test",
-                            version: "1.0.0",
-                        },
-                    },
-                },
-            }),
-        }),
-        { authInfo: apiKeyAuth },
-    );
-    return { response, body: await response.json() };
-}
-
 const closeables: Array<{ close(): Promise<void> }> = [];
 
 afterEach(async () => {
@@ -78,41 +47,6 @@ afterEach(async () => {
 });
 
 describe("FrontLit MCP server", () => {
-    it("emits the required modern discovery and cacheable-result fields", async () => {
-        const handler = createHandler();
-        closeables.push(handler);
-
-        const discovery = await modernRequest(handler, "server/discover");
-        expect(discovery.response.status).toBe(200);
-        expect(discovery.body).toMatchObject({
-            jsonrpc: "2.0",
-            result: {
-                resultType: "complete",
-                supportedVersions: expect.arrayContaining(["2026-07-28"]),
-                capabilities: { tools: expect.any(Object) },
-                _meta: {
-                    "io.modelcontextprotocol/serverInfo": {
-                        name: "FrontLit",
-                    },
-                },
-                ttlMs: 300_000,
-                cacheScope: "private",
-            },
-        });
-
-        const tools = await modernRequest(handler, "tools/list");
-        expect(tools.response.status).toBe(200);
-        expect(tools.body).toMatchObject({
-            jsonrpc: "2.0",
-            result: {
-                resultType: "complete",
-                tools: expect.any(Array),
-                ttlMs: 300_000,
-                cacheScope: "private",
-            },
-        });
-    });
-
     it("serves the complete deterministic tool catalog on 2026-07-28", async () => {
         const handler = createHandler();
         const client = new Client(

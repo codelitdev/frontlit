@@ -243,6 +243,7 @@ export const auth = betterAuth({
                 allowDynamicClientRegistration: true,
                 allowUnauthenticatedDynamicClientRegistration: true,
                 scopes: supportedOAuthScopes,
+                validAudiences: validOAuthAudiences,
                 clientRegistrationDefaultScopes: OAUTH_CLIENT_DEFAULT_SCOPES,
                 clientRegistrationAllowedScopes:
                     OAUTH_CLIENT_REQUESTABLE_SCOPES,

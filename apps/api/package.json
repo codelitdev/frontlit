@@ -22,7 +22,7 @@
         "@ai-sdk/openai-compatible": "^3.0.16",
         "@better-auth/cimd": "1.7.0-rc.4",
         "@better-auth/oauth-provider": "1.7.0-rc.4",
-        "@codelitdev/oauth-server-kit": "file:../../../oauth-server-kit",
+        "@codelitdev/oauth-server-kit": "0.1.0-alpha.0",
         "@frontlit/api-contract": "workspace:*",
         "@modelcontextprotocol/node": "^2.0.0",
         "@modelcontextprotocol/server": "^2.0.0",

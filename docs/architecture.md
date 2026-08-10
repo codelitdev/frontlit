@@ -187,10 +187,8 @@ SendLit and progressively extracted into `@codelitdev/oauth-server-kit`:
   the same catalog and policy. FrontLit has no MCP session map,
   `Mcp-Session-Id`, SDK 1 server, or standalone SSE `GET` route.
 - The MCP router is mounted before Express body parsing and owns its narrow
-  CORS contract. Every present browser Origin is checked against the API,
-  web-client, and configured MCP origin allowlist before authentication. The
-  official Node adapter parses protocol bodies and returns MCP-compliant
-  content-type/parse errors.
+  CORS contract. The official Node adapter parses protocol bodies and returns
+  MCP-compliant content-type and parse errors.
 - OAuth discovery/resource metadata is mounted by `oauth-server-kit`. Better
   Auth uses CIMD for modern clients and retains public DCR for clients such as
   Inspector. OAuth client defaults are identity-only; every MCP tool requires

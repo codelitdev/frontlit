@@ -84,13 +84,7 @@ The MCP router is mounted before global CORS and Express body parsers in
 content-type checks, and MCP protocol errors. The route does not rewrite
 `Accept`; supported clients must send a protocol-valid header.
 
-The MCP route validates every present `Origin` against the API origin, the
-configured `WEB_CLIENT` origin, and exact comma-separated
-`MCP_ALLOWED_ORIGINS`. An invalid Origin receives HTTP 403 before
-authentication. Requests without Origin remain valid for desktop and
-server-side clients. Wildcards are intentionally unsupported.
-
-For an allowed browser origin, the MCP CORS contract permits:
+For a browser origin, the MCP CORS contract permits:
 
 - methods `POST` and `OPTIONS`; and
 - `Content-Type`, `Accept`, `MCP-Protocol-Version`, `Mcp-Method`, `Mcp-Name`,
@@ -259,21 +253,18 @@ token exchange.
 
 ### Bearer-token verification
 
-Bearer verification is implemented by the sibling
-`@codelitdev/oauth-server-kit`. With Better Auth 1.7 it must call:
+Bearer verification is implemented in `apps/api/src/auth/resolve-auth.ts`
+through Better Auth's resource client:
 
 ```ts
 oauthResourceClient.getActions().verifyBearerToken(...)
 ```
 
-Do not regress this to the removed `verifyAccessToken()` action. Verification
+Do not replace this with the published OAuth kit's legacy token-verification
+helper or regress it to the removed `verifyAccessToken()` action. Verification
 checks signature, issuer, expiry, and resource audience before FrontLit maps
-the subject to an account and tenant.
-
-FrontLit currently consumes the kit through a local `file:` dependency. A
-deployment must use a built/published kit containing the Better Auth 1.7
-verifier; an older installed package can make a freshly issued JWT fail as
-`invalid_token`.
+the subject to an account and tenant. This matches SendLit's Better Auth 1.7
+integration.
 
 ## Tool authorization
 
@@ -316,10 +307,8 @@ OAuth calls must contain the policy's required scope. Read scopes do not grant
 writes, and `send_broadcast` specifically requires `broadcasts:send`.
 
 Unauthenticated and invalid-token responses include a Bearer challenge with
-the protected-resource metadata URL and supported MCP scopes. For modern tool
-calls, the `Mcp-Name` header allows the route to return HTTP 403 with an
-`insufficient_scope` challenge naming the required scope. The tool-level
-policy remains in place for older requests and as defense in depth.
+the protected-resource metadata URL. Missing OAuth scopes are rejected by the
+tool-level policy for both supported protocol eras.
 
 Team API keys do not currently have per-scope grants and preserve their
 existing fixed-team access. Account-only tools reject API-key authentication.
@@ -386,15 +375,6 @@ This configures Express with one trusted hop so `express-rate-limit` can use
 `X-Forwarded-For`. Leave it false for direct connections. Do not suppress
 `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR` or trust an arbitrary proxy chain; fix the
 deployment topology/configuration.
-
-For browser-hosted clients outside the API and web-app origins, configure:
-
-```dotenv
-MCP_ALLOWED_ORIGINS=https://playground.example.com,https://inspector.example.com
-```
-
-Each value must be an exact HTTP(S) origin without a path, query, credentials,
-or fragment. Production values must use HTTPS.
 
 Request and tool logs include method/tool, auth kind, required scope, policy
 decision, outcome, status, and duration where available. They must not include
@@ -463,7 +443,7 @@ flow, and JWT claims.
 | `apps/api/src/db/auth-schema.ts`            | FrontLit model names for Better Auth/OAuth persistence                            |
 | `apps/api/drizzle/0004_*`, `0005_*`         | Additive Better Auth 1.7 database changes                                         |
 | `apps/docs/content/docs/developers/mcp.mdx` | User-facing connection and troubleshooting guide                                  |
-| `@codelitdev/oauth-server-kit` sibling      | Shared discovery, hosted OAuth helpers, and Better Auth bearer verification       |
+| `@codelitdev/oauth-server-kit`              | Shared discovery, hosted OAuth helpers, and neutral auth types                    |
 
 ## Dependencies
 
@@ -592,57 +572,56 @@ OAuth metadata, scopes, team membership, or the tool catalog.
 
 Diagnose the first failing layer rather than the last error a client displays.
 
-| Symptom                                                                  | Likely cause and action                                                                                                                                                     |
-| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Public URL times out                                                     | Check local `/health`, Funnel/tunnel process, listener target, public DNS, and TLS before inspecting MCP code.                                                              |
-| `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR`                                     | Set `ENABLE_TRUST_PROXY=true` only for the intended one-hop proxy deployment.                                                                                               |
-| `auth_oauth_resource` does not exist                                     | Apply migration `0004` before starting Better Auth.                                                                                                                         |
-| JWKS schema says `alg` is missing                                        | Apply migration `0005` and confirm deployed schema/code alignment.                                                                                                          |
-| `invalid_client` fetching a metadata URL                                 | Check HTTPS, public DNS resolution, fetch timeout/size policy, redirect behavior, and the exact client metadata URL.                                                        |
-| `invalid_client_metadata` for Device Code or JWT Bearer                  | Confirm the request uses the canonical VS Code or Claude metadata URL and the exact grant filter is active. Do not add a global filter.                                     |
-| Browser OAuth succeeds, then `/mcp` returns `invalid_token`              | Confirm the installed OAuth kit calls Better Auth 1.7 `verifyBearerToken()` and validates the exact public MCP audience. Clear stale client tokens after deploying the fix. |
-| OAuth client remains “Authenticating”                                    | Inspect token exchange and the first authenticated `POST /mcp`; browser callback success alone does not prove token issuance or MCP initialization.                         |
-| Client reports `404 Cannot GET /mcp` after a `400`, `401`, or `409` POST | The GET is an expected SSE fallback and secondary symptom. Keep GET as 404 and fix the earlier POST.                                                                        |
-| Consent lists every MCP scope                                            | This can be the registered client capability set. Verify the requested scope, issued token scope, and per-tool enforcement before treating it as an over-grant.             |
-| Client shows generic failure for a new user                              | Confirm the user belongs to a FrontLit team and that the no-team page appears before consent.                                                                               |
-| Single-team token lacks `team_id`                                        | Confirm the sole-team path returns that team's ID as the consent `reference_id`.                                                                                            |
-| Tool mutation succeeds but client reports output validation failure      | Inspect `structuredContent` for unnormalized `Date` values and ensure the result went through `jsonResult()`.                                                               |
-| VS Code works but Inspector or Claude fails                              | Test protocol era and OAuth onboarding separately: older Streamable HTTP, modern 2026, CIMD, and DCR are independent compatibility axes.                                    |
+| Symptom                                                                  | Likely cause and action                                                                                                                                               |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public URL times out                                                     | Check local `/health`, Funnel/tunnel process, listener target, public DNS, and TLS before inspecting MCP code.                                                        |
+| `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR`                                     | Set `ENABLE_TRUST_PROXY=true` only for the intended one-hop proxy deployment.                                                                                         |
+| `auth_oauth_resource` does not exist                                     | Apply migration `0004` before starting Better Auth.                                                                                                                   |
+| JWKS schema says `alg` is missing                                        | Apply migration `0005` and confirm deployed schema/code alignment.                                                                                                    |
+| `invalid_client` fetching a metadata URL                                 | Check HTTPS, public DNS resolution, fetch timeout/size policy, redirect behavior, and the exact client metadata URL.                                                  |
+| `invalid_client_metadata` for Device Code or JWT Bearer                  | Confirm the request uses the canonical VS Code or Claude metadata URL and the exact grant filter is active. Do not add a global filter.                               |
+| Browser OAuth succeeds, then `/mcp` returns `invalid_token`              | Confirm `resolve-auth.ts` calls Better Auth 1.7 `verifyBearerToken()` and validates the exact public MCP audience. Clear stale client tokens after deploying the fix. |
+| OAuth client remains “Authenticating”                                    | Inspect token exchange and the first authenticated `POST /mcp`; browser callback success alone does not prove token issuance or MCP initialization.                   |
+| Client reports `404 Cannot GET /mcp` after a `400`, `401`, or `409` POST | The GET is an expected SSE fallback and secondary symptom. Keep GET as 404 and fix the earlier POST.                                                                  |
+| Consent lists every MCP scope                                            | This can be the registered client capability set. Verify the requested scope, issued token scope, and per-tool enforcement before treating it as an over-grant.       |
+| Client shows generic failure for a new user                              | Confirm the user belongs to a FrontLit team and that the no-team page appears before consent.                                                                         |
+| Single-team token lacks `team_id`                                        | Confirm the sole-team path returns that team's ID as the consent `reference_id`.                                                                                      |
+| Tool mutation succeeds but client reports output validation failure      | Inspect `structuredContent` for unnormalized `Date` values and ensure the result went through `jsonResult()`.                                                         |
+| VS Code works but Inspector or Claude fails                              | Test protocol era and OAuth onboarding separately: older Streamable HTTP, modern 2026, CIMD, and DCR are independent compatibility axes.                              |
 
 ## Maintenance rules for future changes
 
 1. Keep one SDK 2 handler with `legacy: "stateless"`; do not add an SDK 1 or
    standalone SSE server.
 2. Keep `/mcp` before Express body parsing and global CORS.
-3. Validate every present browser Origin against the explicit MCP allowlist.
-4. Build a request-local server and store no protocol session state in memory.
-5. Add every new tool to `policy.ts`; the exact catalog/policy test must pass.
-6. Add new scopes to the shared scope constants so policy, OAuth metadata,
+3. Build a request-local server and store no protocol session state in memory.
+4. Add every new tool to `policy.ts`; the exact catalog/policy test must pass.
+5. Add new scopes to the shared scope constants so policy, OAuth metadata,
    resource registration, and tests remain aligned.
-7. Treat OAuth client ID, account ID, team ID, and credentials as distinct
+6. Treat OAuth client ID, account ID, team ID, and credentials as distinct
    values.
-8. Never place raw API-key secrets or sensitive OAuth URL data in context or
+7. Never place raw API-key secrets or sensitive OAuth URL data in context or
    logs.
-9. Keep OAuth registration defaults identity-only and require explicit
+8. Keep OAuth registration defaults identity-only and require explicit
    authorization scopes.
-10. Keep arbitrary CIMD URLs behind the pinned public-network fetch policy;
-    add client exceptions only for exact canonical URLs and exact fields.
-11. Keep REST schemas canonical on Zod 3 until a separate repository-wide
+9. Keep arbitrary CIMD URLs behind the pinned public-network fetch policy;
+   add client exceptions only for exact canonical URLs and exact fields.
+10. Keep REST schemas canonical on Zod 3 until a separate repository-wide
     migration is approved; bridge only at the MCP boundary.
-12. Route every structured result through `jsonResult()` so SDK output
+11. Route every structured result through `jsonResult()` so SDK output
     validation sees JSON values.
-13. Add Better Auth schema changes as new Drizzle migrations and test both
+12. Add Better Auth schema changes as new Drizzle migrations and test both
     fresh and upgrade paths; do not rewrite unrelated migration history.
-14. Re-run the shared OAuth kit integration tests after Better Auth upgrades.
-15. Diagnose the first failing MCP POST before reacting to a client's later
+13. Re-run the shared OAuth kit integration tests after Better Auth upgrades.
+14. Diagnose the first failing MCP POST before reacting to a client's later
     SSE fallback error.
 
 ## Last verified state
 
-On 2026-08-10, after the July 2026 conformance audit:
+On 2026-08-10, after the July 2026 migration:
 
 - FrontLit API type-check passed;
-- all 228 FrontLit API tests passed;
+- all 226 FrontLit API tests passed;
 - the FrontLit API production build passed;
 - repository ESLint passed;
 - the documentation production build passed;

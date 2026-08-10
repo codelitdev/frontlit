@@ -79,11 +79,6 @@ use a controlled tunnel or Funnel that proxies the public hostname to the
 local API port. Set `ENABLE_TRUST_PROXY=true` only when the deployment really
 has the configured one trusted proxy hop.
 
-The API validates every browser `Origin` as required by Streamable HTTP. The
-API and `WEB_CLIENT` origins are allowed automatically. Add other exact
-browser origins as a comma-separated `MCP_ALLOWED_ORIGINS` value; desktop and
-server clients normally send no `Origin`. Wildcards are not accepted.
-
 Check each layer before opening a GUI client:
 
 ```bash

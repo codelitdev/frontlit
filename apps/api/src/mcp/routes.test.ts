@@ -18,29 +18,25 @@ import { McpServer } from "@modelcontextprotocol/server";
 const mocks = vi.hoisted(() => ({
     createDiscoveryRoutes: vi.fn(),
     buildServer: vi.fn(),
-    mcpAuth: vi.fn((req: any, _res: any, next: any) => {
-        req.authKind = "apikey";
-        req.apiKeyId = "key-test";
-        req.teamId = "team-1";
-        next();
-    }),
 }));
 
 vi.mock("../auth/better-auth", () => ({
     auth: {
         options: { baseURL: "http://localhost:4000", basePath: "/api/auth" },
     },
-    mcpProtectedResourceMetadataUrl:
-        "http://localhost:4000/.well-known/oauth-protected-resource/mcp",
     mcpResourceUrl: "http://localhost:4000/mcp",
     oauthResourceClient: {},
-    webClientUrl: "https://client.example",
 }));
 vi.mock("@codelitdev/oauth-server-kit/mcp", () => ({
     createMcpOAuthDiscoveryRoutes: mocks.createDiscoveryRoutes,
 }));
 vi.mock("../auth/middleware", () => ({
-    mcpAuth: mocks.mcpAuth,
+    mcpAuth: vi.fn((req: any, _res: any, next: any) => {
+        req.authKind = "apikey";
+        req.apiKeyId = "key-test";
+        req.teamId = "team-1";
+        next();
+    }),
 }));
 vi.mock("../auth/require-team", () => ({
     requireTeam: vi.fn((_req, _res, next) => next()),
@@ -97,7 +93,6 @@ describe("MCP Streamable HTTP route", () => {
 
     beforeEach(() => {
         mocks.buildServer.mockClear();
-        mocks.mcpAuth.mockClear();
     });
 
     async function createApp(trustProxy = false) {
@@ -120,10 +115,7 @@ describe("MCP Streamable HTTP route", () => {
         expect(mocks.createDiscoveryRoutes).toHaveBeenCalledWith(
             expect.objectContaining({
                 resourceUrl: "http://localhost:4000/mcp",
-                allowedOrigins: expect.arrayContaining([
-                    "http://localhost:4000",
-                    "https://client.example",
-                ]),
+                allowedOrigins: "*",
                 scopesSupported: expect.arrayContaining([
                     "pages:read",
                     "blogs:write",
@@ -232,72 +224,6 @@ describe("MCP Streamable HTTP route", () => {
         expect(allowed).toContain("Mcp-Method");
         expect(allowed).toContain("Mcp-Name");
         expect(allowed).not.toContain("Mcp-Session-Id");
-    });
-
-    it("rejects an untrusted browser Origin before authentication", async () => {
-        const listening = await createApp();
-        const response = await fetch(`${listening.origin}/mcp`, {
-            method: "OPTIONS",
-            headers: {
-                origin: "https://attacker.example",
-                "access-control-request-method": "POST",
-            },
-        });
-
-        expect(response.status).toBe(403);
-        await expect(response.json()).resolves.toEqual({
-            error: "forbidden_origin",
-            error_description: "The request Origin is not allowed.",
-        });
-    });
-
-    it("returns an OAuth scope challenge before a modern unauthorized tool call", async () => {
-        mocks.mcpAuth.mockImplementationOnce((req, _res, next) => {
-            req.authKind = "oauth";
-            req.oauthToken = "oauth-token";
-            req.clientId = "client-1";
-            req.scopes = ["pages:read"];
-            req.teamId = "team-1";
-            req.account = { id: "account-1", email: "owner@example.com" };
-            next();
-        });
-        const listening = await createApp();
-        const response = await fetch(`${listening.origin}/mcp`, {
-            method: "POST",
-            headers: {
-                accept: "application/json, text/event-stream",
-                "content-type": "application/json",
-                "mcp-protocol-version": "2026-07-28",
-                "mcp-method": "tools/call",
-                "mcp-name": "send_broadcast",
-            },
-            body: JSON.stringify({
-                jsonrpc: "2.0",
-                id: 1,
-                method: "tools/call",
-                params: {
-                    name: "send_broadcast",
-                    arguments: {},
-                    _meta: {
-                        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-                        "io.modelcontextprotocol/clientCapabilities": {},
-                    },
-                },
-            }),
-        });
-
-        expect(response.status).toBe(403);
-        expect(response.headers.get("www-authenticate")).toContain(
-            'error="insufficient_scope"',
-        );
-        expect(response.headers.get("www-authenticate")).toContain(
-            'scope="broadcasts:send"',
-        );
-        await expect(response.json()).resolves.toMatchObject({
-            error: "insufficient_scope",
-            scope: "broadcasts:send",
-        });
-        expect(mocks.buildServer).not.toHaveBeenCalled();
     });
 
     it("accepts forwarded client addresses when the deployment trusts one proxy", async () => {

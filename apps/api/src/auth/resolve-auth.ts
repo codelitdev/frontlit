@@ -1,6 +1,5 @@
 import { fromNodeHeaders } from "better-auth/node";
 import {
-    verifyOAuthAccessToken,
     type AuthenticatedIdentity,
     type AuthenticationResult,
 } from "@codelitdev/oauth-server-kit";
@@ -89,19 +88,15 @@ function headerValue(value: unknown): string | undefined {
     return typeof value === "string" ? value : undefined;
 }
 
-function teamClaimFromVerifiedJwt(token: string): string | undefined {
-    try {
-        const parts = token.split(".");
-        if (parts.length !== 3) return undefined;
-        const payload = JSON.parse(
-            Buffer.from(parts[1], "base64url").toString("utf8"),
-        ) as Record<string, unknown>;
-        return typeof payload.team_id === "string"
-            ? payload.team_id
-            : undefined;
-    } catch {
-        return undefined;
-    }
+function optionalString(value: unknown): string | undefined {
+    return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function stringClaims(value: unknown): string[] {
+    if (typeof value === "string") return [value];
+    return Array.isArray(value)
+        ? value.filter((item): item is string => typeof item === "string")
+        : [];
 }
 
 const defaultDependencies: AuthDependencies = {
@@ -113,25 +108,48 @@ const defaultDependencies: AuthDependencies = {
         );
     },
     async authenticateBearer(token) {
-        const result = await verifyOAuthAccessToken(
-            {
-                oauthResourceClient,
-                audiences: validOAuthAudiences,
-                issuer: authIssuer,
-                resourceMetadataMappings: { mcp: mcpResourceUrl },
-            },
-            token,
-        );
-        if (
-            result.status !== "authenticated" ||
-            result.identity.method !== "oauth"
-        ) {
+        try {
+            // Use Better Auth's current resource-server API. The published
+            // oauth-server-kit helper targets an obsolete resource-client
+            // action and rejects otherwise valid SDK 2 bearer tokens.
+            const claims = await oauthResourceClient
+                .getActions()
+                .verifyBearerToken(token, {
+                    verifyOptions: {
+                        issuer: authIssuer,
+                        audience: validOAuthAudiences,
+                    },
+                    resourceMetadataMappings: { mcp: mcpResourceUrl },
+                });
+            const subject = optionalString(claims.sub);
+            const clientId =
+                optionalString(claims.azp) ?? optionalString(claims.client_id);
+            const audiences = stringClaims(claims.aud).filter((audience) =>
+                validOAuthAudiences.includes(audience),
+            );
+            if (!subject || !clientId || audiences.length === 0) return null;
+            const email = optionalString(claims.email);
+            const name = optionalString(claims.name);
+            const scopes = stringClaims(claims.scope).flatMap((scope) =>
+                scope.split(/\s+/).filter(Boolean),
+            );
+
+            return {
+                identity: {
+                    method: "oauth",
+                    issuer: authIssuer,
+                    subject,
+                    ...(email ? { email } : {}),
+                    ...(name ? { name } : {}),
+                    clientId,
+                    scopes,
+                    audiences,
+                },
+                teamId: optionalString(claims.team_id),
+            };
+        } catch {
             return null;
         }
-        return {
-            identity: result.identity,
-            teamId: teamClaimFromVerifiedJwt(token),
-        };
     },
     ensureAccountForBetterAuthUserId: ensureFrontLitAccountForBetterAuthUserId,
     ensureAccountForUser: ensureFrontLitAccountForUser,
@@ -218,25 +236,6 @@ export async function resolveAuth(
     return { status: "missing" };
 }
 
-export function setBearerChallenge(
-    response: { setHeader(name: string, value: string): unknown },
-    resourceMetadataUrl?: string,
-    scopes: readonly string[] = [],
-) {
-    const parameters = [
-        resourceMetadataUrl
-            ? `resource_metadata="${resourceMetadataUrl}"`
-            : null,
-        scopes.length > 0 ? `scope="${scopes.join(" ")}"` : null,
-    ].filter(Boolean);
-    if (parameters.length > 0) {
-        response.setHeader(
-            "WWW-Authenticate",
-            `Bearer ${parameters.join(", ")}`,
-        );
-    }
-}
-
 export function sendAuthError(
     response: {
         setHeader(name: string, value: string): unknown;
@@ -246,14 +245,18 @@ export function sendAuthError(
     },
     result: AuthResult,
     resourceMetadataUrl?: string,
-    challengeScopes: readonly string[] = [],
 ): boolean {
     if (result.status === "authenticated") return false;
     if (result.status === "unavailable") {
         response.status(503).json({ error: "authentication_unavailable" });
         return true;
     }
-    setBearerChallenge(response, resourceMetadataUrl, challengeScopes);
+    if (resourceMetadataUrl) {
+        response.setHeader(
+            "WWW-Authenticate",
+            `Bearer resource_metadata="${resourceMetadataUrl}"`,
+        );
+    }
     if (result.status === "invalid_token") {
         response.status(401).json({
             error: "invalid_token",

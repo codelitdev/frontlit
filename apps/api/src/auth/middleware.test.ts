@@ -13,7 +13,6 @@ import { createAuthMiddleware } from "./middleware.js";
 async function requestFor(
     result: AuthResult | Error,
     resourceMetadataUrl?: string,
-    challengeScopes: readonly string[] = [],
 ) {
     const resolver = vi.fn(async () => {
         if (result instanceof Error) throw result;
@@ -22,12 +21,7 @@ async function requestFor(
     const app = express();
     app.get(
         "/protected",
-        createAuthMiddleware(
-            "mcp",
-            resolver,
-            resourceMetadataUrl,
-            challengeScopes,
-        ),
+        createAuthMiddleware("mcp", resolver, resourceMetadataUrl),
         (request, response) => {
             const productRequest = request as any;
             response.json({
@@ -162,11 +156,10 @@ describe("FrontLit auth middleware projection", () => {
         const { response } = await requestFor(
             { status: "missing" },
             metadataUrl,
-            ["pages:read", "pages:write"],
         );
         expect(response.status).toBe(401);
         expect(response.headers.get("www-authenticate")).toBe(
-            `Bearer resource_metadata="${metadataUrl}", scope="pages:read pages:write"`,
+            `Bearer resource_metadata="${metadataUrl}"`,
         );
     });
 

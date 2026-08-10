@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AuthenticationResult } from "@codelitdev/oauth-server-kit";
 
+const mocks = vi.hoisted(() => ({
+    verifyBearerToken: vi.fn(),
+    ensureAccountForBetterAuthUserId: vi.fn(),
+}));
+
 vi.mock("../account/queries", () => ({
-    ensureFrontLitAccountForBetterAuthUserId: vi.fn(),
+    ensureFrontLitAccountForBetterAuthUserId:
+        mocks.ensureAccountForBetterAuthUserId,
     ensureFrontLitAccountForUser: vi.fn(),
 }));
 vi.mock("../apikey/queries", () => ({ getApiKeyBySecret: vi.fn() }));
@@ -13,7 +19,7 @@ vi.mock("./better-auth", () => ({
     mcpResourceUrl: "https://frontlit.test/mcp",
     validOAuthAudiences: ["https://frontlit.test", "https://frontlit.test/mcp"],
     oauthResourceClient: {
-        getActions: () => ({ verifyBearerToken: vi.fn() }),
+        getActions: () => ({ verifyBearerToken: mocks.verifyBearerToken }),
     },
 }));
 vi.mock("better-auth/node", () => ({
@@ -70,6 +76,38 @@ function dependencies(
 }
 
 describe("FrontLit auth composition", () => {
+    it("verifies bearer tokens through Better Auth's resource client", async () => {
+        mocks.verifyBearerToken.mockResolvedValueOnce({
+            sub: "auth-user-1",
+            azp: "mcp-client",
+            aud: "https://frontlit.test/mcp",
+            scope: "pages:read themes:write",
+            team_id: "team-internal-1",
+        });
+        mocks.ensureAccountForBetterAuthUserId.mockResolvedValueOnce(account);
+
+        await expect(
+            resolveAuth({ authorization: "Bearer valid" }),
+        ).resolves.toMatchObject({
+            status: "authenticated",
+            kind: "oauth",
+            clientId: "mcp-client",
+            scopes: ["pages:read", "themes:write"],
+        });
+        expect(mocks.verifyBearerToken).toHaveBeenCalledWith("valid", {
+            verifyOptions: {
+                issuer: "https://frontlit.test/api/auth",
+                audience: [
+                    "https://frontlit.test",
+                    "https://frontlit.test/mcp",
+                ],
+            },
+            resourceMetadataMappings: {
+                mcp: "https://frontlit.test/mcp",
+            },
+        });
+    });
+
     it("fails closed without falling back from an invalid explicit bearer", async () => {
         const deps = dependencies();
         await expect(

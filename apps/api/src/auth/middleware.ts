@@ -4,9 +4,7 @@ import {
     type AuthResult,
     resolveAuth,
     sendAuthError,
-    setBearerChallenge,
 } from "./resolve-auth";
-import { MCP_SCOPES_SUPPORTED } from "../mcp/policy";
 import { mcpProtectedResourceMetadataUrl } from "./better-auth";
 
 type AuthResolver = (input: AuthInput) => Promise<AuthResult>;
@@ -15,7 +13,6 @@ export function createAuthMiddleware(
     mode: "rest" | "mcp",
     authResolver: AuthResolver = resolveAuth,
     resourceMetadataUrl?: string,
-    challengeScopes: readonly string[] = [],
 ) {
     return async function frontLitAuthMiddleware(
         request: Request,
@@ -29,23 +26,14 @@ export function createAuthMiddleware(
                 bodyApiKey: request.body?.apikey,
                 headers: request.headers,
             });
-            if (
-                sendAuthError(
-                    response,
-                    result,
-                    resourceMetadataUrl,
-                    challengeScopes,
-                )
-            )
-                return;
+            if (sendAuthError(response, result, resourceMetadataUrl)) return;
             if (result.status !== "authenticated") return;
 
             if (mode === "mcp" && result.kind === "session") {
                 if (resourceMetadataUrl) {
-                    setBearerChallenge(
-                        response,
-                        resourceMetadataUrl,
-                        challengeScopes,
+                    response.setHeader(
+                        "WWW-Authenticate",
+                        `Bearer resource_metadata="${resourceMetadataUrl}"`,
                     );
                 }
                 response.status(401).json({
@@ -86,5 +74,4 @@ export const mcpAuth = createAuthMiddleware(
     "mcp",
     resolveAuth,
     mcpProtectedResourceMetadataUrl,
-    MCP_SCOPES_SUPPORTED,
 );
