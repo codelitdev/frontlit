@@ -7,6 +7,7 @@ import { getSendlitApiKey } from "../integrations/queries";
 import {
     addContactTag,
     createBroadcast,
+    createNewsletterTemplate,
     createSegment,
     deleteContact,
     deleteSegment,
@@ -14,12 +15,14 @@ import {
     getContact,
     getGeneralSettings,
     listBroadcasts,
+    listNewsletterTemplates,
     listContacts,
     listSegments,
     removeContactTag,
     sendBroadcast,
     toBroadcast,
     updateBroadcast,
+    updateNewsletterTemplate,
     updateGeneralSettings,
     updateSegment,
 } from "./sendlit-client";
@@ -119,6 +122,24 @@ const newsletterImpl = s.router(contract.newsletter, {
             connected: true,
             ...(await updateGeneralSettings(apiKey, body)),
         })) as any,
+    listTemplates: async ({ req }: any) =>
+        withSendlitKey((req as any).teamId, (apiKey) =>
+            listNewsletterTemplates(apiKey),
+        ).then((r) =>
+            r.status === 200 ? { status: 200, body: { items: r.body } } : r,
+        ) as any,
+    createTemplate: async ({ body, req }: any) => {
+        const result = await withSendlitKey((req as any).teamId, (apiKey) =>
+            createNewsletterTemplate(apiKey, body),
+        );
+        return (
+            result.status === 200 ? { status: 201, body: result.body } : result
+        ) as any;
+    },
+    updateTemplate: async ({ params, body, req }: any) =>
+        withSendlitKey((req as any).teamId, (apiKey) =>
+            updateNewsletterTemplate(apiKey, params.templateId, body),
+        ) as any,
     listBroadcasts: async ({ req }) =>
         withSendlitKey((req as any).teamId, async (apiKey) => {
             const { items } = await listBroadcasts(apiKey);

@@ -20,6 +20,8 @@ import {
     updateDocument,
 } from "../documents/queries";
 import { createPage, publishPage } from "../pages/queries";
+import { updateTeamSettings } from "../settings/queries";
+import { createTheme } from "../themes/queries";
 import publicRoutes from "./routes";
 
 const originalEnv = { ...process.env };
@@ -78,6 +80,26 @@ describe("public critical paths", () => {
                 `${origin}/public/resolve-host?host=${encodeURIComponent("unknown.example.com")}`,
             );
             expect(missing.status).toBe(404);
+        });
+    });
+
+    it("serves the single team site theme from public settings", async () => {
+        const theme = await createTheme({
+            teamId: teamInternalId,
+            name: "Brand",
+            style: { colors: { light: { primary: "#123456" } } },
+        });
+        await updateTeamSettings(teamInternalId, { themeId: theme.themeId });
+
+        await withServer(async (origin) => {
+            const response = await fetch(
+                `${origin}/public/${teamPublicId}/settings`,
+            );
+            expect(response.status).toBe(200);
+            expect(await response.json()).toMatchObject({
+                themeId: theme.themeId,
+                theme: theme.style,
+            });
         });
     });
 

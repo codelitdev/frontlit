@@ -16,3 +16,4 @@ export * from "./schemas/chatbot";
 export * from "./schemas/help-desk";
 export * from "./schemas/domains";
 export * from "./schemas/settings";
+export * from "./schemas/ai";

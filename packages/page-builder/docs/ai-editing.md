@@ -285,7 +285,7 @@ export function applyPlan(
    introduced earlier in the plan); every `add-block.name` is registered;
    singleton layout blocks (`header`, `footer`) are not added twice, not
    removed, and not moved into the body (reusing `LAYOUT_BLOCK_NAMES`);
-   `deleteable: false` instances are not removed.
+   `deletable: false` instances are not removed.
 3. **Semantic:** for each `update-settings`/`add-block`, the merge patch is
    applied to a _copy_ of the current settings and the **result** is run
    through the block's `ai.schema.safeParse`. Validating the merged result

@@ -5,6 +5,7 @@ import { resolveSeo } from "@/lib/seo";
 import { getCanonicalHost } from "@/lib/request-host";
 import { organizationAndWebsiteJsonLd, serializeJsonLd } from "@/lib/json-ld";
 import { API_PUBLIC_URL } from "@/lib/config";
+import { loadSiteTheme } from "@/lib/load-site-theme";
 import { SitePageRenderer } from "@/components/site-page-renderer";
 
 interface Props {
@@ -63,6 +64,7 @@ export default async function SitePage({ params }: Props) {
     if (!page) notFound();
 
     const canonicalHost = await getCanonicalHost();
+    const siteTheme = await loadSiteTheme(teamId);
 
     return (
         <>
@@ -83,8 +85,8 @@ export default async function SitePage({ params }: Props) {
             )}
             <SitePageRenderer
                 layout={page.layout}
-                themeId={page.themeId}
-                themeStyle={page.theme}
+                themeId={siteTheme.themeId}
+                themeStyle={siteTheme.themeStyle}
                 pageData={{
                     pageType: page.type,
                     teamId,

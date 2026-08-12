@@ -3,6 +3,7 @@ import { db } from "../db/client";
 import { documentChunks, documents, docSections } from "../db/schema";
 import { extractChunks } from "./chunking";
 import { getEmbedding, getEmbeddings } from "./embeddings";
+import { getResolvedEmbeddingConfig } from "../ai/queries";
 import { slugify, uniqueSlug } from "../utils/slug";
 
 /** Re-chunks and re-embeds a published `doc`'s content, replacing its old
@@ -16,8 +17,12 @@ export async function reindexDocument(input: {
 }) {
     const chunks = extractChunks(input.content as any);
 
+    const embeddingConfig = await getResolvedEmbeddingConfig(input.teamId);
     const embeddings = chunks.length
-        ? await getEmbeddings(chunks.map((chunk) => chunk.content))
+        ? await getEmbeddings(
+              chunks.map((chunk) => chunk.content),
+              embeddingConfig,
+          )
         : [];
 
     await db.transaction(async (tx) => {
@@ -68,7 +73,8 @@ export async function searchChunks(
     query: string,
     k = 6,
 ): Promise<SearchResult[]> {
-    const embedding = await getEmbedding(query);
+    const embeddingConfig = await getResolvedEmbeddingConfig(teamId);
+    const embedding = await getEmbedding(query, embeddingConfig);
     const similarity = sql<number>`1 - (${cosineDistance(documentChunks.embedding, embedding)})`;
 
     const rows = await db

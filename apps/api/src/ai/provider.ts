@@ -1,7 +1,12 @@
-import { anthropic } from "@ai-sdk/anthropic";
-import { openai } from "@ai-sdk/openai";
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
+import { createAzure } from "@ai-sdk/azure";
+import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { createOpencode } from "ai-sdk-provider-opencode-sdk";
 import type { LanguageModel } from "ai";
+import { defaultAiModels, type AiModelPurpose } from "@frontlit/api-contract";
+import type { ResolvedAiConfig } from "./queries";
 
 /**
  * Server-side language models via Vercel AI SDK Core
@@ -10,104 +15,107 @@ import type { LanguageModel } from "ai";
  * Call sites never talk to provider HTTP APIs directly — they receive a
  * `LanguageModel` and pass it to `generateText` / `streamText` from `ai`.
  *
- * Providers (all AI SDK packages):
- * - OpenCode Go → `@ai-sdk/openai-compatible` against the Go gateway
- *   (https://opencode.ai/docs/go/#endpoints). This is the OpenAI-compatible
- *   path documented for Go API keys — not the OpenCode coding-agent CLI.
- * - OpenAI → `@ai-sdk/openai` (reads `OPENAI_API_KEY`)
- * - Anthropic → `@ai-sdk/anthropic` (reads `ANTHROPIC_API_KEY`)
- * - local → no model (extractive fallback in chatbot/completion.ts)
+ * Providers (all AI SDK packages, configured per team):
+ * - OpenRouter → `@openrouter/ai-sdk-provider`
+ * - Amazon Bedrock → `@ai-sdk/amazon-bedrock`
+ * - OpenCode → `ai-sdk-provider-opencode-sdk` backed by `@opencode-ai/sdk`
+ * - OpenAI → `@ai-sdk/openai`
+ * - Anthropic → `@ai-sdk/anthropic`
+ * - no team configuration → extractive fallback in chatbot/completion.ts
  */
 
-export type ChatProviderName = "opencode-go" | "openai" | "anthropic" | "local";
+export type ChatProviderName =
+    "openai" | "azure" | "anthropic" | "openrouter" | "bedrock" | "opencode";
 
-const OPENCODE_GO_BASE_URL =
-    process.env.OPENCODE_GO_BASE_URL || "https://opencode.ai/zen/go/v1";
-
-const DEFAULT_MODELS: Record<Exclude<ChatProviderName, "local">, string> = {
-    "opencode-go": "deepseek-v4-flash",
-    openai: "gpt-4o-mini",
-    anthropic: "claude-haiku-4-5-20251001",
-};
-
-/** Lazily built so env is read at first use (after dotenv / --env-file). */
-let opencodeGoProvider: ReturnType<typeof createOpenAICompatible> | null = null;
-
-function getOpencodeGoProvider() {
-    if (opencodeGoProvider) return opencodeGoProvider;
-    const apiKey =
-        process.env.OPENCODE_API_KEY || process.env.OPENCODE_GO_API_KEY;
-    if (!apiKey) {
-        throw new Error(
-            "OpenCode Go requires OPENCODE_API_KEY (from https://opencode.ai/auth). " +
-                "Set it in apps/api/.env and restart the API.",
-        );
-    }
-    opencodeGoProvider = createOpenAICompatible({
-        name: "opencode-go",
-        baseURL: OPENCODE_GO_BASE_URL,
-        apiKey,
-    });
-    return opencodeGoProvider;
-}
-
-export function resolveChatProvider(): ChatProviderName {
-    const configured = process.env.CHAT_PROVIDER?.trim().toLowerCase();
-    if (
-        configured === "opencode-go" ||
-        configured === "opencode" ||
-        configured === "go"
-    ) {
-        return "opencode-go";
-    }
-    if (
-        configured === "openai" ||
-        configured === "anthropic" ||
-        configured === "local"
-    ) {
-        return configured;
-    }
-
-    if (process.env.OPENCODE_API_KEY || process.env.OPENCODE_GO_API_KEY)
-        return "opencode-go";
-    if (process.env.OPENAI_API_KEY) return "openai";
-    if (process.env.ANTHROPIC_API_KEY) return "anthropic";
-    return "local";
-}
+type TeamProviderConfig = Pick<
+    ResolvedAiConfig,
+    "provider" | "models" | "apiKey" | "region" | "endpoint"
+>;
 
 export function resolveChatModelId(
-    provider: ChatProviderName = resolveChatProvider(),
+    provider: ChatProviderName,
+    configuredModel?: string | null,
 ): string {
-    if (provider === "local") return "local";
-    return process.env.CHAT_MODEL?.trim() || DEFAULT_MODELS[provider];
+    return configuredModel?.trim() || defaultAiModels[provider].chatbot!;
+}
+
+export function resolveModelId(
+    provider: ChatProviderName,
+    purpose: AiModelPurpose,
+    configuredModel?: string | null,
+): string {
+    return configuredModel?.trim() || defaultAiModels[provider][purpose]!;
 }
 
 /**
- * AI SDK language model for the active chat provider, or `null` when the
- * extractive local fallback should run (no key / `CHAT_PROVIDER=local`).
+ * AI SDK language model for the team's configured provider, or `null` when
+ * the extractive local fallback should run (no team credential).
  */
-export function getChatLanguageModel(): LanguageModel | null {
-    const provider = resolveChatProvider();
-    if (provider === "local") return null;
+export function getChatLanguageModel(
+    teamConfig?: TeamProviderConfig | null,
+): Promise<LanguageModel | null> {
+    return getLanguageModel(teamConfig, "chatbot");
+}
 
-    const modelId = resolveChatModelId(provider);
-
-    switch (provider) {
-        case "opencode-go":
-            return getOpencodeGoProvider()(modelId);
-        case "openai":
-            // Default provider instance reads OPENAI_API_KEY from the environment.
-            return openai(modelId);
-        case "anthropic":
-            return anthropic(modelId);
+/** Creates a model for a specific product purpose using the team's selected
+ * model for that purpose. New AI features should call this rather than share
+ * the chatbot selection. */
+export function getLanguageModel(
+    teamConfig: TeamProviderConfig | null | undefined,
+    purpose: AiModelPurpose,
+): Promise<LanguageModel | null> {
+    if (teamConfig) {
+        if (!teamConfig.apiKey) return Promise.resolve(null);
+        const modelId = resolveModelId(
+            teamConfig.provider,
+            purpose,
+            teamConfig.models[purpose],
+        );
+        switch (teamConfig.provider) {
+            case "openai":
+                return Promise.resolve(
+                    createOpenAI({ apiKey: teamConfig.apiKey })(modelId),
+                );
+            case "azure":
+                if (!teamConfig.endpoint) return Promise.resolve(null);
+                return Promise.resolve(
+                    createAzure({
+                        apiKey: teamConfig.apiKey,
+                        baseURL: teamConfig.endpoint,
+                    })(modelId),
+                );
+            case "anthropic":
+                return Promise.resolve(
+                    createAnthropic({ apiKey: teamConfig.apiKey })(modelId),
+                );
+            case "openrouter":
+                return Promise.resolve(
+                    createOpenRouter({ apiKey: teamConfig.apiKey })(modelId),
+                );
+            case "bedrock":
+                return Promise.resolve(
+                    createAmazonBedrock({
+                        apiKey: teamConfig.apiKey,
+                        region: teamConfig.region || "us-east-1",
+                    })(modelId as any),
+                );
+            case "opencode":
+                return Promise.resolve(
+                    createOpencode({
+                        clientOptions: {
+                            headers: {
+                                Authorization: `Bearer ${teamConfig.apiKey}`,
+                            },
+                        },
+                    })(modelId),
+                );
+        }
     }
+
+    return Promise.resolve(null);
 }
 
 /** One-line summary for boot logs. */
 export function describeChatProvider(): string {
-    const provider = resolveChatProvider();
-    if (provider === "local") {
-        return "chat=local (extractive fallback — set OPENCODE_API_KEY to use AI SDK + OpenCode Go)";
-    }
-    return `chat=${provider} model=${resolveChatModelId(provider)} (Vercel AI SDK)`;
+    return "chat=team-configured (local extractive fallback when a team has no AI provider)";
 }

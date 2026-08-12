@@ -47,7 +47,10 @@ export function ChatPanel({
         () => resolveSiteTheme(themeId, themeStyle),
         [themeId, themeStyle],
     );
-    const themeCss = useMemo(() => siteThemeStyleTag(theme), [theme]);
+    const themeCss = useMemo(
+        () => siteThemeStyleTag(theme, "[data-frontlit-chat-panel]"),
+        [theme],
+    );
     const color = resolveChatAccent(accentColor, theme);
     const palette = theme.theme.colors.light;
 
@@ -145,7 +148,10 @@ export function ChatPanel({
 
     if (layout === "docked") {
         return (
-            <div className="pb-theme fl-chat flex max-h-[min(560px,70vh)] min-h-0 w-full flex-col items-center justify-end gap-3 bg-transparent p-0 text-foreground [&>form]:mx-auto">
+            <div
+                data-frontlit-chat-panel
+                className="pb-theme fl-chat flex max-h-[min(560px,70vh)] min-h-0 w-full flex-col items-center justify-end gap-3 bg-transparent p-0 text-foreground [&>form]:mx-auto"
+            >
                 {/* eslint-disable-next-line react/no-danger */}
                 <style dangerouslySetInnerHTML={{ __html: themeCss }} />
 
@@ -295,7 +301,10 @@ export function ChatPanel({
     }
 
     return (
-        <div className="pb-theme fl-chat flex h-full min-h-0 flex-col bg-background text-foreground">
+        <div
+            data-frontlit-chat-panel
+            className="pb-theme fl-chat flex h-full min-h-0 flex-col bg-background text-foreground"
+        >
             {/* eslint-disable-next-line react/no-danger */}
             <style dangerouslySetInnerHTML={{ __html: themeCss }} />
             <header

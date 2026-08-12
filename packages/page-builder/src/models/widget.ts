@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 import type { Theme } from "./theme";
 import type { ThemeStyle } from "./theme-style";
 import type { SectionBackground } from "./section-background";
@@ -24,7 +24,10 @@ export interface WidgetMetadata {
 export interface WidgetInstance {
     widgetId: string;
     name: string;
-    deleteable: boolean;
+    /** Whether the instance can be removed from its page. */
+    deletable: boolean;
+    /** Whether the instance can be repositioned within its page. */
+    moveable: boolean;
     shared: boolean;
     settings?: Record<string, unknown>;
 }
@@ -72,6 +75,8 @@ export interface WidgetProps<
     settings: T;
     state: { theme: Theme };
     pageData: PageData;
+    /** Route-owned content rendered by the reserved `page-content` block. */
+    content?: ReactNode;
     editing?: boolean;
     nextTheme?: "light" | "dark";
 }

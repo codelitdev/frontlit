@@ -294,7 +294,7 @@ export default function PagesPage() {
                                                     status={page.status}
                                                 />
                                             )}
-                                            {!page.deleteable && (
+                                            {!page.deletable && (
                                                 <Badge
                                                     variant="outline"
                                                     className="px-2 py-0.5"
@@ -318,7 +318,7 @@ export default function PagesPage() {
                                     <span className="hidden shrink-0 text-xs text-muted-foreground sm:block">
                                         {relativeUpdatedAt(page.updatedAt)}
                                     </span>
-                                    {page.deleteable && (
+                                    {page.deletable && (
                                         <DeleteConfirm
                                             title={`Delete ${page.name}?`}
                                             description="This page and its published version will be permanently deleted."

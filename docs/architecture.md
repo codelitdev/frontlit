@@ -290,7 +290,7 @@ export const pages = pgTable(
         // …existing columns (published side): layout, title, description,
         // socialImage, robotsAllowed …
         slug: text("slug").notNull(), // route on the public site
-        deleteable: boolean("deleteable").notNull().default(true),
+        deletable: boolean("deletable").notNull().default(true),
         draftLayout: jsonb("draft_layout")
             .$type<WidgetInstanceRow[]>()
             .notNull()
@@ -312,7 +312,7 @@ export const pages = pgTable(
 ### 4.2 Standard pages
 
 Seeded per team at provisioning time (`provisioning/routes.ts` +
-`teams/queries.ts` `createTeam`), all `deleteable: false`:
+`teams/queries.ts` `createTeam`), all `deletable: false`:
 
 | name             | slug        | type     | notes                                     |
 | ---------------- | ----------- | -------- | ----------------------------------------- |
@@ -330,7 +330,7 @@ they just can't be deleted and their slugs are reserved. `blog`, `docs`,
 blocks pre-placed in their layout so the sections work out of the box.
 
 Every page layout also contains exactly two mandatory shell placeholders:
-a non-deleteable `header` first and `footer` last, both marked `shared`.
+a non-deletable `header` first and `footer` last, both marked `shared`.
 Their settings are stored once per team (§12.5) in
 `team_settings.shared_widgets` / `draft_shared_widgets`, not copied into
 each page. Page reads hydrate the placeholders from those settings. Editing
@@ -344,7 +344,7 @@ controls for them.
 
 `packages/api-contract/src/schemas/pages.ts`:
 
-- `pageSchema` gains `slug`, `deleteable`, `publishedAt`, `hasUnpublishedChanges`,
+- `pageSchema` gains `slug`, `deletable`, `publishedAt`, `hasUnpublishedChanges`,
   and `draftLayout`/`draftTitle`/`draftDescription`/`draftSocialImage`/`draftRobotsAllowed`.
 - `updatePageBodySchema` keeps its current fields but the handler writes them
   to the **draft** columns (this is a behavior change for `PATCH /pages/:pageId`).
@@ -541,10 +541,10 @@ These return published fields only and never leak `draft*` columns
 
 - `docker-compose.yml`: switch image to `pgvector/pgvector:pg16`.
 - Migration: `CREATE EXTENSION IF NOT EXISTS vector;`
-- New dependency in `apps/api`: the `ai` SDK (or plain fetch) for the
-  embeddings API. Provider/model/keys via env:
-  `EMBEDDINGS_PROVIDER`, `EMBEDDINGS_MODEL` (default
-  `openai / text-embedding-3-small`, 1536 dims), `OPENAI_API_KEY`.
+- New dependency in `apps/api`: the `ai` SDK for the embeddings API. Teams
+  select either OpenAI or Azure OpenAI and store a separate encrypted
+  embedding credential; both use `text-embedding-3-small` (1536 dims).
+  Teams without an embedding provider use the local deterministic fallback.
 
 ### 6.2 Schema
 
@@ -625,24 +625,40 @@ export const chatbotSettings = pgTable("chatbot_settings", {
 ```
 
 Contract: `contract.chatbot` — `GET /chatbot` / `PATCH /chatbot`
-(team-scoped), managed from the workspace settings screen. LLM
-provider/model are **server env config** (not per-team until pricing
-demands otherwise), selected via Vercel AI SDK in `apps/api/src/ai/`:
+(team-scoped), managed from the workspace settings screen. Each team's LLM
+provider, encrypted credential, and per-purpose model selections are managed
+at `contract.ai` (`GET` / `PUT` / `DELETE /settings/ai`) and selected via
+Vercel AI SDK in
+`apps/api/src/ai/`:
 
 All generative and embedding calls run **server-side in `apps/api`** via
 Vercel AI SDK Core (`ai` package) — never raw provider `fetch` from route
 handlers.
 
-| `CHAT_PROVIDER`                          | AI SDK package                           | key                 | default `CHAT_MODEL`        |
-| ---------------------------------------- | ---------------------------------------- | ------------------- | --------------------------- |
-| `opencode-go` (default when key present) | `@ai-sdk/openai-compatible` → Go gateway | `OPENCODE_API_KEY`  | `deepseek-v4-flash`         |
-| `openai`                                 | `@ai-sdk/openai`                         | `OPENAI_API_KEY`    | `gpt-4o-mini`               |
-| `anthropic`                              | `@ai-sdk/anthropic`                      | `ANTHROPIC_API_KEY` | `claude-haiku-4-5-20251001` |
-| `local`                                  | none (extractive top-chunk)              | —                   | —                           |
+| Team provider | AI SDK package                 | default model                              |
+| ------------- | ------------------------------ | ------------------------------------------ |
+| `openai`      | `@ai-sdk/openai`               | `gpt-4o-mini`                              |
+| `azure`       | `@ai-sdk/azure`                | team Azure deployment name                 |
+| `anthropic`   | `@ai-sdk/anthropic`            | `claude-haiku-4-5-20251001`                |
+| `openrouter`  | `@openrouter/ai-sdk-provider`  | `openai/gpt-4o-mini`                       |
+| `bedrock`     | `@ai-sdk/amazon-bedrock`       | `anthropic.claude-3-5-haiku-20241022-v1:0` |
+| `opencode`    | `ai-sdk-provider-opencode-sdk` | `openai/gpt-5.1`                           |
+| none          | none (extractive top-chunk)    | —                                          |
 
-Embeddings use the same SDK (`embed` / `embedMany` + `@ai-sdk/openai`
-embedding models when `OPENAI_API_KEY` is set; otherwise a local
-deterministic vector for tests). OpenCode Go is preferred for chat.
+When the team's chat provider is OpenAI or Azure OpenAI, embeddings reuse that
+provider's credential (and Azure resource endpoint) automatically with
+`text-embedding-3-small`; no second embedding setup is shown. Teams using a
+different chat provider can configure OpenAI or Azure OpenAI embeddings
+separately. Without a saved embedding credential, the local deterministic
+vector remains available for tests and self-hosting.
+
+Models are intentionally configured separately from credentials. A team may
+select one model for the support **chatbot**, another for **grammar
+correction**, and a more capable model for the **page and email builder**.
+`getLanguageModel(config, purpose)` resolves the right selection, so a new
+AI feature does not accidentally inherit the chatbot's model. Only the
+chatbot invokes a language model today; the grammar and builder selections
+are stored now for their forthcoming features.
 
 ### 7.2 Chat endpoint
 
@@ -669,10 +685,11 @@ helper (`streamChatAnswer`) exists for a future SSE path:
 
 - **FrontLit-hosted pages**: when `chatbotSettings.enabled`, the public site
   layout renders the floating chat launcher automatically on every page.
-- **Site theme**: the launcher and chat panel use the **homepage page theme**
-  (same `themeId` / saved style resolution as published pages), so primary,
-  muted, border, and surface colors match the site. An optional chatbot
-  `accentColor` overrides the theme primary only.
+- **Site theme**: one team-level FrontLit theme is used by every public page,
+  built-in content route, shared header/footer, launcher, and chat panel. Its
+  `themeId` resolves either a system theme or a team-owned custom theme, so
+  colors, typography, corners, and other interactive styles remain consistent
+  site-wide. An optional chatbot `accentColor` overrides the primary only.
 - **Launcher variants** (workspace `/settings/chatbot`):
     - `bubble` — classic floating button; style: shape (circle/rounded/square),
       icon (chat/message/sparkles/bot), size (sm/md/lg).
@@ -827,8 +844,8 @@ special backdoor. Concretely:
   `apps/api/src/newsletter/sendlit-client.ts`. FrontLit is just another
   API consumer of SendLit, subject to the same contract, versioning and
   rate limits as anyone else.
-- Configuration via env: `SENDLIT_API_URL` (the hosted instance) and
-  `SENDLIT_PROVISIONING_SECRET`.
+- Configuration via env: `SENDLIT_API_URL` (the hosted instance) and a
+  scoped `SENDLIT_ORGANIZATION_API_KEY`.
 - Per-request auth with the team-scoped API key in SendLit's
   `x-sendlit-apikey` header.
 - If the SendLit instance is unreachable, FrontLit degrades gracefully:
@@ -949,9 +966,9 @@ lone postgres service into a full two-product stack:
 | service          | image / build                 | notes                                                                                                                                         |
 | ---------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `postgres`       | `pgvector/pgvector:pg16`      | one server, two databases (`frontlit`, `sendlit`) created by an init script; pgvector needed only by the `frontlit` DB, harmless to the other |
-| `sendlit-api`    | `sendlit/apps/api/Dockerfile` | `SENDLIT_PROVISIONING_SECRET`, ESP credentials                                                                                                |
+| `sendlit-api`    | `codelit/sendlit-api:k3s`     | organization bootstrap + ESP credentials                                                                                                      |
 | `sendlit-web`    | `sendlit/apps/web/Dockerfile` | optional — SendLit's own dashboard for power users; FrontLit's UI covers the newsletter basics                                                |
-| `frontlit-api`   | `apps/api/Dockerfile`         | `SENDLIT_API_URL=http://sendlit-api:<port>`, same provisioning secret, MediaLit + embeddings keys                                             |
+| `frontlit-api`   | `apps/api/Dockerfile`         | `SENDLIT_API_URL=http://sendlit-api:3001`, scoped SendLit organization key, MediaLit + embeddings keys                                        |
 | `frontlit-web`   | `apps/web/Dockerfile`         | authenticated workspace                                                                                                                       |
 | `frontlit-sites` | `apps/sites/Dockerfile`       | public sites (§12.2)                                                                                                                          |
 

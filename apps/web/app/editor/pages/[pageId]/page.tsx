@@ -10,10 +10,12 @@ import {
     createTheme,
     discardPageDraft,
     getPage,
+    getTeamSettings,
     getTheme,
     listThemes,
     publishPage,
     updatePage,
+    updateTeamSettings,
     updateTheme,
     type Page,
 } from "@/lib/api";
@@ -48,10 +50,12 @@ export default function PageEditorPage({
     const themeAliasesRef = useRef(new Map<string, string>());
     const knownThemeIdsRef = useRef(new Set<string>());
     const themeSnapshotsRef = useRef(new Map<string, string>());
+    const appliedSiteThemeIdRef = useRef<string | null>(null);
+    const appliedSiteThemeSnapshotRef = useRef<string | null>(null);
 
     useEffect(() => {
-        Promise.all([getPage(pageId), listThemes()]).then(
-            async ([loaded, savedThemes]) => {
+        Promise.all([getPage(pageId), listThemes(), getTeamSettings()]).then(
+            async ([loaded, savedThemes, siteSettings]) => {
                 const mappedThemes = savedThemes.items.map(
                     (theme): BuilderTheme => ({
                         id: theme.themeId,
@@ -70,17 +74,21 @@ export default function PageEditorPage({
                         themeSnapshot(theme),
                     ]),
                 );
-                setInitialTheme(
-                    await resolveEditorTheme(
-                        loaded.themeId,
-                        async (themeId) => {
-                            const loadedTheme = savedThemes.items.find(
-                                (theme) => theme.themeId === themeId,
-                            );
-                            return loadedTheme ?? getTheme(themeId);
-                        },
-                    ),
+                const resolvedTheme = await resolveEditorTheme(
+                    siteSettings.themeId ?? "classic",
+                    async (themeId) => {
+                        const loadedTheme = savedThemes.items.find(
+                            (theme) => theme.themeId === themeId,
+                        );
+                        return loadedTheme ?? getTheme(themeId);
+                    },
                 );
+                appliedSiteThemeIdRef.current =
+                    siteSettings.themeId ?? "classic";
+                appliedSiteThemeSnapshotRef.current = resolvedTheme
+                    ? themeSnapshot(resolvedTheme)
+                    : null;
+                setInitialTheme(resolvedTheme);
                 setCustomThemes(mappedThemes);
                 setPage(loaded);
             },
@@ -104,10 +112,18 @@ export default function PageEditorPage({
                 socialImage: state.seo.socialImage as unknown as
                     Record<string, unknown> | undefined,
                 robotsAllowed: state.seo.robotsAllowed,
-                themeId:
-                    themeAliasesRef.current.get(state.theme.id) ??
-                    state.theme.id,
             });
+            const siteThemeId =
+                themeAliasesRef.current.get(state.theme.id) ?? state.theme.id;
+            const selectedThemeSnapshot = themeSnapshot(state.theme);
+            if (
+                appliedSiteThemeIdRef.current !== siteThemeId ||
+                appliedSiteThemeSnapshotRef.current !== selectedThemeSnapshot
+            ) {
+                await updateTeamSettings({ themeId: siteThemeId });
+                appliedSiteThemeIdRef.current = siteThemeId;
+                appliedSiteThemeSnapshotRef.current = selectedThemeSnapshot;
+            }
             setPage(updated);
         } finally {
             setSaving(false);
@@ -152,20 +168,21 @@ export default function PageEditorPage({
                 statusTestId="page-status-badge"
                 saving={saving}
                 publishing={publishing}
+                leading={
+                    <SlugEditor
+                        slug={page.slug}
+                        prefix="/"
+                        onSave={handleSlugSave}
+                        disabled={!page.deletable}
+                        disabledReason={`The ${page.name} URL is fixed at /${page.slug}.`}
+                        testId="page-slug-input"
+                        compact
+                    />
+                }
                 onPublish={handlePublish}
                 onDiscardDraft={handleDiscardDraft}
                 discardDescription="Discard all unpublished changes on this page? This cannot be undone."
             />
-            <div className="border-b bg-muted/20 px-4 py-3">
-                <SlugEditor
-                    slug={page.slug}
-                    prefix="/"
-                    onSave={handleSlugSave}
-                    disabled={page.slug === ""}
-                    disabledReason="The homepage URL is fixed at /."
-                    testId="page-slug-input"
-                />
-            </div>
             <div className="relative min-h-0 flex-1 overflow-hidden">
                 <PageBuilder
                     key={resetKey}

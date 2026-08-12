@@ -74,11 +74,14 @@ import {
     captureLeadResponseSchema,
     contactSchema,
     createBroadcastBodySchema,
+    createNewsletterTemplateBodySchema,
     createSegmentBodySchema,
     listContactsQuerySchema,
     newsletterSettingsSchema,
+    newsletterTemplateSchema,
     segmentSchema,
     updateBroadcastBodySchema,
+    updateNewsletterTemplateBodySchema,
     updateNewsletterSettingsBodySchema,
     updateSegmentBodySchema,
 } from "./schemas/newsletter";
@@ -112,6 +115,7 @@ import {
     testEspConfigResponseSchema,
     upsertEspConfigBodySchema,
 } from "./schemas/esp";
+import { aiConfigSchema, updateAiConfigBodySchema } from "./schemas/ai";
 
 const c = initContract();
 
@@ -237,14 +241,14 @@ const pagesContract = c.router(
             },
             summary: "Update a page",
             description:
-                "Used for metadata edits and for persisting the builder's draft layout. Slug changes apply to the public URL immediately. Layouts must retain exactly one locked, team-shared header and footer.",
+                "Used for metadata edits and for persisting the builder's draft layout. Custom-page slug changes apply immediately; standard-page URLs are fixed. Layouts must retain exactly one locked, team-shared header and footer, plus the required page-content block on dynamic standard pages.",
         },
         remove: {
             method: "DELETE",
             path: "/pages/:pageId",
             responses: { 204: c.noBody(), 404: errorSchema, 409: errorSchema },
             summary: "Delete a page",
-            description: "Standard (non-deleteable) pages return 409.",
+            description: "Standard (non-deletable) pages return 409.",
         },
         publish: {
             method: "POST",
@@ -789,9 +793,8 @@ const ticketsContract = c.router(
     { metadata: { tag: "Help Desk" } },
 );
 
-/** Per-team RAG chatbot settings (architecture.md §7.1). LLM provider/model
- * are server env config, not per-team, until pricing/plans demand
- * otherwise. */
+/** Per-team RAG chatbot settings. Its LLM provider is configured separately
+ * through the team's `/settings/ai` connection. */
 const chatbotContract = c.router(
     {
         get: {
@@ -809,6 +812,32 @@ const chatbotContract = c.router(
         },
     },
     { metadata: { tag: "Chatbot" } },
+);
+
+const aiContract = c.router(
+    {
+        get: {
+            method: "GET",
+            path: "/settings/ai",
+            responses: { 200: aiConfigSchema.nullable() },
+            summary: "Get the team's AI provider configuration",
+        },
+        update: {
+            method: "PUT",
+            path: "/settings/ai",
+            body: updateAiConfigBodySchema,
+            responses: { 200: aiConfigSchema },
+            summary: "Create or update the team's AI provider configuration",
+        },
+        remove: {
+            method: "DELETE",
+            path: "/settings/ai",
+            body: c.noBody(),
+            responses: { 204: c.noBody() },
+            summary: "Remove the team's AI provider configuration",
+        },
+    },
+    { metadata: { tag: "AI" } },
 );
 
 /** A team's default `<slug>.<PLATFORM_SITE_DOMAIN>` host plus an optional attached custom
@@ -921,7 +950,11 @@ const settingsContract = c.router(
             method: "PATCH",
             path: "/settings",
             body: updateTeamSettingsBodySchema,
-            responses: { 200: teamSettingsSchema, 403: errorSchema },
+            responses: {
+                200: teamSettingsSchema,
+                400: errorSchema,
+                403: errorSchema,
+            },
             summary: "Update the team's branding and code-injection settings",
             description:
                 "Changing either code-injection field requires the caller to hold the team owner role.",
@@ -1035,6 +1068,36 @@ const newsletterContract = c.router(
             responses: { 200: newsletterSettingsSchema, 409: errorSchema },
             summary: "Update the team's SendLit compliance settings",
         },
+        listTemplates: {
+            method: "GET",
+            path: "/newsletter/templates",
+            responses: {
+                200: itemsList(newsletterTemplateSchema),
+                409: errorSchema,
+            },
+            summary: "List the team's reusable newsletter templates",
+        },
+        createTemplate: {
+            method: "POST",
+            path: "/newsletter/templates",
+            body: createNewsletterTemplateBodySchema,
+            responses: {
+                201: newsletterTemplateSchema,
+                409: errorSchema,
+            },
+            summary: "Create a reusable newsletter template",
+        },
+        updateTemplate: {
+            method: "PATCH",
+            path: "/newsletter/templates/:templateId",
+            body: updateNewsletterTemplateBodySchema,
+            responses: {
+                200: newsletterTemplateSchema,
+                404: errorSchema,
+                409: errorSchema,
+            },
+            summary: "Update a reusable newsletter template",
+        },
         listBroadcasts: {
             method: "GET",
             path: "/newsletter/broadcasts",
@@ -1098,6 +1161,7 @@ export const contract = c.router({
     segments: segmentsContract,
     newsletter: newsletterContract,
     chatbot: chatbotContract,
+    ai: aiContract,
     tickets: ticketsContract,
     domains: domainsContract,
     settings: settingsContract,

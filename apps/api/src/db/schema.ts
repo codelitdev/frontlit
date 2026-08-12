@@ -197,7 +197,8 @@ export const themes = pgTable(
 export type WidgetInstanceRow = {
     widgetId: string;
     name: string;
-    deleteable: boolean;
+    deletable: boolean;
+    moveable: boolean;
     shared: boolean;
     settings?: Record<string, unknown>;
 };
@@ -214,14 +215,16 @@ export const DEFAULT_SHARED_WIDGETS: SharedWidgetsRow = {
     header: {
         widgetId: "shared-header",
         name: "header",
-        deleteable: false,
+        deletable: false,
+        moveable: false,
         shared: true,
         settings: {},
     },
     footer: {
         widgetId: "shared-footer",
         name: "footer",
-        deleteable: false,
+        deletable: false,
+        moveable: false,
         shared: true,
         settings: {},
     },
@@ -409,6 +412,51 @@ export const chatbotSettings = pgTable("chatbot_settings", {
 });
 
 // ---------------------------------------------------------------------------
+// AI provider configuration. Credentials are AES-GCM encrypted before they
+// reach this table and are deliberately never included in API responses.
+// ---------------------------------------------------------------------------
+
+export const aiProviderNames = [
+    "openai",
+    "azure",
+    "anthropic",
+    "openrouter",
+    "bedrock",
+    "opencode",
+] as const;
+export type AiProviderName = (typeof aiProviderNames)[number];
+
+export const aiSettings = pgTable("ai_settings", {
+    id: text("id").primaryKey().$defaultFn(genId),
+    teamId: text("team_id")
+        .notNull()
+        .unique()
+        .references(() => teams.id, { onDelete: "cascade" }),
+    provider: text("provider", { enum: aiProviderNames }).notNull(),
+    /** Deprecated single-model setting retained to migrate existing teams. */
+    model: text("model"),
+    modelSettings: jsonb("model_settings")
+        .$type<{
+            chatbot?: string | null;
+            grammar?: string | null;
+            builder?: string | null;
+        }>()
+        .notNull()
+        .default({}),
+    region: text("region"),
+    azureEndpoint: text("azure_endpoint"),
+    encryptedApiKey: text("encrypted_api_key"),
+    embeddingProvider: text("embedding_provider", {
+        enum: ["openai", "azure"],
+    }),
+    encryptedEmbeddingApiKey: text("encrypted_embedding_api_key"),
+    embeddingDeployment: text("embedding_deployment"),
+    embeddingEndpoint: text("embedding_endpoint"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
 // Media library (architecture.md §9): FrontLit's own record of files
 // uploaded through MediaLit. FrontLit never stores file bytes — `mediaLitId`
 // is the source of truth on MediaLit's side; this row is metadata + cache of
@@ -490,6 +538,9 @@ export const teamSettings = pgTable("team_settings", {
     title: text("title"),
     subtitle: text("subtitle"),
     logo: jsonb("logo").$type<Record<string, unknown>>(),
+    /** One theme for the entire public FrontLit site. System themes use their
+     * logical id; custom themes use their public `thm_*` id. */
+    themeId: text("theme_id"),
     codeInjectionHead: text("code_injection_head"),
     codeInjectionBody: text("code_injection_body"),
     /** Published and draft copies follow the same promotion model as page
@@ -657,13 +708,7 @@ export const pages = pgTable(
             enum: ["site", "blog", "landing", "post", "custom"],
         }).notNull(),
         slug: text("slug").notNull(),
-        deleteable: boolean("deleteable").notNull().default(true),
-        // Logical theme reference: a built-in id such as "learning", or a
-        // saved theme's public `thm_*` id. Public ids keep this boundary
-        // consistent with the pages/themes API and let system themes work
-        // without manufacturing database rows for them.
-        themeId: text("theme_id"),
-
+        deletable: boolean("deletable").notNull().default(true),
         // Published side — read by public rendering. Only ever written by
         // `publish()`, which copies the draft columns below into these.
         layout: jsonb("layout")

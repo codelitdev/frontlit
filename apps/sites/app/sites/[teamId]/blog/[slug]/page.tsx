@@ -5,6 +5,7 @@ import { getBlogBySlug, getSettings } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
 import { getCanonicalHost } from "@/lib/request-host";
 import { blogPostingJsonLd, serializeJsonLd } from "@/lib/json-ld";
+import { SiteChrome } from "@/components/site-chrome";
 
 interface Props {
     params: Promise<{ teamId: string; slug: string }>;
@@ -59,45 +60,51 @@ export default async function BlogPostPage({ params }: Props) {
     const url = `https://${canonicalHost}/blog/${slug}`;
 
     return (
-        <main className="mx-auto max-w-3xl px-6 py-16">
-            <script
-                type="application/ld+json"
-                // eslint-disable-next-line react/no-danger
-                dangerouslySetInnerHTML={{
-                    __html: serializeJsonLd(
-                        blogPostingJsonLd({
-                            title: post.title ?? slug,
-                            excerpt: post.excerpt,
-                            imageUrl:
-                                (post.featuredImage?.url as
-                                    string | undefined) ?? null,
-                            publishedAt: post.publishedAt,
-                            updatedAt: post.updatedAt,
-                            authorName: null,
-                            url,
-                        }),
-                    ),
-                }}
-            />
-            <article>
-                <h1 className="text-3xl font-bold">{post.title}</h1>
-                {post.publishedAt && (
-                    <time
-                        dateTime={post.publishedAt}
-                        className="mt-2 block text-sm text-neutral-400"
-                    >
-                        {new Date(post.publishedAt).toLocaleDateString(
-                            undefined,
-                            { year: "numeric", month: "long", day: "numeric" },
-                        )}
-                    </time>
-                )}
-                {post.content && (
-                    <div className="prose mt-8 max-w-none">
-                        <TextRenderer json={post.content} />
-                    </div>
-                )}
-            </article>
-        </main>
+        <SiteChrome teamId={teamId}>
+            <main className="mx-auto max-w-3xl px-6 py-16">
+                <script
+                    type="application/ld+json"
+                    // eslint-disable-next-line react/no-danger
+                    dangerouslySetInnerHTML={{
+                        __html: serializeJsonLd(
+                            blogPostingJsonLd({
+                                title: post.title ?? slug,
+                                excerpt: post.excerpt,
+                                imageUrl:
+                                    (post.featuredImage?.url as
+                                        string | undefined) ?? null,
+                                publishedAt: post.publishedAt,
+                                updatedAt: post.updatedAt,
+                                authorName: null,
+                                url,
+                            }),
+                        ),
+                    }}
+                />
+                <article>
+                    <h1 className="text-3xl font-bold">{post.title}</h1>
+                    {post.publishedAt && (
+                        <time
+                            dateTime={post.publishedAt}
+                            className="mt-2 block text-sm text-muted-foreground"
+                        >
+                            {new Date(post.publishedAt).toLocaleDateString(
+                                undefined,
+                                {
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                },
+                            )}
+                        </time>
+                    )}
+                    {post.content && (
+                        <div className="prose mt-8 max-w-none">
+                            <TextRenderer json={post.content} />
+                        </div>
+                    )}
+                </article>
+            </main>
+        </SiteChrome>
     );
 }

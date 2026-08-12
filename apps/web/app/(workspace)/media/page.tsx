@@ -31,6 +31,7 @@ export default function MediaPage() {
     const [items, setItems] = useState<Media[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [savingAltId, setSavingAltId] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     function refresh() {
@@ -89,8 +90,22 @@ export default function MediaPage() {
         );
     }
 
-    async function handleAltBlur(mediaId: string, alt: string) {
-        await updateMedia(mediaId, { alt });
+    async function saveAlt(mediaId: string, alt: string) {
+        setSavingAltId(mediaId);
+        try {
+            const updated = await updateMedia(mediaId, { alt });
+            setItems((prev) =>
+                prev.map((item) => (item.mediaId === mediaId ? updated : item)),
+            );
+        } catch (err) {
+            setError(
+                err instanceof ApiError
+                    ? err.message
+                    : "Failed to save alt text.",
+            );
+        } finally {
+            setSavingAltId(null);
+        }
     }
 
     if (loading) {
@@ -170,12 +185,6 @@ export default function MediaPage() {
                                             e.target.value,
                                         )
                                     }
-                                    onBlur={(e) =>
-                                        handleAltBlur(
-                                            item.mediaId,
-                                            e.target.value,
-                                        )
-                                    }
                                     placeholder="Alt text"
                                     className="h-7 text-xs"
                                 />
@@ -195,6 +204,20 @@ export default function MediaPage() {
                                         </Button>
                                     }
                                 />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    disabled={savingAltId === item.mediaId}
+                                    onClick={() =>
+                                        saveAlt(item.mediaId, item.alt || "")
+                                    }
+                                >
+                                    {savingAltId === item.mediaId
+                                        ? "Saving…"
+                                        : "Save"}
+                                </Button>
                             </CardContent>
                         </Card>
                     ))}

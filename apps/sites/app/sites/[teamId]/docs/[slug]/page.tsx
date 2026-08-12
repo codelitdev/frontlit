@@ -5,6 +5,7 @@ import { getDocBySlug, getSettings } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
 import { getCanonicalHost } from "@/lib/request-host";
 import { serializeJsonLd, techArticleJsonLd } from "@/lib/json-ld";
+import { SiteChrome } from "@/components/site-chrome";
 
 interface Props {
     params: Promise<{ teamId: string; slug: string }>;
@@ -56,61 +57,63 @@ export default async function DocPage({ params }: Props) {
     const headings = doc.content ? extractHeadings(doc.content as any) : [];
 
     return (
-        <main className="mx-auto max-w-5xl px-6 py-16">
-            <script
-                type="application/ld+json"
-                // eslint-disable-next-line react/no-danger
-                dangerouslySetInnerHTML={{
-                    __html: serializeJsonLd(
-                        techArticleJsonLd({
-                            title: doc.title ?? slug,
-                            excerpt: doc.excerpt,
-                            publishedAt: doc.publishedAt,
-                            updatedAt: doc.updatedAt,
-                            url: `https://${canonicalHost}/docs/${slug}`,
-                            breadcrumb: [
-                                {
-                                    name: "Docs",
-                                    url: `https://${canonicalHost}/docs`,
-                                },
-                                {
-                                    name: doc.title ?? slug,
-                                    url: `https://${canonicalHost}/docs/${slug}`,
-                                },
-                            ],
-                        }),
-                    ),
-                }}
-            />
-            <div className="grid gap-10 lg:grid-cols-[1fr_220px]">
-                <article>
-                    <h1 className="text-3xl font-bold">{doc.title}</h1>
-                    {doc.content && (
-                        <div className="prose mt-8 max-w-none">
-                            <TextRenderer json={doc.content} />
-                        </div>
+        <SiteChrome teamId={teamId}>
+            <main className="mx-auto max-w-5xl px-6 py-16">
+                <script
+                    type="application/ld+json"
+                    // eslint-disable-next-line react/no-danger
+                    dangerouslySetInnerHTML={{
+                        __html: serializeJsonLd(
+                            techArticleJsonLd({
+                                title: doc.title ?? slug,
+                                excerpt: doc.excerpt,
+                                publishedAt: doc.publishedAt,
+                                updatedAt: doc.updatedAt,
+                                url: `https://${canonicalHost}/docs/${slug}`,
+                                breadcrumb: [
+                                    {
+                                        name: "Docs",
+                                        url: `https://${canonicalHost}/docs`,
+                                    },
+                                    {
+                                        name: doc.title ?? slug,
+                                        url: `https://${canonicalHost}/docs/${slug}`,
+                                    },
+                                ],
+                            }),
+                        ),
+                    }}
+                />
+                <div className="grid gap-10 lg:grid-cols-[1fr_220px]">
+                    <article>
+                        <h1 className="text-3xl font-bold">{doc.title}</h1>
+                        {doc.content && (
+                            <div className="prose mt-8 max-w-none">
+                                <TextRenderer json={doc.content} />
+                            </div>
+                        )}
+                    </article>
+                    {headings.length > 0 && (
+                        <nav className="hidden lg:block">
+                            <p className="text-sm font-semibold text-muted-foreground">
+                                On this page
+                            </p>
+                            <ul className="mt-3 flex flex-col gap-2 text-sm">
+                                {headings.map((heading) => (
+                                    <li key={heading.id}>
+                                        <a
+                                            href={`#${heading.id}`}
+                                            className="text-muted-foreground hover:text-foreground hover:underline"
+                                        >
+                                            {heading.text}
+                                        </a>
+                                    </li>
+                                ))}
+                            </ul>
+                        </nav>
                     )}
-                </article>
-                {headings.length > 0 && (
-                    <nav className="hidden lg:block">
-                        <p className="text-sm font-semibold text-neutral-500">
-                            On this page
-                        </p>
-                        <ul className="mt-3 flex flex-col gap-2 text-sm">
-                            {headings.map((heading) => (
-                                <li key={heading.id}>
-                                    <a
-                                        href={`#${heading.id}`}
-                                        className="text-neutral-600 hover:underline"
-                                    >
-                                        {heading.text}
-                                    </a>
-                                </li>
-                            ))}
-                        </ul>
-                    </nav>
-                )}
-            </div>
-        </main>
+                </div>
+            </main>
+        </SiteChrome>
     );
 }

@@ -123,7 +123,10 @@ export function ChatWidget({
         () => resolveSiteTheme(themeId, themeStyle),
         [themeId, themeStyle],
     );
-    const themeCss = useMemo(() => siteThemeStyleTag(theme), [theme]);
+    const themeCss = useMemo(
+        () => siteThemeStyleTag(theme, "[data-frontlit-chat-launcher]"),
+        [theme],
+    );
     const color = resolveChatAccent(accentColor, theme);
     const style: ChatbotWidgetStyle = {
         ...DEFAULT_STYLE,
@@ -145,7 +148,10 @@ export function ChatWidget({
     // Text-input: real composer at bottom center; sheet opens above on focus/type.
     if (isTextInput) {
         return (
-            <div className="pb-theme fl-chat-launcher pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col items-center px-4 pb-4">
+            <div
+                data-frontlit-chat-launcher
+                className="pb-theme fl-chat-launcher pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col items-center px-4 pb-4"
+            >
                 {/* eslint-disable-next-line react/no-danger */}
                 <style dangerouslySetInnerHTML={{ __html: themeCss }} />
                 <div className="pointer-events-auto w-full max-w-[min(380px,100%)]">
@@ -170,7 +176,10 @@ export function ChatWidget({
     }
 
     return (
-        <div className="pb-theme fl-chat-launcher fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3">
+        <div
+            data-frontlit-chat-launcher
+            className="pb-theme fl-chat-launcher fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3"
+        >
             {/* eslint-disable-next-line react/no-danger */}
             <style dangerouslySetInnerHTML={{ __html: themeCss }} />
             {open && (

@@ -1,13 +1,45 @@
+@import "@codelitdev/design-system/styles.css";
+@import "@frontlit/page-builder/styles.css";
 @import "tailwindcss";
-@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/lib/default-colors.css";
 @import "fumadocs-ui/css/preset.css";
 @import "fumadocs-openapi/css/preset.css";
 
 @source "../../../packages/page-builder/src/**/*.{ts,tsx}";
+/* Fumadocs applies this class from its packaged runtime. Tailwind does not
+   scan that runtime by default, so ensure the mobile subnav's desktop hide
+   utility is present in FrontLit's compiled stylesheet. */
+@source inline("md:hidden");
+
+/* Keep Fumadocs' layout and components while sourcing every semantic color
+   from the shared FrontLit design system. `data-product="frontlit"` selects
+   the product's blue accent family. */
+@theme inline {
+    --color-fd-background: var(--background);
+    --color-fd-foreground: var(--foreground);
+    --color-fd-card: var(--card);
+    --color-fd-card-foreground: var(--card-foreground);
+    --color-fd-popover: var(--popover);
+    --color-fd-popover-foreground: var(--popover-foreground);
+    --color-fd-primary: var(--primary);
+    --color-fd-primary-foreground: var(--primary-foreground);
+    --color-fd-secondary: var(--secondary);
+    --color-fd-secondary-foreground: var(--secondary-foreground);
+    --color-fd-muted: var(--muted);
+    --color-fd-muted-foreground: var(--muted-foreground);
+    --color-fd-accent: var(--accent);
+    --color-fd-accent-foreground: var(--accent-foreground);
+    --color-fd-border: var(--border);
+    --color-fd-ring: var(--ring);
+    --color-fd-overlay: var(--scrim);
+    --color-fd-error: var(--destructive);
+    --color-fd-warning: var(--warning);
+    --color-fd-success: var(--success);
+}
 
 .page-builder-demo {
     border: 1px solid var(--color-fd-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-lg);
     margin: 1rem 0 1.5rem;
     overflow: hidden;
 }

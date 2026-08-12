@@ -4,7 +4,11 @@ import { contract } from "@frontlit/api-contract";
 import { requireAuth } from "../auth/middleware";
 import { requireTeam } from "../auth/require-team";
 import { findTeamById, getTeamMembership } from "../team/queries";
-import { getTeamSettings, updateTeamSettings } from "./queries";
+import {
+    getTeamSettings,
+    InvalidSiteThemeReferenceError,
+    updateTeamSettings,
+} from "./queries";
 import { omitInternal, serializeDates } from "../utils/public";
 import { revalidateTeam } from "../services/revalidate";
 import {
@@ -59,10 +63,20 @@ const impl = s.router(teamSettingsContract, {
                 };
             }
         }
-        const settings = await updateTeamSettings((req as any).teamId, body);
-        const team = await findTeamById((req as any).teamId);
-        if (team) revalidateTeam(team.teamId).catch(() => {});
-        return { status: 200, body: toPublicSettings(settings) };
+        try {
+            const settings = await updateTeamSettings(
+                (req as any).teamId,
+                body,
+            );
+            const team = await findTeamById((req as any).teamId);
+            if (team) revalidateTeam(team.teamId).catch(() => {});
+            return { status: 200, body: toPublicSettings(settings) };
+        } catch (error) {
+            if (error instanceof InvalidSiteThemeReferenceError) {
+                return { status: 400, body: { error: error.message } };
+            }
+            throw error;
+        }
     },
 });
 

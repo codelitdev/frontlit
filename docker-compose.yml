@@ -8,9 +8,88 @@ services:
             POSTGRES_PASSWORD: frontlit
             POSTGRES_DB: frontlit
         ports:
-            - "5432:5432"
+            - "5433:5432"
         volumes:
             - frontlit-postgres-data:/var/lib/postgresql/data
+            - ./docker/postgres-init/01-create-sendlit-db.sh:/docker-entrypoint-initdb.d/01-create-sendlit-db.sh:ro
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U frontlit -d frontlit"]
+            interval: 5s
+            timeout: 5s
+            retries: 12
+
+    sendlit-redis:
+        image: redis:7-alpine
+        restart: unless-stopped
+        command: redis-server --appendonly yes
+        volumes:
+            - sendlit-redis-data:/data
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 5s
+            retries: 12
+
+    # The mounted init script above handles fresh volumes. This job also makes
+    # the upgrade safe for an already-initialized FrontLit Postgres volume.
+    sendlit-db-init:
+        image: pgvector/pgvector:pg16
+        restart: "no"
+        depends_on:
+            postgres:
+                condition: service_healthy
+        environment:
+            PGPASSWORD: frontlit
+        command:
+            - sh
+            - -ec
+            - >-
+              psql -h postgres -U frontlit -d frontlit -tAc
+              "SELECT 1 FROM pg_database WHERE datname = 'sendlit'" |
+              grep -q 1 || psql -h postgres -U frontlit -d frontlit
+              -v ON_ERROR_STOP=1 -c "CREATE DATABASE sendlit OWNER frontlit"
+
+    sendlit-api:
+        image: codelit/sendlit-api:k3s
+        restart: unless-stopped
+        depends_on:
+            postgres:
+                condition: service_healthy
+            sendlit-redis:
+                condition: service_healthy
+            sendlit-db-init:
+                condition: service_completed_successfully
+        command:
+            - sh
+            - -ec
+            - |
+              node apps/api/dist/db/migrate.js
+              exec node apps/api/dist/index.js
+        environment:
+            # Local Compose defaults to HTTP. Set SENDLIT_NODE_ENV=production
+            # only with HTTPS public URLs configured below.
+            NODE_ENV: "${SENDLIT_NODE_ENV:-development}"
+            PORT: 3001
+            DB_CONNECTION_STRING: postgres://frontlit:frontlit@postgres:5432/sendlit
+            REDIS_HOST: sendlit-redis
+            REDIS_PORT: 6379
+            API_PUBLIC_URL: "${SENDLIT_API_PUBLIC_URL:-http://localhost:3001}"
+            WEB_CLIENT: "${SENDLIT_WEB_CLIENT:-http://localhost:3001}"
+            PROTOCOL: "${SENDLIT_PROTOCOL:-http}"
+            DOMAIN: "${SENDLIT_DOMAIN:-localhost:3001}"
+            BETTER_AUTH_SECRET: "${SENDLIT_BETTER_AUTH_SECRET:?Set SENDLIT_BETTER_AUTH_SECRET to at least 32 bytes}"
+            PIXEL_SIGNING_SECRET: "${SENDLIT_PIXEL_SIGNING_SECRET:?Set SENDLIT_PIXEL_SIGNING_SECRET}"
+            ESP_CREDENTIALS_ENCRYPTION_KEY: "${SENDLIT_ESP_CREDENTIALS_ENCRYPTION_KEY:?Set SENDLIT_ESP_CREDENTIALS_ENCRYPTION_KEY to a 32-byte key}"
+            SUPPRESSION_HASH_KEY: "${SENDLIT_SUPPRESSION_HASH_KEY:?Set SENDLIT_SUPPRESSION_HASH_KEY}"
+            SUPER_ADMIN_EMAIL: "${SENDLIT_SUPER_ADMIN_EMAIL:?Set SENDLIT_SUPER_ADMIN_EMAIL}"
+        ports:
+            - "3001:3001"
+        healthcheck:
+            test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3001/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+            interval: 10s
+            timeout: 5s
+            retries: 12
 
 volumes:
     frontlit-postgres-data:
+    sendlit-redis-data:

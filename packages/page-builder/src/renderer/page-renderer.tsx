@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useId, useRef } from "react";
 import type { PageData, Theme, WidgetInstance } from "../models";
 import { getWidget, LAYOUT_BLOCK_NAMES } from "../registry";
 import { EditableBlock } from "./editable-block";
@@ -11,6 +11,8 @@ export interface PageRendererProps {
     layout: WidgetInstance[];
     theme: Theme;
     pageData?: PageData;
+    /** Optional content rendered between the shared header and footer. */
+    children?: React.ReactNode;
     /** "light" | "dark" — controls which half of the theme's color palette is active. */
     nextTheme?: "light" | "dark";
     /** When true, renders hover controls (edit/move/delete/add) for use inside the builder canvas. */
@@ -37,6 +39,7 @@ export function PageRenderer({
     layout,
     theme,
     pageData,
+    children,
     nextTheme = "light",
     editing = false,
     selectedWidgetId,
@@ -53,6 +56,8 @@ export function PageRenderer({
     // attribute lookups) stay correct even when SSR and client render
     // different generated widget ids.
     const blockRefs = useRef(new Map<string, HTMLDivElement>());
+    const themeScope = `pb-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+    const themeSelector = `[data-pb-theme="${themeScope}"]`;
 
     // Keep the highlighted (just-moved) block in view. Keyed on `layout` too
     // so repeated move clicks on the same widget re-scroll as it travels.
@@ -132,6 +137,9 @@ export function PageRenderer({
                     settings={settings as any}
                     state={{ theme }}
                     pageData={resolvedPageData}
+                    content={
+                        instance.name === "page-content" ? children : undefined
+                    }
                     editing={editing}
                     nextTheme={nextTheme}
                 />
@@ -141,6 +149,7 @@ export function PageRenderer({
 
     return (
         <div
+            data-pb-theme={themeScope}
             className={cn(
                 "pb-theme flex min-h-full flex-col bg-background text-foreground",
                 nextTheme === "dark" && "dark",
@@ -155,14 +164,19 @@ export function PageRenderer({
                     allowAddBelow: true,
                 })}
             <div className="flex flex-1 flex-col">
-                {body.map((instance, index) =>
-                    renderInstance(instance, {
-                        allowUp: index !== 0,
-                        allowDown: index !== body.length - 1,
-                        locked: false,
-                        allowAddBelow: true,
-                    }),
-                )}
+                {children !== undefined &&
+                !body.some((instance) => instance.name === "page-content")
+                    ? children
+                    : body.map((instance, index) =>
+                          renderInstance(instance, {
+                              allowUp: instance.moveable && index !== 0,
+                              allowDown:
+                                  instance.moveable &&
+                                  index !== body.length - 1,
+                              locked: !instance.deletable,
+                              allowAddBelow: true,
+                          }),
+                      )}
             </div>
             {footer &&
                 renderInstance(footer, {
@@ -171,7 +185,9 @@ export function PageRenderer({
                     locked: true,
                     allowAddBelow: false,
                 })}
-            {injectThemeStyles && <style>{generateThemeStyles(theme)}</style>}
+            {injectThemeStyles && (
+                <style>{generateThemeStyles(theme, themeSelector)}</style>
+            )}
         </div>
     );
 }

@@ -12,6 +12,8 @@ import { ScrollablePage } from "@/components/workspace/scrollable-page";
 import { Banner } from "@/components/workspace/banner";
 import { Label } from "@/components/ui/codelit/label";
 import { Textarea } from "@/components/ui/codelit/textarea";
+import { Card, CardContent } from "@/components/ui/codelit/card";
+import { Button } from "@/components/ui/codelit/button";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
 
 export default function CodeInjectionPage() {
@@ -30,11 +32,17 @@ export default function CodeInjectionPage() {
             .finally(() => setLoading(false));
     }, []);
 
-    async function save(patch: Partial<TeamSettings>) {
+    async function save() {
+        if (!settings) return;
         setSaving(true);
         setError(null);
         try {
-            setSettings(await updateTeamSettings(patch as any));
+            setSettings(
+                await updateTeamSettings({
+                    codeInjectionHead: settings.codeInjectionHead,
+                    codeInjectionBody: settings.codeInjectionBody,
+                } as any),
+            );
         } catch (err) {
             setError(
                 err instanceof Error
@@ -64,47 +72,48 @@ export default function CodeInjectionPage() {
 
                 {error && <Banner>{error}</Banner>}
 
-                <div className="space-y-1.5">
-                    <Label htmlFor="code-head">Head</Label>
-                    <Textarea
-                        id="code-head"
-                        value={settings.codeInjectionHead || ""}
-                        onChange={(e) =>
-                            setSettings({
-                                ...settings,
-                                codeInjectionHead: e.target.value,
-                            })
-                        }
-                        onBlur={(e) =>
-                            save({ codeInjectionHead: e.target.value })
-                        }
-                        disabled={saving}
-                        rows={6}
-                        placeholder="<script>...</script>"
-                        className="font-mono text-xs"
-                    />
-                </div>
+                <Card>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="code-head">Head</Label>
+                            <Textarea
+                                id="code-head"
+                                value={settings.codeInjectionHead || ""}
+                                onChange={(e) =>
+                                    setSettings({
+                                        ...settings,
+                                        codeInjectionHead: e.target.value,
+                                    })
+                                }
+                                disabled={saving}
+                                rows={6}
+                                placeholder="<script>...</script>"
+                                className="font-mono text-xs"
+                            />
+                        </div>
 
-                <div className="space-y-1.5">
-                    <Label htmlFor="code-body">Body</Label>
-                    <Textarea
-                        id="code-body"
-                        value={settings.codeInjectionBody || ""}
-                        onChange={(e) =>
-                            setSettings({
-                                ...settings,
-                                codeInjectionBody: e.target.value,
-                            })
-                        }
-                        onBlur={(e) =>
-                            save({ codeInjectionBody: e.target.value })
-                        }
-                        disabled={saving}
-                        rows={6}
-                        placeholder="<script>...</script>"
-                        className="font-mono text-xs"
-                    />
-                </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="code-body">Body</Label>
+                            <Textarea
+                                id="code-body"
+                                value={settings.codeInjectionBody || ""}
+                                onChange={(e) =>
+                                    setSettings({
+                                        ...settings,
+                                        codeInjectionBody: e.target.value,
+                                    })
+                                }
+                                disabled={saving}
+                                rows={6}
+                                placeholder="<script>...</script>"
+                                className="font-mono text-xs"
+                            />
+                        </div>
+                        <Button type="button" onClick={save} disabled={saving}>
+                            {saving ? "Saving…" : "Save code injection"}
+                        </Button>
+                    </CardContent>
+                </Card>
             </div>
         </ScrollablePage>
     );

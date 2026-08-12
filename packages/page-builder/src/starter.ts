@@ -15,7 +15,8 @@ export function createWidgetInstance(
     return {
         widgetId: generateUniqueId(),
         name,
-        deleteable: !["header", "footer"].includes(name),
+        deletable: !["header", "footer", "page-content"].includes(name),
+        moveable: !["header", "footer"].includes(name),
         shared: ["header", "footer"].includes(name),
         settings: {
             ...(definition?.getDefaultSettings?.() ?? {}),
@@ -42,9 +43,21 @@ export function ensureRequiredSharedWidgets(
     );
 
     return [
-        { ...header, name: "header", deleteable: false, shared: true },
+        {
+            ...header,
+            name: "header",
+            deletable: false,
+            moveable: false,
+            shared: true,
+        },
         ...body,
-        { ...footer, name: "footer", deleteable: false, shared: true },
+        {
+            ...footer,
+            name: "footer",
+            deletable: false,
+            moveable: false,
+            shared: true,
+        },
     ];
 }
 

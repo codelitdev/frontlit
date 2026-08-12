@@ -1,6 +1,7 @@
 import { generateText, streamText, type ModelMessage } from "ai";
 import type { SearchResult } from "../documentation/queries";
-import { getChatLanguageModel, resolveChatProvider } from "../ai/provider";
+import { getChatLanguageModel } from "../ai/provider";
+import type { ResolvedAiConfig } from "../ai/queries";
 
 export interface ChatSource {
     documentId: string;
@@ -20,6 +21,8 @@ export interface ChatAnswer {
 export interface ChatAnswerOptions {
     /** Optional team/site label used only for tone ("I'm the X assistant"). */
     teamName?: string | null;
+    /** Per-team provider credential, resolved server-side only. */
+    aiConfig?: ResolvedAiConfig | null;
 }
 
 function toSources(chunks: SearchResult[]): ChatSource[] {
@@ -150,8 +153,8 @@ export async function getChatAnswer(
     const sources = toSources(chunks);
     const escalate = chunks.length === 0;
 
-    const model = getChatLanguageModel();
-    if (!model || resolveChatProvider() === "local") {
+    const model = await getChatLanguageModel(options.aiConfig);
+    if (!model) {
         if (chunks.length === 0) {
             return { answer: NO_DOCS_LOCAL, sources: [], escalate: true };
         }
@@ -183,8 +186,8 @@ export async function* streamChatAnswer(
     const sources = toSources(chunks);
     const escalate = chunks.length === 0;
 
-    const model = getChatLanguageModel();
-    if (!model || resolveChatProvider() === "local") {
+    const model = await getChatLanguageModel(options.aiConfig);
+    if (!model) {
         const answer =
             chunks.length === 0 ? NO_DOCS_LOCAL : getLocalAnswer(chunks).answer;
         yield { type: "token", text: answer };

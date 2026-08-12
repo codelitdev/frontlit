@@ -22,7 +22,7 @@ function page(
         slug,
         type,
         status,
-        deleteable: slug !== "",
+        deletable: slug !== "",
         layout: [],
         draftLayout: [],
         createdAt: null,

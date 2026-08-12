@@ -302,23 +302,32 @@ export default function ChatbotPage() {
             .finally(() => setLoading(false));
     }, []);
 
-    async function save(patch: Parameters<typeof updateChatbotSettings>[0]) {
+    async function save() {
+        if (!settings) return;
         setSaving(true);
         try {
-            setSettings(await updateChatbotSettings(patch));
+            setSettings(
+                await updateChatbotSettings({
+                    enabled: settings.enabled,
+                    name: settings.name,
+                    greeting: settings.greeting || "",
+                    accentColor: settings.accentColor ?? null,
+                    escalationEnabled: settings.escalationEnabled,
+                    variant: settings.variant,
+                    widgetStyle: settings.widgetStyle,
+                }),
+            );
         } finally {
             setSaving(false);
         }
     }
 
-    async function saveStyle(partial: Partial<ChatbotWidgetStyle>) {
+    function updateStyle(partial: Partial<ChatbotWidgetStyle>) {
         if (!settings) return;
-        // Optimistic local merge so the preview updates immediately.
         setSettings({
             ...settings,
             widgetStyle: { ...settings.widgetStyle, ...partial },
         });
-        await save({ widgetStyle: partial });
     }
 
     async function handleTest(e: React.FormEvent) {
@@ -363,7 +372,10 @@ export default function ChatbotPage() {
                                 id="chatbot-enabled"
                                 checked={settings.enabled}
                                 onCheckedChange={(checked) =>
-                                    save({ enabled: checked })
+                                    setSettings({
+                                        ...settings,
+                                        enabled: checked,
+                                    })
                                 }
                                 disabled={saving}
                                 data-testid="chatbot-enabled-toggle"
@@ -381,7 +393,6 @@ export default function ChatbotPage() {
                                         name: e.target.value,
                                     })
                                 }
-                                onBlur={(e) => save({ name: e.target.value })}
                             />
                         </div>
 
@@ -395,9 +406,6 @@ export default function ChatbotPage() {
                                         ...settings,
                                         greeting: e.target.value,
                                     })
-                                }
-                                onBlur={(e) =>
-                                    save({ greeting: e.target.value })
                                 }
                             />
                         </div>
@@ -415,11 +423,6 @@ export default function ChatbotPage() {
                                             accentColor: e.target.value,
                                         })
                                     }
-                                    onBlur={(e) =>
-                                        save({
-                                            accentColor: e.target.value || null,
-                                        })
-                                    }
                                     className="h-9 w-12 cursor-pointer rounded border border-border bg-transparent p-1"
                                 />
                                 <Input
@@ -431,18 +434,12 @@ export default function ChatbotPage() {
                                             accentColor: e.target.value || null,
                                         })
                                     }
-                                    onBlur={(e) =>
-                                        save({
-                                            accentColor:
-                                                e.target.value.trim() || null,
-                                        })
-                                    }
                                     className="font-mono text-xs"
                                 />
                             </div>
                             <p className="text-xs text-muted-foreground">
-                                Leave empty to use your homepage theme primary
-                                (same as page buttons).
+                                Leave empty to use your site theme primary (same
+                                as page buttons).
                             </p>
                         </div>
 
@@ -457,7 +454,10 @@ export default function ChatbotPage() {
                                 id="chatbot-escalation"
                                 checked={settings.escalationEnabled}
                                 onCheckedChange={(checked) =>
-                                    save({ escalationEnabled: checked })
+                                    setSettings({
+                                        ...settings,
+                                        escalationEnabled: checked,
+                                    })
                                 }
                                 disabled={saving}
                                 data-testid="chatbot-escalation-toggle"
@@ -467,6 +467,9 @@ export default function ChatbotPage() {
                             When the bot can&apos;t answer, it offers to raise a
                             support ticket with the conversation attached.
                         </p>
+                        <Button type="button" onClick={save} disabled={saving}>
+                            {saving ? "Saving…" : "Save chatbot"}
+                        </Button>
                     </CardContent>
                 </Card>
 
@@ -492,7 +495,6 @@ export default function ChatbotPage() {
                                             ...settings,
                                             variant: variant.id,
                                         });
-                                        void save({ variant: variant.id });
                                     }}
                                     className={cn(
                                         "rounded-lg border p-3 text-left transition-colors",
@@ -524,7 +526,7 @@ export default function ChatbotPage() {
                                     value={settings.widgetStyle.bubbleShape}
                                     options={BUBBLE_SHAPES}
                                     onChange={(bubbleShape) =>
-                                        void saveStyle({ bubbleShape })
+                                        updateStyle({ bubbleShape })
                                     }
                                     disabled={saving}
                                 />
@@ -533,7 +535,7 @@ export default function ChatbotPage() {
                                     value={settings.widgetStyle.bubbleIcon}
                                     options={BUBBLE_ICONS}
                                     onChange={(bubbleIcon) =>
-                                        void saveStyle({ bubbleIcon })
+                                        updateStyle({ bubbleIcon })
                                     }
                                     disabled={saving}
                                 />
@@ -542,7 +544,7 @@ export default function ChatbotPage() {
                                     value={settings.widgetStyle.bubbleSize}
                                     options={BUBBLE_SIZES}
                                     onChange={(bubbleSize) =>
-                                        void saveStyle({ bubbleSize })
+                                        updateStyle({ bubbleSize })
                                     }
                                     disabled={saving}
                                 />
@@ -557,7 +559,7 @@ export default function ChatbotPage() {
                                     value={settings.widgetStyle.inputRadius}
                                     options={INPUT_RADII}
                                     onChange={(inputRadius) =>
-                                        void saveStyle({ inputRadius })
+                                        updateStyle({ inputRadius })
                                     }
                                     disabled={saving}
                                 />
@@ -566,7 +568,7 @@ export default function ChatbotPage() {
                                     value={settings.widgetStyle.inputWidth}
                                     options={INPUT_WIDTHS}
                                     onChange={(inputWidth) =>
-                                        void saveStyle({ inputWidth })
+                                        updateStyle({ inputWidth })
                                     }
                                     disabled={saving}
                                 />
@@ -591,16 +593,13 @@ export default function ChatbotPage() {
                                                 },
                                             })
                                         }
-                                        onBlur={(e) =>
-                                            void saveStyle({
-                                                inputPlaceholder:
-                                                    e.target.value || null,
-                                            })
-                                        }
                                     />
                                 </div>
                             </div>
                         )}
+                        <Button type="button" onClick={save} disabled={saving}>
+                            {saving ? "Saving…" : "Save launcher"}
+                        </Button>
                     </CardContent>
                 </Card>
 

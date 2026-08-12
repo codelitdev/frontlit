@@ -3,7 +3,6 @@ export {
     describeChatProvider,
     getChatLanguageModel,
     resolveChatModelId,
-    resolveChatProvider,
     type ChatProviderName,
 } from "./provider";
 export {

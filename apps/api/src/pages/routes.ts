@@ -10,7 +10,6 @@ import {
     derivePageStatus,
     discardPageDraft,
     getPageByPageId,
-    InvalidThemeReferenceError,
     listPages,
     publishPage,
     updatePage,
@@ -41,18 +40,11 @@ function toPublicPage<T extends Record<string, unknown>>(page: T) {
  * `{ status, body }`. No business logic lives here. */
 const impl = s.router(contract.pages, {
     create: async ({ body, req }) => {
-        try {
-            const page = await createPage({
-                teamId: (req as any).teamId,
-                ...body,
-            });
-            return { status: 201, body: toPublicPage(page) };
-        } catch (error) {
-            if (error instanceof InvalidThemeReferenceError) {
-                return { status: 400, body: { error: error.message } };
-            }
-            throw error;
-        }
+        const page = await createPage({
+            teamId: (req as any).teamId,
+            ...body,
+        });
+        return { status: 201, body: toPublicPage(page) };
     },
     list: async ({ query, req }) => {
         const teamId = (req as any).teamId;
@@ -87,7 +79,7 @@ const impl = s.router(contract.pages, {
             );
             if (!page)
                 return { status: 404, body: { error: "Page not found" } };
-            if (body.themeId !== undefined || body.slug !== undefined) {
+            if (body.slug !== undefined) {
                 const team = await findTeamById((req as any).teamId);
                 if (team) revalidateTeam(team.teamId).catch(() => {});
             }
@@ -95,7 +87,6 @@ const impl = s.router(contract.pages, {
         } catch (error) {
             if (
                 error instanceof InvalidPageLayoutError ||
-                error instanceof InvalidThemeReferenceError ||
                 error instanceof InvalidSlugError
             ) {
                 return { status: 400, body: { error: error.message } };
@@ -122,7 +113,7 @@ const impl = s.router(contract.pages, {
         const result = await deletePage((req as any).teamId, params.pageId);
         if (!result.ok && result.reason === "not_found")
             return { status: 404, body: { error: "Page not found" } };
-        if (!result.ok && result.reason === "not_deleteable") {
+        if (!result.ok && result.reason === "not_deletable") {
             return {
                 status: 409,
                 body: {

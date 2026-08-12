@@ -1,6 +1,28 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "../db/client";
-import { teamSettings } from "../db/schema";
+import { teamSettings, themes } from "../db/schema";
+
+const systemThemeIds = new Set([
+    "classic",
+    "learning",
+    "neobrutalism",
+    "editorial",
+    "midnight",
+]);
+
+export class InvalidSiteThemeReferenceError extends Error {}
+
+async function validateSiteThemeReference(
+    teamId: string,
+    themeId: string | null | undefined,
+) {
+    if (!themeId || systemThemeIds.has(themeId)) return;
+
+    const theme = await db.query.themes.findFirst({
+        where: and(eq(themes.teamId, teamId), eq(themes.themeId, themeId)),
+    });
+    if (!theme) throw new InvalidSiteThemeReferenceError("Theme not found");
+}
 
 export async function getTeamSettings(teamId: string) {
     const existing = await db.query.teamSettings.findFirst({
@@ -23,10 +45,12 @@ export async function updateTeamSettings(
         title: string;
         subtitle: string;
         logo: Record<string, unknown> | null;
+        themeId: string | null;
         codeInjectionHead: string | null;
         codeInjectionBody: string | null;
     }>,
 ) {
+    await validateSiteThemeReference(teamId, patch.themeId);
     const existing = await getTeamSettings(teamId);
     const [updated] = await db
         .update(teamSettings)

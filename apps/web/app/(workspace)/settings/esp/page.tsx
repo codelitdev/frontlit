@@ -366,6 +366,9 @@ export default function EspSettingsPage() {
                                         />
                                     </div>
                                 </div>
+                                <Button type="submit" disabled={saving}>
+                                    {saving ? "Saving…" : "Save ESP settings"}
+                                </Button>
                             </CardContent>
                         </Card>
 
@@ -438,6 +441,9 @@ export default function EspSettingsPage() {
                                         before sending.
                                     </p>
                                 </div>
+                                <Button type="submit" disabled={saving}>
+                                    {saving ? "Saving…" : "Save ESP settings"}
+                                </Button>
                             </CardContent>
                         </Card>
 

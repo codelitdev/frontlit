@@ -28,7 +28,7 @@ export default async function TicketThreadPage({
     return (
         <main className="mx-auto max-w-2xl px-6 py-16">
             <h1 className="text-2xl font-bold">{thread.subject}</h1>
-            <p className="mt-1 text-sm capitalize text-neutral-500">
+            <p className="mt-1 text-sm capitalize text-muted-foreground">
                 {thread.status}
             </p>
 
@@ -39,10 +39,10 @@ export default async function TicketThreadPage({
                         className={
                             message.author === "requester"
                                 ? ""
-                                : "rounded-lg bg-neutral-50 p-4"
+                                : "rounded-lg bg-muted p-4"
                         }
                     >
-                        <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                             {message.author === "requester" ? "You" : "Support"}
                         </p>
                         <div className="prose prose-sm mt-1 max-w-none">

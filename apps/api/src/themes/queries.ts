@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/client";
-import { pages, themes } from "../db/schema";
+import { teamSettings, themes } from "../db/schema";
 
 export async function createTheme(input: {
     teamId: string;
@@ -20,13 +20,6 @@ export async function listThemes(teamId: string) {
 
 export async function getThemeByThemeId(themeId: string) {
     return db.query.themes.findFirst({ where: eq(themes.themeId, themeId) });
-}
-
-/** Looks up by internal id — used to resolve a page's `themeId` FK for
- * public rendering (architecture.md §12.2), where only the internal id is
- * on hand. */
-export async function getThemeById(id: string) {
-    return db.query.themes.findFirst({ where: eq(themes.id, id) });
 }
 
 export async function updateTheme(
@@ -50,9 +43,9 @@ export async function deleteTheme(teamId: string, themeId: string) {
     if (!existing || existing.teamId !== teamId) return;
     await db.transaction(async (tx) => {
         await tx
-            .update(pages)
+            .update(teamSettings)
             .set({ themeId: null })
-            .where(eq(pages.themeId, existing.themeId));
+            .where(eq(teamSettings.themeId, existing.themeId));
         await tx.delete(themes).where(eq(themes.id, existing.id));
     });
 }

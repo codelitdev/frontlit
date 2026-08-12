@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/workspace/page-header";
 import { Loading } from "@/components/workspace/loading";
 import { ScrollablePage } from "@/components/workspace/scrollable-page";
 import { Card, CardContent } from "@/components/ui/codelit/card";
+import { Button } from "@/components/ui/codelit/button";
 import { Input } from "@/components/ui/codelit/input";
 import { Label } from "@/components/ui/codelit/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -38,14 +39,23 @@ export default function BrandingPage() {
             const registered = await registerMedia({
                 mediaLitId: media.mediaId,
             });
-            await save({ logo: registered as any });
+            setSettings((current) =>
+                current ? { ...current, logo: registered as any } : current,
+            );
         },
     });
 
-    async function save(patch: Partial<TeamSettings>) {
+    async function save() {
+        if (!settings) return;
         setSaving(true);
         try {
-            setSettings(await updateTeamSettings(patch as any));
+            setSettings(
+                await updateTeamSettings({
+                    title: settings.title,
+                    subtitle: settings.subtitle,
+                    logo: settings.logo,
+                } as any),
+            );
         } finally {
             setSaving(false);
         }
@@ -79,7 +89,6 @@ export default function BrandingPage() {
                                         title: e.target.value,
                                     })
                                 }
-                                onBlur={(e) => save({ title: e.target.value })}
                                 disabled={saving}
                             />
                         </div>
@@ -96,9 +105,6 @@ export default function BrandingPage() {
                                         ...settings,
                                         subtitle: e.target.value,
                                     })
-                                }
-                                onBlur={(e) =>
-                                    save({ subtitle: e.target.value })
                                 }
                                 disabled={saving}
                             />
@@ -129,6 +135,9 @@ export default function BrandingPage() {
                                 />
                             </div>
                         </div>
+                        <Button type="button" onClick={save} disabled={saving}>
+                            {saving ? "Saving…" : "Save branding"}
+                        </Button>
                     </CardContent>
                 </Card>
             </div>

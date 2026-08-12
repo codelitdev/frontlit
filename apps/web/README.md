@@ -22,5 +22,5 @@ API app's origin directly.
 - `/teams` — team switcher and team/API-key management.
 - `/website/*`, `/blog`, `/docs`, `/support`, and the other top-level sections —
   authenticated management routes backed by the API.
-- `/editor/pages/[pageId]` — loads a page's layout/theme from the API into
-  `PageBuilder` and persists edits back through it.
+- `/editor/pages/[pageId]` — loads a page's layout and the team's site theme
+  into `PageBuilder`, then persists both through their respective APIs.

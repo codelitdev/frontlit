@@ -1,17 +1,16 @@
-import { getPageBySlug } from "./api";
+import { getSettings } from "./api";
 
 /**
- * Loads the published homepage theme for site chrome (chat widget).
- * Themes are per-page in FrontLit; the homepage is the site-wide default
- * visitors see first, so the chatbot matches that look.
+ * Loads FrontLit's single team-level public-site theme. Every page, built-in
+ * content route, shared widget and chatbot consumes this same source.
  */
 export async function loadSiteTheme(teamId: string): Promise<{
     themeId: string | null;
     themeStyle: Record<string, unknown> | null;
 }> {
-    const home = await getPageBySlug(teamId, "");
+    const settings = await getSettings(teamId);
     return {
-        themeId: home?.themeId ?? null,
-        themeStyle: home?.theme ?? null,
+        themeId: settings?.themeId ?? null,
+        themeStyle: settings?.theme ?? null,
     };
 }

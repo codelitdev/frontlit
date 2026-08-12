@@ -13,7 +13,7 @@ export const footerDefaults: Partial<FooterSettings> = {
                 {
                     id: generateUniqueId(),
                     label: "Features",
-                    href: "#features",
+                    href: "/#features",
                 },
                 { id: generateUniqueId(), label: "Pricing", href: "#pricing" },
                 {
@@ -34,10 +34,18 @@ export const footerDefaults: Partial<FooterSettings> = {
         },
         {
             id: generateUniqueId(),
-            title: "Company",
+            title: "Legal",
             links: [
-                { id: generateUniqueId(), label: "About", href: "/about" },
-                { id: generateUniqueId(), label: "Contact", href: "/contact" },
+                {
+                    id: generateUniqueId(),
+                    label: "Terms of use",
+                    href: "/terms",
+                },
+                {
+                    id: generateUniqueId(),
+                    label: "Privacy policy",
+                    href: "/privacy",
+                },
             ],
         },
     ],

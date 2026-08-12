@@ -10,6 +10,7 @@ import {
 import { listDocSections, searchChunks } from "../documentation/queries";
 import { getChatbotSettings } from "../chatbot/queries";
 import { getChatAnswer } from "../chatbot/completion";
+import { getResolvedAiConfig } from "../ai/queries";
 import { findTeamById, findTeamByPublicId } from "../team/queries";
 import { omitInternal, serializeDates } from "../utils/public";
 import { enqueueOutboxJob } from "../newsletter/outbox";
@@ -216,13 +217,21 @@ const impl = s.router(contract.public, {
                 logo,
                 codeInjectionHead,
                 codeInjectionBody,
+                themeId,
             } = settings;
+            const savedTheme = themeId?.startsWith("thm_")
+                ? await getThemeByThemeId(themeId)
+                : null;
+            const theme =
+                savedTheme?.teamId === team.id ? savedTheme.style : null;
             return {
                 status: 200,
                 body: {
                     title,
                     subtitle,
                     logo: logo as Record<string, unknown> | null,
+                    themeId,
+                    theme,
                     codeInjectionHead,
                     codeInjectionBody,
                 },
@@ -247,7 +256,6 @@ const impl = s.router(contract.public, {
                 type,
                 slug,
                 layout,
-                themeId,
                 title,
                 description,
                 socialImage,
@@ -255,11 +263,6 @@ const impl = s.router(contract.public, {
                 publishedAt,
                 updatedAt,
             } = page;
-            const savedTheme = themeId?.startsWith("thm_")
-                ? await getThemeByThemeId(themeId)
-                : null;
-            const theme =
-                savedTheme?.teamId === team.id ? savedTheme.style : null;
             return {
                 status: 200,
                 body: serializeDates({
@@ -268,8 +271,6 @@ const impl = s.router(contract.public, {
                     type,
                     slug,
                     layout,
-                    themeId,
-                    theme,
                     title,
                     description,
                     socialImage,
@@ -564,12 +565,14 @@ const impl = s.router(contract.public, {
             // Team title is branding context only — keeps the model as "X's
             // support assistant" without opening a general chat surface.
             const teamSettings = await getTeamSettings(team.id);
+            const aiConfig = await getResolvedAiConfig(team.id);
             const { answer, sources, escalate } = await getChatAnswer(
                 body.message,
                 chunks,
                 history,
                 {
                     teamName: teamSettings.title || team.name,
+                    aiConfig,
                 },
             );
             if (appendRequesterMessage) {

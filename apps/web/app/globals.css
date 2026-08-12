@@ -18,12 +18,14 @@
 
 @source "../../../packages/page-builder/src";
 @source "../../../packages/text-editor/src";
+/* The published SendLit editor ships utility-class markup rather than a
+   pre-scoped stylesheet. Scan its distribution so positional controls such
+   as the centered add-block button receive their Tailwind rules. */
+@source "../node_modules/@sendlit/email-blocks";
+@source "../node_modules/@sendlit/email-editor";
 
-/* @frontlit/page-builder/theme.css registers its own `@theme inline` block
-   (hsl(var(--x)) triplets, for its own HSL-based fallback tokens). Redeclare
-   the same utility keys here, pointing straight at @codelitdev/design-system's
-   tokens (plain oklch values, not HSL triplets) — this block comes later in
-   source order, so it wins the cascade for the workspace chrome. */
+/* Keep dashboard utilities connected to the design-system tokens. The page
+   renderer scopes its own runtime theme variables to `.pb-theme`. */
 @theme inline {
     --color-background: var(--background);
     --color-foreground: var(--foreground);

@@ -1,7 +1,27 @@
 import { logger } from "../services/log";
 import { storeSendlitApiKey } from "../integrations/queries";
 import { enqueueOutboxJob } from "./outbox";
-import { provisionSendlitTeam, SendlitApiError } from "./sendlit-client";
+import {
+    createSendlitTeamKey,
+    provisionSendlitTeam,
+    SendlitApiError,
+} from "./sendlit-client";
+
+async function provisionAndStoreSendlitKey(team: {
+    id: string;
+    teamId: string;
+    name: string;
+}) {
+    const result = await provisionSendlitTeam({
+        externalId: team.teamId,
+        name: team.name,
+    });
+    // SendLit returns the team key only on a newly-created team. If an earlier
+    // attempt created the SendLit team but crashed before FrontLit saved that
+    // one-time secret, mint a replacement so the integration can recover.
+    const apiKey = result.apiKey ?? (await createSendlitTeamKey(result.teamId));
+    await storeSendlitApiKey(team.id, apiKey);
+}
 
 /**
  * Every FrontLit team gets its own SendLit team, 1:1, provisioned eagerly at
@@ -21,14 +41,7 @@ export async function provisionSendlitForTeam(
     }
 
     try {
-        const result = await provisionSendlitTeam({
-            externalId: team.teamId,
-            ownerEmail,
-            name: team.name,
-        });
-        if (result.apiKey) {
-            await storeSendlitApiKey(team.id, result.apiKey);
-        }
+        await provisionAndStoreSendlitKey(team);
     } catch (err) {
         logger.warn(
             {
@@ -46,14 +59,7 @@ export async function retryProvisionSendlitForTeam(
     team: { id: string; teamId: string; name: string },
     ownerEmail: string,
 ): Promise<void> {
-    const result = await provisionSendlitTeam({
-        externalId: team.teamId,
-        ownerEmail,
-        name: team.name,
-    });
-    if (result.apiKey) {
-        await storeSendlitApiKey(team.id, result.apiKey);
-    }
+    await provisionAndStoreSendlitKey(team);
 }
 
 export { SendlitApiError };

@@ -135,7 +135,7 @@ export function PageBuilder({
         if (
             index === -1 ||
             ["header", "footer"].includes(layout[index].name) ||
-            !layout[index].deleteable
+            !layout[index].moveable
         ) {
             return;
         }
@@ -165,7 +165,7 @@ export function PageBuilder({
             const widget = prev.find((item) => item.widgetId === widgetId);
             if (
                 !widget ||
-                !widget.deleteable ||
+                !widget.deletable ||
                 ["header", "footer"].includes(widget.name)
             ) {
                 return prev;
@@ -238,7 +238,7 @@ export function PageBuilder({
                 <div
                     className={cn(
                         "flex min-h-0 min-w-0 justify-center overflow-hidden rounded-xl border bg-background/98 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-sm",
-                        "bg-[radial-gradient(hsl(var(--muted-foreground)/0.25)_1px,transparent_1px)] [background-size:14px_14px]",
+                        "bg-[radial-gradient(color-mix(in_srgb,var(--muted-foreground)_25%,transparent)_1px,transparent_1px)] [background-size:14px_14px]",
                         panelOpen ? "flex-1" : "w-full",
                     )}
                 >

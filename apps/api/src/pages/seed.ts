@@ -1,7 +1,7 @@
 import { db } from "../db/client";
 import { genId } from "../db/id";
 import { pages, type WidgetInstanceRow } from "../db/schema";
-import { createRequiredSharedWidgetPlaceholders } from "./shared-widgets";
+import { createRequiredPageLayout } from "./shared-widgets";
 
 const STANDARD_PAGES: {
     name: string;
@@ -26,7 +26,8 @@ const STANDARD_PAGES: {
             {
                 widgetId: genId(),
                 name: "support-form",
-                deleteable: true,
+                deletable: true,
+                moveable: true,
                 shared: false,
                 settings: {},
             },
@@ -36,7 +37,7 @@ const STANDARD_PAGES: {
     { name: "Privacy policy", slug: "privacy", type: "custom" },
 ];
 
-/** Seeds the standard, non-deleteable pages every team needs at creation
+/** Seeds the standard, non-deletable pages every team needs at creation
  * (architecture.md §4.2) — same builder, same draft/publish flow, just
  * reserved slugs. Published immediately so the site renders something from
  * day one instead of 404ing. */
@@ -44,14 +45,13 @@ export async function seedStandardPages(teamId: string) {
     const now = new Date();
     await db.insert(pages).values(
         STANDARD_PAGES.map((p) => {
-            const [header, footer] = createRequiredSharedWidgetPlaceholders();
-            const layout = [header, ...(p.layout ?? []), footer];
+            const layout = createRequiredPageLayout(p.slug, p.layout);
             return {
                 teamId,
                 name: p.name,
                 type: p.type,
                 slug: p.slug,
-                deleteable: false,
+                deletable: false,
                 layout,
                 draftLayout: layout,
                 publishedAt: now,

@@ -12,6 +12,7 @@ import {
     Subheader1,
     Text2,
 } from "../../primitives";
+import { cn } from "../../primitives/lib/utils";
 
 interface DocSuggestion {
     documentId: string;
@@ -145,6 +146,9 @@ export function SupportFormWidget({
     };
 
     const isCentered = alignment === "center";
+    const inputStyles = overriddenTheme.interactives.input;
+    const inputTypography = overriddenTheme.typography.input;
+    const cardStyles = overriddenTheme.interactives.card;
 
     return (
         <Section
@@ -195,7 +199,15 @@ export function SupportFormWidget({
                     </div>
 
                     {suggestions.length > 0 && (
-                        <div className="rounded-md border border-neutral-200 p-3 text-sm">
+                        <div
+                            className={cn(
+                                "rounded-lg border border-border bg-card p-3 text-sm text-card-foreground shadow-sm",
+                                cardStyles.border?.width,
+                                cardStyles.border?.radius,
+                                cardStyles.border?.style,
+                                cardStyles.shadow,
+                            )}
+                        >
                             <p className="mb-1 font-medium">This might help:</p>
                             <ul className="list-inside list-disc">
                                 {suggestions.map((doc) => (
@@ -225,7 +237,19 @@ export function SupportFormWidget({
                             placeholder="Describe the issue…"
                             required
                             rows={4}
-                            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
+                            className={cn(
+                                "w-full border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                inputTypography.fontFamily,
+                                inputTypography.fontSize,
+                                inputTypography.fontWeight,
+                                inputTypography.lineHeight,
+                                inputTypography.letterSpacing,
+                                inputStyles.border?.width,
+                                inputStyles.border?.style,
+                                inputStyles.border?.radius,
+                                inputStyles.shadow,
+                                inputStyles.custom,
+                            )}
                         />
                     </div>
 

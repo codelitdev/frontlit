@@ -76,12 +76,33 @@ export const broadcastSchema = z.object({
     subject: z.string().nullable().optional(),
     body: z.record(z.any()).nullable().optional(),
     createdAt: z.string().nullable().optional(),
+    updatedAt: z.string().nullable().optional(),
+});
+
+/** A reusable, team-owned SendLit marketing template. */
+export const newsletterTemplateSchema = z.object({
+    templateId: z.string(),
+    title: z.string(),
+    body: z.record(z.any()),
+    createdAt: z.string().nullable().optional(),
+    updatedAt: z.string().nullable().optional(),
+});
+
+export const createNewsletterTemplateBodySchema = z.object({
+    title: z.string().min(1),
+    body: z.record(z.any()),
+});
+
+export const updateNewsletterTemplateBodySchema = z.object({
+    title: z.string().min(1).optional(),
+    body: z.record(z.any()).optional(),
 });
 
 export const createBroadcastBodySchema = z.object({
     name: z.string().min(1),
     subject: z.string().optional(),
     body: z.record(z.any()).optional(),
+    templateId: z.string().optional(),
 });
 
 export const updateBroadcastBodySchema = z.object({

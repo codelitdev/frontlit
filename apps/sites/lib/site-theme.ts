@@ -3,18 +3,25 @@
 import { getDefaultTheme } from "@frontlit/page-builder";
 import { generateThemeStyles } from "@frontlit/page-builder/renderer";
 import type { Theme } from "@frontlit/page-builder/models";
-import { resolvePageTheme } from "./page-theme";
+import { themes } from "@frontlit/page-builder/primitives";
 
 /**
- * Site chrome (chat launcher + panel) follows the **homepage** page theme —
- * the same Theme object pages resolve via `themeId` / saved style. Falls back
- * to Classic when the homepage has no theme.
+ * Site chrome (chat launcher + panel) follows the team-level FrontLit theme.
+ * Falls back to Classic when the site has no explicit theme.
  */
 export function resolveSiteTheme(
     themeId: string | null,
     themeStyle: Record<string, unknown> | null,
 ): Theme {
-    return resolvePageTheme(themeId, themeStyle) ?? getDefaultTheme();
+    if (themeStyle) {
+        return {
+            id: themeId ?? "custom",
+            name: "Custom",
+            theme: themeStyle as unknown as Theme["theme"],
+        };
+    }
+
+    return themes.find((theme) => theme.id === themeId) ?? getDefaultTheme();
 }
 
 /** Light-palette hex colors used by the floating launcher (inline styles). */
@@ -47,6 +54,6 @@ export function resolveChatAccent(
     return theme.theme.colors.light.primary;
 }
 
-export function siteThemeStyleTag(theme: Theme): string {
-    return generateThemeStyles(theme);
+export function siteThemeStyleTag(theme: Theme, selector: string): string {
+    return generateThemeStyles(theme, selector);
 }

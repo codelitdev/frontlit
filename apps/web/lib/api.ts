@@ -154,12 +154,11 @@ export interface Page {
     name: string;
     type: PageType;
     slug: string;
-    deleteable: boolean;
+    deletable: boolean;
     status: PageStatus;
     publishedAt?: string | null;
     // Published fields — what the public site renders.
     layout: WidgetInstance[];
-    themeId?: string | null;
     title?: string | null;
     description?: string | null;
     socialImage?: Record<string, unknown> | null;
@@ -185,11 +184,7 @@ export function listPages(
     return unwrap<Paginated<Page>>(client.pages.list({ query: params }));
 }
 
-export function createPage(input: {
-    name: string;
-    type: PageType;
-    themeId?: string;
-}) {
+export function createPage(input: { name: string; type: PageType }) {
     return unwrap<Page>(client.pages.create({ body: input }));
 }
 
@@ -203,7 +198,6 @@ export function updatePage(
         name: string;
         slug: string;
         layout: WidgetInstance[];
-        themeId: string | null;
         title: string;
         description: string;
         socialImage: Record<string, unknown>;
@@ -742,14 +736,57 @@ export interface Broadcast {
     name: string;
     status: string;
     subject?: string | null;
+    /** SendLit's structured email document, edited with @sendlit/email-blocks. */
+    body?: Record<string, unknown> | null;
     createdAt?: string | null;
+    updatedAt?: string | null;
+}
+
+export interface NewsletterTemplate {
+    templateId: string;
+    title: string;
+    body: Record<string, unknown>;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+}
+
+export function listNewsletterTemplates() {
+    return unwrap<{ items: NewsletterTemplate[] }>(
+        client.newsletter.listTemplates(),
+    );
+}
+
+export function createNewsletterTemplate(input: {
+    title: string;
+    body: Record<string, unknown>;
+}) {
+    return unwrap<NewsletterTemplate>(
+        client.newsletter.createTemplate({ body: input }),
+    );
+}
+
+export function updateNewsletterTemplate(
+    templateId: string,
+    patch: Partial<{ title: string; body: Record<string, unknown> }>,
+) {
+    return unwrap<NewsletterTemplate>(
+        client.newsletter.updateTemplate({
+            params: { templateId },
+            body: patch,
+        }),
+    );
 }
 
 export function listBroadcasts() {
     return unwrap<{ items: Broadcast[] }>(client.newsletter.listBroadcasts());
 }
 
-export function createBroadcast(input: { name: string; subject?: string }) {
+export function createBroadcast(input: {
+    name: string;
+    subject?: string;
+    body?: Record<string, unknown>;
+    templateId?: string;
+}) {
     return unwrap<Broadcast>(
         client.newsletter.createBroadcast({ body: input }),
     );
@@ -757,7 +794,11 @@ export function createBroadcast(input: { name: string; subject?: string }) {
 
 export function updateBroadcast(
     broadcastId: string,
-    patch: Partial<{ name: string; subject: string }>,
+    patch: Partial<{
+        name: string;
+        subject: string;
+        body: Record<string, unknown>;
+    }>,
 ) {
     return unwrap<Broadcast>(
         client.newsletter.updateBroadcast({
@@ -771,6 +812,60 @@ export function sendBroadcast(broadcastId: string) {
     return unwrap<{ status: string }>(
         client.newsletter.sendBroadcast({ params: { broadcastId } }),
     );
+}
+
+// ---- AI -------------------------------------------------------------------
+
+export type AiProvider =
+    "openai" | "azure" | "anthropic" | "openrouter" | "bedrock" | "opencode";
+export type EmbeddingProvider = "openai" | "azure";
+export interface AiModelSettings {
+    chatbot: string | null;
+    grammar: string | null;
+    builder: string | null;
+}
+
+export interface EmbeddingConfig {
+    provider: EmbeddingProvider;
+    deployment: string | null;
+    endpoint: string | null;
+    hasApiKey: boolean;
+}
+
+export interface AiConfig {
+    provider: AiProvider;
+    models: AiModelSettings;
+    region: string | null;
+    endpoint: string | null;
+    hasApiKey: boolean;
+    embedding: EmbeddingConfig | null;
+    createdAt: string | null;
+    updatedAt: string | null;
+}
+
+export function getAiConfig() {
+    return unwrap<AiConfig | null>(client.ai.get());
+}
+
+export function updateAiConfig(input: {
+    provider: AiProvider;
+    models?: Partial<AiModelSettings>;
+    region?: string;
+    endpoint?: string;
+    /** Omit to retain the team's currently stored credential. */
+    apiKey?: string;
+    embedding?: {
+        provider: EmbeddingProvider;
+        apiKey?: string;
+        deployment?: string;
+        endpoint?: string;
+    };
+}) {
+    return unwrap<AiConfig>(client.ai.update({ body: input }));
+}
+
+export function deleteAiConfig() {
+    return unwrap<void>(client.ai.remove());
 }
 
 // ---- Chatbot --------------------------------------------------------------
@@ -936,6 +1031,7 @@ export interface TeamSettings {
     title: string | null;
     subtitle: string | null;
     logo: Record<string, unknown> | null;
+    themeId: string | null;
     codeInjectionHead: string | null;
     codeInjectionBody: string | null;
     createdAt: string | null;
@@ -951,6 +1047,7 @@ export function updateTeamSettings(
         title: string;
         subtitle: string;
         logo: Record<string, unknown> | null;
+        themeId: string | null;
         codeInjectionHead: string | null;
         codeInjectionBody: string | null;
     }>,

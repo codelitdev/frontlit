@@ -27,6 +27,7 @@ import {
     updatePageBodySchema,
     updateTeamSettingsBodySchema,
     updateTicketBodySchema,
+    updateAiConfigBodySchema,
     upsertEspConfigBodySchema,
 } from "@frontlit/api-contract";
 import { openApiDocument } from "./openapi";
@@ -72,14 +73,6 @@ describe("API input validation schemas", () => {
             }).success,
         ).toBe(false);
         expect(
-            createPageBodySchema.safeParse({
-                name: "About",
-                type: "custom",
-                themeId: "learning",
-            }).success,
-        ).toBe(true);
-
-        expect(
             updatePageBodySchema.safeParse({
                 slug: "",
             }).success,
@@ -92,7 +85,8 @@ describe("API input validation schemas", () => {
                     {
                         widgetId: "header-1",
                         name: "header",
-                        deleteable: false,
+                        deletable: false,
+                        moveable: false,
                         shared: true,
                     },
                 ],
@@ -282,6 +276,32 @@ describe("API input validation schemas", () => {
     });
 
     it("validates chatbot, ESP, and newsletter-adjacent bodies", () => {
+        expect(
+            updateAiConfigBodySchema.safeParse({
+                provider: "openai",
+                models: {
+                    chatbot: "gpt-4o-mini",
+                    grammar: "gpt-4o-mini",
+                    builder: "gpt-4.1",
+                },
+            }).success,
+        ).toBe(true);
+        expect(
+            updateAiConfigBodySchema.safeParse({
+                provider: "openai",
+                models: { builder: "x".repeat(161) },
+            }).success,
+        ).toBe(false);
+        expect(
+            updateAiConfigBodySchema.safeParse({
+                provider: "azure",
+                endpoint: "https://example.openai.azure.com/openai",
+            }).success,
+        ).toBe(true);
+        expect(
+            updateAiConfigBodySchema.safeParse({ provider: "azure" }).success,
+        ).toBe(false);
+
         expect(
             updateChatbotSettingsBodySchema.safeParse({
                 enabled: true,

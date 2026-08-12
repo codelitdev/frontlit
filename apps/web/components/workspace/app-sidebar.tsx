@@ -17,6 +17,7 @@ import {
     Newspaper,
     Palette,
     Send,
+    Sparkles,
     Settings,
     Users,
 } from "lucide-react";
@@ -72,7 +73,10 @@ const FOOTER_NAV: NavItem[] = [
         href: "/settings",
         label: "Settings",
         icon: Settings,
-        items: [{ href: "/settings/esp", label: "ESP", icon: Send }],
+        items: [
+            { href: "/settings/esp", label: "ESP", icon: Send },
+            { href: "/settings/ai", label: "AI", icon: Sparkles },
+        ],
     },
 ];
 

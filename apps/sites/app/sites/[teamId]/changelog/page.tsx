@@ -3,6 +3,7 @@ import { TextRenderer } from "@frontlit/text-editor";
 import { getSettings, listChangelogs } from "@/lib/api";
 import { getCanonicalHost } from "@/lib/request-host";
 import { changelogJsonLd, serializeJsonLd } from "@/lib/json-ld";
+import { SiteChrome } from "@/components/site-chrome";
 
 interface Props {
     params: Promise<{ teamId: string }>;
@@ -35,73 +36,75 @@ export default async function ChangelogPage({ params }: Props) {
     ]);
 
     return (
-        <main className="mx-auto max-w-3xl px-6 py-16">
-            <script
-                type="application/ld+json"
-                // eslint-disable-next-line react/no-danger
-                dangerouslySetInnerHTML={{
-                    __html: serializeJsonLd(
-                        changelogJsonLd({
-                            siteName: settings?.title || "FrontLit site",
-                            url: `https://${canonicalHost}/changelog`,
-                            entries: items.map((entry) => ({
-                                name: entry.title ?? entry.slug,
+        <SiteChrome teamId={teamId} pageSlug="changelog">
+            <main className="mx-auto max-w-3xl px-6 py-16">
+                <script
+                    type="application/ld+json"
+                    // eslint-disable-next-line react/no-danger
+                    dangerouslySetInnerHTML={{
+                        __html: serializeJsonLd(
+                            changelogJsonLd({
+                                siteName: settings?.title || "FrontLit site",
                                 url: `https://${canonicalHost}/changelog`,
-                            })),
-                        }),
-                    ),
-                }}
-            />
-            <h1 className="text-3xl font-bold">Changelog</h1>
-            <ol className="mt-10 flex flex-col gap-12 border-l border-neutral-200 pl-8">
-                {items.map((entry) => (
-                    <li key={entry.documentId} className="relative">
-                        <span className="absolute -left-[calc(2rem+5px)] top-1.5 h-2.5 w-2.5 rounded-full bg-neutral-400" />
-                        <div className="flex flex-wrap items-center gap-2">
-                            {entry.meta.version && (
-                                <span className="font-mono text-sm text-neutral-500">
-                                    {entry.meta.version}
-                                </span>
-                            )}
-                            {entry.publishedAt && (
-                                <time
-                                    dateTime={entry.publishedAt}
-                                    className="text-sm text-neutral-400"
-                                >
-                                    {new Date(
-                                        entry.publishedAt,
-                                    ).toLocaleDateString(undefined, {
-                                        year: "numeric",
-                                        month: "long",
-                                        day: "numeric",
-                                    })}
-                                </time>
-                            )}
-                            {(entry.meta.labels ?? []).map((label) => (
-                                <span
-                                    key={label}
-                                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${LABEL_CLASS[label] ?? "bg-neutral-100 text-neutral-600"}`}
-                                >
-                                    {label}
-                                </span>
-                            ))}
-                        </div>
-                        <h2 className="mt-2 text-xl font-semibold">
-                            {entry.title}
-                        </h2>
-                        {entry.content && (
-                            <div className="prose mt-3 max-w-none">
-                                <TextRenderer json={entry.content} />
+                                entries: items.map((entry) => ({
+                                    name: entry.title ?? entry.slug,
+                                    url: `https://${canonicalHost}/changelog`,
+                                })),
+                            }),
+                        ),
+                    }}
+                />
+                <h1 className="text-3xl font-bold">Changelog</h1>
+                <ol className="mt-10 flex flex-col gap-12 border-l border-border pl-8">
+                    {items.map((entry) => (
+                        <li key={entry.documentId} className="relative">
+                            <span className="absolute -left-[calc(2rem+5px)] top-1.5 h-2.5 w-2.5 rounded-full bg-muted-foreground" />
+                            <div className="flex flex-wrap items-center gap-2">
+                                {entry.meta.version && (
+                                    <span className="font-mono text-sm text-muted-foreground">
+                                        {entry.meta.version}
+                                    </span>
+                                )}
+                                {entry.publishedAt && (
+                                    <time
+                                        dateTime={entry.publishedAt}
+                                        className="text-sm text-muted-foreground"
+                                    >
+                                        {new Date(
+                                            entry.publishedAt,
+                                        ).toLocaleDateString(undefined, {
+                                            year: "numeric",
+                                            month: "long",
+                                            day: "numeric",
+                                        })}
+                                    </time>
+                                )}
+                                {(entry.meta.labels ?? []).map((label) => (
+                                    <span
+                                        key={label}
+                                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${LABEL_CLASS[label] ?? "bg-muted text-muted-foreground"}`}
+                                    >
+                                        {label}
+                                    </span>
+                                ))}
                             </div>
-                        )}
-                    </li>
-                ))}
-                {items.length === 0 && (
-                    <p className="text-neutral-500">
-                        No changelog entries published yet.
-                    </p>
-                )}
-            </ol>
-        </main>
+                            <h2 className="mt-2 text-xl font-semibold">
+                                {entry.title}
+                            </h2>
+                            {entry.content && (
+                                <div className="prose mt-3 max-w-none">
+                                    <TextRenderer json={entry.content} />
+                                </div>
+                            )}
+                        </li>
+                    ))}
+                    {items.length === 0 && (
+                        <p className="text-muted-foreground">
+                            No changelog entries published yet.
+                        </p>
+                    )}
+                </ol>
+            </main>
+        </SiteChrome>
     );
 }

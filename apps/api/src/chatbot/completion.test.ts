@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
     buildInstructions,
     getChatAnswer,
@@ -6,16 +6,8 @@ import {
 } from "./completion";
 import type { SearchResult } from "../documentation/queries";
 
-const PREV = process.env.CHAT_PROVIDER;
-
-afterEach(() => {
-    if (PREV === undefined) delete process.env.CHAT_PROVIDER;
-    else process.env.CHAT_PROVIDER = PREV;
-});
-
 describe("getChatAnswer (local extractive fallback)", () => {
     it("returns a no-docs message with escalate when nothing is retrieved", async () => {
-        process.env.CHAT_PROVIDER = "local";
         const result = await getChatAnswer("anything", []);
         expect(result.answer.toLowerCase()).toMatch(
             /help articles|support|docs/,
@@ -25,7 +17,6 @@ describe("getChatAnswer (local extractive fallback)", () => {
     });
 
     it("returns the top chunk's content with a citation, and de-duplicated sources", async () => {
-        process.env.CHAT_PROVIDER = "local";
         const chunks: SearchResult[] = [
             {
                 documentId: "doc_1",

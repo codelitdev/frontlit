@@ -48,6 +48,8 @@ export interface PublicSettings {
     title: string | null;
     subtitle: string | null;
     logo: Record<string, unknown> | null;
+    themeId: string | null;
+    theme: Record<string, unknown> | null;
     codeInjectionHead: string | null;
     codeInjectionBody: string | null;
 }
@@ -67,8 +69,6 @@ export interface PublicPage {
     type: "site" | "blog" | "landing" | "post" | "custom";
     slug: string;
     layout: WidgetInstance[];
-    themeId: string | null;
-    theme: Record<string, unknown> | null;
     title: string | null;
     description: string | null;
     socialImage: Record<string, unknown> | null;

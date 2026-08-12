@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    transpilePackages: ["@codelitdev/design-system"],
+    transpilePackages: [
+        "@codelitdev/design-system",
+        "@sendlit/email-blocks",
+        "@sendlit/email-editor",
+    ],
     images: {
         remotePatterns: [{ protocol: "https", hostname: "**" }],
     },

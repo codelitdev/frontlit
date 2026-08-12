@@ -15,19 +15,18 @@ import {
     derivePageStatus,
     discardPageDraft,
     getPageByPageId,
-    InvalidThemeReferenceError,
     publishPage,
     updatePage,
 } from "./queries";
 import { InvalidPageLayoutError } from "./shared-widgets";
-import { createTheme, deleteTheme } from "../themes/queries";
 import { InvalidSlugError, SlugConflictError } from "../utils/slug";
 
 function pageLayout(
     body: Array<{
         widgetId: string;
         name: string;
-        deleteable: boolean;
+        deletable: boolean;
+        moveable: boolean;
         shared: boolean;
     }> = [],
     headerSettings: Record<string, unknown> = {},
@@ -37,7 +36,8 @@ function pageLayout(
         {
             widgetId: "header-1",
             name: "header",
-            deleteable: false,
+            deletable: false,
+            moveable: false,
             shared: true,
             settings: headerSettings,
         },
@@ -45,7 +45,8 @@ function pageLayout(
         {
             widgetId: "footer-1",
             name: "footer",
-            deleteable: false,
+            deletable: false,
+            moveable: false,
             shared: true,
             settings: footerSettings,
         },
@@ -69,7 +70,7 @@ describe("pages draft/publish", () => {
         });
 
         expect(page.slug).toBe("about-us");
-        expect(page.deleteable).toBe(true);
+        expect(page.deletable).toBe(true);
         expect(page.publishedAt).toBeNull();
         expect(page.layout.map((widget) => widget.name)).toEqual([
             "header",
@@ -80,62 +81,9 @@ describe("pages draft/publish", () => {
             "footer",
         ]);
         expect(
-            page.layout.every((widget) => widget.shared && !widget.deleteable),
+            page.layout.every((widget) => widget.shared && !widget.deletable),
         ).toBe(true);
         expect(derivePageStatus(page)).toBe("draft");
-    });
-
-    it("stores built-in theme IDs as page theme references", async () => {
-        const page = await createPage({
-            teamId,
-            name: "Learning",
-            type: "site",
-            themeId: "learning",
-        });
-
-        expect(page.themeId).toBe("learning");
-
-        const updated = await updatePage(teamId, page.pageId, {
-            themeId: "editorial",
-        });
-
-        expect(updated?.themeId).toBe("editorial");
-    });
-
-    it("clears page references when a custom theme is deleted", async () => {
-        const theme = await createTheme({
-            teamId,
-            name: "Custom",
-            style: { colors: {} },
-        });
-        const page = await createPage({
-            teamId,
-            name: "Themed",
-            type: "site",
-            themeId: theme.themeId,
-        });
-
-        await deleteTheme(teamId, theme.themeId);
-
-        expect((await getPageByPageId(page.pageId))?.themeId).toBeNull();
-    });
-
-    it("rejects custom themes owned by another team", async () => {
-        const { team: otherTeam } = await seedTeam(db, { name: "Other" });
-        const otherTheme = await createTheme({
-            teamId: otherTeam.id,
-            name: "Private",
-            style: { colors: {} },
-        });
-
-        await expect(
-            createPage({
-                teamId,
-                name: "Cross-tenant",
-                type: "site",
-                themeId: otherTheme.themeId,
-            }),
-        ).rejects.toBeInstanceOf(InvalidThemeReferenceError);
     });
 
     it("uniquifies slugs within a team", async () => {
@@ -201,6 +149,22 @@ describe("pages draft/publish", () => {
         ).rejects.toBeInstanceOf(InvalidSlugError);
     });
 
+    it("keeps every standard page at its reserved URL", async () => {
+        const page = await createPage({
+            teamId,
+            name: "Docs",
+            type: "custom",
+        });
+        await db
+            .update(pages)
+            .set({ slug: "docs", deletable: false })
+            .where(eq(pages.id, page.id));
+
+        await expect(
+            updatePage(teamId, page.pageId, { slug: "guides" }),
+        ).rejects.toBeInstanceOf(InvalidSlugError);
+    });
+
     it("update writes only the draft columns, leaving published fields untouched", async () => {
         const created = await createPage({
             teamId,
@@ -213,7 +177,8 @@ describe("pages draft/publish", () => {
                 {
                     widgetId: "w1",
                     name: "hero",
-                    deleteable: true,
+                    deletable: true,
+                    moveable: true,
                     shared: false,
                 },
             ]),
@@ -241,7 +206,8 @@ describe("pages draft/publish", () => {
                 {
                     widgetId: "w1",
                     name: "hero",
-                    deleteable: true,
+                    deletable: true,
+                    moveable: true,
                     shared: false,
                 },
             ]),
@@ -339,7 +305,8 @@ describe("pages draft/publish", () => {
             {
                 widgetId: "hero-1",
                 name: "hero",
-                deleteable: true,
+                deletable: true,
+                moveable: true,
                 shared: false,
             },
         ];
@@ -350,6 +317,66 @@ describe("pages draft/publish", () => {
         await expect(
             updatePage(teamId, page.pageId, {
                 layout: [pageLayout()[0], pageLayout()[0], pageLayout()[1]],
+            }),
+        ).rejects.toBeInstanceOf(InvalidPageLayoutError);
+    });
+
+    it("requires one moveable, non-deletable page-content block on dynamic standard pages", async () => {
+        const created = await createPage({
+            teamId,
+            name: "Docs",
+            type: "custom",
+        });
+        await db
+            .update(pages)
+            .set({ slug: "docs", deletable: false })
+            .where(eq(pages.id, created.id));
+
+        const standardPage = await getPageByPageId(created.pageId);
+        const content = standardPage!.draftLayout.find(
+            (widget) => widget.name === "page-content",
+        )!;
+        const [header, footer] = pageLayout();
+        const pricing = {
+            widgetId: "pricing-1",
+            name: "pricing",
+            deletable: true,
+            moveable: true,
+            shared: false,
+        };
+
+        const updated = await updatePage(teamId, created.pageId, {
+            layout: [
+                header,
+                pricing,
+                { ...content, deletable: true, moveable: false },
+                footer,
+            ],
+        });
+        expect(updated?.draftLayout.map((widget) => widget.name)).toEqual([
+            "header",
+            "pricing",
+            "page-content",
+            "footer",
+        ]);
+        expect(
+            updated?.draftLayout.find(
+                (widget) => widget.name === "page-content",
+            ),
+        ).toMatchObject({
+            deletable: false,
+            moveable: true,
+            shared: false,
+        });
+
+        await expect(
+            updatePage(teamId, created.pageId, {
+                layout: [header, pricing, footer],
+            }),
+        ).rejects.toBeInstanceOf(InvalidPageLayoutError);
+        await expect(
+            updatePage(teamId, created.pageId, {
+                layout: [header, content, content, footer],
             }),
         ).rejects.toBeInstanceOf(InvalidPageLayoutError);
     });
@@ -374,7 +401,7 @@ describe("pages draft/publish", () => {
         expect(untouched?.draftTitle).toBeNull();
     });
 
-    it("deletes a deleteable page", async () => {
+    it("deletes a deletable page", async () => {
         const created = await createPage({
             teamId,
             name: "Scratch",
@@ -386,7 +413,7 @@ describe("pages draft/publish", () => {
         expect(await getPageByPageId(created.pageId)).toBeUndefined();
     });
 
-    it("refuses to delete a non-deleteable (standard) page", async () => {
+    it("refuses to delete a non-deletable (standard) page", async () => {
         const created = await createPage({
             teamId,
             name: "Homepage",
@@ -394,13 +421,13 @@ describe("pages draft/publish", () => {
         });
         await db
             .update(pages)
-            .set({ deleteable: false })
+            .set({ deletable: false })
             .where(eq(pages.id, created.id));
 
         const result = await deletePage(teamId, created.pageId);
 
         expect(result.ok).toBe(false);
-        expect(result.ok === false && result.reason).toBe("not_deleteable");
+        expect(result.ok === false && result.reason).toBe("not_deletable");
         expect(await getPageByPageId(created.pageId)).not.toBeUndefined();
     });
 });

@@ -67,28 +67,49 @@ async function request<T>(
 export type ProvisionTeamResult = {
     teamId: string;
     name: string;
-    apiKey?: string;
+    apiKey: string | null;
 };
 
-/** `POST /provisioning/teams` \u2014 idempotent find-or-create by `externalId`,
- * exactly mirroring FrontLit's own provisioning endpoint. Requires the
- * shared `SENDLIT_PROVISIONING_SECRET`, not a per-team API key. */
+/** `POST /provisioning/teams` \u2014 idempotent find-or-create by `externalId`.
+ * SendLit scopes this endpoint to an organization API key, so a FrontLit
+ * deployment can provision teams only within its dedicated SendLit org. */
 export async function provisionSendlitTeam(input: {
     externalId: string;
-    ownerEmail: string;
     name: string;
 }): Promise<ProvisionTeamResult> {
-    const secret = process.env.SENDLIT_PROVISIONING_SECRET;
-    if (!secret)
+    const organizationApiKey = process.env.SENDLIT_ORGANIZATION_API_KEY;
+    if (!organizationApiKey)
         throw new SendlitApiError(
-            "SENDLIT_PROVISIONING_SECRET is not configured",
+            "SENDLIT_ORGANIZATION_API_KEY is not configured",
         );
 
     return request<ProvisionTeamResult>("/provisioning/teams", {
         method: "POST",
         body: input,
-        headers: { "x-sendlit-provisioning-secret": secret },
+        headers: { authorization: `Bearer ${organizationApiKey}` },
     });
+}
+
+/** Creates a replacement team-scoped key when a prior idempotent
+ * provisioning request created the team but FrontLit never persisted its
+ * one-time key response. SendLit revokes the previous organization-created
+ * key as part of this operation. */
+export async function createSendlitTeamKey(teamId: string): Promise<string> {
+    const organizationApiKey = process.env.SENDLIT_ORGANIZATION_API_KEY;
+    if (!organizationApiKey)
+        throw new SendlitApiError(
+            "SENDLIT_ORGANIZATION_API_KEY is not configured",
+        );
+
+    const result = await request<{ key: string }>(
+        `/provisioning/teams/${encodeURIComponent(teamId)}/keys`,
+        {
+            method: "POST",
+            body: { name: "FrontLit integration" },
+            headers: { authorization: `Bearer ${organizationApiKey}` },
+        },
+    );
+    return result.key;
 }
 
 // ---- Contacts (read-through + sync) ----------------------------------------
@@ -246,6 +267,16 @@ export type SendlitEspConfig = {
     lastTestStatus?: "success" | "failed" | null;
     lastTestError?: string | null;
     updatedAt?: string | null;
+    status?: "draft" | "active" | "suspended" | "draining" | "retired";
+};
+
+type SendlitEspRecord = Omit<SendlitEspConfig, "isDefault" | "status"> & {
+    status: NonNullable<SendlitEspConfig["status"]>;
+};
+
+type SendlitDeliverySettings = {
+    defaultSource: "organization" | "team" | null;
+    defaultTeamEspId: string | null;
 };
 
 export type SendlitEspInput = {
@@ -260,27 +291,90 @@ export type SendlitEspInput = {
 };
 
 export async function getEspConfig(apiKey: string) {
-    return request<SendlitEspConfig | null>("/settings/esp", { apiKey });
+    const [{ items }, delivery] = await Promise.all([
+        request<{ items: SendlitEspRecord[] }>("/settings/esps", { apiKey }),
+        request<SendlitDeliverySettings>("/settings/delivery", { apiKey }),
+    ]);
+    const available = items.filter((item) => item.status !== "retired");
+    const config =
+        available.find((item) => item.espId === delivery.defaultTeamEspId) ??
+        available[0];
+    if (!config) return null;
+    return {
+        ...config,
+        isDefault:
+            delivery.defaultSource === "team" &&
+            delivery.defaultTeamEspId === config.espId,
+    } satisfies SendlitEspConfig;
 }
 
 export async function upsertEspConfig(apiKey: string, input: SendlitEspInput) {
-    return request<SendlitEspConfig>("/settings/esp", {
-        method: "PUT",
+    const existing = await getEspConfig(apiKey);
+    if (existing) {
+        const updated = await request<SendlitEspRecord>(
+            `/settings/esps/${encodeURIComponent(existing.espId)}`,
+            { method: "PATCH", apiKey, body: input },
+        );
+        return { ...updated, isDefault: existing.isDefault };
+    }
+
+    const created = await request<SendlitEspRecord>("/settings/esps", {
+        method: "POST",
         apiKey,
-        body: input,
+        body: { name: "FrontLit Default", ...input },
     });
+    return { ...created, isDefault: false };
 }
 
 export async function deleteEspConfig(apiKey: string) {
-    return request<void>("/settings/esp", { method: "DELETE", apiKey });
+    const config = await getEspConfig(apiKey);
+    if (!config) return;
+    const path = `/settings/esps/${encodeURIComponent(config.espId)}`;
+    if (
+        config.status === "active" ||
+        config.status === "suspended" ||
+        config.status === "draining"
+    ) {
+        await request(path + "/retire", {
+            method: "POST",
+            apiKey,
+            body: { transition: "cancel" },
+        });
+        return;
+    }
+    await request<void>(path, { method: "DELETE", apiKey });
 }
 
 export async function testEspConfig(apiKey: string, to: string) {
-    return request<{ success: boolean; error?: string }>("/settings/esp/test", {
-        method: "POST",
-        apiKey,
-        body: { to },
-    });
+    const config = await getEspConfig(apiKey);
+    if (!config) throw new SendlitApiError("SendLit ESP is not configured");
+    const path = `/settings/esps/${encodeURIComponent(config.espId)}`;
+    const result = await request<{ success: boolean; error?: string }>(
+        path + "/test",
+        {
+            method: "POST",
+            apiKey,
+            body: { to },
+        },
+    );
+    if (result.success && config.status === "draft") {
+        await request<SendlitEspRecord>(path + "/activate", {
+            method: "POST",
+            apiKey,
+        });
+    }
+    if (
+        result.success &&
+        (config.status === "draft" || config.status === "active") &&
+        !config.isDefault
+    ) {
+        await request<SendlitDeliverySettings>("/settings/delivery", {
+            method: "PATCH",
+            apiKey,
+            body: { deliverySource: { type: "team", espId: config.espId } },
+        });
+    }
+    return result;
 }
 
 // ---- Broadcasts (SendLit models these as "sequences") -----------------------
@@ -312,12 +406,90 @@ export type FrontlitBroadcast = {
     subject?: string;
     body?: Record<string, unknown>;
     createdAt?: string | null;
+    updatedAt?: string | null;
+};
+
+export type FrontlitNewsletterTemplate = {
+    templateId: string;
+    title: string;
+    body: Record<string, unknown>;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+};
+
+type SendlitNewsletterTemplate = {
+    templateId: string;
+    title: string;
+    content: Record<string, unknown>;
+    createdAt?: string | null;
+    updatedAt?: string | null;
 };
 
 /** SendLit's stable built-in marketing starter. It is intentionally a system
  * template: every provisioned team can create its first broadcast without
  * FrontLit having to maintain a duplicate template in SendLit. */
 const DEFAULT_BROADCAST_TEMPLATE_ID = "system:blank";
+
+function toNewsletterTemplate(
+    template: SendlitNewsletterTemplate,
+): FrontlitNewsletterTemplate {
+    return {
+        templateId: template.templateId,
+        title: template.title,
+        body: template.content,
+        createdAt: template.createdAt,
+        updatedAt: template.updatedAt,
+    };
+}
+
+export async function listNewsletterTemplates(apiKey: string) {
+    const templates = await request<SendlitNewsletterTemplate[]>(
+        "/templates?purpose=marketing",
+        { apiKey },
+    );
+    return templates.map(toNewsletterTemplate);
+}
+
+export async function createNewsletterTemplate(
+    apiKey: string,
+    input: { title: string; body: Record<string, unknown> },
+) {
+    return toNewsletterTemplate(
+        await request<SendlitNewsletterTemplate>("/templates", {
+            method: "POST",
+            apiKey,
+            body: {
+                title: input.title,
+                purpose: "marketing",
+                content: input.body,
+            },
+        }),
+    );
+}
+
+export async function updateNewsletterTemplate(
+    apiKey: string,
+    templateId: string,
+    patch: Partial<{ title: string; body: Record<string, unknown> }>,
+) {
+    return toNewsletterTemplate(
+        await request<SendlitNewsletterTemplate>(
+            `/templates/${encodeURIComponent(templateId)}`,
+            {
+                method: "PATCH",
+                apiKey,
+                body: {
+                    ...(patch.title === undefined
+                        ? {}
+                        : { title: patch.title }),
+                    ...(patch.body === undefined
+                        ? {}
+                        : { content: patch.body }),
+                },
+            },
+        ),
+    );
+}
 
 function firstEmail(sequence: SendlitSequence): SendlitSequenceEmail {
     const email = sequence.emails[0];
@@ -340,6 +512,7 @@ export function toBroadcast(sequence: SendlitSequence): FrontlitBroadcast {
         subject: email?.subject,
         body: email?.content,
         createdAt: sequence.createdAt,
+        updatedAt: sequence.updatedAt,
     };
 }
 
@@ -354,7 +527,12 @@ export async function listBroadcasts(apiKey: string) {
 
 export async function createBroadcast(
     apiKey: string,
-    input: { name: string; subject?: string; body?: Record<string, unknown> },
+    input: {
+        name: string;
+        subject?: string;
+        body?: Record<string, unknown>;
+        templateId?: string;
+    },
 ) {
     // SendLit requires a marketing starter to create a sequence. Its initial
     // title and subject come from that starter, so set FrontLit's title and
@@ -364,7 +542,7 @@ export async function createBroadcast(
         apiKey,
         body: {
             type: "broadcast",
-            templateId: DEFAULT_BROADCAST_TEMPLATE_ID,
+            templateId: input.templateId ?? DEFAULT_BROADCAST_TEMPLATE_ID,
         },
     });
     sequence = await request<SendlitSequence>(

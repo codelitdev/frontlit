@@ -43,6 +43,48 @@
             "when": 1786362570604,
             "tag": "0005_abandoned_moonstone",
             "breakpoints": true
+        },
+        {
+            "idx": 6,
+            "version": "7",
+            "when": 1786523000000,
+            "tag": "0006_team_ai_settings",
+            "breakpoints": true
+        },
+        {
+            "idx": 7,
+            "version": "7",
+            "when": 1786534000000,
+            "tag": "0007_team_embedding_settings",
+            "breakpoints": true
+        },
+        {
+            "idx": 8,
+            "version": "7",
+            "when": 1786537000000,
+            "tag": "0008_team_ai_model_settings",
+            "breakpoints": true
+        },
+        {
+            "idx": 9,
+            "version": "7",
+            "when": 1786540000000,
+            "tag": "0009_team_azure_ai_provider",
+            "breakpoints": true
+        },
+        {
+            "idx": 10,
+            "version": "7",
+            "when": 1786550000000,
+            "tag": "0010_site_wide_theme",
+            "breakpoints": true
+        },
+        {
+            "idx": 11,
+            "version": "7",
+            "when": 1786553600000,
+            "tag": "0011_page_content_block",
+            "breakpoints": true
         }
     ]
 }

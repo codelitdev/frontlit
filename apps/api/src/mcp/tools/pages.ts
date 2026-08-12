@@ -82,7 +82,6 @@ export function registerPageTools(server: McpToolRegistrar): void {
             inputSchema: {
                 name: z.string().min(1),
                 type: z.enum(pageTypes),
-                themeId: z.string().optional(),
             },
             outputSchema: pageSchema,
             annotations: {
@@ -99,7 +98,6 @@ export function registerPageTools(server: McpToolRegistrar): void {
                     teamId,
                     name: args.name,
                     type: args.type,
-                    themeId: args.themeId,
                 });
                 return jsonResult(toPublicPage(page));
             } catch {
@@ -143,7 +141,6 @@ export function registerPageTools(server: McpToolRegistrar): void {
                 pageId: z.string(),
                 name: z.string().optional(),
                 layout: z.array(z.record(z.any())).optional(),
-                themeId: z.string().nullable().optional(),
                 title: z.string().optional(),
                 description: z.string().optional(),
                 robotsAllowed: z.boolean().optional(),
@@ -176,7 +173,7 @@ export function registerPageTools(server: McpToolRegistrar): void {
         "delete_page",
         {
             description:
-                "Permanently deletes a page. Standard (non-deleteable) pages cannot be deleted.",
+                "Permanently deletes a page. Standard (non-deletable) pages cannot be deleted.",
             inputSchema: { pageId: z.string() },
             outputSchema: successMessageSchema,
             annotations: {
@@ -192,7 +189,7 @@ export function registerPageTools(server: McpToolRegistrar): void {
                 const result = await deletePage(teamId, args.pageId);
                 if (!result.ok && result.reason === "not_found")
                     return NOT_FOUND;
-                if (!result.ok && result.reason === "not_deleteable") {
+                if (!result.ok && result.reason === "not_deletable") {
                     return errorResult(
                         "This is a standard page and can't be deleted.",
                     );

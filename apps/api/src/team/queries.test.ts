@@ -43,7 +43,7 @@ describe("createTeam", () => {
         expect(team.customDomain).toBeNull();
     });
 
-    it("seeds the standard, non-deleteable pages", async () => {
+    it("seeds the standard, non-deletable pages", async () => {
         const owner = await makeOwner();
         const team = await createTeam({
             ownerAccountId: owner.id,
@@ -65,7 +65,7 @@ describe("createTeam", () => {
                 "terms",
             ].sort(),
         );
-        expect(teamPages.every((p) => !p.deleteable)).toBe(true);
+        expect(teamPages.every((p) => !p.deletable)).toBe(true);
         expect(teamPages.every((p) => p.publishedAt !== null)).toBe(true);
         expect(
             teamPages.every(
@@ -78,9 +78,9 @@ describe("createTeam", () => {
             teamPages.every(
                 (p) =>
                     p.layout[0]?.shared &&
-                    !p.layout[0]?.deleteable &&
+                    !p.layout[0]?.deletable &&
                     p.layout.at(-1)?.shared &&
-                    !p.layout.at(-1)?.deleteable,
+                    !p.layout.at(-1)?.deletable,
             ),
         ).toBe(true);
 
@@ -90,6 +90,21 @@ describe("createTeam", () => {
             "support-form",
             "footer",
         ]);
+
+        for (const slug of ["blog", "changelog", "docs"]) {
+            const standardPage = teamPages.find((p) => p.slug === slug);
+            expect(
+                standardPage?.layout.filter(
+                    (widget) => widget.name === "page-content",
+                ),
+            ).toEqual([
+                expect.objectContaining({
+                    deletable: false,
+                    moveable: true,
+                    shared: false,
+                }),
+            ]);
+        }
     });
 
     it("skips SendLit provisioning silently when SENDLIT_API_URL isn't configured", async () => {

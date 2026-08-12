@@ -20,6 +20,7 @@ import chatbotRoutes from "./chatbot/routes";
 import ticketsRoutes from "./tickets/routes";
 import domainsRoutes from "./domains/routes";
 import settingsRoutes from "./settings/routes";
+import aiRoutes from "./ai/routes";
 import publicRoutes from "./public/routes";
 import metricsRoutes from "./metrics/routes";
 import { openApiDocument } from "./openapi";
@@ -97,6 +98,7 @@ export function createApp() {
     app.use(ticketsRoutes);
     app.use(domainsRoutes);
     app.use(settingsRoutes);
+    app.use(aiRoutes);
 
     app.use(
         (

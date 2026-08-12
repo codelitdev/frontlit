@@ -9,7 +9,6 @@ import {
     getDefaultTheme,
     type WidgetInstance,
 } from "@frontlit/page-builder";
-import "@frontlit/page-builder/styles.css";
 
 type DemoName =
     | "hero"
