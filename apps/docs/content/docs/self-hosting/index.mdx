@@ -1,0 +1,111 @@
+---
+title: FrontLit Self Hosting Guide
+description: Run SendLit and its dependencies alongside a self-managed FrontLit installation.
+---
+
+FrontLit can use a self-hosted [SendLit](https://sendlit.app) instance for
+newsletter contacts, segments, broadcasts, delivery settings, and transactional
+email. The products remain separate services: FrontLit calls SendLit's REST API
+and each FrontLit team is provisioned as a dedicated SendLit team.
+
+The provided Compose stack runs:
+
+- PostgreSQL with separate `frontlit` and `sendlit` databases;
+- Redis for SendLit's delivery and automation workers; and
+- the SendLit API at `http://localhost:3001`.
+
+## Prerequisites
+
+Install Docker Compose and have a checkout of FrontLit. The application API can
+run from this checkout as described in [Getting Started](/getting-started/overview).
+
+For a public deployment, place SendLit behind an HTTPS reverse proxy before
+setting production mode. Do not expose the Postgres port or Redis directly to
+the internet.
+
+## Start SendLit locally
+
+Create the Compose environment file:
+
+```bash
+cp .env.example .env
+```
+
+Generate four independent secrets, for example with `openssl rand -base64 48`,
+and set these values in `.env`:
+
+```bash
+SENDLIT_BETTER_AUTH_SECRET=
+SENDLIT_PIXEL_SIGNING_SECRET=
+SENDLIT_ESP_CREDENTIALS_ENCRYPTION_KEY=
+SENDLIT_SUPPRESSION_HASH_KEY=
+SENDLIT_SUPER_ADMIN_EMAIL=admin@example.com
+```
+
+`SENDLIT_SUPER_ADMIN_EMAIL` creates the initial SendLit administrator and
+organization on the first successful startup.
+
+Start the services and confirm the health endpoint:
+
+```bash
+docker compose up -d
+curl http://localhost:3001/health
+```
+
+The expected response is JSON containing `"status":"ok"`. The first startup
+creates the `sendlit` database and runs SendLit's migrations. These actions are
+idempotent, so subsequent `docker compose up -d` commands are safe.
+
+## Connect FrontLit to SendLit
+
+On its first boot, SendLit logs a one-time, scoped organization API key. Read
+and store it securely:
+
+```bash
+docker compose logs sendlit-api
+```
+
+Find the `organizationApiKey` value. It has the `sl_org_live_` prefix and is
+only shown when created. Add it to `apps/api/.env`:
+
+```bash
+SENDLIT_API_URL=http://localhost:3001
+SENDLIT_ORGANIZATION_API_KEY=sl_org_live_...
+```
+
+Restart the FrontLit API after changing its environment. New FrontLit teams
+will then be provisioned in the SendLit organization automatically. The key is
+used only to provision and manage those teams; FrontLit stores the separate,
+team-scoped SendLit key returned for each provisioned team.
+
+## Production configuration
+
+Use real domains and HTTPS before enabling production mode:
+
+```bash
+SENDLIT_NODE_ENV=production
+SENDLIT_API_PUBLIC_URL=https://sendlit-api.example.com
+SENDLIT_WEB_CLIENT=https://sendlit.example.com
+SENDLIT_PROTOCOL=https
+SENDLIT_DOMAIN=sendlit.example.com
+```
+
+`SENDLIT_API_PUBLIC_URL` must be the public URL of the API, and
+`SENDLIT_WEB_CLIENT` must be the URL of the SendLit login/dashboard client.
+Better Auth rejects HTTP login URLs in production mode. Keep the root `.env`
+out of version control and use unique, high-entropy secrets for every
+deployment.
+
+## Operations
+
+Check service status and logs with:
+
+```bash
+docker compose ps
+docker compose logs -f sendlit-api
+```
+
+The `frontlit-postgres-data` and `sendlit-redis-data` Docker volumes persist
+data across restarts. Back up the Postgres volume/database before upgrades or
+destructive maintenance. Do not run `docker compose down -v` unless you intend
+to delete all self-hosted FrontLit and SendLit data.
