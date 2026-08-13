@@ -2,6 +2,10 @@ import { requireAuth } from "@/lib/server-auth";
 import { AppSidebar } from "@/components/workspace/app-sidebar";
 import { BreadcrumbProvider } from "@/components/workspace/breadcrumb-context";
 import { WorkspaceBreadcrumb } from "@/components/workspace/workspace-breadcrumb";
+import {
+    WorkspaceAccessGate,
+    WorkspaceAccessProvider,
+} from "@/components/workspace/workspace-access";
 import { Separator } from "@/components/ui/separator";
 import {
     SidebarInset,
@@ -17,24 +21,28 @@ export default async function AuthenticatedLayout({
     await requireAuth();
 
     return (
-        <SidebarProvider>
-            <AppSidebar />
+        <WorkspaceAccessProvider>
+            <SidebarProvider>
+                <AppSidebar />
 
-            <SidebarInset className="min-w-0">
-                <BreadcrumbProvider>
-                    <header className="flex h-12 w-full shrink-0 items-center gap-2 border-b px-4">
-                        <SidebarTrigger className="-ml-1" />
-                        <Separator
-                            orientation="vertical"
-                            className="mr-2 data-vertical:h-4 data-vertical:self-auto"
-                        />
-                        <WorkspaceBreadcrumb />
-                    </header>
-                    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                        {children}
-                    </div>
-                </BreadcrumbProvider>
-            </SidebarInset>
-        </SidebarProvider>
+                <SidebarInset className="min-w-0">
+                    <BreadcrumbProvider>
+                        <header className="flex h-12 w-full shrink-0 items-center gap-2 border-b px-4">
+                            <SidebarTrigger className="-ml-1" />
+                            <Separator
+                                orientation="vertical"
+                                className="mr-2 data-vertical:h-4 data-vertical:self-auto"
+                            />
+                            <WorkspaceBreadcrumb />
+                        </header>
+                        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                            <WorkspaceAccessGate>
+                                {children}
+                            </WorkspaceAccessGate>
+                        </div>
+                    </BreadcrumbProvider>
+                </SidebarInset>
+            </SidebarProvider>
+        </WorkspaceAccessProvider>
     );
 }

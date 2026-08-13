@@ -25,6 +25,12 @@ Session-authenticated requests resolve which team they act on via the `X-Frontli
 sends this automatically once you've picked a team). If an account belongs to exactly one team, the header can be
 omitted. An API key always authenticates as exactly one, fixed team — no header needed.
 
+For a human member, team permissions and OAuth scopes are separate grants.
+Browser requests require the member's current team permission. OAuth requests
+require both that permission and the token's scope, so a client cannot exceed
+the authority of the person who connected it. See [Team members and
+permissions](/teams/members) for the dashboard workflow.
+
 ## MCP
 
 The remote MCP endpoint accepts an OAuth bearer token or

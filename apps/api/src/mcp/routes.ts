@@ -18,6 +18,7 @@ import {
 } from "./auth-context";
 import {
     HIGH_IMPACT_MCP_TOOLS,
+    isAccountOnlyMcpTool,
     isMcpToolName,
     MCP_SCOPES_SUPPORTED,
 } from "./policy";
@@ -141,12 +142,21 @@ const nodeMcpHandler = toNodeHandler(mcpHandler, {
     },
 });
 
+function requireMcpTeam(req: Request, res: Response, next: NextFunction) {
+    const tool = String(req.headers["mcp-name"] || "");
+    if (tool && isAccountOnlyMcpTool(tool)) {
+        next();
+        return;
+    }
+    void requireTeam(req, res, next);
+}
+
 router.post(
     "/mcp",
     mcpCors,
     mcpIpLimiter,
     mcpAuth,
-    requireTeam,
+    requireMcpTeam,
     attachMcpAuthInfo,
     mcpPrincipalLimiter,
     observeMcpRequest,

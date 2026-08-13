@@ -10,6 +10,7 @@ import {
     createTeam,
     deleteTeam,
     findTeamByPublicId,
+    findTeamById,
     getTeamMembership,
     listTeamsForAccount,
     renameTeam,
@@ -28,6 +29,8 @@ import {
 } from "./responses";
 import { getAuthAccount, getTeamId } from "./auth";
 import { serializeDates } from "../../utils/public";
+import { withDbTransaction } from "../../db/transaction";
+import { insertAuditEvent } from "../../team/audit";
 
 export function registerTeamTools(server: McpToolRegistrar): void {
     server.registerTool(
@@ -135,9 +138,10 @@ export function registerTeamTools(server: McpToolRegistrar): void {
             try {
                 const team = await findTeamByPublicId(args.teamId);
                 if (!team) return NOT_FOUND;
+                if (team.id !== getTeamId(extra)) return NOT_FOUND;
                 const membership = await getTeamMembership(team.id, account.id);
                 if (!membership) return NOT_FOUND;
-                if (membership.role !== "owner") {
+                if (team.ownerAccountId !== account.id) {
                     return errorResult("Only the team owner can delete it.");
                 }
                 await deleteTeam(team.id);
@@ -201,11 +205,26 @@ export function registerTeamTools(server: McpToolRegistrar): void {
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
-            if (!teamId) return AUTH_ERROR;
+            const account = getAuthAccount(extra);
+            if (!teamId || !account) return AUTH_ERROR;
             try {
-                const { apiKey, secret } = await createApiKey(
-                    teamId,
-                    args.name,
+                const { apiKey, secret } = await withDbTransaction(
+                    async (tx) => {
+                        const team = await findTeamById(teamId, tx);
+                        if (!team) throw new Error("Team not found");
+                        const created = await createApiKey(
+                            teamId,
+                            args.name,
+                            tx,
+                        );
+                        await insertAuditEvent(tx, {
+                            eventType: "api_key.created",
+                            teamPublicId: team.teamId,
+                            actorAccountId: account.id,
+                            metadata: { keyPrefix: created.apiKey.keyPrefix },
+                        });
+                        return created;
+                    },
                 );
                 return jsonResult(
                     serializeDates({
@@ -243,9 +262,23 @@ export function registerTeamTools(server: McpToolRegistrar): void {
         },
         async (args: any, extra: any) => {
             const teamId = getTeamId(extra);
-            if (!teamId) return AUTH_ERROR;
+            const account = getAuthAccount(extra);
+            if (!teamId || !account) return AUTH_ERROR;
             try {
-                await deleteApiKey(teamId, args.keyId);
+                const deleted = await withDbTransaction(async (tx) => {
+                    const team = await findTeamById(teamId, tx);
+                    if (!team) throw new Error("Team not found");
+                    const removed = await deleteApiKey(teamId, args.keyId, tx);
+                    if (!removed) return false;
+                    await insertAuditEvent(tx, {
+                        eventType: "api_key.revoked",
+                        teamPublicId: team.teamId,
+                        actorAccountId: account.id,
+                        metadata: { keyId: args.keyId },
+                    });
+                    return true;
+                });
+                if (!deleted) return NOT_FOUND;
                 return jsonResult({ message: "API key deleted." });
             } catch {
                 return INTERNAL_ERROR;

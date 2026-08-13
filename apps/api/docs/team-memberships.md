@@ -1,7 +1,7 @@
 # Team memberships and permissions PRD
 
-**Status:** Draft  
-**Last updated:** 2026-08-12  
+**Status:** Implemented (first release)
+**Last updated:** 2026-08-13
 **Primary owners:** Product and API engineering
 
 ## 1. Summary
@@ -37,11 +37,11 @@ FrontLit is already multi-tenant:
 - OAuth authorization binds a selected team into the token family; and
 - API keys are pinned to one team.
 
-The current `team_members.role` value is either `owner` or `member`. Membership
-is checked on team-scoped requests, but most product operations do not check
-what a non-owner member may do. Consequently, exposing invitations before
-introducing permission enforcement would give new members substantially more
-access than intended.
+`team_members.role` remains as a transitional compatibility column with the
+values `owner` and `member`. It is not an authorization input: ownership is
+derived from `teams.ownerAccountId`, and non-owner authority is derived from
+the membership permission array. The column is still maintained while legacy
+call sites are retired, so it must not be used in new authorization code.
 
 MCP already has an OAuth scope policy such as `pages:read`, `pages:write`, and
 `broadcasts:send`. Those scopes constrain OAuth clients, not signed-in humans.
@@ -168,6 +168,14 @@ resource server loads the current membership on each request, so a removed
 permission or membership immediately prevents the corresponding OAuth action
 even if the token still contains a matching scope.
 
+Removing a membership also revokes the account's refresh-token/consent families
+bound to that team. If the same account joins again later, the new membership
+is a new authorization generation: access tokens issued before that membership
+was created are rejected. An old OAuth grant must never become valid again
+merely because the email/account was re-invited. This may be enforced with the
+verified token issuance time plus membership creation time, or an equivalent
+immutable membership-generation claim.
+
 An OAuth token carrying a team claim is permanently bound to that team for its
 lifetime. If the claim is missing, invalid, or no longer names a team the
 account belongs to, a team-scoped request fails. It must never fall back to the
@@ -202,6 +210,11 @@ The catalog is defined in shared, typed code and persisted as stable string
 identifiers. Unknown permissions are rejected on writes. Permission checks
 must use constants rather than repeated string literals.
 
+`@frontlit/api-contract` owns the identifiers, `TeamPermission` type, Zod
+schema, implication metadata, and API shapes needed by the API and dashboard.
+The server-only operation policy stays in `apps/api`; transport or UI packages
+must not become authorization decision points.
+
 The initial catalog is:
 
 | Area       | Permissions                                              | Grants                                                                                                                    |
@@ -216,13 +229,13 @@ The initial catalog is:
 | Changelog  | `changelogs:read`, `changelogs:write`                    | View entries; create, edit, publish, import, and delete entries and manage the GitHub changelog integration.              |
 | Contacts   | `contacts:read`, `contacts:write`                        | View contacts; update tags and delete contacts.                                                                           |
 | Segments   | `segments:read`, `segments:write`                        | View segments; create, edit, and delete segments.                                                                         |
-| Broadcasts | `broadcasts:read`, `broadcasts:write`, `broadcasts:send` | View broadcasts and statistics; create/edit broadcasts; send a broadcast.                                                 |
+| Broadcasts | `broadcasts:read`, `broadcasts:write`, `broadcasts:send` | View broadcasts, statistics, and newsletter templates; create/edit broadcasts and templates; send a broadcast.            |
 | ESP        | `esp:read`, `esp:write`                                  | View ESP configuration metadata; configure, test, or remove the provider. Secrets remain write-only.                      |
 | Chatbot    | `chatbot:read`, `chatbot:write`                          | View or edit chatbot settings.                                                                                            |
 | Help desk  | `helpdesk:read`, `helpdesk:write`                        | View tickets; create, reply, assign, and change status.                                                                   |
 | Domains    | `domains:read`, `domains:write`                          | View domain state; claim a subdomain and attach, verify, or remove a custom domain.                                       |
 | AI         | `ai:read`, `ai:write`                                    | View AI provider/model metadata; configure or remove AI credentials and models.                                           |
-| Settings   | `settings:read`, `settings:write`                        | View or update ordinary team/site settings. Arbitrary code injection remains owner-only.                                  |
+| Settings   | `settings:read`, `settings:write`                        | View or update ordinary site and newsletter settings. Arbitrary code injection remains owner-only.                        |
 
 The database stores the permissions selected directly for a member. A shared,
 pure function computes the effective closure: write implies the corresponding
@@ -232,12 +245,17 @@ small and makes implication changes central instead of rewriting every
 membership. All authorization and delegation comparisons use the effective
 closure, never the raw array.
 
+Submitted grants are validated, deduplicated, and stored in catalog order so
+equality checks and audit diffs are deterministic. An empty grant set is valid;
+membership alone lets the account list/select the team but no protected product
+operation is implicitly allowed.
+
 These implication rules are conveniences inside the human permission model.
 They do not imply or mint OAuth scopes.
 
 ### 8.1 Permission presets
 
-The initial dashboard may offer these presets:
+The initial dashboard offers these presets:
 
 | Preset          | Contents                                                                                                                                      |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -253,19 +271,45 @@ stored on `team_members`, or checked by server code.
 
 ## 9. Authorization model
 
+The runtime path stays deliberately small:
+
+```text
+authenticate
+  -> resolve one account/team/API-key principal
+  -> load one indexed membership when the principal is human
+  -> evaluate one static operation policy
+  -> run the existing team-scoped handler
+```
+
+There is no role lookup, policy service, permission join per action, or copy of
+permissions inside OAuth state. Product query functions continue to enforce
+the resource's `teamId`; the policy check does not replace tenant-scoped data
+access.
+
 ### 9.1 Central policy registry
 
 The API must have one typed policy registry mapping an application operation to
 its authorization requirements:
 
 ```ts
-type OperationPolicy = {
-    tenant: "account" | "team";
-    memberPermission?: TeamPermission;
-    ownerOnly?: boolean;
+type TeamOperationPolicy = {
+    tenant: "team";
+    human:
+        | { kind: "permission"; permission: TeamPermission }
+        | { kind: "owner" }
+        | { kind: "member" };
     oauthScope: OAuthScope | "unsupported";
     apiKeyAccess: "allow" | "deny";
 };
+
+type AccountOperationPolicy = {
+    tenant: "account";
+    human: { kind: "authenticated" };
+    oauthScope: OAuthScope | "unsupported";
+    apiKeyAccess: "deny";
+};
+
+type OperationPolicy = TeamOperationPolicy | AccountOperationPolicy;
 ```
 
 The exact implementation may differ, but the policy must be able to express
@@ -273,12 +317,13 @@ that membership permissions and OAuth scopes are different inputs. Reusing the
 same string for a permission and scope is allowed where their semantics align;
 it is a naming convenience, not shared state.
 
-For team operations, exactly one of `memberPermission` or `ownerOnly` is
-required. `oauthScope: "unsupported"` denies OAuth rather than accidentally
-treating a missing mapping as unrestricted. API-key access is similarly
-explicit. Account-level operations do not consult a team membership. Public,
-provisioning, health, and OAuth-protocol endpoints remain outside this registry
-and keep their existing dedicated boundaries.
+The discriminated union makes an ambiguous team policy with both or neither a
+permission and owner requirement unrepresentable. `oauthScope: "unsupported"`
+denies OAuth rather than accidentally treating a missing mapping as
+unrestricted. API-key access is similarly explicit. Account-level operations
+do not consult a team membership. Public, provisioning, health, and
+OAuth-protocol endpoints remain outside this registry and keep their existing
+dedicated boundaries.
 
 Examples:
 
@@ -298,6 +343,13 @@ For example, ordinary settings updates and code-injection updates may share an
 HTTP handler, but the handler must select the stricter policy from the parsed
 body before performing any mutation. A generic `settings:update` check must not
 authorize owner-only fields.
+
+Protected REST handlers are registered through an authorization wrapper that
+requires an operation key; MCP tools retain their equivalent registry wrapper.
+Route-level authentication alone is never considered authorization. A coverage
+test compares the protected REST contract and MCP tool catalog with their
+policy registries so a new operation cannot be mounted as an unclassified
+member-allowed handler.
 
 ### 9.2 Request authorization context
 
@@ -324,6 +376,12 @@ performance model. Authorization must not issue a query per permission or per
 resource field. A cross-request cache may be introduced only with an explicit,
 tested revocation strategy.
 
+`GET /teams` is intentionally membership-aware. In addition to ordinary team
+metadata, each returned item contains `isOwner` and `effectivePermissions` for
+the authenticated account. This is a display capability snapshot, not a source
+of authorization: mutations and data reads always re-load and authorize the
+current membership on the API.
+
 ### 9.3 Authentication-specific behavior
 
 #### Browser session
@@ -340,6 +398,8 @@ tested revocation strategy.
 - Applies the intersection to REST and MCP, not MCP alone.
 - A removed member must lose team access immediately even if an access or
   refresh token remains otherwise valid.
+- Membership removal revokes team-bound refresh/consent records, and tokens
+  from an earlier membership generation stay invalid after re-invitation.
 - A team-bound token whose membership check fails is rejected; ordinary team
   selection and sole-team fallback are not run for it.
 - The access token must remain valid for the endpoint's configured resource
@@ -362,6 +422,10 @@ checks remain mandatory.
 - OAuth additionally requires the existing matching API-key scope; API-key
   authentication itself cannot manage API keys.
 - UI copy must clearly state that each created key has full-team authority.
+- Keys belong to the team, not the person who created them. Membership removal
+  or ownership transfer therefore does not silently revoke keys and break
+  integrations. Those flows must show existing key metadata to the owner and
+  offer an explicit revoke-all option for secure offboarding.
 
 ### 9.4 HTTP behavior
 
@@ -384,6 +448,7 @@ Add the following to `team_members`:
 ```text
 member_id   public tmem_... identifier, unique
 permissions text[] not null default '{}'
+version     integer not null default 1
 updated_at timestamp not null
 ```
 
@@ -392,8 +457,9 @@ union. The database remains uniquely indexed by `(team_id, account_id)`.
 External contracts use `member_id`; internal membership and account primary
 keys must not be exposed.
 
-`team_members.role` may remain temporarily during rollout, but it must not be
-the source of authorization decisions. In the target schema it is removed.
+`team_members.role` remains temporarily for compatibility, but it is not the
+source of authorization decisions. It will be removed only after remaining
+legacy readers have been retired and production data has been verified.
 Ownership is derived exclusively from `teams.ownerAccountId`. All existing
 owner lookups, including ticket notification and code-injection checks, must be
 migrated away from `team_members.role` before the column is removed.
@@ -413,19 +479,24 @@ invitation_id            public tinv_... identifier
 team_id                  internal team foreign key, cascade on team delete
 email                    normalized email
 permissions              typed text array
-invited_by_account_id    inviter account foreign key
+invited_by_account_id    nullable inviter account foreign key, set null on account deletion
 token_hash               unique hash; raw token is never stored
+status                    pending | accepted | rejected | revoked | expired
 expires_at               timestamp
 accepted_at              nullable timestamp
+rejected_at              nullable timestamp
 revoked_at               nullable timestamp
 created_at               timestamp
 updated_at               timestamp
 ```
 
-There may be at most one active invitation per normalized `(team_id, email)`.
-Invitations expire after seven days. Resending an active invitation rotates
+There may be at most one `pending` invitation per normalized
+`(team_id, email)`, enforced by a partial unique index. Invitations expire after
+seven days. Creating/resending first transitions an expired pending row to
+`expired` in the same transaction. Resending a still-pending invitation rotates
 the token, resets expiry, updates the proposed permissions after authorization,
-and invalidates the previous link.
+and invalidates the previous link. State transitions use a conditional update
+from `pending` so only one concurrent terminal action can win.
 
 Index invitations for `(team_id, created_at)`, active `(team_id, email)`, and
 expiry cleanup. Member and invitation list endpoints use cursor pagination with
@@ -434,12 +505,16 @@ roster into memory.
 
 Invitation tokens must be generated from at least 256 bits of cryptographically
 secure randomness, stored only as a one-way hash, redacted from logs, and
-returned only to the email-delivery boundary.
+returned only to the email-delivery boundary. Hash comparison is constant-time.
 
 Permission identifiers are stable API data. Before an identifier is removed or
 renamed, a data migration must rewrite existing memberships and invitations.
 Deploying code that merely stops recognizing a persisted permission is not an
 acceptable migration strategy.
+
+Changing an implication can expand every existing member who holds its source
+permission. Such changes require the same security review, release note, and
+migration analysis as adding a new permission; they are not ordinary refactors.
 
 ### 10.3 Authorization audit events
 
@@ -455,9 +530,16 @@ Each event records the team, actor account when present, target account or
 email when applicable, timestamp, and structured metadata. Raw invitation
 tokens, API keys, OTPs, and other secrets must never be recorded.
 
-Audit persistence may use a dedicated append-only table or FrontLit's eventual
-general audit-log facility. Security-relevant structured application logs are
-still required even if a durable audit UI is deferred.
+Persist events in an append-only `authorization_audit_events` table with an
+internal ID, event type, team public-ID snapshot, nullable actor account ID,
+target member public ID or normalized invitation email when applicable,
+before/after permission arrays when applicable, JSON metadata, `createdAt`, and
+`expiresAt`. Actor foreign keys use `ON DELETE SET NULL`; the team public-ID
+snapshot is retained after team deletion. Event insertion is part of the same
+transaction as the security mutation. Index `(team_public_id, created_at)` and
+`expires_at`; a bounded cleanup job deletes expired rows. There is no update
+path or dashboard audit-log UI in this release. Structured application logs
+remain required for operational diagnosis.
 
 ## 11. Invitation lifecycle
 
@@ -468,7 +550,8 @@ still required even if a durable audit UI is deferred.
 3. The API verifies every proposed permission is within the inviter's
    effective permission set.
 4. If the email already belongs to a team member, the API returns a conflict.
-5. The API creates or rotates an active invitation and sends the link.
+5. The API creates or rotates an active invitation, records the current actor
+   as its inviter, and sends the link.
 6. The response exposes invitation metadata but never the raw token.
 
 Owners may invite with any non-owner permission. An invitation cannot confer
@@ -483,11 +566,14 @@ dedicated owner flow.
 3. The API verifies the token hash, expiry, and unused/unrevoked state.
 4. The API locks or atomically claims the invitation so a resend, revocation,
    permission change, and acceptance cannot race.
-5. In the same transaction, the API creates the membership with the
+5. In the same transaction, the API revalidates that the current inviter is
+   still an owner or still has `members:invite` and may delegate every proposed
+   permission. If not, it revokes the stale invitation instead of granting it.
+6. The API creates the membership with the
    invitation's current permissions and marks the invitation accepted.
-6. Acceptance is idempotent for the resulting account and team. It must never
+7. Acceptance is idempotent for the resulting account and team. It must never
    overwrite permissions on a membership that already existed independently.
-7. The selected-team experience takes the new member into that team.
+8. The selected-team experience takes the new member into that team.
 
 The system must not create an accepted membership before the invitation is
 accepted. An existing bare `accounts` row may be linked during normal sign-in,
@@ -546,8 +632,8 @@ even if the dashboard does not link to it.
   membership, permissions, and owner status are rechecked inside that
   transaction so concurrent revocation cannot authorize the mutation.
 - Concurrent edits must not silently overwrite one another. The endpoint uses
-  `updatedAt` or an equivalent version precondition and returns `409` when the
-  membership changed since it was loaded.
+  the submitted membership `version`, increments it with a conditional update,
+  and returns `409` when the membership changed since it was loaded.
 - The owner cannot be edited through this endpoint.
 - Members cannot edit their own permissions.
 
@@ -560,6 +646,9 @@ even if the dashboard does not link to it.
 - The owner must transfer ownership before leaving.
 - Removing or leaving deletes the membership and immediately prevents browser
   and OAuth access to the team.
+- Removal or leaving revokes the account's OAuth consent/refresh-token families
+  whose team reference matches this team. Team deletion performs the same
+  cleanup for every member.
 - Resources created by the departing member remain owned by the team. Any
   fields requiring a valid assignee, such as ticket assignment, must be
   cleared or reassigned transactionally.
@@ -579,14 +668,17 @@ The transfer occurs in one transaction:
 4. give the former owner an explicit full non-owner permission set so they do
    not unexpectedly lose workspace access;
 5. update any transitional legacy owner/member fields; and
-6. append the audit event.
+6. if the owner selected secure offboarding, revoke all existing team API keys;
+   and
+7. append the audit event.
 
 At no observable point may a team have zero or two owners.
 
-Ownership transfer and owner-initiated team deletion are first-party browser
-session operations. They require CSRF/origin protection, recent authentication,
-and an explicit confirmation containing the team name. OAuth clients and API
-keys cannot perform ownership transfer.
+Ownership transfer is a first-party browser-session operation. It requires
+CSRF/origin protection, recent authentication, and an explicit confirmation.
+OAuth clients and API keys cannot transfer ownership. Browser-initiated team
+deletion receives the same protections; FrontLit's existing explicitly scoped
+OAuth deletion path remains available to the current owner.
 
 ## 13. API requirements
 
@@ -605,6 +697,7 @@ POST   /teams/:teamId/invitations
 POST   /teams/:teamId/invitations/:invitationId/resend
 DELETE /teams/:teamId/invitations/:invitationId
 
+POST   /team-invitations/preview
 POST   /team-invitations/accept
 POST   /team-invitations/reject
 ```
@@ -617,6 +710,10 @@ Requirements:
   OAuth scope before membership-management scopes are designed.
 - Accept/reject endpoints require a browser session but do not require existing
   membership in the invited team.
+- Preview also requires a browser session and matching account email. It
+  accepts the secret in the request body and returns only the team name,
+  inviter display name, expiry, and proposed permission set needed for the
+  confirmation screen.
 - Existing team operations such as list, create, rename, and API-key management
   retain their supported session/OAuth boundaries and use the central policy.
 - Invitation secrets are submitted in request bodies, not exposed in response
@@ -647,6 +744,15 @@ Add a **Members** area to team settings with:
 The UI filters the selectable permission set to permissions the acting member
 may delegate. The server repeats every check.
 
+The workspace shell also consumes the `GET /teams` capability snapshot. It
+hides product areas that the selected member cannot read, including empty
+navigation groups. A direct, bookmarked, or stale link to an inaccessible
+team-scoped area redirects to the first permitted workspace area; if the team
+has no permitted product area, it redirects to **Account**. Switching teams
+keeps the current route only when it is permitted in the destination team and
+otherwise uses that same safe landing route. These are UX protections only;
+the API remains the enforcement point.
+
 Invitation links must preserve the token through sign-in without exposing it
 to third-party analytics, referrer headers, or application logs. After
 acceptance, the token is removed from browser-visible URLs.
@@ -672,17 +778,19 @@ exposing SMTP details.
 
 ## 16. Migration and rollout
 
-### Phase 1: Permission foundation
+### Phase 1: Permission foundation — delivered
 
 - Introduce the typed catalog, permission implications, central policy, and
   authorization context.
-- Add public `memberId`, `permissions`, and `updatedAt` fields to
+- Add public `memberId`, `permissions`, `version`, and `updatedAt` fields to
   `team_members`.
 - Treat `teams.ownerAccountId` as canonical owner.
 - Change owner-account deletion from cascade to restrict/no-action.
 - Inventory every authenticated REST operation and MCP tool and assign a
   policy before enabling invitations.
 - Enforce permissions for session and OAuth callers.
+- Return `isOwner` and `effectivePermissions` from `GET /teams` for
+  permission-aware dashboard navigation and controls.
 
 For existing data:
 
@@ -694,7 +802,7 @@ For existing data:
 - the migration reports unexpected missing/duplicate owner relationships
   rather than guessing how to repair them.
 
-### Phase 2: Membership lifecycle
+### Phase 2: Membership lifecycle — delivered
 
 - Add invitations and acceptance.
 - Add member listing, permission editing, leaving, removal, and ownership
@@ -702,7 +810,7 @@ For existing data:
 - Add email delivery and dashboard surfaces.
 - Add structured audit events.
 
-### Phase 3: Cleanup
+### Phase 3: Cleanup — remaining follow-up
 
 - Remove authorization checks against `team_members.role`.
 - Remove the legacy role column after production data and code are verified.
@@ -711,6 +819,17 @@ For existing data:
 
 Invitations must remain disabled until Phase 1 enforcement and its policy
 coverage tests are deployed.
+
+### Authentication-schema follow-up — delivered
+
+Sensitive browser actions (team deletion and ownership transfer) require a
+fresh email-OTP verification. Better Auth records session creation separately
+from that verification, so migration `0013_session_reauthentication` adds
+`auth_session.reauthenticated_at`. The timestamp is set only on the current
+session after successful re-verification; session creation time is never
+rewritten. This migration is deliberately separate from
+`0012_team_memberships`: previously applied migrations are immutable and must
+never be edited to repair an already-deployed database.
 
 ## 17. Security and privacy requirements
 
@@ -737,7 +856,8 @@ coverage tests are deployed.
 - State-changing browser endpoints enforce FrontLit's same-site cookie policy
   plus an Origin/CSRF check. Ownership transfer and team deletion additionally
   require authentication completed within the preceding ten minutes; otherwise
-  the user completes a new OTP/social-provider authentication step.
+  the user completes a fresh verification with FrontLit's existing email-OTP
+  mechanism.
 - Owner-only code injection remains owner-only for human requests.
 - Full-team API-key listing, creation, and revocation remain owner-only until
   scoped keys exist.
@@ -767,7 +887,8 @@ permission presets selected at invitation time.
 
 - Owner receives every human permission without a stored permission list.
 - Members receive only their stored permissions plus documented implications.
-- Unknown permissions and invalid implication combinations are rejected.
+- Unknown persisted or submitted permissions are rejected, and effective
+  permission closure is deterministic.
 - A non-owner cannot grant, revoke, or manage beyond their authority.
 - A non-owner manager cannot alter or remove a member whose current effective
   permission set exceeds their own.
@@ -790,6 +911,8 @@ permission presets selected at invitation time.
   an already-issued OAuth token.
 - A team-bound OAuth token never falls back to a different sole team after its
   claimed membership is removed.
+- Removing and later recreating a membership does not revive access or refresh
+  tokens from the earlier membership generation.
 - REST and MCP reject tokens with the wrong resource audience even when scopes
   match.
 - Cross-team resource and membership operations fail without leaking data.
@@ -801,6 +924,8 @@ permission presets selected at invitation time.
 - Resend rotates the token and invalidates the previous token.
 - Expired, rejected, accepted, and revoked tokens cannot be reused.
 - The accepting account email must match the invitation.
+- Acceptance rejects an invitation whose inviter no longer has authority to
+  delegate its proposed permissions.
 - Concurrent acceptance creates one membership.
 - Concurrent permission edits return a conflict rather than losing an update.
 - Concurrent permission revocation and a membership mutation cannot let the
@@ -864,3 +989,33 @@ unresolved product behavior:
    choose a preset or Custom, preventing accidental full access.
 6. Membership-management and ownership-transfer endpoints are session-only.
    OAuth support requires dedicated scopes and is a separate feature.
+
+## 22. Implementation record
+
+The first release is implemented with the following operational details. This
+section records the deployed behavior where it is more specific than the PRD.
+
+1. `GET /teams` returns only accepted memberships and includes the viewer's
+   `isOwner` flag and effective (implication-expanded) permissions. The web
+   dashboard refreshes this snapshot after team changes.
+2. Permission implications are computed from the shared catalog. For example,
+   a `:write` grant includes its matching `:read` grant, `broadcasts:send`
+   includes broadcast read/write, and invitation/management grants include
+   member read. Owners receive the complete current catalog implicitly.
+3. The API uses a fail-closed REST-operation registry and equivalent MCP
+   checks. OAuth callers must satisfy both the current human permission and
+   the token scope. API keys retain their existing full-team authority only
+   for operations explicitly marked API-key compatible; managing keys remains
+   owner-only and user-authenticated.
+4. Invitations have a seven-day lifetime, a hashed fragment-held secret,
+   cursor-paginated roster/invitation lists, and bounded in-process hourly
+   maintenance for invitation expiry and expired audit-event cleanup. The
+   authorization audit retention defaults to 180 days and can be configured
+   with `AUTHZ_AUDIT_RETENTION_DAYS`.
+5. Membership and invitation management are browser-session operations.
+   `preview`, `accept`, and `reject` require the invited account's matching
+   email but do not require prior membership in that team. Members may leave;
+   owners must transfer ownership first.
+6. The legacy `team_members.role` column is still written for compatibility,
+   but no authorization decision may depend on it. `teams.ownerAccountId` is
+   the only ownership authority.

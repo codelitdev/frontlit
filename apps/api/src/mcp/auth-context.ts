@@ -7,6 +7,9 @@ export type FrontLitMcpAuthExtra = {
     authKind: "oauth" | "api_key";
     teamId: string;
     account: McpAccount | null;
+    isOwner?: boolean;
+    permissions?: string[];
+    membershipId?: string;
 };
 
 export type FrontLitMcpAuthInfo = AuthInfo & {
@@ -29,7 +32,15 @@ export function createFrontLitMcpAuthInfo(
     if (!input || typeof input !== "object") return null;
     const req = input as McpAuthRequest;
     const teamId = typeof req.teamId === "string" ? req.teamId : null;
-    if (!teamId) return null;
+    const authz = (
+        req as {
+            authz?: {
+                isOwner?: boolean;
+                permissions?: string[];
+                membershipId?: string;
+            };
+        }
+    ).authz;
 
     if (req.authKind === "oauth") {
         if (
@@ -48,15 +59,19 @@ export function createFrontLitMcpAuthInfo(
                 : [],
             extra: {
                 authKind: "oauth",
-                teamId,
+                teamId: teamId ?? "",
                 account: req.account
                     ? { id: req.account.id, email: req.account.email }
                     : null,
+                isOwner: authz?.isOwner,
+                permissions: authz?.permissions,
+                membershipId: authz?.membershipId,
             },
         };
     }
 
     if (req.authKind === "apikey" && typeof req.apiKeyId === "string") {
+        if (!teamId) return null;
         return {
             // The SDK requires a token field for AuthInfo pass-through. Use a
             // stable key identifier, never the submitted API-key secret.

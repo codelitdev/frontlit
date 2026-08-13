@@ -21,12 +21,14 @@ export function DeleteConfirm({
     onConfirm,
     disabled,
     trigger,
+    confirmLabel = "Delete",
 }: {
     title?: string;
     description: string;
     onConfirm: () => void | Promise<void>;
     disabled?: boolean;
     trigger?: React.ReactNode;
+    confirmLabel?: string;
 }) {
     const [open, setOpen] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -72,7 +74,7 @@ export function DeleteConfirm({
                         disabled={busy}
                         variant="destructive"
                     >
-                        {busy ? "Deleting…" : "Delete"}
+                        {busy ? `${confirmLabel}…` : confirmLabel}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

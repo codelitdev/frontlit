@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/client";
-import { accounts, authUser } from "../db/schema";
+import { accounts, authUser, teams } from "../db/schema";
 import { createTeam, listTeamsForAccount } from "../team/queries";
 
 export type Account = typeof accounts.$inferSelect;
@@ -92,6 +92,20 @@ export async function ensureFrontLitAccountForUser(user: {
     return createAccount(user.email, user.name || undefined, {
         authUserId: user.id,
     });
+}
+
+export async function deleteAccount(accountId: string): Promise<void> {
+    const owned = await db.query.teams.findFirst({
+        where: eq(teams.ownerAccountId, accountId),
+    });
+    if (owned) {
+        const { MembershipError } = await import("../team/membership.js");
+        throw new MembershipError(
+            "owns_teams",
+            "Transfer or delete owned teams before deleting this account",
+        );
+    }
+    await db.delete(accounts).where(eq(accounts.id, accountId));
 }
 
 export async function ensureFrontLitAccountForBetterAuthUserId(

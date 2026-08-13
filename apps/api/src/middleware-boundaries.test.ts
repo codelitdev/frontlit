@@ -21,6 +21,12 @@ vi.mock("./auth/require-team", () => ({
     },
 }));
 vi.mock("./db/client", () => ({ db: {} }));
+vi.mock("./auth/better-auth", () => ({
+    authBaseUrl: "http://localhost:4000",
+    mcpResourceUrl: "http://localhost:4000/mcp",
+    webClientUrl: "http://localhost:3000",
+    auth: {},
+}));
 
 import pagesRoutes from "./pages/routes";
 import themesRoutes from "./themes/routes";

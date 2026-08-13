@@ -2,7 +2,7 @@ import { and, count, desc, eq, ilike, or } from "drizzle-orm";
 import { db } from "../db/client";
 import {
     accounts,
-    teamMembers,
+    teams,
     ticketMessages,
     tickets,
     type TicketSource,
@@ -215,11 +215,9 @@ export async function getTicketNotificationRecipient(
 
     const [row] = await db
         .select({ email: accounts.email })
-        .from(teamMembers)
-        .innerJoin(accounts, eq(teamMembers.accountId, accounts.id))
-        .where(
-            and(eq(teamMembers.teamId, teamId), eq(teamMembers.role, "owner")),
-        )
+        .from(teams)
+        .innerJoin(accounts, eq(teams.ownerAccountId, accounts.id))
+        .where(eq(teams.id, teamId))
         .limit(1);
     return row?.email ?? null;
 }

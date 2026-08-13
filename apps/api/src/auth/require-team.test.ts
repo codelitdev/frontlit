@@ -7,7 +7,16 @@ const mocks = vi.hoisted(() => ({
     listTeamsForAccount: vi.fn(),
 }));
 
-vi.mock("../team/queries", () => mocks);
+vi.mock("../team/queries", () => ({
+    ...mocks,
+    findTeamById: vi.fn(async (id: string) => ({
+        id,
+        ownerAccountId: "account-1",
+    })),
+}));
+vi.mock("./authorize", () => ({
+    loadTeamAuthz: vi.fn(async () => ({})),
+}));
 
 function response() {
     return {
@@ -28,11 +37,34 @@ describe("requireTeam", () => {
     it("passes through fixed API-key and OAuth-claim teams", async () => {
         const next = vi.fn();
         await requireTeam(
-            { teamId: "team-internal-1", headers: {} } as any,
+            {
+                teamId: "team-internal-1",
+                authKind: "apikey",
+                headers: {},
+            } as any,
             response() as any,
             next,
         );
         expect(next).toHaveBeenCalledOnce();
+        expect(mocks.listTeamsForAccount).not.toHaveBeenCalled();
+    });
+
+    it("does not fall back to header or sole-team for a bound OAuth token", async () => {
+        const res = response();
+        await requireTeam(
+            {
+                authKind: "oauth",
+                accountId: "account-1",
+                oauthTeamInvalid: true,
+                headers: { "x-frontlit-team-id": "team_public_1" },
+            } as any,
+            res as any,
+            vi.fn(),
+        );
+        expect(res.status).toHaveBeenCalledWith(403);
+        expect(res.json).toHaveBeenCalledWith(
+            expect.objectContaining({ error: "not_a_team_member" }),
+        );
         expect(mocks.listTeamsForAccount).not.toHaveBeenCalled();
     });
 

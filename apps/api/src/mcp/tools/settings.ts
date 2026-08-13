@@ -2,14 +2,8 @@ import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
 import { teamSettingsSchema } from "@frontlit/api-contract";
 import { getTeamSettings, updateTeamSettings } from "../../settings/queries";
-import { getTeamMembership } from "../../team/queries";
-import {
-    AUTH_ERROR,
-    INTERNAL_ERROR,
-    errorResult,
-    jsonResult,
-} from "./responses";
-import { getAuthAccount, getTeamId } from "./auth";
+import { AUTH_ERROR, INTERNAL_ERROR, jsonResult } from "./responses";
+import { getTeamId } from "./auth";
 import { omitInternal, serializeDates } from "../../utils/public";
 
 function toPublicSettings<T extends Record<string, unknown>>(settings: T) {
@@ -66,20 +60,6 @@ export function registerSettingsTools(server: McpToolRegistrar): void {
             const teamId = getTeamId(extra);
             if (!teamId) return AUTH_ERROR;
             try {
-                const editsInjection =
-                    args.codeInjectionHead !== undefined ||
-                    args.codeInjectionBody !== undefined;
-                const account = getAuthAccount(extra);
-                if (editsInjection && account) {
-                    const membership = await getTeamMembership(
-                        teamId,
-                        account.id,
-                    );
-                    if (membership?.role !== "owner")
-                        return errorResult(
-                            "Only the team owner can edit code injection",
-                        );
-                }
                 return jsonResult(
                     toPublicSettings(await updateTeamSettings(teamId, args)),
                 );

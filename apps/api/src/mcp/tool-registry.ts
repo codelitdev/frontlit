@@ -80,7 +80,13 @@ export function createMcpToolRegistrar(server: McpServer): McpToolRegistrar {
                 async (args, ctx) => {
                     const startedAt = performance.now();
                     const authKind = ctx.http?.authInfo?.extra?.authKind;
-                    const denied = authorizeMcpTool(name, ctx);
+                    const denied = authorizeMcpTool(
+                        name,
+                        ctx,
+                        hasDeclaredInput && args && typeof args === "object"
+                            ? (args as Record<string, unknown>)
+                            : undefined,
+                    );
                     if (denied) {
                         logger.warn(
                             {

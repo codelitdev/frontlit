@@ -80,7 +80,7 @@ export const teams = pgTable(
         name: text("name").notNull(),
         ownerAccountId: text("owner_account_id")
             .notNull()
-            .references(() => accounts.id, { onDelete: "cascade" }),
+            .references(() => accounts.id, { onDelete: "restrict" }),
         externalId: text("external_id").unique(),
         subdomain: text("subdomain").unique(),
         customDomain: text("custom_domain").unique(),
@@ -115,6 +115,10 @@ export const teamMembers = pgTable(
     "team_members",
     {
         id: text("id").primaryKey().$defaultFn(genId),
+        memberId: text("member_id")
+            .notNull()
+            .unique()
+            .$defaultFn(() => genPublicId("tmem")),
         teamId: text("team_id")
             .notNull()
             .references(() => teams.id, { onDelete: "cascade" }),
@@ -124,13 +128,116 @@ export const teamMembers = pgTable(
         role: text("role", { enum: ["owner", "member"] })
             .notNull()
             .default("member"),
+        permissions: text("permissions").array().notNull().default([]),
+        version: integer("version").notNull().default(1),
         createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
     },
     (table) => [
         uniqueIndex("team_members_team_account_idx").on(
             table.teamId,
             table.accountId,
         ),
+        publicIdCheck("member_id", "tmem"),
+    ],
+);
+
+export const invitationStatuses = [
+    "pending",
+    "accepted",
+    "rejected",
+    "revoked",
+    "expired",
+] as const;
+export type InvitationStatus = (typeof invitationStatuses)[number];
+
+export const teamInvitations = pgTable(
+    "team_invitations",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        invitationId: text("invitation_id")
+            .notNull()
+            .unique()
+            .$defaultFn(() => genPublicId("tinv")),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        email: text("email").notNull(),
+        permissions: text("permissions").array().notNull().default([]),
+        invitedByAccountId: text("invited_by_account_id").references(
+            () => accounts.id,
+            { onDelete: "set null" },
+        ),
+        tokenHash: text("token_hash").notNull().unique(),
+        status: text("status", { enum: invitationStatuses })
+            .notNull()
+            .default("pending"),
+        expiresAt: timestamp("expires_at").notNull(),
+        acceptedAt: timestamp("accepted_at"),
+        rejectedAt: timestamp("rejected_at"),
+        revokedAt: timestamp("revoked_at"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => [
+        publicIdCheck("invitation_id", "tinv"),
+        uniqueIndex("team_invitations_pending_team_email_idx")
+            .on(table.teamId, table.email)
+            .where(sql`${table.status} = 'pending'`),
+        index("team_invitations_team_created_idx").on(
+            table.teamId,
+            table.createdAt,
+        ),
+        index("team_invitations_team_email_idx").on(table.teamId, table.email),
+        index("team_invitations_expires_idx").on(table.expiresAt),
+    ],
+);
+
+export const authorizationAuditEventTypes = [
+    "invitation.created",
+    "invitation.resent",
+    "invitation.accepted",
+    "invitation.rejected",
+    "invitation.expired",
+    "invitation.revoked",
+    "member.permissions_changed",
+    "member.removed",
+    "member.left",
+    "ownership.transferred",
+    "api_key.created",
+    "api_key.revoked",
+] as const;
+export type AuthorizationAuditEventType =
+    (typeof authorizationAuditEventTypes)[number];
+
+export const authorizationAuditEvents = pgTable(
+    "authorization_audit_events",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        eventType: text("event_type", {
+            enum: authorizationAuditEventTypes,
+        }).notNull(),
+        teamPublicId: text("team_public_id").notNull(),
+        actorAccountId: text("actor_account_id").references(() => accounts.id, {
+            onDelete: "set null",
+        }),
+        targetMemberId: text("target_member_id"),
+        targetEmail: text("target_email"),
+        beforePermissions: text("before_permissions").array(),
+        afterPermissions: text("after_permissions").array(),
+        metadata: jsonb("metadata")
+            .$type<Record<string, unknown>>()
+            .notNull()
+            .default({}),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        expiresAt: timestamp("expires_at").notNull(),
+    },
+    (table) => [
+        index("authorization_audit_team_created_idx").on(
+            table.teamPublicId,
+            table.createdAt,
+        ),
+        index("authorization_audit_expires_idx").on(table.expiresAt),
     ],
 );
 

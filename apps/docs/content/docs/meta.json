@@ -3,6 +3,7 @@
     "pages": [
         "index",
         "getting-started",
+        "teams",
         "self-hosting",
         "page-builder",
         "developers",

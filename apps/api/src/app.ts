@@ -5,6 +5,7 @@ import { toNodeHandler } from "better-auth/node";
 import { logger } from "./services/log";
 import { auth } from "./auth/better-auth";
 import oauthPagesRoutes from "./auth/oauth-pages";
+import sessionReverifyRoutes from "./auth/session-reverify";
 import mcpRoutes from "./mcp/routes";
 import provisioningRoutes from "./provisioning/routes";
 import teamRoutes from "./team/routes";
@@ -82,6 +83,7 @@ export function createApp() {
     // unrelated route mounted later.
     app.use(provisioningRoutes);
     app.use(publicRoutes);
+    app.use(sessionReverifyRoutes);
 
     app.use(teamRoutes);
     app.use(pagesRoutes);

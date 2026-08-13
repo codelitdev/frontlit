@@ -3,6 +3,7 @@ import { createExpressEndpoints, initServer } from "@ts-rest/express";
 import { contract } from "@frontlit/api-contract";
 import { requireAuth } from "../auth/middleware";
 import { requireTeam } from "../auth/require-team";
+import { authorizeHandlers } from "../auth/authorize";
 import {
     createDocSection,
     deleteDocSection,
@@ -25,46 +26,67 @@ function toPublicSection<T extends Record<string, unknown>>(section: T) {
     return serializeDates(omitInternal(section, "teamId"));
 }
 
-const impl = s.router(contract.docSections, {
-    create: async ({ body, req }) => {
-        const section = await createDocSection({
-            teamId: (req as any).teamId,
-            ...body,
-        });
-        return { status: 201, body: toPublicSection(section) };
-    },
-    list: async ({ req }) => {
-        const items = await listDocSections((req as any).teamId);
-        return { status: 200, body: { items: items.map(toPublicSection) } };
-    },
-    update: async ({ params, body, req }) => {
-        const section = await updateDocSection(
-            (req as any).teamId,
-            params.sectionId,
-            body,
-        );
-        if (!section)
-            return { status: 404, body: { error: "Section not found" } };
-        return { status: 200, body: toPublicSection(section) };
-    },
-    remove: async ({ params, req }) => {
-        const result = await deleteDocSection(
-            (req as any).teamId,
-            params.sectionId,
-        );
-        if (!result.ok)
-            return { status: 404, body: { error: "Section not found" } };
-        return { status: 204, body: undefined };
-    },
-    search: async ({ query, req }) => {
-        const results = await searchChunks(
-            (req as any).teamId,
-            query.q,
-            query.k,
-        );
-        return { status: 200, body: { items: results } };
-    },
-});
+const impl = s.router(
+    contract.docSections,
+    authorizeHandlers(
+        {
+            create: async ({ body, req }) => {
+                const section = await createDocSection({
+                    teamId: (req as any).teamId,
+                    ...body,
+                });
+                return { status: 201, body: toPublicSection(section) };
+            },
+            list: async ({ req }) => {
+                const items = await listDocSections((req as any).teamId);
+                return {
+                    status: 200,
+                    body: { items: items.map(toPublicSection) },
+                };
+            },
+            update: async ({ params, body, req }) => {
+                const section = await updateDocSection(
+                    (req as any).teamId,
+                    params.sectionId,
+                    body,
+                );
+                if (!section)
+                    return {
+                        status: 404,
+                        body: { error: "Section not found" },
+                    };
+                return { status: 200, body: toPublicSection(section) };
+            },
+            remove: async ({ params, req }) => {
+                const result = await deleteDocSection(
+                    (req as any).teamId,
+                    params.sectionId,
+                );
+                if (!result.ok)
+                    return {
+                        status: 404,
+                        body: { error: "Section not found" },
+                    };
+                return { status: 204, body: undefined };
+            },
+            search: async ({ query, req }) => {
+                const results = await searchChunks(
+                    (req as any).teamId,
+                    query.q,
+                    query.k,
+                );
+                return { status: 200, body: { items: results } };
+            },
+        },
+        {
+            create: "docSections.create",
+            list: "docSections.list",
+            update: "docSections.update",
+            remove: "docSections.remove",
+            search: "docSections.search",
+        },
+    ),
+);
 
 createExpressEndpoints(contract.docSections, impl, router);
 

@@ -8,10 +8,10 @@ import { oauthProviderResourceClient } from "@better-auth/oauth-provider/resourc
 import { cimd } from "@better-auth/cimd";
 import { createOAuthProviderOptions } from "@codelitdev/oauth-server-kit/better-auth";
 import type { HostedLoginMethod } from "@codelitdev/oauth-server-kit/express";
-import { createTransport } from "nodemailer";
 import { db } from "../db/client";
 import * as schema from "../db/schema";
 import { logger } from "../services/log";
+import { MailNotConfiguredError, sendMail } from "../utils/mail";
 import { ensureFrontLitAccountForUser } from "../account/queries";
 import {
     createFrontLitOAuthTeamSelectionHooks,
@@ -22,7 +22,7 @@ import { fetchClientMetadataResource } from "./cimd-fetch";
 
 export const webClientUrl = process.env.WEB_CLIENT || "http://localhost:3000";
 const apiUrl = process.env.API_PUBLIC_URL || process.env.BETTER_AUTH_URL;
-const authBaseUrl = apiUrl || "http://localhost:4000";
+export const authBaseUrl = apiUrl || "http://localhost:4000";
 export const authBasePath = "/api/auth";
 
 /** Parent domain shared by `apps/web` and `apps/api` in production. When
@@ -73,32 +73,19 @@ const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
 async function sendOtpEmail(email: string, otp: string) {
-    if (process.env.NODE_ENV !== "production") {
-        logger.info({ email, otp }, "[Dev] Better Auth OTP generated");
-        return;
+    try {
+        await sendMail({
+            to: email,
+            subject: "Your FrontLit verification code",
+            text: `Enter this code to sign in to FrontLit: ${otp}`,
+            html: `<p>Enter this code to sign in to FrontLit:</p><h2>${otp}</h2>`,
+        });
+    } catch (error) {
+        // OTP issuance still succeeds locally / without SMTP; Better Auth
+        // would otherwise surface a 500 to the sign-in form.
+        if (error instanceof MailNotConfiguredError) return;
+        throw error;
     }
-
-    if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER) {
-        logger.error(
-            { email },
-            "Cannot send OTP email: SMTP is not configured",
-        );
-        return;
-    }
-
-    const transporter = createTransport({
-        host: process.env.EMAIL_HOST,
-        port: Number(process.env.EMAIL_PORT) || 587,
-        auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-    });
-
-    await transporter.sendMail({
-        from: process.env.EMAIL_FROM,
-        to: email,
-        subject: "Your FrontLit verification code",
-        text: `Enter this code to sign in to FrontLit: ${otp}`,
-        html: `<p>Enter this code to sign in to FrontLit:</p><h2>${otp}</h2>`,
-    });
 }
 
 export { oauthTeamSelectionAdapter };

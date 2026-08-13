@@ -6,6 +6,8 @@ import type { AuthResult } from "./resolve-auth.js";
 vi.mock("./better-auth", () => ({
     mcpProtectedResourceMetadataUrl:
         "https://frontlit.test/.well-known/oauth-protected-resource/mcp",
+    mcpResourceUrl: "https://frontlit.test/mcp",
+    authBaseUrl: "https://frontlit.test",
 }));
 
 import { createAuthMiddleware } from "./middleware.js";
@@ -88,6 +90,7 @@ describe("FrontLit auth middleware projection", () => {
             clientId: identity.clientId,
             scopes: identity.scopes,
             teamId: "team-1",
+            audiences: identity.audiences,
         });
         expect(response.status).toBe(200);
         await expect(response.json()).resolves.toMatchObject({

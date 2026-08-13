@@ -152,8 +152,12 @@ describe("FrontLit auth composition", () => {
             authenticateBearer: vi.fn(async () => ({
                 identity: oauthIdentity,
                 teamId: "team-internal-1",
+                issuedAt: new Date("2026-01-02T00:00:00.000Z"),
             })),
-            getTeamMembership: vi.fn(async () => ({ role: "owner" })),
+            getTeamMembership: vi.fn(async () => ({
+                role: "owner",
+                createdAt: new Date("2026-01-01T00:00:00.000Z"),
+            })),
         });
         await expect(
             resolveAuth({ authorization: "Bearer valid" }, deps),
@@ -176,6 +180,27 @@ describe("FrontLit auth composition", () => {
             kind: "oauth",
         });
         expect(revoked).toHaveProperty("teamId", undefined);
+        expect(revoked).toHaveProperty("oauthTeamInvalid", true);
+    });
+
+    it("fails closed for a team-bound token without membership generation evidence", async () => {
+        const deps = dependencies({
+            authenticateBearer: vi.fn(async () => ({
+                identity: oauthIdentity,
+                teamId: "team-internal-1",
+            })),
+            getTeamMembership: vi.fn(async () => ({
+                createdAt: new Date("2026-01-01T00:00:00.000Z"),
+            })),
+        });
+        await expect(
+            resolveAuth({ authorization: "Bearer missing-iat" }, deps),
+        ).resolves.toMatchObject({
+            status: "authenticated",
+            kind: "oauth",
+            teamId: undefined,
+            oauthTeamInvalid: true,
+        });
     });
 
     it("rejects OAuth subjects that cannot map to a FrontLit account", async () => {
@@ -217,6 +242,22 @@ describe("FrontLit auth composition", () => {
         await expect(
             resolveAuth({ headers: { cookie: "session=s" } }, deps),
         ).resolves.toEqual({ status: "unavailable" });
+    });
+
+    it("rejects a REST-audience token when the MCP resource is required", async () => {
+        mocks.verifyBearerToken.mockResolvedValueOnce({
+            sub: "auth-user-1",
+            azp: "mcp-client",
+            aud: "https://frontlit.test",
+            scope: "pages:read",
+        });
+        mocks.ensureAccountForBetterAuthUserId.mockResolvedValueOnce(account);
+
+        await expect(
+            resolveAuth({ authorization: "Bearer rest-aud" }, undefined, {
+                expectedAudience: "https://frontlit.test/mcp",
+            }),
+        ).resolves.toEqual({ status: "invalid_token" });
     });
 
     it("returns missing when no supported credential authenticates", async () => {

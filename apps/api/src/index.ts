@@ -7,6 +7,7 @@ import { createSuperAdminIfMissing } from "./bootstrap";
 import { createApp } from "./app";
 import { startOutboxWorker } from "./newsletter/worker";
 import { describeChatProvider } from "./ai/provider";
+import { startAuthorizationMaintenance } from "./team/maintenance";
 
 const app = createApp();
 const port = process.env.PORT || 4000;
@@ -20,6 +21,7 @@ checkConfig()
             logger.info(describeChatProvider());
         });
         startOutboxWorker();
+        startAuthorizationMaintenance();
     })
     .catch((err) => {
         logger.error({ error: err.message }, "Failed to start FrontLit API");

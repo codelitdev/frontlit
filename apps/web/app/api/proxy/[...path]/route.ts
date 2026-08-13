@@ -32,11 +32,15 @@ async function forward(
         ? undefined
         : req.cookies.get(TEAM_ID_COOKIE)?.value;
 
+    const origin = req.headers.get("origin") ?? req.nextUrl.origin;
+
     const upstream = await fetch(targetUrl, {
         method,
         headers: {
             ...(teamId ? { "X-Frontlit-Team-Id": teamId } : {}),
             ...(body ? { "Content-Type": "application/json" } : {}),
+            Origin: origin,
+            "X-Frontlit-Origin": origin,
             // Never relay the browser's own `X-Forwarded-For` verbatim: this
             // app is the trusted intermediary between the browser and the
             // API, so a client-supplied value here is unverified and would

@@ -31,6 +31,9 @@ export const authSession = pgTable(
         token: text("token").notNull().unique(),
         createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
         updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+        reauthenticatedAt: timestamp("reauthenticated_at", {
+            withTimezone: true,
+        }),
         ipAddress: text("ip_address"),
         userAgent: text("user_agent"),
         userId: text("user_id")

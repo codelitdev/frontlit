@@ -10,7 +10,12 @@ import {
     type ServerContext,
 } from "@modelcontextprotocol/server";
 import { buildMcpServer } from "./server";
-import { authorizeMcpTool, listMcpToolPolicies, MCP_SCOPES } from "./policy";
+import {
+    authorizeMcpTool,
+    isAccountOnlyMcpTool,
+    listMcpToolPolicies,
+    MCP_SCOPES,
+} from "./policy";
 import { jsonResult } from "./tools/responses";
 
 vi.mock("../db/client", () => ({ db: {}, pool: {} }));
@@ -132,12 +137,51 @@ describe("FrontLit MCP server", () => {
                         authKind: "oauth",
                         teamId: "team-1",
                         account: { id: "account-1" },
+                        isOwner: true,
                     },
                 },
             },
         } as unknown as ServerContext;
 
         expect(authorizeMcpTool("list_pages", oauthContext)).toBeNull();
+        const ownerTeamContext = {
+            ...oauthContext,
+            http: {
+                authInfo: {
+                    ...oauthContext.http!.authInfo!,
+                    scopes: [MCP_SCOPES.teamsWrite],
+                },
+            },
+        } as unknown as ServerContext;
+        expect(isAccountOnlyMcpTool("delete_team")).toBe(false);
+        expect(authorizeMcpTool("delete_team", ownerTeamContext)).toBeNull();
+        const restricted = {
+            mcpReq: {},
+            http: {
+                authInfo: {
+                    token: "oauth-token",
+                    clientId: "client-1",
+                    scopes: [MCP_SCOPES.pagesWrite],
+                    extra: {
+                        authKind: "oauth",
+                        teamId: "team-1",
+                        account: { id: "account-1" },
+                        isOwner: false,
+                        permissions: ["pages:read"],
+                    },
+                },
+            },
+        } as unknown as ServerContext;
+        expect(
+            authorizeMcpTool("create_page", restricted as any),
+        ).toMatchObject({
+            isError: true,
+            content: [
+                expect.objectContaining({
+                    text: expect.stringContaining("pages:write"),
+                }),
+            ],
+        });
         expect(authorizeMcpTool("send_broadcast", oauthContext)).toMatchObject({
             isError: true,
             content: [

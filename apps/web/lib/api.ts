@@ -3,11 +3,27 @@ import { contract, pageTypes } from "@frontlit/api-contract";
 import type { TextEditorContent } from "@frontlit/text-editor";
 import type { WidgetInstance } from "@frontlit/page-builder/models";
 import { ApiError } from "./api-client";
+import { clientLoginPath } from "./login-url";
 import {
     clearTeamIdCookie,
     isStaleTeamSelectionError,
     needsTeamSelection,
 } from "./tokens";
+
+function describeApiError(code: string): string {
+    switch (code) {
+        case "insufficient_permission":
+            return "You don't have permission to do that.";
+        case "owner_required":
+            return "Only the team owner can do that.";
+        case "recent_authentication_required":
+            return "Confirm your identity with a fresh email code to continue.";
+        case "not_a_team_member":
+            return "You are not a member of this team.";
+        default:
+            return code.replace(/_/g, " ");
+    }
+}
 
 /**
  * Typed client generated from `@frontlit/api-contract` — the same contract
@@ -39,12 +55,19 @@ async function unwrap<T>(
     }
 
     if (result.status === 401 && typeof window !== "undefined") {
-        window.location.href = "/login";
+        window.location.href = clientLoginPath(
+            `${window.location.pathname}${window.location.search}`,
+        );
         // Never resolves — the browser is navigating away.
         return new Promise<T>(() => {});
     }
 
-    const errorBody = result.body as { error?: string } | undefined;
+    const errorBody = result.body as
+        | {
+              error?: string;
+              error_description?: string;
+          }
+        | undefined;
     if (typeof window !== "undefined") {
         if (
             needsTeamSelection(result.status, errorBody?.error) &&
@@ -58,9 +81,11 @@ async function unwrap<T>(
         }
     }
 
+    const code = errorBody?.error || `request_failed`;
     throw new ApiError(
         result.status,
-        errorBody?.error || `Request failed (${result.status})`,
+        errorBody?.error_description || describeApiError(code),
+        code,
     );
 }
 
@@ -81,6 +106,11 @@ export interface Team {
     updatedAt?: string | null;
 }
 
+export interface TeamMembership extends Team {
+    isOwner: boolean;
+    effectivePermissions: TeamPermission[];
+}
+
 export interface ApiKey {
     id: string;
     keyPrefix: string;
@@ -95,17 +125,26 @@ export interface CreatedApiKey extends ApiKey {
 export function listTeams() {
     return client.teams.list().then((result) => {
         if (result.status >= 200 && result.status < 300) {
-            return result.body as { items: Team[] };
+            return result.body as { items: TeamMembership[] };
         }
 
         const errorBody = result.body as
-            | { error?: string; teams?: Pick<Team, "teamId" | "name">[] }
+            | {
+                  error?: string;
+                  teams?: Pick<Team, "teamId" | "name">[];
+              }
             | undefined;
         if (result.status === 409 && errorBody?.teams) {
-            return { items: errorBody.teams };
+            return {
+                items: errorBody.teams.map((team) => ({
+                    ...team,
+                    isOwner: false,
+                    effectivePermissions: [],
+                })),
+            };
         }
 
-        return unwrap<{ items: Team[] }>(Promise.resolve(result));
+        return unwrap<{ items: TeamMembership[] }>(Promise.resolve(result));
     });
 }
 
@@ -142,6 +181,134 @@ export function createTeamKey(teamId: string, name: string) {
 
 export function deleteTeamKey(teamId: string, keyId: string) {
     return unwrap<void>(client.teams.removeKey({ params: { teamId, keyId } }));
+}
+
+export type TeamPermission = import("@frontlit/api-contract").TeamPermission;
+
+export interface TeamMember {
+    memberId: string;
+    email: string;
+    name: string | null;
+    isOwner: boolean;
+    permissions: TeamPermission[];
+    effectivePermissions: TeamPermission[];
+    version: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface TeamInvitation {
+    invitationId: string;
+    email: string;
+    permissions: TeamPermission[];
+    effectivePermissions: TeamPermission[];
+    status: string;
+    invitedByName: string | null;
+    expiresAt: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface InvitationPreview {
+    invitationId: string;
+    teamName: string;
+    inviterName: string | null;
+    expiresAt: string;
+    permissions: TeamPermission[];
+    email: string;
+}
+
+export function listTeamMembers(
+    teamId: string,
+    query: { cursor?: string; limit?: number } = {},
+) {
+    return unwrap<{
+        items: TeamMember[];
+        nextCursor: string | null;
+        viewer: TeamMember;
+    }>(client.teams.listMembers({ params: { teamId }, query }));
+}
+
+export function updateTeamMember(
+    teamId: string,
+    memberId: string,
+    body: { permissions: TeamPermission[]; version: number },
+) {
+    return unwrap<TeamMember>(
+        client.teams.updateMember({ params: { teamId, memberId }, body }),
+    );
+}
+
+export function removeTeamMember(teamId: string, memberId: string) {
+    return unwrap<void>(
+        client.teams.removeMember({ params: { teamId, memberId } }),
+    );
+}
+
+export function leaveTeam(teamId: string) {
+    return unwrap<void>(client.teams.leave({ params: { teamId } } as any));
+}
+
+export function transferTeamOwnership(
+    teamId: string,
+    body: { memberId: string; revokeApiKeys?: boolean },
+) {
+    return unwrap<Team>(
+        client.teams.transferOwnership({ params: { teamId }, body }),
+    );
+}
+
+export function listTeamInvitations(
+    teamId: string,
+    query: { cursor?: string; limit?: number } = {},
+) {
+    return unwrap<{ items: TeamInvitation[]; nextCursor: string | null }>(
+        client.teams.listInvitations({ params: { teamId }, query }),
+    );
+}
+
+export function createTeamInvitation(
+    teamId: string,
+    body: { email: string; permissions: TeamPermission[] },
+) {
+    return unwrap<TeamInvitation>(
+        client.teams.createInvitation({ params: { teamId }, body }),
+    );
+}
+
+export function resendTeamInvitation(teamId: string, invitationId: string) {
+    return unwrap<TeamInvitation>(
+        client.teams.resendInvitation({
+            params: { teamId, invitationId },
+        } as any),
+    );
+}
+
+export function revokeTeamInvitation(teamId: string, invitationId: string) {
+    return unwrap<void>(
+        client.teams.revokeInvitation({ params: { teamId, invitationId } }),
+    );
+}
+
+export function previewTeamInvitation(body: {
+    invitationId: string;
+    token: string;
+}) {
+    return unwrap<InvitationPreview>(client.teamInvitations.preview({ body }));
+}
+
+export function acceptTeamInvitation(body: {
+    invitationId: string;
+    token: string;
+}) {
+    return unwrap<TeamMember>(client.teamInvitations.accept({ body }));
+}
+
+export function rejectTeamInvitation(body: {
+    invitationId: string;
+    token: string;
+}) {
+    return unwrap<void>(client.teamInvitations.reject({ body }));
 }
 
 // ---- Pages ------------------------------------------------------------

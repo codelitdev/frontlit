@@ -9,8 +9,21 @@ import {
     provisionTeamBodySchema,
     provisionTeamResponseSchema,
     renameTeamBodySchema,
+    teamMembershipSchema,
     teamSchema,
 } from "./schemas/teams";
+import {
+    createTeamInvitationBodySchema,
+    cursorPage,
+    invitationPreviewSchema,
+    invitationSecretBodySchema,
+    membershipListQuerySchema,
+    teamInvitationSchema,
+    teamMemberPageSchema,
+    teamMemberSchema,
+    transferOwnershipBodySchema,
+    updateTeamMemberBodySchema,
+} from "./schemas/memberships";
 import {
     createPageBodySchema,
     listPagesQuerySchema,
@@ -130,7 +143,7 @@ const teamsContract = c.router(
         list: {
             method: "GET",
             path: "/teams",
-            responses: { 200: itemsList(teamSchema) },
+            responses: { 200: itemsList(teamMembershipSchema) },
             summary: "List the teams the current account belongs to",
         },
         create: {
@@ -174,6 +187,147 @@ const teamsContract = c.router(
             path: "/teams/:teamId/keys/:keyId",
             responses: { 204: c.noBody(), 404: errorSchema },
             summary: "Revoke an API key by its id",
+        },
+        listMembers: {
+            method: "GET",
+            path: "/teams/:teamId/members",
+            query: membershipListQuerySchema,
+            responses: {
+                200: teamMemberPageSchema,
+                403: errorSchema,
+                404: errorSchema,
+            },
+            summary: "List accepted members of a team",
+        },
+        updateMember: {
+            method: "PATCH",
+            path: "/teams/:teamId/members/:memberId",
+            body: updateTeamMemberBodySchema,
+            responses: {
+                200: teamMemberSchema,
+                403: errorSchema,
+                404: errorSchema,
+                409: errorSchema,
+            },
+            summary: "Replace a member's permission set",
+        },
+        removeMember: {
+            method: "DELETE",
+            path: "/teams/:teamId/members/:memberId",
+            responses: {
+                204: c.noBody(),
+                403: errorSchema,
+                404: errorSchema,
+            },
+            summary: "Remove a non-owner member from a team",
+        },
+        leave: {
+            method: "POST",
+            path: "/teams/:teamId/members/leave",
+            body: c.noBody(),
+            responses: {
+                204: c.noBody(),
+                403: errorSchema,
+                404: errorSchema,
+            },
+            summary: "Leave a team (non-owners only)",
+        },
+        transferOwnership: {
+            method: "POST",
+            path: "/teams/:teamId/transfer-ownership",
+            body: transferOwnershipBodySchema,
+            responses: {
+                200: teamSchema,
+                403: errorSchema,
+                404: errorSchema,
+            },
+            summary: "Transfer team ownership to an accepted member",
+        },
+        listInvitations: {
+            method: "GET",
+            path: "/teams/:teamId/invitations",
+            query: membershipListQuerySchema,
+            responses: {
+                200: cursorPage(teamInvitationSchema),
+                403: errorSchema,
+                404: errorSchema,
+            },
+            summary: "List pending invitations for a team",
+        },
+        createInvitation: {
+            method: "POST",
+            path: "/teams/:teamId/invitations",
+            body: createTeamInvitationBodySchema,
+            responses: {
+                201: teamInvitationSchema,
+                403: errorSchema,
+                404: errorSchema,
+                409: errorSchema,
+                502: errorSchema,
+            },
+            summary: "Create or rotate a pending invitation",
+        },
+        resendInvitation: {
+            method: "POST",
+            path: "/teams/:teamId/invitations/:invitationId/resend",
+            body: c.noBody(),
+            responses: {
+                200: teamInvitationSchema,
+                403: errorSchema,
+                404: errorSchema,
+                502: errorSchema,
+            },
+            summary: "Rotate the token and resend a pending invitation",
+        },
+        revokeInvitation: {
+            method: "DELETE",
+            path: "/teams/:teamId/invitations/:invitationId",
+            responses: {
+                204: c.noBody(),
+                403: errorSchema,
+                404: errorSchema,
+            },
+            summary: "Revoke a pending invitation",
+        },
+    },
+    { metadata: { tag: "Teams" } },
+);
+
+const teamInvitationsContract = c.router(
+    {
+        preview: {
+            method: "POST",
+            path: "/team-invitations/preview",
+            body: invitationSecretBodySchema,
+            responses: {
+                200: invitationPreviewSchema,
+                403: errorSchema,
+                404: errorSchema,
+            },
+            summary: "Preview a team invitation for the signed-in account",
+        },
+        accept: {
+            method: "POST",
+            path: "/team-invitations/accept",
+            body: invitationSecretBodySchema,
+            responses: {
+                200: teamMemberSchema,
+                403: errorSchema,
+                404: errorSchema,
+                409: errorSchema,
+            },
+            summary: "Accept a team invitation",
+        },
+        reject: {
+            method: "POST",
+            path: "/team-invitations/reject",
+            body: invitationSecretBodySchema,
+            responses: {
+                204: c.noBody(),
+                403: errorSchema,
+                404: errorSchema,
+            },
+            summary: "Reject a team invitation",
         },
     },
     { metadata: { tag: "Teams" } },
@@ -1149,6 +1303,7 @@ const newsletterContract = c.router(
 
 export const contract = c.router({
     teams: teamsContract,
+    teamInvitations: teamInvitationsContract,
     provisioning: provisioningContract,
     pages: pagesContract,
     themes: themesContract,

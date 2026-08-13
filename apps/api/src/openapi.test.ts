@@ -50,6 +50,22 @@ describe("OpenAPI authentication", () => {
     });
 
     it("documents the SendLit-backed ESP management surface", () => {
+        expect(
+            openApiDocument.paths["/teams/{teamId}/members"]?.get,
+        ).toBeTruthy();
+        expect(
+            openApiDocument.paths["/team-invitations/accept"]?.post,
+        ).toBeTruthy();
+        expect(
+            JSON.stringify(openApiDocument.paths["/teams/{teamId}/members"]),
+        ).toContain("memberId");
+        expect(
+            JSON.stringify(openApiDocument.paths["/team-invitations/accept"]),
+        ).toContain("invitationId");
+        expect(
+            JSON.stringify(openApiDocument.paths["/teams/{teamId}/members"]),
+        ).not.toMatch(/"accountId"|"membershipId"/);
+
         expect(openApiDocument.paths["/settings/esp"]).toMatchObject({
             get: {
                 summary: "Get the team's default SendLit ESP configuration",

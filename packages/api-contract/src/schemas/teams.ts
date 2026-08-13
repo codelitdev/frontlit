@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { teamPermissionSchema } from "./permissions";
 
 export const teamSchema = z.object({
     teamId: z.string(),
@@ -7,6 +8,13 @@ export const teamSchema = z.object({
     externalId: z.string().nullable().optional(),
     createdAt: z.string().nullable().optional(),
     updatedAt: z.string().nullable().optional(),
+});
+
+/** A team as seen by one of its human members. Authorization context belongs
+ * on membership-aware list responses, not on the team record itself. */
+export const teamMembershipSchema = teamSchema.extend({
+    isOwner: z.boolean(),
+    effectivePermissions: z.array(teamPermissionSchema),
 });
 
 /** The key's secret is stored hashed and never returned after creation —

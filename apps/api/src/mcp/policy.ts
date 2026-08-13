@@ -1,4 +1,5 @@
 import type { ServerContext } from "@modelcontextprotocol/server";
+import type { TeamPermission } from "@frontlit/api-contract";
 import { errorResult } from "./tools/responses";
 
 export const MCP_SCOPES = {
@@ -150,11 +151,7 @@ const toolScopes = {
 
 export type McpToolName = keyof typeof toolScopes;
 
-const accountOnlyTools = new Set<McpToolName>([
-    "list_teams",
-    "create_team",
-    "delete_team",
-]);
+const accountOnlyTools = new Set<McpToolName>(["list_teams", "create_team"]);
 
 export const HIGH_IMPACT_MCP_TOOLS = new Set<McpToolName>([
     "delete_team",
@@ -178,14 +175,58 @@ export const HIGH_IMPACT_MCP_TOOLS = new Set<McpToolName>([
     "remove_custom_domain",
 ]);
 
+export type McpHumanRequirement =
+    | { kind: "permission"; permission: TeamPermission }
+    | { kind: "owner" }
+    | { kind: "authenticated" };
+
 export type McpToolPolicy = {
+    tenant: "team" | "account";
+    human: McpHumanRequirement;
+    oauthScope: McpScope;
+    apiKeyAccess: "allow" | "deny";
+    /** @deprecated use oauthScope */
     scope: McpScope;
+    /** @deprecated use apiKeyAccess */
     auth: "oauth" | "oauth_or_api_key";
     identity: "account" | "team";
 };
 
+const ownerOnlyTools = new Set<McpToolName>([
+    "delete_team",
+    "list_api_keys",
+    "create_api_key",
+    "delete_api_key",
+]);
+
+const apiKeyDeniedTools = new Set<McpToolName>([
+    "list_teams",
+    "create_team",
+    "delete_team",
+    "list_api_keys",
+    "create_api_key",
+    "delete_api_key",
+]);
+
+function humanForTool(name: McpToolName): McpHumanRequirement {
+    if (ownerOnlyTools.has(name)) return { kind: "owner" };
+    if (accountOnlyTools.has(name)) return { kind: "authenticated" };
+    const scope = toolScopes[name];
+    if (scope === "teams:write") {
+        return { kind: "permission", permission: "team:update" };
+    }
+    if (scope.startsWith("api_keys:")) {
+        return { kind: "owner" };
+    }
+    return { kind: "permission", permission: scope as TeamPermission };
+}
+
 export function isMcpToolName(name: string): name is McpToolName {
     return Object.prototype.hasOwnProperty.call(toolScopes, name);
+}
+
+export function isAccountOnlyMcpTool(name: string): boolean {
+    return isMcpToolName(name) && accountOnlyTools.has(name);
 }
 
 export function getMcpToolPolicy(name: string): McpToolPolicy {
@@ -193,34 +234,84 @@ export function getMcpToolPolicy(name: string): McpToolPolicy {
         throw new Error(`MCP tool '${name}' has no authorization policy.`);
     }
     const accountOnly = accountOnlyTools.has(name);
+    const apiKeyAccess = apiKeyDeniedTools.has(name) ? "deny" : "allow";
     return {
+        tenant: accountOnly ? "account" : "team",
+        human: humanForTool(name),
+        oauthScope: toolScopes[name],
+        apiKeyAccess,
         scope: toolScopes[name],
-        auth: accountOnly ? "oauth" : "oauth_or_api_key",
+        auth: apiKeyAccess === "allow" ? "oauth_or_api_key" : "oauth",
         identity: accountOnly ? "account" : "team",
     };
 }
 
-export function authorizeMcpTool(name: string, ctx: ServerContext) {
+export function authorizeMcpTool(
+    name: string,
+    ctx: ServerContext,
+    args?: Record<string, unknown>,
+) {
     const policy = getMcpToolPolicy(name);
     const authInfo = ctx.http?.authInfo;
-    const authKind = authInfo?.extra?.authKind;
+    const extra = authInfo?.extra as
+        | {
+              authKind?: string;
+              account?: unknown;
+              isOwner?: boolean;
+              permissions?: TeamPermission[];
+              teamId?: string;
+          }
+        | undefined;
+    const authKind = extra?.authKind;
 
     if (!authInfo) return errorResult("Authentication required.");
 
     if (authKind === "api_key") {
-        return policy.auth === "oauth_or_api_key"
+        return policy.apiKeyAccess === "allow"
             ? null
             : errorResult("OAuth user authentication is required.");
     }
 
-    if (authKind !== "oauth" || !authInfo.scopes.includes(policy.scope)) {
+    if (authKind !== "oauth" || !authInfo.scopes.includes(policy.oauthScope)) {
         return errorResult(
-            `insufficient_scope: this tool requires '${policy.scope}'.`,
+            `insufficient_scope: this tool requires '${policy.oauthScope}'.`,
         );
     }
 
-    if (policy.identity === "account" && !authInfo.extra?.account) {
+    if (policy.human.kind === "authenticated" && !extra?.account) {
         return errorResult("A FrontLit account is required.");
+    }
+
+    if (policy.tenant === "team" && !extra?.teamId) {
+        return errorResult(
+            "This OAuth token is not valid for a current team membership.",
+        );
+    }
+
+    let human = policy.human;
+    if (
+        name === "update_team_settings" &&
+        args &&
+        (args.codeInjectionHead !== undefined ||
+            args.codeInjectionBody !== undefined)
+    ) {
+        human = { kind: "owner" };
+    }
+
+    if (human.kind === "owner" && extra?.isOwner !== true) {
+        return errorResult("owner_required: only the team owner can do this.");
+    }
+
+    if (human.kind === "permission") {
+        const permissions = extra?.permissions ?? [];
+        if (
+            extra?.isOwner !== true &&
+            !permissions.includes(human.permission)
+        ) {
+            return errorResult(
+                `insufficient_permission: this tool requires '${human.permission}'.`,
+            );
+        }
     }
 
     return null;

@@ -1,6 +1,8 @@
 export { contract, type Contract } from "./contract";
 
 export * from "./schemas/common";
+export * from "./schemas/permissions";
+export * from "./schemas/memberships";
 export * from "./schemas/teams";
 export * from "./schemas/pages";
 export * from "./schemas/themes";
