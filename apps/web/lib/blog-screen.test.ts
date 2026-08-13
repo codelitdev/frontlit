@@ -5,16 +5,16 @@ import {
     sortBlogPostsByUpdatedAt,
     type BlogFilter,
 } from "./blog-screen";
-import type { BlogPost } from "./api";
+import type { Article } from "./api";
 
 function post(
     documentId: string,
     title: string,
     slug: string,
-    status: BlogPost["status"],
+    status: Article["status"],
     tags: string[] = [],
     updatedAt: string | null = null,
-): BlogPost {
+): Article {
     return {
         documentId,
         slug,

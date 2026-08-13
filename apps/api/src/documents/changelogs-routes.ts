@@ -38,26 +38,25 @@ function toPublicDocument<T extends Record<string, unknown>>(doc: T) {
 }
 
 /**
- * Changelog entries reuse the shared documents engine (`kind: "changelog"`)
- * exactly like blogs/docs, plus a GitHub Releases importer (architecture.md
- * §8.1). Standard CRUD/draft-publish endpoints are implemented inline here
- * (rather than via `createDocumentsRouter`) because `contract.changelogs`
+ * Product updates reuse the shared documents engine (stored internally as
+ * `kind: "changelog"`) plus a GitHub Releases importer. Standard
+ * CRUD/draft-publish endpoints are implemented inline here
+ * (rather than via `createDocumentsRouter`) because `contract.content.productUpdates`
  * also carries the GitHub-specific endpoints in the same router.
  */
 const router = Router();
-router.use("/changelogs", requireAuth, requireTeam);
+router.use("/content/product-updates", requireAuth, requireTeam);
 
 const s = initServer();
 
 // Key order here is the actual Express route-registration order (ts-rest's
 // `recursivelyApplyExpressRouter` walks this `impl` object, not the
-// contract) — the literal `/changelogs/github` and `/changelogs/import-github`
-// routes MUST come before the generic `/changelogs/:documentId` routes
+// contract) — the literal GitHub routes must come before the generic
+// `/content/product-updates/:documentId` routes
 // (`get`/`update`/`publish`/`discardDraft`/`remove`), or Express's
-// first-match routing would shadow them with the wildcard (same bug class
-// as `/help-docs/search` vs `/help-docs/:documentId` — see §5.3).
+// first-match routing would shadow them with the wildcard.
 const impl = s.router(
-    contract.changelogs,
+    contract.content.productUpdates,
     authorizeHandlers(
         {
             connectGithub: async ({ body, req }) => {
@@ -208,21 +207,21 @@ const impl = s.router(
             },
         },
         {
-            connectGithub: "changelogs.connectGithub",
-            getGithubIntegration: "changelogs.getGithubIntegration",
-            disconnectGithub: "changelogs.disconnectGithub",
-            importGithubReleases: "changelogs.importGithubReleases",
-            create: "changelogs.create",
-            list: "changelogs.list",
-            get: "changelogs.get",
-            update: "changelogs.update",
-            publish: "changelogs.publish",
-            discardDraft: "changelogs.discardDraft",
-            remove: "changelogs.remove",
+            connectGithub: "content.productUpdates.connectGithub",
+            getGithubIntegration: "content.productUpdates.getGithubIntegration",
+            disconnectGithub: "content.productUpdates.disconnectGithub",
+            importGithubReleases: "content.productUpdates.importGithubReleases",
+            create: "content.productUpdates.create",
+            list: "content.productUpdates.list",
+            get: "content.productUpdates.get",
+            update: "content.productUpdates.update",
+            publish: "content.productUpdates.publish",
+            discardDraft: "content.productUpdates.discardDraft",
+            remove: "content.productUpdates.remove",
         },
     ),
 );
 
-createExpressEndpoints(contract.changelogs, impl, router);
+createExpressEndpoints(contract.content.productUpdates, impl, router);
 
 export default router;

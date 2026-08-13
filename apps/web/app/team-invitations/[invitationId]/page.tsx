@@ -72,9 +72,26 @@ export default function TeamInvitationPage() {
         setBusy(true);
         try {
             if (kind === "accept") {
-                await acceptTeamInvitation({ invitationId, token });
+                const membership = await acceptTeamInvitation({
+                    invitationId,
+                    token,
+                });
                 clearInvitationToken(invitationId);
-                router.replace("/");
+                const form = document.createElement("form");
+                form.method = "POST";
+                form.action = "/api/team/switch";
+                for (const [name, value] of Object.entries({
+                    teamId: membership.teamId,
+                    redirectTo: "/",
+                })) {
+                    const input = document.createElement("input");
+                    input.type = "hidden";
+                    input.name = name;
+                    input.value = value;
+                    form.appendChild(input);
+                }
+                document.body.appendChild(form);
+                form.submit();
             } else {
                 await rejectTeamInvitation({ invitationId, token });
                 clearInvitationToken(invitationId);

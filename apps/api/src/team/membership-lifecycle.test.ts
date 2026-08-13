@@ -29,7 +29,11 @@ import {
     listAuditEventsByType,
 } from "./audit";
 import { GRANTABLE_NON_OWNER_PERMISSIONS } from "@frontlit/api-contract";
-import { deleteAccount } from "../account/queries";
+import {
+    deleteAccount,
+    ensureFrontLitAccountForUser,
+} from "../account/queries";
+import { listTeamsForAccount } from "./queries";
 import {
     MembershipError,
     acceptInvitation,
@@ -55,6 +59,37 @@ describe("membership lifecycle", () => {
     beforeEach(async () => {
         sentInvites.length = 0;
         await truncateAll(db);
+    });
+
+    it("gives a first-time invitee only the team they accept", async () => {
+        const { account: owner, team } = await seedTeam(db);
+        const email = "first-time-invitee@example.com";
+        const created = await createOrResendInvitation({
+            teamId: team.id,
+            actorAccountId: owner.id,
+            email,
+            permissions: ["pages:read"],
+        });
+        const token = tokenFromLastInvite();
+        const invitee = await ensureFrontLitAccountForUser({
+            email,
+            name: "First Time Invitee",
+        });
+
+        expect(await listTeamsForAccount(invitee.id)).toHaveLength(0);
+
+        const accepted = await acceptInvitation({
+            invitationId: created.invitationId,
+            token,
+            accountId: invitee.id,
+            accountEmail: invitee.email,
+        });
+        const memberships = await listTeamsForAccount(invitee.id);
+
+        expect(accepted.teamId).toBe(team.teamId);
+        expect(memberships.map((membership) => membership.teamId)).toEqual([
+            team.teamId,
+        ]);
     });
 
     it("covers invitation, membership, transfer, audit, and ownership safety", async () => {
@@ -114,6 +149,8 @@ describe("membership lifecycle", () => {
             accountEmail: invitee.email,
         });
         expect(firstAccept.memberId).toBe(secondAccept.memberId);
+        expect(firstAccept.teamId).toBe(team.teamId);
+        expect(secondAccept.teamId).toBe(team.teamId);
         const members = await db.query.teamMembers.findMany({
             where: eq(teamMembers.teamId, team.id),
         });
@@ -145,6 +182,7 @@ describe("membership lifecycle", () => {
             accountEmail: otherInvitee.email,
         });
         expect(retried.email).toBe(otherInvitee.email);
+        expect(retried.teamId).toBe(team.teamId);
         const [claimed] = await db
             .select()
             .from(teamInvitations)

@@ -15,7 +15,7 @@ export function createWidgetInstance(
     return {
         widgetId: generateUniqueId(),
         name,
-        deletable: !["header", "footer", "page-content"].includes(name),
+        deletable: !["header", "footer", "data-slot"].includes(name),
         moveable: !["header", "footer"].includes(name),
         shared: ["header", "footer"].includes(name),
         settings: {

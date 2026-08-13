@@ -140,6 +140,11 @@ Account-level actions remain outside the team permission model. For example,
 listing the teams an account belongs to and creating a new team do not require
 permission from an existing team.
 
+An account may belong to zero teams while onboarding or before accepting an
+invitation. Authentication creates or links only the account; it never creates
+a team as a side effect. A team is created only through an explicit dashboard,
+API, provisioning, or deployment-bootstrap action.
+
 ### 7.3 OAuth scopes attenuate human authority
 
 Membership permissions and OAuth scopes have independent storage, management,
@@ -217,25 +222,23 @@ must not become authorization decision points.
 
 The initial catalog is:
 
-| Area       | Permissions                                              | Grants                                                                                                                    |
-| ---------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Team       | `team:update`                                            | Rename and update ordinary team metadata. Team deletion and ownership transfer remain owner-only.                         |
-| Members    | `members:read`, `members:invite`, `members:manage`       | View members/invitations; create or resend invitations; edit permissions, cancel invitations, or remove eligible members. |
-| Pages      | `pages:read`, `pages:write`                              | View pages and drafts; create, edit, publish, discard, and delete pages.                                                  |
-| Themes     | `themes:read`, `themes:write`                            | View themes; create, edit, and delete themes.                                                                             |
-| Media      | `media:read`, `media:write`                              | View media; upload, register, edit, and delete media.                                                                     |
-| Blog       | `blogs:read`, `blogs:write`                              | View posts and drafts; create, edit, publish, discard, and delete posts.                                                  |
-| Help docs  | `docs:read`, `docs:write`                                | View docs and sections; create, edit, publish, reorder, and delete them.                                                  |
-| Changelog  | `changelogs:read`, `changelogs:write`                    | View entries; create, edit, publish, import, and delete entries and manage the GitHub changelog integration.              |
-| Contacts   | `contacts:read`, `contacts:write`                        | View contacts; update tags and delete contacts.                                                                           |
-| Segments   | `segments:read`, `segments:write`                        | View segments; create, edit, and delete segments.                                                                         |
-| Broadcasts | `broadcasts:read`, `broadcasts:write`, `broadcasts:send` | View broadcasts, statistics, and newsletter templates; create/edit broadcasts and templates; send a broadcast.            |
-| ESP        | `esp:read`, `esp:write`                                  | View ESP configuration metadata; configure, test, or remove the provider. Secrets remain write-only.                      |
-| Chatbot    | `chatbot:read`, `chatbot:write`                          | View or edit chatbot settings.                                                                                            |
-| Help desk  | `helpdesk:read`, `helpdesk:write`                        | View tickets; create, reply, assign, and change status.                                                                   |
-| Domains    | `domains:read`, `domains:write`                          | View domain state; claim a subdomain and attach, verify, or remove a custom domain.                                       |
-| AI         | `ai:read`, `ai:write`                                    | View AI provider/model metadata; configure or remove AI credentials and models.                                           |
-| Settings   | `settings:read`, `settings:write`                        | View or update ordinary site and newsletter settings. Arbitrary code injection remains owner-only.                        |
+| Area       | Permissions                                                                                                                     | Grants                                                                                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Team       | `team:update`                                                                                                                   | Rename and update ordinary team metadata. Team deletion and ownership transfer remain owner-only.                                                                                |
+| Members    | `members:read`, `members:invite`, `members:manage`                                                                              | View members/invitations; create or resend invitations; edit permissions, cancel invitations, or remove eligible members.                                                        |
+| Pages      | `pages:read`, `pages:write`                                                                                                     | View pages and drafts; create, edit, publish, discard, and delete pages.                                                                                                         |
+| Themes     | `themes:read`, `themes:write`                                                                                                   | View themes; create, edit, and delete themes.                                                                                                                                    |
+| Media      | `media:read`, `media:write`                                                                                                     | View media; upload, register, edit, and delete media.                                                                                                                            |
+| Content    | `articles:read`, `articles:write`, `documentation:read`, `documentation:write`, `product-updates:read`, `product-updates:write` | Access the unified Content workspace with type-scoped authority over articles, documentation (including sections/search), and product updates (including GitHub release import). |
+| Contacts   | `contacts:read`, `contacts:write`                                                                                               | View contacts; update tags and delete contacts.                                                                                                                                  |
+| Segments   | `segments:read`, `segments:write`                                                                                               | View segments; create, edit, and delete segments.                                                                                                                                |
+| Broadcasts | `broadcasts:read`, `broadcasts:write`, `broadcasts:send`                                                                        | View broadcasts, statistics, and email templates; create/edit broadcasts and templates; send a broadcast.                                                                        |
+| ESP        | `esp:read`, `esp:write`                                                                                                         | View ESP configuration metadata; configure, test, or remove the provider. Secrets remain write-only.                                                                             |
+| Chatbot    | `chatbot:read`, `chatbot:write`                                                                                                 | View or edit chatbot settings.                                                                                                                                                   |
+| Help desk  | `helpdesk:read`, `helpdesk:write`                                                                                               | View tickets; create, reply, assign, and change status.                                                                                                                          |
+| Domains    | `domains:read`, `domains:write`                                                                                                 | View domain state; claim a subdomain and attach, verify, or remove a custom domain.                                                                                              |
+| AI         | `ai:read`, `ai:write`                                                                                                           | View AI provider/model metadata; configure or remove AI credentials and models.                                                                                                  |
+| Settings   | `settings:read`, `settings:write`                                                                                               | View or update ordinary site and email settings. Arbitrary code injection remains owner-only.                                                                                    |
 
 The database stores the permissions selected directly for a member. A shared,
 pure function computes the effective closure: write implies the corresponding
@@ -253,6 +256,17 @@ operation is implicitly allowed.
 These implication rules are conveniences inside the human permission model.
 They do not imply or mint OAuth scopes.
 
+Content is one top-level product area, but it deliberately retains three
+permission pairs. A member may therefore write documentation without gaining
+authority to publish articles or import product updates. The dashboard renders
+these six permissions under one **Content** heading; it must not recreate
+separate Articles, Documentation, or Product updates permission groups.
+
+The matching OAuth scopes use the same identifiers for clarity, but remain an
+independent attenuation layer. A session needs the team permission. An OAuth or
+MCP request needs both the team permission and the identically named token
+scope.
+
 ### 8.1 Permission presets
 
 The initial dashboard offers these presets:
@@ -260,8 +274,8 @@ The initial dashboard offers these presets:
 | Preset          | Contents                                                                                                                                      |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | Full access     | Every non-owner permission. The UI must warn that this includes member administration, domain changes, AI credentials, and broadcast sending. |
-| Content manager | Pages, themes, media, blogs, docs, and changelogs read/write.                                                                                 |
-| Support         | Help-desk read/write plus docs read.                                                                                                          |
+| Content manager | Pages, themes, media, articles, documentation, and product updates read/write.                                                                |
+| Support         | Help-desk read/write plus documentation read.                                                                                                 |
 | Marketing       | Contacts, segments, and broadcasts read/write; sending broadcasts is selected separately.                                                     |
 | Read-only       | Every product-area read permission, excluding member administration unless explicitly selected.                                               |
 | Custom          | Individually selected permissions.                                                                                                            |
@@ -573,7 +587,8 @@ dedicated owner flow.
    invitation's current permissions and marks the invitation accepted.
 7. Acceptance is idempotent for the resulting account and team. It must never
    overwrite permissions on a membership that already existed independently.
-8. The selected-team experience takes the new member into that team.
+8. The accept response identifies the joined public team ID. The dashboard
+   selects that team and takes the new member to their first permitted area.
 
 The system must not create an accepted membership before the invitation is
 accepted. An existing bare `accounts` row may be linked during normal sign-in,
@@ -753,6 +768,13 @@ keeps the current route only when it is permitted in the destination team and
 otherwise uses that same safe landing route. These are UX protections only;
 the API remains the enforcement point.
 
+Chrome-free content editors have the same treatment even though they are not
+inside the workspace sidebar shell. A read permission opens the corresponding
+library, while the editor requires that area's `:write` permission. A direct
+editor URL without write authority returns the member to the readable library
+or another safe landing area. The page editor also avoids loading or mutating
+team settings when the member lacks the corresponding settings permission.
+
 Invitation links must preserve the token through sign-in without exposing it
 to third-party analytics, referrer headers, or application logs. After
 acceptance, the token is removed from browser-visible URLs.
@@ -792,15 +814,11 @@ exposing SMTP details.
 - Return `isOwner` and `effectivePermissions` from `GET /teams` for
   permission-aware dashboard navigation and controls.
 
-For existing data:
-
-- owner rows need no stored permission snapshot;
-- existing non-owner rows are backfilled with every grantable non-owner
-  permission to preserve current product access, except API-key management,
-  which intentionally becomes owner-only because keys are full-team
-  credentials; and
-- the migration reports unexpected missing/duplicate owner relationships
-  rather than guessing how to repair them.
+For a later production rollout, owner rows need no stored permission snapshot;
+existing non-owner rows would require an explicit grant mapping. The current
+platform is in early development, so the database baseline is reset instead:
+no compatibility aliases or backfill from superseded permission identifiers
+is retained.
 
 ### Phase 2: Membership lifecycle — delivered
 
@@ -817,6 +835,12 @@ For existing data:
 - Review API-key scoping as a separate security feature.
 - Consider consent-time OAuth down-scoping as a UX improvement.
 
+The early-development baseline uses the unified content identifiers directly:
+`articles:*`, `documentation:*`, and `product-updates:*`. The superseded
+`blogs:*`, `docs:*`, and `changelogs:*` grants are not accepted aliases and do
+not appear in the reset baseline. REST routes live under `/content`, and the
+OAuth/MCP scope catalog uses the same current identifiers.
+
 Invitations must remain disabled until Phase 1 enforcement and its policy
 coverage tests are deployed.
 
@@ -824,12 +848,11 @@ coverage tests are deployed.
 
 Sensitive browser actions (team deletion and ownership transfer) require a
 fresh email-OTP verification. Better Auth records session creation separately
-from that verification, so migration `0013_session_reauthentication` adds
+from that verification, so the baseline schema includes
 `auth_session.reauthenticated_at`. The timestamp is set only on the current
 session after successful re-verification; session creation time is never
-rewritten. This migration is deliberately separate from
-`0012_team_memberships`: previously applied migrations are immutable and must
-never be edited to repair an already-deployed database.
+rewritten. FrontLit is still in resettable early development, so its former
+incremental migration history has been replaced by one current-schema baseline.
 
 ## 17. Security and privacy requirements
 
@@ -974,10 +997,11 @@ The feature is complete when:
 The first release uses these decisions so implementation does not depend on
 unresolved product behavior:
 
-1. Content publishing and deletion remain under each area's `:write`
-   permission. Broadcast sending remains separate because it causes an
-   immediate external side effect. Finer content permissions require a later
-   product need and migration.
+1. Content publishing and deletion remain under each content type's `:write`
+   permission: articles, documentation, or product updates. The three pairs
+   appear under one Content UI group but remain independently grantable.
+   Broadcast sending remains separate because it causes an immediate external
+   side effect.
 2. Full-team API keys are owner-managed. A future scoped-key design may reuse
    permission names, but keys keep a distinct stored grant and lifecycle just
    as OAuth does.
@@ -1007,15 +1031,25 @@ section records the deployed behavior where it is more specific than the PRD.
    the token scope. API keys retain their existing full-team authority only
    for operations explicitly marked API-key compatible; managing keys remains
    owner-only and user-authenticated.
-4. Invitations have a seven-day lifetime, a hashed fragment-held secret,
+4. Content operations use one public vocabulary across surfaces: REST paths
+   under `/content/articles`, `/content/documentation`, and
+   `/content/product-updates`; OAuth scopes named `articles:*`,
+   `documentation:*`, and `product-updates:*`; and MCP tools named for
+   articles, documentation pages/sections, and product updates. The database
+   discriminator (`blog | doc | changelog`) is internal storage detail only.
+5. Invitations have a seven-day lifetime, a hashed fragment-held secret,
    cursor-paginated roster/invitation lists, and bounded in-process hourly
    maintenance for invitation expiry and expired audit-event cleanup. The
    authorization audit retention defaults to 180 days and can be configured
    with `AUTHZ_AUDIT_RETENTION_DAYS`.
-5. Membership and invitation management are browser-session operations.
+6. Membership and invitation management are browser-session operations.
    `preview`, `accept`, and `reject` require the invited account's matching
    email but do not require prior membership in that team. Members may leave;
    owners must transfer ownership first.
-6. The legacy `team_members.role` column is still written for compatibility,
+7. The legacy `team_members.role` column is still written for compatibility,
    but no authorization decision may depend on it. `teams.ownerAccountId` is
    the only ownership authority.
+8. Ordinary sign-in may create a teamless account. The Account screen presents
+   explicit create-or-join onboarding, and invitation acceptance creates only
+   the invited membership. The deployment super-admin bootstrap remains an
+   explicit exception that creates its initial team and API key.

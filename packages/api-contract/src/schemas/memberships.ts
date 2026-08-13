@@ -33,6 +33,13 @@ export const teamMemberSchema = z.object({
     updatedAt: z.string(),
 });
 
+/** Invitation acceptance also identifies the joined team so the browser can
+ * select it before entering the workspace. */
+export const acceptedTeamMemberSchema = teamMemberSchema.extend({
+    teamId: z.string(),
+});
+export type AcceptedTeamMember = z.infer<typeof acceptedTeamMemberSchema>;
+
 export const teamMemberPageSchema = cursorPage(teamMemberSchema).extend({
     viewer: teamMemberSchema,
 });

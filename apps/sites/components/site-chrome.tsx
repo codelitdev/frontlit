@@ -3,6 +3,11 @@ import { getPageBySlug } from "@/lib/api";
 import { API_PUBLIC_URL } from "@/lib/config";
 import { loadSiteTheme } from "@/lib/load-site-theme";
 import { SitePageRenderer } from "@/components/site-page-renderer";
+import { loadDataSlots } from "@frontlit/page-builder/data-slots";
+import {
+    FRONTLIT_CONTENT_FEED_SLOT,
+    frontlitContentFeedLoader,
+} from "@/components/content-feed";
 
 /**
  * Wraps built-in content pages in the team's published shared site chrome.
@@ -18,7 +23,7 @@ export async function SiteChrome({
     /** Layout-bearing page to render. Detail routes leave this at the
      * homepage; standard indexes pass their reserved slug. */
     pageSlug?: string;
-    children: ReactNode;
+    children?: ReactNode;
 }) {
     const [requestedPage, siteTheme] = await Promise.all([
         getPageBySlug(teamId, pageSlug),
@@ -27,6 +32,17 @@ export async function SiteChrome({
     const page =
         requestedPage ??
         (pageSlug ? await getPageBySlug(teamId, "") : requestedPage);
+    const pageData = {
+        pageType: page?.type ?? "site",
+        teamId,
+        pageSlug,
+        publicApiBaseUrl: API_PUBLIC_URL,
+    } as const;
+    const dataSlots = await loadDataSlots(
+        page?.layout ?? [],
+        { [FRONTLIT_CONTENT_FEED_SLOT]: frontlitContentFeedLoader },
+        pageData,
+    );
 
     return (
         <SitePageRenderer
@@ -35,12 +51,8 @@ export async function SiteChrome({
             layout={page?.layout ?? []}
             themeId={siteTheme.themeId}
             themeStyle={siteTheme.themeStyle}
-            pageData={{
-                pageType: page?.type ?? "site",
-                teamId,
-                pageSlug,
-                publicApiBaseUrl: API_PUBLIC_URL,
-            }}
+            pageData={pageData}
+            dataSlots={dataSlots}
         >
             {children}
         </SitePageRenderer>

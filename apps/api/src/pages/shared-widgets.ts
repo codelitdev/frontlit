@@ -3,8 +3,16 @@ import { DEFAULT_SHARED_WIDGETS } from "../db/schema";
 import { genId } from "../db/id";
 
 export const SHARED_WIDGET_NAMES = ["header", "footer"] as const;
-export const PAGE_CONTENT_WIDGET_NAME = "page-content" as const;
-export const PAGE_CONTENT_PAGE_SLUGS = ["blog", "changelog", "docs"] as const;
+/** FrontLit reserves the generic core data slot for its standard content pages. */
+export const DATA_SLOT_WIDGET_NAME = "data-slot" as const;
+export const FRONTLIT_CONTENT_FEED_SLOT = "frontlit.content-feed" as const;
+export const CONTENT_FEED_SOURCES = {
+    blog: "articles",
+    docs: "documentation",
+    changelog: "product-updates",
+} as const;
+export type ContentFeedSource =
+    (typeof CONTENT_FEED_SOURCES)[keyof typeof CONTENT_FEED_SOURCES];
 type SharedWidgetName = (typeof SHARED_WIDGET_NAMES)[number];
 
 export class InvalidPageLayoutError extends Error {
@@ -31,19 +39,32 @@ function lockedPlaceholder(
     };
 }
 
-function pageContentPlaceholder(widgetId = genId()): WidgetInstanceRow {
+function frontlitContentFeedPlaceholder(
+    pageSlug: string,
+    widgetId = genId(),
+): WidgetInstanceRow {
+    const source = CONTENT_FEED_SOURCES[
+        pageSlug as keyof typeof CONTENT_FEED_SOURCES
+    ] as ContentFeedSource | undefined;
+    if (!source) {
+        throw new InvalidPageLayoutError(
+            `Page "${pageSlug}" does not have a content feed source.`,
+        );
+    }
     return {
         widgetId,
-        name: PAGE_CONTENT_WIDGET_NAME,
+        name: DATA_SLOT_WIDGET_NAME,
         deletable: false,
         moveable: true,
         shared: false,
+        settings: { slot: FRONTLIT_CONTENT_FEED_SLOT, source },
     };
 }
 
-export function pageRequiresContentBlock(slug: string): boolean {
-    return PAGE_CONTENT_PAGE_SLUGS.includes(
-        slug as (typeof PAGE_CONTENT_PAGE_SLUGS)[number],
+export function pageRequiresFrontlitContentFeed(slug: string): boolean {
+    return (
+        CONTENT_FEED_SOURCES[slug as keyof typeof CONTENT_FEED_SOURCES] !==
+        undefined
     );
 }
 
@@ -53,7 +74,7 @@ export function createRequiredSharedWidgetPlaceholders(): WidgetInstanceRow[] {
 }
 
 /** Builds a complete canonical layout for a seeded page. Standard dynamic
- * indexes receive their required route-content slot before optional blocks. */
+ * indexes receive their required FrontLit data slot before optional blocks. */
 export function createRequiredPageLayout(
     pageSlug: string,
     body: WidgetInstanceRow[] = [],
@@ -61,8 +82,8 @@ export function createRequiredPageLayout(
     const [header, footer] = createRequiredSharedWidgetPlaceholders();
     return [
         header,
-        ...(pageRequiresContentBlock(pageSlug)
-            ? [pageContentPlaceholder()]
+        ...(pageRequiresFrontlitContentFeed(pageSlug)
+            ? [frontlitContentFeedPlaceholder(pageSlug)]
             : []),
         ...body,
         footer,
@@ -77,17 +98,20 @@ export function repairStoredLayout(
 ): WidgetInstanceRow[] {
     const header = layout.find((widget) => widget.name === "header");
     const footer = layout.find((widget) => widget.name === "footer");
-    const requiresContent = pageRequiresContentBlock(pageSlug);
+    const requiresContent = pageRequiresFrontlitContentFeed(pageSlug);
     const existingContent = layout.find(
-        (widget) => widget.name === PAGE_CONTENT_WIDGET_NAME,
+        (widget) => widget.name === DATA_SLOT_WIDGET_NAME,
     );
     let body = layout.filter(
         (widget) =>
             !isSharedWidgetName(widget.name) &&
-            widget.name !== PAGE_CONTENT_WIDGET_NAME,
+            widget.name !== DATA_SLOT_WIDGET_NAME,
     );
     if (requiresContent) {
-        const content = pageContentPlaceholder(existingContent?.widgetId);
+        const content = frontlitContentFeedPlaceholder(
+            pageSlug,
+            existingContent?.widgetId,
+        );
         if (existingContent) {
             const originalIndex = layout.findIndex(
                 (widget) => widget.widgetId === existingContent.widgetId,
@@ -97,7 +121,7 @@ export function repairStoredLayout(
                 .filter(
                     (widget) =>
                         !isSharedWidgetName(widget.name) &&
-                        widget.name !== PAGE_CONTENT_WIDGET_NAME,
+                        widget.name !== DATA_SLOT_WIDGET_NAME,
                 ).length;
             body = [
                 ...body.slice(0, precedingBodyCount),
@@ -133,24 +157,24 @@ export function splitSubmittedLayout(
     const header = headers[0];
     const footer = footers[0];
     const contentBlocks = layout.filter(
-        (widget) => widget.name === PAGE_CONTENT_WIDGET_NAME,
+        (widget) => widget.name === DATA_SLOT_WIDGET_NAME,
     );
-    const requiresContent = pageRequiresContentBlock(pageSlug);
+    const requiresContent = pageRequiresFrontlitContentFeed(pageSlug);
     if (requiresContent && contentBlocks.length !== 1) {
         throw new InvalidPageLayoutError(
-            "This standard page must contain exactly one page-content block.",
+            "This standard page must contain exactly one FrontLit content data slot.",
         );
     }
     if (!requiresContent && contentBlocks.length > 0) {
         throw new InvalidPageLayoutError(
-            "Only standard content pages can contain a page-content block.",
+            "Only standard content pages can contain the FrontLit content data slot.",
         );
     }
     const body = layout
         .filter((widget) => !isSharedWidgetName(widget.name))
         .map((widget) =>
-            widget.name === PAGE_CONTENT_WIDGET_NAME
-                ? pageContentPlaceholder(widget.widgetId)
+            widget.name === DATA_SLOT_WIDGET_NAME
+                ? frontlitContentFeedPlaceholder(pageSlug, widget.widgetId)
                 : widget,
         );
 

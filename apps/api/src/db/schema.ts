@@ -758,7 +758,7 @@ export const ticketMessages = pgTable(
 );
 
 // ---------------------------------------------------------------------------
-// Newsletter (architecture.md §10): FrontLit stores no contact data of its
+// Email (architecture.md §10): FrontLit stores no contact data of its
 // own — SendLit is the system of record. This is just the outbox: durable,
 // retryable background jobs (contact sync on lead capture, SendLit team
 // re-provisioning on transient failure) so a public lead-capture request

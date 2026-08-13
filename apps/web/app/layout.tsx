@@ -8,7 +8,7 @@ import { TooltipProvider } from "@/components/ui/codelit/tooltip";
 export const metadata: Metadata = {
     title: "FrontLit — the front office of your SaaS",
     description:
-        "Website builder, blog, help desk, email newsletter, chatbot and changelog — all rolled into one.",
+        "Build your SaaS website, publish content, support users, and grow your audience from one connected front office.",
 };
 
 export default function RootLayout({

@@ -19,16 +19,15 @@ const githubIntegrationSchema = z.object({
     repo: z.string().nullable(),
 });
 
-/** GitHub Releases importer (architecture.md §8.1) — the generic
- * `registerDocumentTools(server, "changelog", "changelog_entry", ...)` call
- * in server.ts covers standard CRUD/draft-publish; this file adds the
- * import-specific tools. */
-export function registerChangelogTools(server: McpToolRegistrar): void {
+/** GitHub Releases integration for product updates. The generic document
+ * tool registration covers standard CRUD/draft-publish; this file adds the
+ * integration-specific tools. */
+export function registerProductUpdateTools(server: McpToolRegistrar): void {
     server.registerTool(
-        "connect_github_changelog",
+        "connect_github_product_updates",
         {
             description:
-                "Connects a GitHub repo (via a fine-grained personal access token) for changelog import.",
+                "Connects a GitHub repo (via a fine-grained personal access token) for product-update import.",
             inputSchema: {
                 token: z.string().min(1),
                 repo: z
@@ -56,10 +55,10 @@ export function registerChangelogTools(server: McpToolRegistrar): void {
     );
 
     server.registerTool(
-        "get_github_changelog_integration",
+        "get_github_product_updates_integration",
         {
             description:
-                "Gets the current team's GitHub changelog integration status.",
+                "Gets the current team's GitHub product-updates integration status.",
             inputSchema: {},
             outputSchema: githubIntegrationSchema,
             annotations: {
@@ -84,10 +83,10 @@ export function registerChangelogTools(server: McpToolRegistrar): void {
     );
 
     server.registerTool(
-        "disconnect_github_changelog",
+        "disconnect_github_product_updates",
         {
             description:
-                "Disconnects the current team's GitHub changelog integration.",
+                "Disconnects the current team's GitHub product-updates integration.",
             inputSchema: {},
             outputSchema: successMessageSchema,
             annotations: {
@@ -114,7 +113,7 @@ export function registerChangelogTools(server: McpToolRegistrar): void {
         "import_github_releases",
         {
             description:
-                "Lists Releases from the connected GitHub repo and creates one draft changelog entry per release, idempotent by release id. Nothing is auto-published — review and publish each entry.",
+                "Lists Releases from the connected GitHub repo and creates one draft product update per release, idempotent by release id. Nothing is auto-published — review and publish each update.",
             inputSchema: {},
             outputSchema: z.object({
                 imported: z.number(),

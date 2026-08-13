@@ -19,7 +19,7 @@ export const pricingDefaults: Partial<PricingSettings> = {
             features: [
                 "5 websites",
                 "Custom domain",
-                "Blog + Newsletter",
+                "Blog + Email",
                 "Priority support",
             ],
             buttonCaption: "Start free trial",

@@ -100,7 +100,7 @@ export function EmailFormWidget({
     if (layout === "inline") {
         // Single-row minimal prompt — title/description beside a bare
         // input+button, no label. Common for a compact in-page nudge
-        // rather than a dedicated newsletter section.
+        // rather than a dedicated email section.
         return (
             <Section
                 theme={overriddenTheme}

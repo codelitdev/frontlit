@@ -37,7 +37,7 @@ const STATUS_VARIANT: Record<
 
 export default function DomainPage() {
     useSetBreadcrumb([
-        { label: "Website", href: "/website/pages" },
+        { label: "Website", href: "/website?tab=pages" },
         { label: "Domain" },
     ]);
     const [settings, setSettings] = useState<DomainSettings | null>(null);

@@ -75,8 +75,8 @@ export interface WidgetProps<
     settings: T;
     state: { theme: Theme };
     pageData: PageData;
-    /** Route-owned content rendered by the reserved `page-content` block. */
-    content?: ReactNode;
+    /** Host-resolved data rendered by a generic `data-slot` block. */
+    data?: ReactNode;
     editing?: boolean;
     nextTheme?: "light" | "dark";
 }

@@ -1,10 +1,12 @@
 # Introduction
 
-Website builder, Blog, Help Desk, Email Newsletter, Chatbot, Changelog, all rolled into one.
+Build your SaaS website, publish content, support users, and send email from one place.
 
 The front office of your SaaS.
 
-API first. AI ready (MCP compatible)
+Articles, documentation, and product updates share one content system and can be placed on pages as data-backed feeds.
+
+API first. AI ready (MCP compatible).
 
 ## Tech stack
 

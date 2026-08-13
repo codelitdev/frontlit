@@ -15,7 +15,7 @@ import mediaRoutes from "./media/routes";
 import blogsRoutes from "./documents/blogs-routes";
 import docsRoutes from "./documents/docs-routes";
 import changelogsRoutes from "./documents/changelogs-routes";
-import newsletterRoutes from "./newsletter/routes";
+import emailRoutes from "./email/routes";
 import docSectionsRoutes from "./documentation/routes";
 import chatbotRoutes from "./chatbot/routes";
 import ticketsRoutes from "./tickets/routes";
@@ -61,8 +61,8 @@ export function createApp() {
     });
 
     // Keep this at the same organization-standard path as SendLit. Private
-    // help-document CRUD lives at `/help-docs`, leaving `/docs` exclusively
-    // for the interactive API reference.
+    // documentation CRUD lives below `/content/documentation`, leaving
+    // `/docs` exclusively for the interactive API reference.
     app.use(
         "/docs",
         swaggerUi.serve,
@@ -90,12 +90,12 @@ export function createApp() {
     app.use(themesRoutes);
     app.use(mediaRoutes);
     app.use(blogsRoutes);
-    // Must precede docsRoutes: its literal `/help-docs/search` path would
-    // otherwise be shadowed by docsRoutes' `/help-docs/:documentId` wildcard.
+    // Literal documentation section/search paths precede the document-id
+    // wildcard because Express matches routes in registration order.
     app.use(docSectionsRoutes);
     app.use(docsRoutes);
     app.use(changelogsRoutes);
-    app.use(newsletterRoutes);
+    app.use(emailRoutes);
     app.use(chatbotRoutes);
     app.use(ticketsRoutes);
     app.use(domainsRoutes);

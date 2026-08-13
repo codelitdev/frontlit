@@ -321,7 +321,7 @@ describe("pages draft/publish", () => {
         ).rejects.toBeInstanceOf(InvalidPageLayoutError);
     });
 
-    it("requires one moveable, non-deletable page-content block on dynamic standard pages", async () => {
+    it("requires one moveable, non-deletable FrontLit data slot on dynamic standard pages", async () => {
         const created = await createPage({
             teamId,
             name: "Docs",
@@ -334,7 +334,7 @@ describe("pages draft/publish", () => {
 
         const standardPage = await getPageByPageId(created.pageId);
         const content = standardPage!.draftLayout.find(
-            (widget) => widget.name === "page-content",
+            (widget) => widget.name === "data-slot",
         )!;
         const [header, footer] = pageLayout();
         const pricing = {
@@ -356,17 +356,19 @@ describe("pages draft/publish", () => {
         expect(updated?.draftLayout.map((widget) => widget.name)).toEqual([
             "header",
             "pricing",
-            "page-content",
+            "data-slot",
             "footer",
         ]);
         expect(
-            updated?.draftLayout.find(
-                (widget) => widget.name === "page-content",
-            ),
+            updated?.draftLayout.find((widget) => widget.name === "data-slot"),
         ).toMatchObject({
             deletable: false,
             moveable: true,
             shared: false,
+            settings: {
+                slot: "frontlit.content-feed",
+                source: "documentation",
+            },
         });
 
         await expect(

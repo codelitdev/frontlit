@@ -7,6 +7,7 @@ vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 import { db as testDb } from "../db/client";
 import { accounts, authSession, authUser, pages } from "../db/schema";
 import {
+    createAccountWithDefaultTeam,
     ensureFrontLitAccountForUser,
     findAccountByEmail,
 } from "../account/queries";
@@ -91,17 +92,26 @@ describe("createTeam", () => {
             "footer",
         ]);
 
-        for (const slug of ["blog", "changelog", "docs"]) {
+        const sources = {
+            blog: "articles",
+            changelog: "product-updates",
+            docs: "documentation",
+        } as const;
+        for (const [slug, source] of Object.entries(sources)) {
             const standardPage = teamPages.find((p) => p.slug === slug);
             expect(
                 standardPage?.layout.filter(
-                    (widget) => widget.name === "page-content",
+                    (widget) => widget.name === "data-slot",
                 ),
             ).toEqual([
                 expect.objectContaining({
                     deletable: false,
                     moveable: true,
                     shared: false,
+                    settings: {
+                        slot: "frontlit.content-feed",
+                        source,
+                    },
                 }),
             ]);
         }
@@ -132,7 +142,7 @@ describe("findAccountByEmail", () => {
 describe("account team lifecycle", () => {
     const db = testDb as unknown as TestDb;
 
-    it("gives a first-time signed-in account one default team", async () => {
+    it("allows a first-time signed-in account to remain teamless", async () => {
         const authUserId = `auth-${crypto.randomUUID()}`;
         const email = `signup-${crypto.randomUUID()}@example.com`;
         await db.insert(authUser).values({
@@ -150,17 +160,10 @@ describe("account team lifecycle", () => {
         });
 
         const teams = await listTeamsForAccount(account.id);
-        expect(teams).toHaveLength(1);
-        expect(teams[0].name).toBe("New User's Team");
-        expect(teams[0].subdomain).toBeNull();
-        expect(
-            await db.query.pages.findMany({
-                where: eq(pages.teamId, teams[0].id),
-            }),
-        ).toHaveLength(7);
+        expect(teams).toHaveLength(0);
     });
 
-    it("backfills the default team for accounts created by the old auth flow", async () => {
+    it("does not create a team when linking an existing bare account", async () => {
         const email = `legacy-${crypto.randomUUID()}@example.com`;
         await db.insert(accounts).values({ email });
 
@@ -169,8 +172,25 @@ describe("account team lifecycle", () => {
             name: "Legacy User",
         });
         const teams = await listTeamsForAccount(account.id);
+        expect(teams).toHaveLength(0);
+    });
+
+    it("creates a default team only through the explicit bootstrap helper", async () => {
+        const email = `bootstrap-${crypto.randomUUID()}@example.com`;
+        const account = await createAccountWithDefaultTeam(
+            email,
+            "Bootstrap User",
+        );
+        const teams = await listTeamsForAccount(account.id);
+
         expect(teams).toHaveLength(1);
-        expect(teams[0].name).toBe("Legacy User's Team");
+        expect(teams[0].name).toBe("Bootstrap User's Team");
+        expect(teams[0].subdomain).toBeNull();
+        expect(
+            await db.query.pages.findMany({
+                where: eq(pages.teamId, teams[0].id),
+            }),
+        ).toHaveLength(7);
     });
 });
 
@@ -193,7 +213,11 @@ describe("OAuth team selection", () => {
             email,
             name: "OAuth User",
         });
-        const [firstTeam] = await listTeamsForAccount(account.id);
+        const firstTeam = await createTeam({
+            ownerAccountId: account.id,
+            ownerEmail: account.email,
+            name: "First Team",
+        });
         const secondTeam = await createTeam({
             ownerAccountId: account.id,
             ownerEmail: account.email,

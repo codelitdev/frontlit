@@ -13,7 +13,7 @@ import { getChatAnswer } from "../chatbot/completion";
 import { getResolvedAiConfig } from "../ai/queries";
 import { findTeamById, findTeamByPublicId } from "../team/queries";
 import { omitInternal, serializeDates } from "../utils/public";
-import { enqueueOutboxJob } from "../newsletter/outbox";
+import { enqueueOutboxJob } from "../email/outbox";
 import {
     addTicketMessage,
     createTicket,
@@ -377,7 +377,7 @@ const impl = s.router(contract.public, {
             };
         },
     },
-    listBlogs: async ({ params, query }) => {
+    listArticles: async ({ params, query }) => {
         const team = await findTeamByPublicId(params.teamId);
         if (!team) return { status: 404, body: { error: "Team not found" } };
 
@@ -394,7 +394,7 @@ const impl = s.router(contract.public, {
             body: { items: items.map(toPublicDocumentProjection), total },
         };
     },
-    getBlogBySlug: async ({ params }) => {
+    getArticleBySlug: async ({ params }) => {
         const team = await findTeamByPublicId(params.teamId);
         if (!team) return { status: 404, body: { error: "Team not found" } };
 
@@ -406,7 +406,7 @@ const impl = s.router(contract.public, {
         if (!doc) return { status: 404, body: { error: "Not found" } };
         return { status: 200, body: toPublicDocumentProjection(doc) };
     },
-    listDocSections: async ({ params }) => {
+    listDocumentationSections: async ({ params }) => {
         const team = await findTeamByPublicId(params.teamId);
         if (!team) return { status: 404, body: { error: "Team not found" } };
 
@@ -420,7 +420,7 @@ const impl = s.router(contract.public, {
             },
         };
     },
-    searchDocs: {
+    searchDocumentation: {
         middleware: [docsSearchLimiter as any],
         handler: async ({ params, query }) => {
             const team = await findTeamByPublicId(params.teamId);
@@ -431,7 +431,7 @@ const impl = s.router(contract.public, {
             return { status: 200, body: { items: chunks } };
         },
     },
-    listDocs: async ({ params, query }) => {
+    listDocumentation: async ({ params, query }) => {
         const team = await findTeamByPublicId(params.teamId);
         if (!team) return { status: 404, body: { error: "Team not found" } };
 
@@ -448,7 +448,7 @@ const impl = s.router(contract.public, {
             body: { items: items.map(toPublicDocumentProjection), total },
         };
     },
-    getDocBySlug: async ({ params }) => {
+    getDocumentationBySlug: async ({ params }) => {
         const team = await findTeamByPublicId(params.teamId);
         if (!team) return { status: 404, body: { error: "Team not found" } };
 
@@ -460,7 +460,7 @@ const impl = s.router(contract.public, {
         if (!doc) return { status: 404, body: { error: "Not found" } };
         return { status: 200, body: toPublicDocumentProjection(doc) };
     },
-    listChangelogs: async ({ params, query }) => {
+    listProductUpdates: async ({ params, query }) => {
         const team = await findTeamByPublicId(params.teamId);
         if (!team) return { status: 404, body: { error: "Team not found" } };
 
@@ -477,7 +477,7 @@ const impl = s.router(contract.public, {
             body: { items: items.map(toPublicDocumentProjection), total },
         };
     },
-    getChangelogBySlug: async ({ params }) => {
+    getProductUpdateBySlug: async ({ params }) => {
         const team = await findTeamByPublicId(params.teamId);
         if (!team) return { status: 404, body: { error: "Team not found" } };
 

@@ -13,4 +13,4 @@ export * from "./grid";
 export * from "./media";
 export * from "./marquee";
 export * from "./embed";
-export * from "./page-content";
+export * from "./data-slot";

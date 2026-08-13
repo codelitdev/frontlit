@@ -13,6 +13,7 @@
         "./blocks": "./dist/blocks/index.js",
         "./renderer": "./dist/renderer/index.js",
         "./builder": "./dist/builder/index.js",
+        "./data-slots": "./dist/data-slots.js",
         "./styles.css": "./dist/styles.css",
         "./theme.css": "./src/theme.css"
     },
@@ -36,6 +37,9 @@
             ],
             "builder": [
                 "dist/builder/index.d.ts"
+            ],
+            "data-slots": [
+                "dist/data-slots.d.ts"
             ]
         }
     },

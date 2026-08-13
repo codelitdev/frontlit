@@ -1,6 +1,6 @@
 import { logger } from "../services/log";
 import { getSendlitApiKey } from "../integrations/queries";
-import { sendEmail } from "../newsletter/sendlit-client";
+import { sendEmail } from "../email/sendlit-client";
 
 function threadUrl(
     teamPublicId: string,

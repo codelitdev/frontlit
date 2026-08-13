@@ -1,7 +1,7 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { notFound } from "next/navigation";
 import { TextRenderer } from "@frontlit/text-editor";
-import { getBlogBySlug, getSettings } from "@/lib/api";
+import { getArticleBySlug, getSettings } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
 import { getCanonicalHost } from "@/lib/request-host";
 import { blogPostingJsonLd, serializeJsonLd } from "@/lib/json-ld";
@@ -17,7 +17,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
     const { teamId, slug } = await params;
     const [post, settings, previous] = await Promise.all([
-        getBlogBySlug(teamId, slug),
+        getArticleBySlug(teamId, slug),
         getSettings(teamId),
         parent,
     ]);
@@ -53,7 +53,7 @@ export async function generateMetadata(
 
 export default async function BlogPostPage({ params }: Props) {
     const { teamId, slug } = await params;
-    const post = await getBlogBySlug(teamId, slug);
+    const post = await getArticleBySlug(teamId, slug);
     if (!post) notFound();
 
     const canonicalHost = await getCanonicalHost();

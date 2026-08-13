@@ -1,4 +1,5 @@
 import React from "react";
+import { Code2 } from "lucide-react";
 import type { ThemeStyle, WidgetProps } from "../../models";
 import type { EmbedSettings } from "./settings";
 import { SandboxedEmbed } from "../../components";
@@ -22,6 +23,7 @@ export function EmbedWidget({
         background,
     },
     state: { theme },
+    editing,
     nextTheme,
 }: WidgetProps<EmbedSettings>) {
     const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
@@ -30,7 +32,33 @@ export function EmbedWidget({
     overriddenTheme.structure.section.padding.y =
         verticalPadding || theme.theme.structure.section.padding.y;
 
-    if (!content) return null;
+    if (!content) {
+        if (!editing) return null;
+
+        return (
+            <Section
+                theme={overriddenTheme}
+                id={cssId}
+                background={background}
+                nextTheme={nextTheme}
+            >
+                <div className="flex min-h-48 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-6 py-12 text-center">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
+                        <Code2 className="h-4 w-4" />
+                    </span>
+                    <div>
+                        <p className="font-semibold text-foreground">
+                            Embed external content
+                        </p>
+                        <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                            Paste an embed URL or script snippet in the block
+                            settings.
+                        </p>
+                    </div>
+                </div>
+            </Section>
+        );
+    }
 
     const isScript = contentType === "script";
     const ratio =
@@ -44,7 +72,9 @@ export function EmbedWidget({
 
     const iframeStyle: React.CSSProperties = ratio
         ? { position: "absolute", inset: 0, width: "100%", height: "100%" }
-        : { width: "100%", height: "100%" };
+        : isScript
+          ? { width: "100%", height }
+          : { width: "100%", height: "100%" };
 
     return (
         <Section

@@ -77,7 +77,7 @@ export const openApiDocument = generateOpenApi(
                     "Changelog authoring, publishing, and GitHub release import.",
             },
             {
-                name: "Newsletter",
+                name: "Email",
                 description:
                     "SendLit-backed contacts, segments, settings, broadcasts, and analytics.",
             },

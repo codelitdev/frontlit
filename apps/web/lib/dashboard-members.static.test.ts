@@ -17,6 +17,8 @@ describe("dashboard members and invitation sources", () => {
         expect(page).toContain("peekInvitationToken");
         expect(page).toContain("clearInvitationToken");
         expect(page).toContain("acceptTeamInvitation");
+        expect(page).toContain("membership.teamId");
+        expect(page).toContain('form.action = "/api/team/switch"');
         expect(page).toContain("rejectTeamInvitation");
         expect(page).toContain("clearInvitationHash");
         expect(page).toContain("clientLoginPath");
@@ -58,6 +60,8 @@ describe("dashboard members and invitation sources", () => {
 
     it("only renders account controls the listed membership can use", () => {
         const teams = read("app/(workspace)/teams/page.tsx");
+        expect(teams).toContain("Create or join a team");
+        expect(teams).toContain("Already invited?");
         expect(teams).toContain(
             'team.effectivePermissions.includes("team:update")',
         );
@@ -79,5 +83,10 @@ describe("dashboard members and invitation sources", () => {
         const switcher = read("components/workspace/team-switcher.tsx");
         expect(switcher).toContain("canAccessWorkspacePath");
         expect(switcher).toContain("getWorkspaceLandingPath");
+        const editorLayout = read("app/editor/layout.tsx");
+        const pageLibrary = read("app/(workspace)/website/pages/page.tsx");
+        expect(editorLayout).toContain("EditorAccessGate");
+        expect(pageLibrary).toContain('includes("pages:write")');
+        expect(pageLibrary).toContain("PageSummary");
     });
 });

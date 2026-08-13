@@ -31,13 +31,17 @@ describe("isNavItemActive", () => {
         expect(isNavItemActive("/blogs", "/blog")).toBe(false);
         expect(isNavItemActive("/website/chatbot", "/website")).toBe(true);
         expect(isNavItemActive("/website/pages", "/website/pages")).toBe(true);
+        expect(isNavItemActive("/website", "/website?tab=pages")).toBe(true);
     });
 
     it("uses effective team permissions to gate workspace routes", () => {
-        const readOnlyDocs = team(["docs:read"]);
+        const readOnlyDocs = team(["documentation:read"]);
         expect(canAccessWorkspacePath("/", readOnlyDocs)).toBe(false);
-        expect(canAccessWorkspacePath("/docs", readOnlyDocs)).toBe(true);
+        expect(canAccessWorkspacePath("/content", readOnlyDocs)).toBe(true);
         expect(canAccessWorkspacePath("/website/pages", readOnlyDocs)).toBe(
+            false,
+        );
+        expect(canAccessWorkspacePath("/website?tab=pages", readOnlyDocs)).toBe(
             false,
         );
         expect(
@@ -55,7 +59,9 @@ describe("isNavItemActive", () => {
     });
 
     it("chooses the first permitted workspace route as a safe landing page", () => {
-        expect(getWorkspaceLandingPath(team(["docs:read"]))).toBe("/docs");
+        expect(getWorkspaceLandingPath(team(["documentation:read"]))).toBe(
+            "/content",
+        );
         expect(getWorkspaceLandingPath(team([]))).toBeNull();
     });
 });

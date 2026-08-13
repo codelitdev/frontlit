@@ -3,6 +3,8 @@
     "icon": "Blocks",
     "pages": [
         "overview",
+        "custom-blocks",
+        "data-slots",
         "hero",
         "header",
         "footer",

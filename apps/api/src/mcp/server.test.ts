@@ -65,11 +65,28 @@ describe("FrontLit MCP server", () => {
 
         const result = await client.listTools();
         const policyNames = Object.keys(listMcpToolPolicies()).sort();
-        expect(result.tools).toHaveLength(89);
+        expect(result.tools).toHaveLength(91);
         expect(result.tools.map((tool) => tool.name).sort()).toEqual(
             policyNames,
         );
-        expect(new Set(result.tools.map((tool) => tool.name)).size).toBe(89);
+        expect(new Set(result.tools.map((tool) => tool.name)).size).toBe(91);
+        expect(result.tools.map((tool) => tool.name)).toEqual(
+            expect.arrayContaining([
+                "list_articles",
+                "create_article",
+                "list_documentation_pages",
+                "create_documentation_section",
+                "list_product_updates",
+                "connect_github_product_updates",
+            ]),
+        );
+        expect(result.tools.map((tool) => tool.name)).not.toEqual(
+            expect.arrayContaining([
+                "list_blog_posts",
+                "list_docs",
+                "list_changelog_entries",
+            ]),
+        );
         expect(result.ttlMs).toBe(300_000);
         expect(result.cacheScope).toBe("private");
         for (const tool of result.tools) {
@@ -144,6 +161,19 @@ describe("FrontLit MCP server", () => {
         } as unknown as ServerContext;
 
         expect(authorizeMcpTool("list_pages", oauthContext)).toBeNull();
+        const articleContext = {
+            ...oauthContext,
+            http: {
+                authInfo: {
+                    ...oauthContext.http!.authInfo!,
+                    scopes: [MCP_SCOPES.articlesRead],
+                },
+            },
+        } as unknown as ServerContext;
+        expect(authorizeMcpTool("list_articles", articleContext)).toBeNull();
+        expect(
+            authorizeMcpTool("list_documentation_pages", articleContext),
+        ).toMatchObject({ isError: true });
         const ownerTeamContext = {
             ...oauthContext,
             http: {

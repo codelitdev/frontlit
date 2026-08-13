@@ -104,24 +104,70 @@ export default function AccountPage() {
         <ScrollablePage>
             <div className="max-w-2xl space-y-8">
                 <PageHeader
-                    title="Account"
-                    description="Manage your team workspaces and their API keys."
+                    title={
+                        teams.length === 0 ? "Create or join a team" : "Account"
+                    }
+                    description={
+                        teams.length === 0
+                            ? "Create a workspace, or open a team invitation from your email."
+                            : "Manage your team workspaces and their API keys."
+                    }
                 />
 
-                <form onSubmit={handleCreate} className="flex gap-2">
-                    <Input
-                        value={newTeamName}
-                        onChange={(e) => setNewTeamName(e.target.value)}
-                        placeholder="New team name"
-                        className="flex-1"
-                    />
-                    <Button
-                        type="submit"
-                        disabled={!newTeamName.trim() || creating}
-                    >
-                        {creating ? "Creating…" : "Create team"}
-                    </Button>
-                </form>
+                {teams.length === 0 ? (
+                    <Card>
+                        <CardContent className="space-y-5">
+                            <div className="space-y-1">
+                                <h2 className="font-medium">Create a team</h2>
+                                <p className="text-sm text-muted-foreground">
+                                    A team contains its own website, content,
+                                    members, and integrations. You will become
+                                    its owner.
+                                </p>
+                            </div>
+                            <form
+                                onSubmit={handleCreate}
+                                className="flex gap-2"
+                            >
+                                <Input
+                                    value={newTeamName}
+                                    onChange={(e) =>
+                                        setNewTeamName(e.target.value)
+                                    }
+                                    placeholder="Team name"
+                                    className="flex-1"
+                                    autoFocus
+                                />
+                                <Button
+                                    type="submit"
+                                    disabled={!newTeamName.trim() || creating}
+                                >
+                                    {creating ? "Creating…" : "Create team"}
+                                </Button>
+                            </form>
+                            <p className="border-t pt-4 text-sm text-muted-foreground">
+                                Already invited? Open the invitation link sent
+                                to your email. FrontLit will add this account to
+                                that team after you accept it.
+                            </p>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <form onSubmit={handleCreate} className="flex gap-2">
+                        <Input
+                            value={newTeamName}
+                            onChange={(e) => setNewTeamName(e.target.value)}
+                            placeholder="New team name"
+                            className="flex-1"
+                        />
+                        <Button
+                            type="submit"
+                            disabled={!newTeamName.trim() || creating}
+                        >
+                            {creating ? "Creating…" : "Create team"}
+                        </Button>
+                    </form>
+                )}
                 {createError && <Banner>{createError}</Banner>}
 
                 <div className="space-y-4">

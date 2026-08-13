@@ -1,4 +1,5 @@
 import { requireAuth } from "@/lib/server-auth";
+import { EditorAccessGate } from "@/components/workspace/editor-access-gate";
 
 export default async function EditorLayout({
     children,
@@ -6,5 +7,5 @@ export default async function EditorLayout({
     children: React.ReactNode;
 }) {
     await requireAuth();
-    return children;
+    return <EditorAccessGate>{children}</EditorAccessGate>;
 }

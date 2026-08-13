@@ -44,6 +44,8 @@ export interface PageBuilderProps {
     themes?: { system?: Theme[]; custom?: Theme[] };
     pageData?: PageData;
     onChange?: (state: PageBuilderState) => void;
+    /** Whether the editor may alter team-wide theme data. */
+    allowThemeEditing?: boolean;
     className?: string;
 }
 
@@ -71,6 +73,7 @@ export function PageBuilder({
     themes: providedThemes,
     pageData,
     onChange,
+    allowThemeEditing = true,
     className,
 }: PageBuilderProps) {
     const [layout, setLayout] = useState<WidgetInstance[]>(() =>
@@ -202,6 +205,10 @@ export function PageBuilder({
             ];
         });
         setInsertAfter(null);
+        // Newly added blocks should immediately reveal their settings. This is
+        // especially important for intentionally empty blocks such as Embed:
+        // without a configured URL or snippet they have no public rendering.
+        setPanel({ mode: "block", widgetId: instance.widgetId });
     }
 
     const selectedWidgetId = panel?.mode === "block" ? panel.widgetId : null;
@@ -217,7 +224,7 @@ export function PageBuilder({
         selectedInstance &&
         selectedDefinition?.editor,
     );
-    const showThemePanel = panel?.mode === "theme";
+    const showThemePanel = allowThemeEditing && panel?.mode === "theme";
     const showSeoPanel = panel?.mode === "seo";
     const panelOpen = showBlockPanel || showThemePanel || showSeoPanel;
 
@@ -233,6 +240,7 @@ export function PageBuilder({
                 onOpenTheme={() => setPanel({ mode: "theme" })}
                 onOpenSeo={() => setPanel({ mode: "seo" })}
                 onAddBlock={() => setInsertAfter("end")}
+                allowThemeEditing={allowThemeEditing}
             />
             <div className="flex min-h-0 w-full min-w-0 flex-1 gap-4 overflow-hidden bg-muted/10 p-4">
                 <div

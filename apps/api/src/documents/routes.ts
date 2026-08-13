@@ -32,11 +32,10 @@ function toPublicDocument<T extends Record<string, unknown>>(doc: T) {
 }
 
 /**
- * One implementation behind every kind-scoped document router (`/blogs`,
- * `/help-docs`, `/changelogs` \u2014 architecture.md \u00a75.3). `contractRouter` is the
- * ts-rest router produced by the matching `makeDocumentContract(...)` call;
- * this function is the thin REST adapter over the shared `./queries.ts`
- * functions, parameterized only by `kind`.
+ * One implementation behind every typed Content router. `contractRouter` is
+ * produced by the matching `makeDocumentContract(...)` call; this function
+ * is the thin REST adapter over the shared document queries, parameterized by
+ * the internal storage `kind` only.
  */
 export function createDocumentsRouter<T extends Record<string, unknown>>(
     kind: DocumentKind,
@@ -49,7 +48,11 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
     const s = initServer();
 
     const prefix =
-        kind === "blog" ? "blogs" : kind === "doc" ? "docs" : "changelogs";
+        kind === "blog"
+            ? "content.articles"
+            : kind === "doc"
+              ? "content.documentation"
+              : "content.productUpdates";
     const impl: any = authorizeHandlers(
         {
             create: async ({ body, req }: any) => {

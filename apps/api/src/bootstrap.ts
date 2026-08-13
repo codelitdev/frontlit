@@ -1,5 +1,8 @@
 import { logger } from "./services/log";
-import { createAccount, findAccountByEmail } from "./account/queries";
+import {
+    createAccountWithDefaultTeam,
+    findAccountByEmail,
+} from "./account/queries";
 
 /**
  * If `SUPER_ADMIN_EMAIL` is set and no account exists for it yet, create one
@@ -19,9 +22,11 @@ export async function createSuperAdminIfMissing(): Promise<void> {
         const existing = await findAccountByEmail(email.toLowerCase());
         if (existing) return;
 
-        const account = await createAccount(email.toLowerCase(), undefined, {
-            withDefaultApiKey: true,
-        });
+        const account = await createAccountWithDefaultTeam(
+            email.toLowerCase(),
+            undefined,
+            { withDefaultApiKey: true },
+        );
 
         // Keys are stored hashed, so this log line is the only place the
         // secret ever appears.

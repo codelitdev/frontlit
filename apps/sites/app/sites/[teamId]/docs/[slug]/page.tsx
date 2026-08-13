@@ -1,7 +1,7 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { notFound } from "next/navigation";
 import { TextRenderer, extractHeadings } from "@frontlit/text-editor";
-import { getDocBySlug, getSettings } from "@/lib/api";
+import { getDocumentationBySlug, getSettings } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
 import { getCanonicalHost } from "@/lib/request-host";
 import { serializeJsonLd, techArticleJsonLd } from "@/lib/json-ld";
@@ -17,7 +17,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
     const { teamId, slug } = await params;
     const [doc, settings, previous] = await Promise.all([
-        getDocBySlug(teamId, slug),
+        getDocumentationBySlug(teamId, slug),
         getSettings(teamId),
         parent,
     ]);
@@ -50,7 +50,7 @@ export async function generateMetadata(
 
 export default async function DocPage({ params }: Props) {
     const { teamId, slug } = await params;
-    const doc = await getDocBySlug(teamId, slug);
+    const doc = await getDocumentationBySlug(teamId, slug);
     if (!doc) notFound();
 
     const canonicalHost = await getCanonicalHost();

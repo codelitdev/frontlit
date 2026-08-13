@@ -6,13 +6,13 @@ import { ApiError } from "@/lib/api-client";
 import {
     deleteEspConfig,
     getEspConfig,
-    getNewsletterSettings,
+    getEmailSettings,
     testEspConfig,
     updateEspConfig,
-    updateNewsletterSettings,
+    updateEmailSettings,
     type EspConfig,
     type EspProvider,
-    type NewsletterSettings,
+    type EmailSettings,
 } from "@/lib/api";
 import { PageHeader } from "@/components/workspace/page-header";
 import { Loading } from "@/components/workspace/loading";
@@ -86,7 +86,7 @@ function formFromConfig(config: EspConfig): EspForm {
 
 export default function EspSettingsPage() {
     useSetBreadcrumb([{ label: "Settings" }, { label: "ESP" }]);
-    const [settings, setSettings] = useState<NewsletterSettings | null>(null);
+    const [settings, setSettings] = useState<EmailSettings | null>(null);
     const [esp, setEsp] = useState<EspConfig | null>(null);
     const [form, setForm] = useState<EspForm>(EMPTY_FORM);
     const [testRecipient, setTestRecipient] = useState("");
@@ -104,7 +104,7 @@ export default function EspSettingsPage() {
         async function load() {
             try {
                 const [general, config] = await Promise.all([
-                    getNewsletterSettings(),
+                    getEmailSettings(),
                     getEspConfig(),
                 ]);
                 setSettings(general);
@@ -138,7 +138,7 @@ export default function EspSettingsPage() {
         }
         setSaving(true);
         try {
-            const updatedSettings = await updateNewsletterSettings({
+            const updatedSettings = await updateEmailSettings({
                 mailingAddress: settings.mailingAddress ?? "",
             });
             const updatedEsp = await updateEspConfig({
@@ -211,7 +211,7 @@ export default function EspSettingsPage() {
             <div className="max-w-2xl space-y-6">
                 <PageHeader
                     title="ESP"
-                    description="Configure the email service provider used for newsletters and transactional mail. FrontLit sends through SendLit."
+                    description="Configure the email service provider used for broadcasts and transactional mail. FrontLit sends through SendLit."
                 />
 
                 {notConnected && (
@@ -229,7 +229,7 @@ export default function EspSettingsPage() {
                         {!esp && (
                             <Banner variant="warning">
                                 No email service provider is configured.
-                                Newsletter and transactional sends remain
+                                Broadcast and transactional sends remain
                                 disabled until these settings are saved.
                             </Banner>
                         )}
@@ -437,8 +437,8 @@ export default function EspSettingsPage() {
                                     />
                                     <p className="text-xs text-muted-foreground">
                                         SendLit includes this address in managed
-                                        newsletter footers and requires it
-                                        before sending.
+                                        email footers and requires it before
+                                        sending.
                                     </p>
                                 </div>
                                 <Button type="submit" disabled={saving}>
@@ -458,7 +458,7 @@ export default function EspSettingsPage() {
                             {esp && (
                                 <DeleteConfirm
                                     title="Remove ESP configuration?"
-                                    description="SendLit will stop sending newsletters and transactional email for this team until another ESP is configured."
+                                    description="SendLit will stop sending broadcasts and transactional email for this team until another ESP is configured."
                                     onConfirm={handleRemove}
                                     trigger={
                                         <Button type="button" variant="outline">

@@ -197,6 +197,10 @@ export interface TeamMember {
     updatedAt: string;
 }
 
+export interface AcceptedTeamMember extends TeamMember {
+    teamId: string;
+}
+
 export interface TeamInvitation {
     invitationId: string;
     email: string;
@@ -301,7 +305,7 @@ export function acceptTeamInvitation(body: {
     invitationId: string;
     token: string;
 }) {
-    return unwrap<TeamMember>(client.teamInvitations.accept({ body }));
+    return unwrap<AcceptedTeamMember>(client.teamInvitations.accept({ body }));
 }
 
 export function rejectTeamInvitation(body: {
@@ -469,15 +473,15 @@ export function deleteMedia(mediaId: string) {
     return unwrap<void>(client.media.remove({ params: { mediaId } }));
 }
 
-// ---- Blog ---------------------------------------------------------------
+// ---- Content: articles --------------------------------------------------
 
 export type DocumentStatus = "draft" | "published" | "published_with_changes";
 
-export interface BlogMeta {
+export interface ArticleMeta {
     tags: string[];
 }
 
-export interface BlogPost {
+export interface Article {
     documentId: string;
     slug: string;
     status: DocumentStatus;
@@ -486,34 +490,38 @@ export interface BlogPost {
     content?: TextEditorContent | null;
     excerpt?: string | null;
     featuredImage?: Record<string, unknown> | null;
-    meta: BlogMeta;
+    meta: ArticleMeta;
     draftTitle: string;
     draftContent: TextEditorContent;
     draftExcerpt?: string | null;
     draftFeaturedImage?: Record<string, unknown> | null;
-    draftMeta: BlogMeta;
+    draftMeta: ArticleMeta;
     createdAt: string | null;
     updatedAt: string | null;
 }
 
-export function listBlogPosts(
+export function listArticles(
     params: { q?: string; offset?: number; itemsPerPage?: number } = {},
 ) {
-    return unwrap<Paginated<BlogPost>>(client.blogs.list({ query: params }));
+    return unwrap<Paginated<Article>>(
+        client.content.articles.list({ query: params }),
+    );
 }
 
-export function createBlogPost(input: {
+export function createArticle(input: {
     title: string;
-    meta?: Partial<BlogMeta>;
+    meta?: Partial<ArticleMeta>;
 }) {
-    return unwrap<BlogPost>(client.blogs.create({ body: input }));
+    return unwrap<Article>(client.content.articles.create({ body: input }));
 }
 
-export function getBlogPost(documentId: string) {
-    return unwrap<BlogPost>(client.blogs.get({ params: { documentId } }));
+export function getArticle(documentId: string) {
+    return unwrap<Article>(
+        client.content.articles.get({ params: { documentId } }),
+    );
 }
 
-export function updateBlogPost(
+export function updateArticle(
     documentId: string,
     patch: Partial<{
         slug: string;
@@ -521,36 +529,40 @@ export function updateBlogPost(
         content: TextEditorContent;
         excerpt: string;
         featuredImage: Record<string, unknown>;
-        meta: Partial<BlogMeta>;
+        meta: Partial<ArticleMeta>;
     }>,
 ) {
-    return unwrap<BlogPost>(
-        client.blogs.update({ params: { documentId }, body: patch }),
+    return unwrap<Article>(
+        client.content.articles.update({ params: { documentId }, body: patch }),
     );
 }
 
-export function publishBlogPost(documentId: string) {
-    return unwrap<BlogPost>(client.blogs.publish({ params: { documentId } }));
-}
-
-export function discardBlogPostDraft(documentId: string) {
-    return unwrap<BlogPost>(
-        client.blogs.discardDraft({ params: { documentId } }),
+export function publishArticle(documentId: string) {
+    return unwrap<Article>(
+        client.content.articles.publish({ params: { documentId } }),
     );
 }
 
-export function deleteBlogPost(documentId: string) {
-    return unwrap<void>(client.blogs.remove({ params: { documentId } }));
+export function discardArticleDraft(documentId: string) {
+    return unwrap<Article>(
+        client.content.articles.discardDraft({ params: { documentId } }),
+    );
 }
 
-// ---- Docs (help center) --------------------------------------------------
+export function deleteArticle(documentId: string) {
+    return unwrap<void>(
+        client.content.articles.remove({ params: { documentId } }),
+    );
+}
 
-export interface DocMeta {
+// ---- Content: documentation --------------------------------------------
+
+export interface DocumentationMeta {
     sectionId?: string;
     order: number;
 }
 
-export interface HelpDoc {
+export interface DocumentationPage {
     documentId: string;
     slug: string;
     status: DocumentStatus;
@@ -559,34 +571,40 @@ export interface HelpDoc {
     content?: TextEditorContent | null;
     excerpt?: string | null;
     featuredImage?: Record<string, unknown> | null;
-    meta: DocMeta;
+    meta: DocumentationMeta;
     draftTitle: string;
     draftContent: TextEditorContent;
     draftExcerpt?: string | null;
     draftFeaturedImage?: Record<string, unknown> | null;
-    draftMeta: DocMeta;
+    draftMeta: DocumentationMeta;
     createdAt: string | null;
     updatedAt: string | null;
 }
 
-export function listHelpDocs(
+export function listDocumentationPages(
     params: { q?: string; offset?: number; itemsPerPage?: number } = {},
 ) {
-    return unwrap<Paginated<HelpDoc>>(client.docs.list({ query: params }));
+    return unwrap<Paginated<DocumentationPage>>(
+        client.content.documentation.list({ query: params }),
+    );
 }
 
-export function createHelpDoc(input: {
+export function createDocumentationPage(input: {
     title: string;
-    meta?: Partial<DocMeta>;
+    meta?: Partial<DocumentationMeta>;
 }) {
-    return unwrap<HelpDoc>(client.docs.create({ body: input }));
+    return unwrap<DocumentationPage>(
+        client.content.documentation.create({ body: input }),
+    );
 }
 
-export function getHelpDoc(documentId: string) {
-    return unwrap<HelpDoc>(client.docs.get({ params: { documentId } }));
+export function getDocumentationPage(documentId: string) {
+    return unwrap<DocumentationPage>(
+        client.content.documentation.get({ params: { documentId } }),
+    );
 }
 
-export function updateHelpDoc(
+export function updateDocumentationPage(
     documentId: string,
     patch: Partial<{
         slug: string;
@@ -594,29 +612,36 @@ export function updateHelpDoc(
         content: TextEditorContent;
         excerpt: string;
         featuredImage: Record<string, unknown>;
-        meta: Partial<DocMeta>;
+        meta: Partial<DocumentationMeta>;
     }>,
 ) {
-    return unwrap<HelpDoc>(
-        client.docs.update({ params: { documentId }, body: patch }),
+    return unwrap<DocumentationPage>(
+        client.content.documentation.update({
+            params: { documentId },
+            body: patch,
+        }),
     );
 }
 
-export function publishHelpDoc(documentId: string) {
-    return unwrap<HelpDoc>(client.docs.publish({ params: { documentId } }));
-}
-
-export function discardHelpDocDraft(documentId: string) {
-    return unwrap<HelpDoc>(
-        client.docs.discardDraft({ params: { documentId } }),
+export function publishDocumentationPage(documentId: string) {
+    return unwrap<DocumentationPage>(
+        client.content.documentation.publish({ params: { documentId } }),
     );
 }
 
-export function deleteHelpDoc(documentId: string) {
-    return unwrap<void>(client.docs.remove({ params: { documentId } }));
+export function discardDocumentationPageDraft(documentId: string) {
+    return unwrap<DocumentationPage>(
+        client.content.documentation.discardDraft({ params: { documentId } }),
+    );
 }
 
-export interface DocSection {
+export function deleteDocumentationPage(documentId: string) {
+    return unwrap<void>(
+        client.content.documentation.remove({ params: { documentId } }),
+    );
+}
+
+export interface DocumentationSection {
     sectionId: string;
     name: string;
     slug: string;
@@ -625,28 +650,40 @@ export interface DocSection {
     updatedAt: string | null;
 }
 
-export function listDocSections() {
-    return unwrap<{ items: DocSection[] }>(client.docSections.list());
-}
-
-export function createDocSection(input: { name: string; order?: number }) {
-    return unwrap<DocSection>(client.docSections.create({ body: input }));
-}
-
-export function updateDocSection(
-    sectionId: string,
-    patch: Partial<{ name: string; order: number }>,
-) {
-    return unwrap<DocSection>(
-        client.docSections.update({ params: { sectionId }, body: patch }),
+export function listDocumentationSections() {
+    return unwrap<{ items: DocumentationSection[] }>(
+        client.content.documentationSections.list(),
     );
 }
 
-export function deleteDocSection(sectionId: string) {
-    return unwrap<void>(client.docSections.remove({ params: { sectionId } }));
+export function createDocumentationSection(input: {
+    name: string;
+    order?: number;
+}) {
+    return unwrap<DocumentationSection>(
+        client.content.documentationSections.create({ body: input }),
+    );
 }
 
-export interface DocSearchResult {
+export function updateDocumentationSection(
+    sectionId: string,
+    patch: Partial<{ name: string; order: number }>,
+) {
+    return unwrap<DocumentationSection>(
+        client.content.documentationSections.update({
+            params: { sectionId },
+            body: patch,
+        }),
+    );
+}
+
+export function deleteDocumentationSection(sectionId: string) {
+    return unwrap<void>(
+        client.content.documentationSections.remove({ params: { sectionId } }),
+    );
+}
+
+export interface DocumentationSearchResult {
     documentId: string;
     slug: string;
     title: string | null;
@@ -656,22 +693,22 @@ export interface DocSearchResult {
     similarity: number;
 }
 
-export function searchDocs(q: string, k?: number) {
-    return unwrap<{ items: DocSearchResult[] }>(
-        client.docSections.search({ query: { q, k } }),
+export function searchDocumentation(q: string, k?: number) {
+    return unwrap<{ items: DocumentationSearchResult[] }>(
+        client.content.documentationSections.search({ query: { q, k } }),
     );
 }
 
-// ---- Changelog -----------------------------------------------------------
+// ---- Content: product updates -------------------------------------------
 
-export interface ChangelogMeta {
+export interface ProductUpdateMeta {
     version?: string;
     labels: string[];
     releaseDate?: string;
     github?: { releaseId: number; releaseUrl: string; tagName: string };
 }
 
-export interface ChangelogEntry {
+export interface ProductUpdate {
     documentId: string;
     slug: string;
     status: DocumentStatus;
@@ -680,36 +717,38 @@ export interface ChangelogEntry {
     content?: TextEditorContent | null;
     excerpt?: string | null;
     featuredImage?: Record<string, unknown> | null;
-    meta: ChangelogMeta;
+    meta: ProductUpdateMeta;
     draftTitle: string;
     draftContent: TextEditorContent;
     draftExcerpt?: string | null;
     draftFeaturedImage?: Record<string, unknown> | null;
-    draftMeta: ChangelogMeta;
+    draftMeta: ProductUpdateMeta;
     createdAt: string | null;
     updatedAt: string | null;
 }
 
-export function listChangelogEntries(params: { q?: string } = {}) {
-    return unwrap<Paginated<ChangelogEntry>>(
-        client.changelogs.list({ query: params }),
+export function listProductUpdates(params: { q?: string } = {}) {
+    return unwrap<Paginated<ProductUpdate>>(
+        client.content.productUpdates.list({ query: params }),
     );
 }
 
-export function createChangelogEntry(input: {
+export function createProductUpdate(input: {
     title: string;
-    meta?: Partial<ChangelogMeta>;
+    meta?: Partial<ProductUpdateMeta>;
 }) {
-    return unwrap<ChangelogEntry>(client.changelogs.create({ body: input }));
-}
-
-export function getChangelogEntry(documentId: string) {
-    return unwrap<ChangelogEntry>(
-        client.changelogs.get({ params: { documentId } }),
+    return unwrap<ProductUpdate>(
+        client.content.productUpdates.create({ body: input }),
     );
 }
 
-export function updateChangelogEntry(
+export function getProductUpdate(documentId: string) {
+    return unwrap<ProductUpdate>(
+        client.content.productUpdates.get({ params: { documentId } }),
+    );
+}
+
+export function updateProductUpdate(
     documentId: string,
     patch: Partial<{
         slug: string;
@@ -717,28 +756,33 @@ export function updateChangelogEntry(
         content: TextEditorContent;
         excerpt: string;
         featuredImage: Record<string, unknown>;
-        meta: Partial<ChangelogMeta>;
+        meta: Partial<ProductUpdateMeta>;
     }>,
 ) {
-    return unwrap<ChangelogEntry>(
-        client.changelogs.update({ params: { documentId }, body: patch }),
+    return unwrap<ProductUpdate>(
+        client.content.productUpdates.update({
+            params: { documentId },
+            body: patch,
+        }),
     );
 }
 
-export function publishChangelogEntry(documentId: string) {
-    return unwrap<ChangelogEntry>(
-        client.changelogs.publish({ params: { documentId } }),
+export function publishProductUpdate(documentId: string) {
+    return unwrap<ProductUpdate>(
+        client.content.productUpdates.publish({ params: { documentId } }),
     );
 }
 
-export function discardChangelogEntryDraft(documentId: string) {
-    return unwrap<ChangelogEntry>(
-        client.changelogs.discardDraft({ params: { documentId } }),
+export function discardProductUpdateDraft(documentId: string) {
+    return unwrap<ProductUpdate>(
+        client.content.productUpdates.discardDraft({ params: { documentId } }),
     );
 }
 
-export function deleteChangelogEntry(documentId: string) {
-    return unwrap<void>(client.changelogs.remove({ params: { documentId } }));
+export function deleteProductUpdate(documentId: string) {
+    return unwrap<void>(
+        client.content.productUpdates.remove({ params: { documentId } }),
+    );
 }
 
 export interface GithubIntegration {
@@ -747,7 +791,9 @@ export interface GithubIntegration {
 }
 
 export function getGithubIntegration() {
-    return unwrap<GithubIntegration>(client.changelogs.getGithubIntegration());
+    return unwrap<GithubIntegration>(
+        client.content.productUpdates.getGithubIntegration(),
+    );
 }
 
 export function connectGithubIntegration(input: {
@@ -755,21 +801,21 @@ export function connectGithubIntegration(input: {
     repo: string;
 }) {
     return unwrap<GithubIntegration>(
-        client.changelogs.connectGithub({ body: input }),
+        client.content.productUpdates.connectGithub({ body: input }),
     );
 }
 
 export function disconnectGithubIntegration() {
-    return unwrap<void>(client.changelogs.disconnectGithub());
+    return unwrap<void>(client.content.productUpdates.disconnectGithub());
 }
 
 export function importGithubReleases() {
     return unwrap<{ imported: number; skipped: number }>(
-        client.changelogs.importGithubReleases(),
+        client.content.productUpdates.importGithubReleases(),
     );
 }
 
-// ---- Newsletter (SendLit, read-through) ------------------------------------
+// ---- Email (SendLit, read-through) ------------------------------------
 
 export interface Contact {
     contactId: string;
@@ -780,8 +826,25 @@ export interface Contact {
     createdAt?: string;
 }
 
+export function createContact(input: {
+    email: string;
+    name?: string;
+    tags?: string[];
+}) {
+    return unwrap<Contact>(client.contacts.create({ body: input }));
+}
+
 export function listContacts(
-    params: { email?: string; tag?: string; subscribed?: boolean } = {},
+    params: {
+        email?: string;
+        tag?: string;
+        subscribed?: boolean;
+        q?: string;
+        segmentId?: string;
+        filter?: string;
+        offset?: number;
+        itemsPerPage?: number;
+    } = {},
 ) {
     return unwrap<Paginated<Contact>>(client.contacts.list({ query: params }));
 }
@@ -806,45 +869,49 @@ export function removeContactTag(contactId: string, tag: string) {
     );
 }
 
+export interface ContactFilterCondition {
+    name: string;
+    condition: string;
+    value?: string;
+    key?: string;
+    valueLabel?: string;
+}
+
+export interface ContactFilter {
+    aggregator: "and" | "or";
+    filters: ContactFilterCondition[];
+}
+
 export interface Segment {
     segmentId: string;
     name: string;
-    conditions: Record<string, unknown>[];
+    filter: ContactFilter;
 }
 
 export function listSegments() {
     return unwrap<{ items: Segment[] }>(client.segments.list());
 }
 
-export function createSegment(input: {
-    name: string;
-    conditions?: Record<string, unknown>[];
-}) {
-    return unwrap<Segment>(
-        client.segments.create({
-            body: { name: input.name, conditions: input.conditions ?? [] },
-        }),
-    );
+export function createSegment(input: { name: string; filter: ContactFilter }) {
+    return unwrap<Segment>(client.segments.create({ body: input }));
 }
 
 export function deleteSegment(segmentId: string) {
     return unwrap<void>(client.segments.remove({ params: { segmentId } }));
 }
 
-export interface NewsletterSettings {
+export interface EmailSettings {
     connected: boolean;
     mailingAddress?: string | null;
     updatedAt?: string | null;
 }
 
-export function getNewsletterSettings() {
-    return unwrap<NewsletterSettings>(client.newsletter.getSettings());
+export function getEmailSettings() {
+    return unwrap<EmailSettings>(client.email.getSettings());
 }
 
-export function updateNewsletterSettings(patch: { mailingAddress?: string }) {
-    return unwrap<NewsletterSettings>(
-        client.newsletter.updateSettings({ body: patch }),
-    );
+export function updateEmailSettings(patch: { mailingAddress?: string }) {
+    return unwrap<EmailSettings>(client.email.updateSettings({ body: patch }));
 }
 
 export type EspProvider =
@@ -905,11 +972,12 @@ export interface Broadcast {
     subject?: string | null;
     /** SendLit's structured email document, edited with @sendlit/email-blocks. */
     body?: Record<string, unknown> | null;
+    filter?: ContactFilter | null;
     createdAt?: string | null;
     updatedAt?: string | null;
 }
 
-export interface NewsletterTemplate {
+export interface EmailTemplate {
     templateId: string;
     title: string;
     body: Record<string, unknown>;
@@ -917,27 +985,36 @@ export interface NewsletterTemplate {
     updatedAt?: string | null;
 }
 
-export function listNewsletterTemplates() {
-    return unwrap<{ items: NewsletterTemplate[] }>(
-        client.newsletter.listTemplates(),
+export interface SystemEmailTemplate {
+    templateId: string;
+    title: string;
+    description?: string;
+    body: Record<string, unknown>;
+}
+
+export function listEmailTemplates() {
+    return unwrap<{ items: EmailTemplate[] }>(client.email.listTemplates());
+}
+
+export function listSystemEmailTemplates() {
+    return unwrap<{ items: SystemEmailTemplate[] }>(
+        client.email.listSystemTemplates(),
     );
 }
 
-export function createNewsletterTemplate(input: {
+export function createEmailTemplate(input: {
     title: string;
     body: Record<string, unknown>;
 }) {
-    return unwrap<NewsletterTemplate>(
-        client.newsletter.createTemplate({ body: input }),
-    );
+    return unwrap<EmailTemplate>(client.email.createTemplate({ body: input }));
 }
 
-export function updateNewsletterTemplate(
+export function updateEmailTemplate(
     templateId: string,
     patch: Partial<{ title: string; body: Record<string, unknown> }>,
 ) {
-    return unwrap<NewsletterTemplate>(
-        client.newsletter.updateTemplate({
+    return unwrap<EmailTemplate>(
+        client.email.updateTemplate({
             params: { templateId },
             body: patch,
         }),
@@ -945,7 +1022,7 @@ export function updateNewsletterTemplate(
 }
 
 export function listBroadcasts() {
-    return unwrap<{ items: Broadcast[] }>(client.newsletter.listBroadcasts());
+    return unwrap<{ items: Broadcast[] }>(client.email.listBroadcasts());
 }
 
 export function createBroadcast(input: {
@@ -953,10 +1030,9 @@ export function createBroadcast(input: {
     subject?: string;
     body?: Record<string, unknown>;
     templateId?: string;
+    filter?: ContactFilter;
 }) {
-    return unwrap<Broadcast>(
-        client.newsletter.createBroadcast({ body: input }),
-    );
+    return unwrap<Broadcast>(client.email.createBroadcast({ body: input }));
 }
 
 export function updateBroadcast(
@@ -965,10 +1041,11 @@ export function updateBroadcast(
         name: string;
         subject: string;
         body: Record<string, unknown>;
+        filter: ContactFilter | null;
     }>,
 ) {
     return unwrap<Broadcast>(
-        client.newsletter.updateBroadcast({
+        client.email.updateBroadcast({
             params: { broadcastId },
             body: patch,
         }),
@@ -977,7 +1054,13 @@ export function updateBroadcast(
 
 export function sendBroadcast(broadcastId: string) {
     return unwrap<{ status: string }>(
-        client.newsletter.sendBroadcast({ params: { broadcastId } }),
+        client.email.sendBroadcast({ params: { broadcastId } }),
+    );
+}
+
+export function deleteBroadcast(broadcastId: string) {
+    return unwrap<void>(
+        client.email.removeBroadcast({ params: { broadcastId } }),
     );
 }
 

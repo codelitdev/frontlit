@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import {
     getChatbotSettings,
-    searchDocs,
+    searchDocumentation,
     updateChatbotSettings,
     type ChatbotSettings,
     type ChatbotWidgetStyle,
     type ChatbotWidgetVariant,
-    type DocSearchResult,
+    type DocumentationSearchResult,
 } from "@/lib/api";
 import { PageHeader } from "@/components/workspace/page-header";
 import { Loading } from "@/components/workspace/loading";
@@ -283,7 +283,7 @@ function PreviewIcon({
 
 export default function ChatbotPage() {
     useSetBreadcrumb([
-        { label: "Website", href: "/website/pages" },
+        { label: "Website", href: "/website?tab=pages" },
         { label: "Chatbot" },
     ]);
     const [settings, setSettings] = useState<ChatbotSettings | null>(null);
@@ -292,7 +292,7 @@ export default function ChatbotPage() {
     const [testMessage, setTestMessage] = useState("");
     const [testAnswer, setTestAnswer] = useState<{
         answer: string;
-        sources: DocSearchResult[];
+        sources: DocumentationSearchResult[];
     } | null>(null);
     const [asking, setAsking] = useState(false);
 
@@ -336,7 +336,7 @@ export default function ChatbotPage() {
         setAsking(true);
         setTestAnswer(null);
         try {
-            const { items } = await searchDocs(testMessage.trim());
+            const { items } = await searchDocumentation(testMessage.trim());
             setTestAnswer({
                 answer: items[0]?.content ?? "No matching docs found.",
                 sources: items,

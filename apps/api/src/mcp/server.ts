@@ -1,8 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import {
-    blogMetaSchema,
-    changelogMetaSchema,
-    docMetaSchema,
+    articleMetaSchema,
+    productUpdateMetaSchema,
+    documentationMetaSchema,
 } from "@frontlit/api-contract";
 import { createMcpToolRegistrar, type McpToolRegistrar } from "./tool-registry";
 import { registerTeamTools } from "./tools/teams";
@@ -10,8 +10,8 @@ import { registerPageTools } from "./tools/pages";
 import { registerThemeTools } from "./tools/themes";
 import { registerMediaTools } from "./tools/media";
 import { registerDocumentTools } from "./tools/documents";
-import { registerChangelogTools } from "./tools/changelogs";
-import { registerNewsletterTools } from "./tools/newsletter";
+import { registerProductUpdateTools } from "./tools/changelogs";
+import { registerEmailTools } from "./tools/email";
 import { registerDocumentationTools } from "./tools/documentation";
 import { registerChatbotTools } from "./tools/chatbot";
 import { registerHelpdeskTools } from "./tools/helpdesk";
@@ -26,16 +26,21 @@ export function registerAllTools(tools: McpToolRegistrar): void {
     registerPageTools(tools);
     registerThemeTools(tools);
     registerMediaTools(tools);
-    registerDocumentTools(tools, "blog", "blog_post", blogMetaSchema);
-    registerDocumentTools(tools, "doc", "help_doc", docMetaSchema);
+    registerDocumentTools(tools, "blog", "article", articleMetaSchema);
+    registerDocumentTools(
+        tools,
+        "doc",
+        "documentation_page",
+        documentationMetaSchema,
+    );
     registerDocumentTools(
         tools,
         "changelog",
-        "changelog_entry",
-        changelogMetaSchema,
+        "product_update",
+        productUpdateMetaSchema,
     );
-    registerChangelogTools(tools);
-    registerNewsletterTools(tools);
+    registerProductUpdateTools(tools);
+    registerEmailTools(tools);
     registerDocumentationTools(tools);
     registerChatbotTools(tools);
     registerHelpdeskTools(tools);
@@ -54,7 +59,7 @@ export function buildMcpServer(): McpServer {
             name: "FrontLit",
             version: FRONTLIT_MCP_VERSION,
             description:
-                "FrontLit MCP server — build and operate a FrontLit team's website, content, newsletter, support, domains, media, chatbot, and settings.",
+                "FrontLit MCP server — build and operate a FrontLit team's website, content, email, support, domains, media, chatbot, and settings.",
         },
         {
             instructions:

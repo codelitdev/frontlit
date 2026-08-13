@@ -13,12 +13,11 @@ import {
 } from "./queries";
 import { omitInternal, serializeDates } from "../utils/public";
 
-/** Doc sections (help-center nav tree) + semantic search (architecture.md
- * §5.1/§6.4). Mounted *before* the generic `/help-docs/:documentId` router in
- * index.ts \u2014 its literal `/help-docs/search` path would otherwise be shadowed
- * by that router's `:documentId` wildcard. */
+/** Documentation sections (help-center nav tree) plus semantic search.
+ * Mounted before the generic `/content/documentation/:documentId` router so
+ * its literal section/search routes cannot be shadowed by the wildcard. */
 const router = Router();
-router.use(["/doc-sections", "/help-docs/search"], requireAuth, requireTeam);
+router.use("/content/documentation", requireAuth, requireTeam);
 
 const s = initServer();
 
@@ -27,7 +26,7 @@ function toPublicSection<T extends Record<string, unknown>>(section: T) {
 }
 
 const impl = s.router(
-    contract.docSections,
+    contract.content.documentationSections,
     authorizeHandlers(
         {
             create: async ({ body, req }) => {
@@ -79,15 +78,15 @@ const impl = s.router(
             },
         },
         {
-            create: "docSections.create",
-            list: "docSections.list",
-            update: "docSections.update",
-            remove: "docSections.remove",
-            search: "docSections.search",
+            create: "content.documentationSections.create",
+            list: "content.documentationSections.list",
+            update: "content.documentationSections.update",
+            remove: "content.documentationSections.remove",
+            search: "content.documentationSections.search",
         },
     ),
 );
 
-createExpressEndpoints(contract.docSections, impl, router);
+createExpressEndpoints(contract.content.documentationSections, impl, router);
 
 export default router;

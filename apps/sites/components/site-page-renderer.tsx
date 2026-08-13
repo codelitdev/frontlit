@@ -19,16 +19,23 @@ export function SitePageRenderer({
     themeStyle,
     pageData,
     children,
+    dataSlots,
 }: {
     layout: WidgetInstance[];
     themeId: string | null;
     themeStyle: Record<string, unknown> | null;
     pageData: PageData;
     children?: React.ReactNode;
+    dataSlots?: Record<string, React.ReactNode>;
 }) {
     const theme = resolveSiteTheme(themeId, themeStyle);
     return (
-        <PageRenderer layout={layout} theme={theme} pageData={pageData}>
+        <PageRenderer
+            layout={layout}
+            theme={theme}
+            pageData={pageData}
+            dataSlots={dataSlots}
+        >
             {children}
         </PageRenderer>
     );

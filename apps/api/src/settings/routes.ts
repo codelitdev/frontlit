@@ -18,8 +18,8 @@ import {
     getEspConfig,
     testEspConfig,
     upsertEspConfig,
-} from "../newsletter/sendlit-client";
-import { withSendlitKey } from "../newsletter/proxy";
+} from "../email/sendlit-client";
+import { withSendlitKey } from "../email/proxy";
 
 const router = Router();
 router.use("/settings", requireAuth, requireTeam);

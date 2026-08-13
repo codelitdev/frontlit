@@ -4,7 +4,7 @@ description: Run SendLit and its dependencies alongside a self-managed FrontLit 
 ---
 
 FrontLit can use a self-hosted [SendLit](https://sendlit.app) instance for
-newsletter contacts, segments, broadcasts, delivery settings, and transactional
+email contacts, segments, broadcasts, delivery settings, and transactional
 email. The products remain separate services: FrontLit calls SendLit's REST API
 and each FrontLit team is provisioned as a dedicated SendLit team.
 
@@ -109,3 +109,34 @@ The `frontlit-postgres-data` and `sendlit-redis-data` Docker volumes persist
 data across restarts. Back up the Postgres volume/database before upgrades or
 destructive maintenance. Do not run `docker compose down -v` unless you intend
 to delete all self-hosted FrontLit and SendLit data.
+
+## Troubleshooting
+
+### Email or Contacts says the team is not connected to SendLit
+
+The SendLit container being healthy is not enough. Each FrontLit team is
+connected only after FrontLit provisions a matching SendLit team and stores
+that team's API key. If `/email` or `/contacts` shows that the team is not
+connected:
+
+1. Confirm `apps/api/.env` has the **current** `SENDLIT_ORGANIZATION_API_KEY`
+   from `docker compose logs sendlit-api`. SendLit prints this key only when
+   it first creates the super-admin organization. A later SendLit reset
+   issues a new key; the old one returns `401 unauthorized`.
+2. Restart the FrontLit API after changing that env var. The process reads
+   `.env` at startup and will keep using a stale key until it restarts.
+3. Reset any exhausted provisioning retries. Failed `provision_sendlit`
+   outbox jobs stop after eight attempts and are not picked up again:
+
+```sql
+UPDATE outbox_jobs
+SET status = 'pending',
+    attempts = 0,
+    last_error = NULL,
+    next_attempt_at = NOW()
+WHERE type = 'provision_sendlit'
+  AND status = 'failed';
+```
+
+The API worker polls every few seconds. When the job succeeds, `integrations`
+has a `sendlit` row for the team and the workspace pages show as connected.

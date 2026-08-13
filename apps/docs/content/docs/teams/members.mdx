@@ -9,6 +9,14 @@ permissions; FrontLit does not use stored roles such as Admin or Editor.
 
 The same person can have different access in different teams.
 
+## Create or join your first team
+
+Signing in does not automatically create a team. If you are new to FrontLit,
+the Account screen lets you create a workspace explicitly. If someone invited
+you, open the link from the invitation email instead. Accepting it adds you to
+that team and opens the first workspace area you are allowed to use; it does
+not create a separate personal team.
+
 ## Invite a teammate
 
 1. Select the team in the workspace switcher.
@@ -31,8 +39,8 @@ needed.
 | Preset          | Intended access                                                                                                     |
 | --------------- | ------------------------------------------------------------------------------------------------------------------- |
 | Full access     | All non-owner team permissions. It does not grant ownership or API-key management.                                  |
-| Content manager | Pages, themes, media, blog, help docs, and changelog content.                                                       |
-| Support         | Inbox/help desk and help docs.                                                                                      |
+| Content manager | Pages, themes, media, articles, documentation, and product updates.                                                 |
+| Support         | Inbox/help desk and documentation read access.                                                                      |
 | Marketing       | Contacts, segments, and broadcast drafting. Sending a broadcast requires the separate `broadcasts:send` permission. |
 | Read only       | Read access across available product areas.                                                                         |
 | Custom          | Select the exact permissions to grant.                                                                              |
@@ -52,6 +60,16 @@ workspace focused, but permissions are always enforced by the API as well.
 A member may be able to view a screen without having permission to change it.
 Controls they cannot use are disabled or omitted. If permissions change, the
 next request uses the new access immediately.
+
+For content libraries, read access lets a member browse existing items. Opening
+an editor or creating, changing, publishing, or deleting content requires that
+area's write permission. Direct editor links without write access return the
+member to the readable library instead of showing an application error.
+
+Articles, documentation, and product updates appear under one **Content**
+heading in the permission picker, but retain separate read/write pairs. This
+lets a documentation writer work without also gaining authority to publish
+articles or import product updates.
 
 ## Manage members safely
 

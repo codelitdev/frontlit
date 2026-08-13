@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+    PERMISSION_GROUPS,
     expandPermissionPreset,
     filterDelegablePermissions,
     isImpliedBySelection,
@@ -7,12 +8,35 @@ import {
 } from "./permission-ui";
 
 describe("permission presets and delegation filter", () => {
+    it("groups all typed content permissions under one Content heading", () => {
+        const content = PERMISSION_GROUPS.find(
+            (group) => group.id === "content",
+        );
+        expect(content).toEqual({
+            id: "content",
+            label: "Content",
+            permissions: [
+                "articles:read",
+                "articles:write",
+                "documentation:read",
+                "documentation:write",
+                "product-updates:read",
+                "product-updates:write",
+            ],
+        });
+        expect(
+            PERMISSION_GROUPS.some((group) =>
+                ["blog", "docs", "changelog"].includes(group.id),
+            ),
+        ).toBe(false);
+    });
+
     it("expands presets to permission arrays without treating names as authority", () => {
         const marketing = expandPermissionPreset("marketing");
         expect(marketing).toContain("broadcasts:write");
         expect(marketing).not.toContain("broadcasts:send");
         expect(expandPermissionPreset("support")).toEqual([
-            "docs:read",
+            "documentation:read",
             "helpdesk:read",
             "helpdesk:write",
         ]);

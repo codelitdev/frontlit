@@ -34,6 +34,7 @@ export function BuilderTopBar({
     onOpenTheme,
     onOpenSeo,
     onAddBlock,
+    allowThemeEditing = true,
 }: {
     mode: "light" | "dark";
     onModeChange: (mode: "light" | "dark") => void;
@@ -42,6 +43,7 @@ export function BuilderTopBar({
     onOpenTheme: () => void;
     onOpenSeo: () => void;
     onAddBlock: () => void;
+    allowThemeEditing?: boolean;
 }) {
     return (
         <header className="flex h-14 w-full shrink-0 items-center justify-between border-b bg-background px-4">
@@ -81,15 +83,17 @@ export function BuilderTopBar({
                     aria-orientation="vertical"
                 />
                 <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        title="Theme"
-                        aria-label="Edit theme"
-                        onClick={onOpenTheme}
-                    >
-                        <Palette className="h-4 w-4" />
-                    </Button>
+                    {allowThemeEditing && (
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            title="Theme"
+                            aria-label="Edit theme"
+                            onClick={onOpenTheme}
+                        >
+                            <Palette className="h-4 w-4" />
+                        </Button>
+                    )}
                     <Button
                         variant="outline"
                         size="icon"

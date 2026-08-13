@@ -102,7 +102,7 @@ covering:
 - pages and themes;
 - media;
 - blogs, help documents, and changelogs;
-- newsletter settings, contacts, segments, broadcasts, and ESP configuration;
+- email settings, contacts, segments, broadcasts, and ESP configuration;
 - documentation search and sections;
 - chatbot settings;
 - helpdesk tickets;
@@ -290,9 +290,9 @@ api_keys:read           api_keys:write
 pages:read              pages:write
 themes:read             themes:write
 media:read              media:write
-blogs:read              blogs:write
-docs:read               docs:write
-changelogs:read         changelogs:write
+articles:read           articles:write
+documentation:read      documentation:write
+product-updates:read    product-updates:write
 contacts:read           contacts:write
 segments:read           segments:write
 broadcasts:read         broadcasts:write         broadcasts:send
@@ -391,18 +391,17 @@ and request URLs are excluded because they can contain authorization codes.
 Better Auth initializes the configured MCP resource when the auth instance is
 created. The OAuth schema must therefore exist before starting the API.
 
-Two additive migrations implement the Better Auth 1.7 schema:
+The current baseline migration implements the Better Auth 1.7 schema:
 
-- `apps/api/drizzle/0004_great_maginty.sql` adds OAuth resource,
+- `apps/api/drizzle/0000_baseline.sql` includes OAuth resource,
   client-resource, assertion, client metadata, token resource/rotation, and
   consent fields; and
-- `apps/api/drizzle/0005_abandoned_moonstone.sql` adds nullable `alg` and `crv`
+- it includes nullable `alg` and `crv`
   fields required by the current JWT plugin's JWKS model.
 
-Both migrations have Drizzle snapshots and journal entries. Existing
-migrations `0000` through `0003` remain unchanged. Do not fold unrelated
-schema changes into these files or edit historical migrations to work around
-an environment-specific failure.
+The baseline has one matching Drizzle snapshot and journal entry. It represents
+the complete current schema for a fresh database; early-development databases
+using the superseded incremental history must be reset before applying it.
 
 For a built API, apply migrations before starting it:
 
@@ -441,7 +440,7 @@ flow, and JWT claims.
 | `apps/api/src/auth/oauth-team-pages.ts`     | Hosted team-selection and no-team UX                                              |
 | `apps/api/src/auth/resolve-auth.ts`         | Session/OAuth/API-key resolution and verified identity mapping                    |
 | `apps/api/src/db/auth-schema.ts`            | FrontLit model names for Better Auth/OAuth persistence                            |
-| `apps/api/drizzle/0004_*`, `0005_*`         | Additive Better Auth 1.7 database changes                                         |
+| `apps/api/drizzle/0000_baseline.sql`        | Current application and Better Auth schema baseline                               |
 | `apps/docs/content/docs/developers/mcp.mdx` | User-facing connection and troubleshooting guide                                  |
 | `@codelitdev/oauth-server-kit`              | Shared discovery, hosted OAuth helpers, and neutral auth types                    |
 
@@ -576,8 +575,8 @@ Diagnose the first failing layer rather than the last error a client displays.
 | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Public URL times out                                                     | Check local `/health`, Funnel/tunnel process, listener target, public DNS, and TLS before inspecting MCP code.                                                        |
 | `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR`                                     | Set `ENABLE_TRUST_PROXY=true` only for the intended one-hop proxy deployment.                                                                                         |
-| `auth_oauth_resource` does not exist                                     | Apply migration `0004` before starting Better Auth.                                                                                                                   |
-| JWKS schema says `alg` is missing                                        | Apply migration `0005` and confirm deployed schema/code alignment.                                                                                                    |
+| `auth_oauth_resource` does not exist                                     | Reset the early-development database and apply `0000_baseline` before starting Better Auth.                                                                           |
+| JWKS schema says `alg` is missing                                        | Apply `0000_baseline` to a fresh database and confirm deployed schema/code alignment.                                                                                 |
 | `invalid_client` fetching a metadata URL                                 | Check HTTPS, public DNS resolution, fetch timeout/size policy, redirect behavior, and the exact client metadata URL.                                                  |
 | `invalid_client_metadata` for Device Code or JWT Bearer                  | Confirm the request uses the canonical VS Code or Claude metadata URL and the exact grant filter is active. Do not add a global filter.                               |
 | Browser OAuth succeeds, then `/mcp` returns `invalid_token`              | Confirm `resolve-auth.ts` calls Better Auth 1.7 `verifyBearerToken()` and validates the exact public MCP audience. Clear stale client tokens after deploying the fix. |

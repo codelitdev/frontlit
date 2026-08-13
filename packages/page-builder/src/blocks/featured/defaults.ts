@@ -5,40 +5,28 @@ export const featuredDefaults: Partial<FeaturedSettings> = {
     headerAlignment: "center",
     items: [
         {
-            title: "Website Builder",
+            title: "Website",
             description:
                 "Design and publish beautiful pages with a drag-and-drop editor.",
             icon: "Globe",
         },
         {
-            title: "Blog",
+            title: "Content",
             description:
-                "Publish articles and grow your audience with built-in SEO.",
+                "Publish articles, documentation, and product updates from one content system.",
             icon: "Newspaper",
         },
         {
-            title: "Help Desk",
+            title: "Support",
             description:
-                "Support your customers with a shared inbox and ticketing.",
+                "Support customers with a shared inbox, ticketing, help center, and AI answers.",
             icon: "LifeBuoy",
         },
         {
-            title: "Email Newsletter",
+            title: "Engage",
             description:
-                "Grow and email your subscriber list without leaving FrontLit.",
+                "Grow your audience and send email without leaving FrontLit.",
             icon: "Mail",
-        },
-        {
-            title: "Chatbot",
-            description:
-                "Answer visitor questions instantly with an AI-powered chatbot.",
-            icon: "MessageCircle",
-        },
-        {
-            title: "Changelog",
-            description:
-                "Share product updates and keep your users in the loop.",
-            icon: "History",
         },
     ],
 };

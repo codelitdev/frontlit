@@ -154,7 +154,7 @@ describe("public critical paths", () => {
             expect(unpublishedPage.status).toBe(404);
 
             const liveDoc = await fetch(
-                `${origin}/public/${teamPublicId}/docs/${encodeURIComponent(publishedDoc.slug)}`,
+                `${origin}/public/${teamPublicId}/content/documentation/${encodeURIComponent(publishedDoc.slug)}`,
             );
             expect(liveDoc.status).toBe(200);
             expect(await liveDoc.json()).toMatchObject({
@@ -164,7 +164,7 @@ describe("public critical paths", () => {
             });
 
             const unpublishedDoc = await fetch(
-                `${origin}/public/${teamPublicId}/docs/${encodeURIComponent(draftDoc.slug)}`,
+                `${origin}/public/${teamPublicId}/content/documentation/${encodeURIComponent(draftDoc.slug)}`,
             );
             expect(unpublishedDoc.status).toBe(404);
         });

@@ -15,6 +15,7 @@ export default defineConfig({
         "blocks/index": "src/blocks/index.tsx",
         "renderer/index": "src/renderer/index.ts",
         "builder/index": "src/builder/index.ts",
+        "data-slots": "src/data-slots.ts",
     },
     format: ["esm"],
     dts: true,

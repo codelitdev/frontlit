@@ -163,7 +163,7 @@ export function PageBuilderDemo({ demo }: { demo: DemoName }) {
                 <BlockDemo
                     name="email-form"
                     title="Email Form"
-                    description="A newsletter/waitlist signup form."
+                    description="An email/waitlist signup form."
                 />
             );
         case "page-builder":

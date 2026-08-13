@@ -32,17 +32,18 @@ function toPublicDocument<T extends Record<string, unknown>>(doc: T) {
 }
 
 /**
- * One implementation behind every kind-scoped tool set (`create_blog_post`,
- * `create_help_doc`, `create_changelog_entry`, \u2026 \u2014 architecture.md \u00a72).
- * `label` names the tools/output schema (e.g. "blog_post"); `metaSchema`
- * documents the kind-specific `meta` shape for MCP clients.
+ * One implementation behind every typed Content tool set (`create_article`,
+ * `create_documentation_page`, and `create_product_update`). `label` names
+ * the tools/output schema; `metaSchema` documents type-specific metadata for
+ * MCP clients. The database kind stays internal.
  */
 export function registerDocumentTools(
     server: McpToolRegistrar,
     kind: DocumentKind,
-    label: "blog_post" | "help_doc" | "changelog_entry",
+    label: "article" | "documentation_page" | "product_update",
     metaSchema: z.ZodTypeAny,
 ): void {
+    const humanLabel = label.replaceAll("_", " ");
     const documentSchema = z.object({
         documentId: z.string(),
         slug: z.string(),
@@ -65,7 +66,7 @@ export function registerDocumentTools(
     server.registerTool(
         `create_${label}`,
         {
-            description: `Creates a new, empty ${label} (draft only) for the current team.`,
+            description: `Creates a new, empty ${humanLabel} (draft only) for the current team.`,
             inputSchema: {
                 title: z.string().min(1),
                 meta: metaSchema.optional(),
@@ -96,7 +97,7 @@ export function registerDocumentTools(
     server.registerTool(
         `list_${label}s`,
         {
-            description: `Lists ${label}s for the current team, optionally filtered by a title search term.`,
+            description: `Lists ${humanLabel}s for the current team, optionally filtered by a title search term.`,
             inputSchema: { q: z.string().optional() },
             outputSchema: z.object({
                 items: z.array(documentSchema),
@@ -129,7 +130,7 @@ export function registerDocumentTools(
     server.registerTool(
         `get_${label}`,
         {
-            description: `Fetches a single ${label} by id, including its full draft and published content.`,
+            description: `Fetches a single ${humanLabel} by id, including its full draft and published content.`,
             inputSchema: { documentId: z.string() },
             outputSchema: documentSchema,
             annotations: {
@@ -157,7 +158,7 @@ export function registerDocumentTools(
     server.registerTool(
         `update_${label}`,
         {
-            description: `Updates a ${label}'s draft title, content (TipTap JSON), excerpt, featured image, and/or kind-specific meta. Writes only the draft state \u2014 call publish_${label} to make changes live.`,
+            description: `Updates a ${humanLabel}'s draft title, content (TipTap JSON), excerpt, featured image, and/or type-specific metadata. Writes only the draft state \u2014 call publish_${label} to make changes live.`,
             inputSchema: {
                 documentId: z.string(),
                 title: z.string().optional(),
@@ -195,7 +196,7 @@ export function registerDocumentTools(
     server.registerTool(
         `publish_${label}`,
         {
-            description: `Publishes a ${label}: copies its draft content into the published fields the public site/API renders.`,
+            description: `Publishes a ${humanLabel}: copies its draft content into the published fields the public site/API renders.`,
             inputSchema: { documentId: z.string() },
             outputSchema: documentSchema,
             annotations: {
@@ -225,7 +226,7 @@ export function registerDocumentTools(
     server.registerTool(
         `discard_${label}_draft`,
         {
-            description: `Discards a ${label}'s draft changes, resetting the draft content back to whatever is currently published.`,
+            description: `Discards a ${humanLabel}'s draft changes, resetting the draft content back to whatever is currently published.`,
             inputSchema: { documentId: z.string() },
             outputSchema: documentSchema,
             annotations: {
@@ -255,7 +256,7 @@ export function registerDocumentTools(
     server.registerTool(
         `delete_${label}`,
         {
-            description: `Permanently deletes a ${label}.`,
+            description: `Permanently deletes a ${humanLabel}.`,
             inputSchema: { documentId: z.string() },
             outputSchema: successMessageSchema,
             annotations: {
@@ -274,7 +275,7 @@ export function registerDocumentTools(
                     args.documentId,
                 );
                 if (!result.ok) return NOT_FOUND;
-                return jsonResult({ message: `${label} deleted.` });
+                return jsonResult({ message: `${humanLabel} deleted.` });
             } catch {
                 return INTERNAL_ERROR;
             }

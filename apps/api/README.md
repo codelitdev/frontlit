@@ -12,8 +12,9 @@ With the API running on its default port:
 - Health check: `http://localhost:4000/health`
 
 Like SendLit, FrontLit mounts Swagger UI at the organization-standard `/docs`
-path. Private help-document CRUD uses `/help-docs`; published site pages keep
-their public `/public/:teamId/docs/*` URLs.
+path. Typed authoring resources live below `/content`; for example,
+documentation uses `/content/documentation`, while the published website can
+still present that content at its human-facing `/docs` route.
 
 The separate `@frontlit/docs` application also generates its interactive
 `/api-reference` pages from the shared ts-rest contract.

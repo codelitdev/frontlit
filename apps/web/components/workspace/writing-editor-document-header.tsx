@@ -5,10 +5,10 @@ import { Textarea } from "@/components/ui/codelit/textarea";
 interface WritingEditorDocumentHeaderProps {
     title: string;
     titlePlaceholder: string;
-    description: string;
-    descriptionPlaceholder: string;
+    description?: string;
+    descriptionPlaceholder?: string;
     onTitleChange: (value: string) => void;
-    onDescriptionChange: (value: string) => void;
+    onDescriptionChange?: (value: string) => void;
     titleTestId?: string;
 }
 
@@ -31,13 +31,17 @@ export function WritingEditorDocumentHeader({
                 className="min-h-0 resize-none overflow-hidden border-0 bg-transparent px-0 py-0 text-3xl font-bold leading-tight tracking-tight shadow-none [field-sizing:content] focus-visible:border-transparent focus-visible:shadow-none lg:text-4xl"
                 data-testid={titleTestId}
             />
-            <Textarea
-                value={description}
-                onChange={(event) => onDescriptionChange(event.target.value)}
-                placeholder={descriptionPlaceholder}
-                rows={2}
-                className="mt-4 min-h-0 resize-none border-0 bg-transparent px-0 py-0 text-lg leading-relaxed text-muted-foreground shadow-none focus-visible:border-transparent focus-visible:shadow-none"
-            />
+            {onDescriptionChange && (
+                <Textarea
+                    value={description ?? ""}
+                    onChange={(event) =>
+                        onDescriptionChange(event.target.value)
+                    }
+                    placeholder={descriptionPlaceholder}
+                    rows={2}
+                    className="mt-4 min-h-0 resize-none border-0 bg-transparent px-0 py-0 text-lg leading-relaxed text-muted-foreground shadow-none focus-visible:border-transparent focus-visible:shadow-none"
+                />
+            )}
         </div>
     );
 }

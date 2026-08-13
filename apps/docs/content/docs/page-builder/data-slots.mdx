@@ -1,0 +1,144 @@
+---
+title: Data Slots
+description: Render host-owned, server-resolved data inside a generic page-builder layout.
+---
+
+`data-slot` is the standard **integration block** for an embedding
+application. It is not the standard block for ordinary page content. Use a
+normal block for reusable presentation and use a data slot when the host owns
+the data source, authorization, query, or presentation.
+
+The page-builder package deliberately does not know about FrontLit articles,
+documentation, changelogs, users, or any other application's model. A data
+slot stores only a name such as `acme.release-notes`; the host maps that name
+to a loader and passes its rendered result to `PageRenderer`.
+
+## The flow
+
+```text
+Persisted layout: data-slot { slot: "acme.release-notes" }
+                         |
+                         v
+Host allowlist: "acme.release-notes" -> loader
+                         |
+                         v
+Host fetches, authorizes, and renders React content
+                         |
+                         v
+PageRenderer receives dataSlots and places that content in the slot
+```
+
+The block is reserved and not offered in the page builder's Add block picker.
+The host creates and validates it as part of its page policy. This prevents an
+untrusted editor setting an arbitrary backend source.
+
+## 1. Add a slot to a layout
+
+Create the instance in trusted host code, or create it through your page API.
+The `slot` is an application-owned identifier; additional serializable
+settings are optional and also interpreted only by the host.
+
+```ts
+const releaseNotesSlot = {
+    widgetId: "release-notes",
+    name: "data-slot",
+    deletable: false,
+    moveable: true,
+    shared: false,
+    settings: {
+        slot: "acme.release-notes",
+        limit: 10,
+    },
+};
+```
+
+Use namespaced identifiers to avoid collisions if several integrations share
+one page builder. Treat them as an allowlist, never as URLs or database query
+instructions supplied by an editor.
+
+## 2. Define a host loader
+
+Import the server-safe data-slot helper from its subpath. A loader receives the
+persisted instance and `pageData`, and can return a React node synchronously or
+asynchronously.
+
+```tsx
+import {
+    loadDataSlots,
+    type DataSlotLoader,
+} from "@frontlit/page-builder/data-slots";
+
+const releaseNotesLoader: DataSlotLoader = async ({ instance, pageData }) => {
+    const teamId = String(pageData.teamId ?? "");
+    const limit = Number(instance.settings?.limit ?? 10);
+
+    // The host owns auth, tenancy, caching, error handling, and its API call.
+    const notes = await releaseNotesRepository.list({ teamId, limit });
+
+    return <ReleaseNotes items={notes} />;
+};
+```
+
+The loader is the correct place to implement pagination, detail links,
+authorization, caching, and empty/error states. It is also free to render a
+host-specific component. Page builder merely reserves the place in the layout.
+
+## 3. Resolve before rendering the page
+
+Resolve slots in the server page or server layout component, then pass the
+result into the client wrapper that renders `PageRenderer`.
+
+```tsx
+import { loadDataSlots } from "@frontlit/page-builder/data-slots";
+
+export default async function PublicPage({ params }: PageProps) {
+    const page = await getPublishedPage(params.slug);
+    const pageData = { pageType: "site" as const, teamId: page.teamId };
+
+    const dataSlots = await loadDataSlots(
+        page.layout,
+        { "acme.release-notes": releaseNotesLoader },
+        pageData,
+    );
+
+    return (
+        <SitePageRenderer
+            layout={page.layout}
+            theme={page.theme}
+            pageData={pageData}
+            dataSlots={dataSlots}
+        />
+    );
+}
+```
+
+`SitePageRenderer` can be a thin client component that imports your custom
+block registration module and forwards `dataSlots` to `PageRenderer`.
+
+```tsx
+"use client";
+
+import "../page-builder/blocks";
+import { PageRenderer, type PageRendererProps } from "@frontlit/page-builder";
+
+export function SitePageRenderer(props: PageRendererProps) {
+    return <PageRenderer {...props} />;
+}
+```
+
+## Security and operating rules
+
+- Keep the loader map in trusted application code and resolve only known slot
+  names.
+- Authorize and scope every fetch with `pageData` or the authenticated request
+  context. A slot setting is configuration, not proof of access.
+- Let a missing or disabled loader resolve to no content; `loadDataSlots`
+  returns only slots the host explicitly registered.
+- Validate which slots may appear on each page type in your page API. FrontLit,
+  for example, only permits its `frontlit.content-feed` slot on standard
+  content-index pages.
+- Keep visual blocks generic. A community event feed should be rendered by its
+  community loader, not added as a FrontLit domain feature to page-builder.
+
+See [Custom Blocks](./custom-blocks) when the host needs a new editor-managed
+presentation block rather than a host-resolved data region.

@@ -141,75 +141,136 @@ export const REST_OPERATION_POLICIES = {
     "media.update": teamPermission("media:write", MCP_SCOPES.mediaWrite),
     "media.remove": teamPermission("media:write", MCP_SCOPES.mediaWrite),
 
-    "blogs.create": teamPermission("blogs:write", MCP_SCOPES.blogsWrite),
-    "blogs.list": teamPermission("blogs:read", MCP_SCOPES.blogsRead),
-    "blogs.get": teamPermission("blogs:read", MCP_SCOPES.blogsRead),
-    "blogs.update": teamPermission("blogs:write", MCP_SCOPES.blogsWrite),
-    "blogs.publish": teamPermission("blogs:write", MCP_SCOPES.blogsWrite),
-    "blogs.discardDraft": teamPermission("blogs:write", MCP_SCOPES.blogsWrite),
-    "blogs.remove": teamPermission("blogs:write", MCP_SCOPES.blogsWrite),
-
-    "docs.create": teamPermission("docs:write", MCP_SCOPES.docsWrite),
-    "docs.list": teamPermission("docs:read", MCP_SCOPES.docsRead),
-    "docs.get": teamPermission("docs:read", MCP_SCOPES.docsRead),
-    "docs.update": teamPermission("docs:write", MCP_SCOPES.docsWrite),
-    "docs.publish": teamPermission("docs:write", MCP_SCOPES.docsWrite),
-    "docs.discardDraft": teamPermission("docs:write", MCP_SCOPES.docsWrite),
-    "docs.remove": teamPermission("docs:write", MCP_SCOPES.docsWrite),
-
-    "changelogs.create": teamPermission(
-        "changelogs:write",
-        MCP_SCOPES.changelogsWrite,
+    "content.articles.create": teamPermission(
+        "articles:write",
+        MCP_SCOPES.articlesWrite,
     ),
-    "changelogs.list": teamPermission(
-        "changelogs:read",
-        MCP_SCOPES.changelogsRead,
+    "content.articles.list": teamPermission(
+        "articles:read",
+        MCP_SCOPES.articlesRead,
     ),
-    "changelogs.get": teamPermission(
-        "changelogs:read",
-        MCP_SCOPES.changelogsRead,
+    "content.articles.get": teamPermission(
+        "articles:read",
+        MCP_SCOPES.articlesRead,
     ),
-    "changelogs.update": teamPermission(
-        "changelogs:write",
-        MCP_SCOPES.changelogsWrite,
+    "content.articles.update": teamPermission(
+        "articles:write",
+        MCP_SCOPES.articlesWrite,
     ),
-    "changelogs.publish": teamPermission(
-        "changelogs:write",
-        MCP_SCOPES.changelogsWrite,
+    "content.articles.publish": teamPermission(
+        "articles:write",
+        MCP_SCOPES.articlesWrite,
     ),
-    "changelogs.discardDraft": teamPermission(
-        "changelogs:write",
-        MCP_SCOPES.changelogsWrite,
+    "content.articles.discardDraft": teamPermission(
+        "articles:write",
+        MCP_SCOPES.articlesWrite,
     ),
-    "changelogs.remove": teamPermission(
-        "changelogs:write",
-        MCP_SCOPES.changelogsWrite,
-    ),
-    "changelogs.connectGithub": teamPermission(
-        "changelogs:write",
-        MCP_SCOPES.changelogsWrite,
-    ),
-    "changelogs.getGithubIntegration": teamPermission(
-        "changelogs:read",
-        MCP_SCOPES.changelogsRead,
-    ),
-    "changelogs.disconnectGithub": teamPermission(
-        "changelogs:write",
-        MCP_SCOPES.changelogsWrite,
-    ),
-    "changelogs.importGithubReleases": teamPermission(
-        "changelogs:write",
-        MCP_SCOPES.changelogsWrite,
+    "content.articles.remove": teamPermission(
+        "articles:write",
+        MCP_SCOPES.articlesWrite,
     ),
 
-    "docSections.create": teamPermission("docs:write", MCP_SCOPES.docsWrite),
-    "docSections.list": teamPermission("docs:read", MCP_SCOPES.docsRead),
-    "docSections.update": teamPermission("docs:write", MCP_SCOPES.docsWrite),
-    "docSections.remove": teamPermission("docs:write", MCP_SCOPES.docsWrite),
-    "docSections.search": teamPermission("docs:read", MCP_SCOPES.docsRead),
+    "content.documentation.create": teamPermission(
+        "documentation:write",
+        MCP_SCOPES.documentationWrite,
+    ),
+    "content.documentation.list": teamPermission(
+        "documentation:read",
+        MCP_SCOPES.documentationRead,
+    ),
+    "content.documentation.get": teamPermission(
+        "documentation:read",
+        MCP_SCOPES.documentationRead,
+    ),
+    "content.documentation.update": teamPermission(
+        "documentation:write",
+        MCP_SCOPES.documentationWrite,
+    ),
+    "content.documentation.publish": teamPermission(
+        "documentation:write",
+        MCP_SCOPES.documentationWrite,
+    ),
+    "content.documentation.discardDraft": teamPermission(
+        "documentation:write",
+        MCP_SCOPES.documentationWrite,
+    ),
+    "content.documentation.remove": teamPermission(
+        "documentation:write",
+        MCP_SCOPES.documentationWrite,
+    ),
+
+    "content.productUpdates.create": teamPermission(
+        "product-updates:write",
+        MCP_SCOPES.productUpdatesWrite,
+    ),
+    "content.productUpdates.list": teamPermission(
+        "product-updates:read",
+        MCP_SCOPES.productUpdatesRead,
+    ),
+    "content.productUpdates.get": teamPermission(
+        "product-updates:read",
+        MCP_SCOPES.productUpdatesRead,
+    ),
+    "content.productUpdates.update": teamPermission(
+        "product-updates:write",
+        MCP_SCOPES.productUpdatesWrite,
+    ),
+    "content.productUpdates.publish": teamPermission(
+        "product-updates:write",
+        MCP_SCOPES.productUpdatesWrite,
+    ),
+    "content.productUpdates.discardDraft": teamPermission(
+        "product-updates:write",
+        MCP_SCOPES.productUpdatesWrite,
+    ),
+    "content.productUpdates.remove": teamPermission(
+        "product-updates:write",
+        MCP_SCOPES.productUpdatesWrite,
+    ),
+    "content.productUpdates.connectGithub": teamPermission(
+        "product-updates:write",
+        MCP_SCOPES.productUpdatesWrite,
+    ),
+    "content.productUpdates.getGithubIntegration": teamPermission(
+        "product-updates:read",
+        MCP_SCOPES.productUpdatesRead,
+    ),
+    "content.productUpdates.disconnectGithub": teamPermission(
+        "product-updates:write",
+        MCP_SCOPES.productUpdatesWrite,
+    ),
+    "content.productUpdates.importGithubReleases": teamPermission(
+        "product-updates:write",
+        MCP_SCOPES.productUpdatesWrite,
+    ),
+
+    "content.documentationSections.create": teamPermission(
+        "documentation:write",
+        MCP_SCOPES.documentationWrite,
+    ),
+    "content.documentationSections.list": teamPermission(
+        "documentation:read",
+        MCP_SCOPES.documentationRead,
+    ),
+    "content.documentationSections.update": teamPermission(
+        "documentation:write",
+        MCP_SCOPES.documentationWrite,
+    ),
+    "content.documentationSections.remove": teamPermission(
+        "documentation:write",
+        MCP_SCOPES.documentationWrite,
+    ),
+    "content.documentationSections.search": teamPermission(
+        "documentation:read",
+        MCP_SCOPES.documentationRead,
+    ),
 
     "contacts.list": teamPermission("contacts:read", MCP_SCOPES.contactsRead),
     "contacts.get": teamPermission("contacts:read", MCP_SCOPES.contactsRead),
+    "contacts.create": teamPermission(
+        "contacts:write",
+        MCP_SCOPES.contactsWrite,
+    ),
     "contacts.remove": teamPermission(
         "contacts:write",
         MCP_SCOPES.contactsWrite,
@@ -237,43 +298,51 @@ export const REST_OPERATION_POLICIES = {
         MCP_SCOPES.segmentsWrite,
     ),
 
-    "newsletter.getSettings": teamPermission(
+    "email.getSettings": teamPermission(
         "settings:read",
         MCP_SCOPES.settingsRead,
     ),
-    "newsletter.updateSettings": teamPermission(
+    "email.updateSettings": teamPermission(
         "settings:write",
         MCP_SCOPES.settingsWrite,
     ),
-    "newsletter.listTemplates": teamPermission(
+    "email.listTemplates": teamPermission(
         "broadcasts:read",
         MCP_SCOPES.broadcastsRead,
     ),
-    "newsletter.createTemplate": teamPermission(
-        "broadcasts:write",
-        MCP_SCOPES.broadcastsWrite,
-    ),
-    "newsletter.updateTemplate": teamPermission(
-        "broadcasts:write",
-        MCP_SCOPES.broadcastsWrite,
-    ),
-    "newsletter.listBroadcasts": teamPermission(
+    "email.listSystemTemplates": teamPermission(
         "broadcasts:read",
         MCP_SCOPES.broadcastsRead,
     ),
-    "newsletter.createBroadcast": teamPermission(
+    "email.createTemplate": teamPermission(
         "broadcasts:write",
         MCP_SCOPES.broadcastsWrite,
     ),
-    "newsletter.updateBroadcast": teamPermission(
+    "email.updateTemplate": teamPermission(
         "broadcasts:write",
         MCP_SCOPES.broadcastsWrite,
     ),
-    "newsletter.sendBroadcast": teamPermission(
+    "email.listBroadcasts": teamPermission(
+        "broadcasts:read",
+        MCP_SCOPES.broadcastsRead,
+    ),
+    "email.createBroadcast": teamPermission(
+        "broadcasts:write",
+        MCP_SCOPES.broadcastsWrite,
+    ),
+    "email.updateBroadcast": teamPermission(
+        "broadcasts:write",
+        MCP_SCOPES.broadcastsWrite,
+    ),
+    "email.sendBroadcast": teamPermission(
         "broadcasts:send",
         MCP_SCOPES.broadcastsSend,
     ),
-    "newsletter.getBroadcastStats": teamPermission(
+    "email.removeBroadcast": teamPermission(
+        "broadcasts:write",
+        MCP_SCOPES.broadcastsWrite,
+    ),
+    "email.getBroadcastStats": teamPermission(
         "broadcasts:read",
         MCP_SCOPES.broadcastsRead,
     ),

@@ -3,22 +3,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-    BookOpen,
-    Bot,
     Building2,
-    Code,
-    FileText,
-    Globe,
-    History,
     Images,
     Inbox,
     LayoutGrid,
     Mail,
-    Newspaper,
-    Palette,
+    Library,
     Send,
     Sparkles,
     Settings,
+    ContactRound,
     Users,
 } from "lucide-react";
 import {
@@ -43,26 +37,13 @@ import { canAccessWorkspacePath } from "@/lib/workspace-access";
 const NAV: NavItem[] = [
     { href: "/", label: "Inbox", icon: Inbox },
     {
-        href: "/website",
+        href: "/website?tab=pages",
         label: "Website",
         icon: LayoutGrid,
-        items: [
-            { href: "/website/pages", label: "Pages", icon: FileText },
-            { href: "/website/branding", label: "Branding", icon: Palette },
-            { href: "/website/domain", label: "Domain", icon: Globe },
-            {
-                href: "/website/code-injection",
-                label: "Code injection",
-                icon: Code,
-            },
-            { href: "/website/chatbot", label: "Chatbot", icon: Bot },
-        ],
     },
-    { href: "/blog", label: "Blog", icon: Newspaper },
-    { href: "/docs", label: "Docs", icon: BookOpen },
-    { href: "/newsletter", label: "Newsletter", icon: Mail },
-    { href: "/changelog", label: "Changelog", icon: History },
-    { href: "/users", label: "Users", icon: Users },
+    { href: "/content?type=articles", label: "Content", icon: Library },
+    { href: "/email?tab=broadcasts", label: "Email", icon: Mail },
+    { href: "/contacts", label: "Contacts", icon: ContactRound },
 ];
 
 const FOOTER_NAV: NavItem[] = [
@@ -151,7 +132,7 @@ export function AppSidebar() {
                         <div className="px-2 pb-2 group-data-[collapsible=icon]:hidden">
                             <Banner variant="warning">
                                 <Link
-                                    href="/website/domain"
+                                    href="/website?tab=domain"
                                     className="font-medium underline"
                                 >
                                     Finish website setup

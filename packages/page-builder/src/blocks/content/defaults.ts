@@ -10,7 +10,7 @@ export const contentDefaults: Partial<ContentSettings> = {
                 content: [
                     {
                         type: "text",
-                        text: "FrontLit lets you launch a marketing site, run a blog, staff a help desk, send a newsletter and publish a changelog — all without stitching together five different tools.",
+                        text: "FrontLit brings your website, content, customer support, and audience engagement into one connected front office.",
                     },
                 ],
             },

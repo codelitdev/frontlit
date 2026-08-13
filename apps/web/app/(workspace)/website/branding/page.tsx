@@ -20,7 +20,7 @@ import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
 
 export default function BrandingPage() {
     useSetBreadcrumb([
-        { label: "Website", href: "/website/pages" },
+        { label: "Website", href: "/website?tab=pages" },
         { label: "Branding" },
     ]);
     const [settings, setSettings] = useState<TeamSettings | null>(null);

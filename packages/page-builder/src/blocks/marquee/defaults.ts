@@ -3,11 +3,10 @@ import { generateUniqueId } from "../../utils";
 
 export const marqueeDefaults: Partial<MarqueeSettings> = {
     items: [
-        { id: generateUniqueId(), text: "Website builder" },
-        { id: generateUniqueId(), text: "Blog" },
-        { id: generateUniqueId(), text: "Help desk" },
-        { id: generateUniqueId(), text: "Newsletter" },
-        { id: generateUniqueId(), text: "Changelog" },
+        { id: generateUniqueId(), text: "Website" },
+        { id: generateUniqueId(), text: "Content" },
+        { id: generateUniqueId(), text: "Support" },
+        { id: generateUniqueId(), text: "Engage" },
     ],
     direction: "right",
     speed: 60,

@@ -14,7 +14,7 @@ import {
 } from "../../primitives";
 import { cn } from "../../primitives/lib/utils";
 
-interface DocSuggestion {
+interface DocumentationSuggestion {
     documentId: string;
     slug: string;
     title: string | null;
@@ -23,10 +23,10 @@ interface DocSuggestion {
 /** Documentation deflection (architecture.md §6.4/§11.2): searches the
  * team's published docs as the visitor types a subject, before they ever
  * submit a ticket. No-ops in isolated previews with no live team/API. */
-async function searchDocs(
+async function searchDocumentation(
     query: string,
     pageData: PageData,
-): Promise<DocSuggestion[]> {
+): Promise<DocumentationSuggestion[]> {
     if (
         !pageData.teamId ||
         !pageData.publicApiBaseUrl ||
@@ -36,10 +36,12 @@ async function searchDocs(
 
     try {
         const res = await fetch(
-            `${pageData.publicApiBaseUrl}/public/${pageData.teamId}/docs/search?q=${encodeURIComponent(query)}&k=3`,
+            `${pageData.publicApiBaseUrl}/public/${pageData.teamId}/content/documentation/search?q=${encodeURIComponent(query)}&k=3`,
         );
         if (!res.ok) return [];
-        const body = (await res.json()) as { items: DocSuggestion[] };
+        const body = (await res.json()) as {
+            items: DocumentationSuggestion[];
+        };
         const seen = new Set<string>();
         return body.items.filter((item) =>
             seen.has(item.documentId)
@@ -105,7 +107,9 @@ export function SupportFormWidget({
     const [message, setMessage] = useState("");
     const [email, setEmail] = useState("");
     const [name, setName] = useState("");
-    const [suggestions, setSuggestions] = useState<DocSuggestion[]>([]);
+    const [suggestions, setSuggestions] = useState<DocumentationSuggestion[]>(
+        [],
+    );
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -114,7 +118,7 @@ export function SupportFormWidget({
         if (editing) return;
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
-            searchDocs(subject, pageData).then(setSuggestions);
+            searchDocumentation(subject, pageData).then(setSuggestions);
         }, 400);
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);

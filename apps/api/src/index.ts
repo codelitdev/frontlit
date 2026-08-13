@@ -5,7 +5,7 @@ import { logger } from "./services/log";
 import { checkDatabaseConnection } from "./db/client";
 import { createSuperAdminIfMissing } from "./bootstrap";
 import { createApp } from "./app";
-import { startOutboxWorker } from "./newsletter/worker";
+import { startOutboxWorker } from "./email/worker";
 import { describeChatProvider } from "./ai/provider";
 import { startAuthorizationMaintenance } from "./team/maintenance";
 

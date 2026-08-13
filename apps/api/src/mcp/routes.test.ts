@@ -118,12 +118,22 @@ describe("MCP Streamable HTTP route", () => {
                 allowedOrigins: "*",
                 scopesSupported: expect.arrayContaining([
                     "pages:read",
-                    "blogs:write",
+                    "articles:write",
+                    "documentation:read",
+                    "product-updates:write",
                     "broadcasts:send",
                     "api_keys:write",
                     "domains:write",
                 ]),
             }),
+        );
+        const options = mocks.createDiscoveryRoutes.mock.calls[0]?.[0];
+        expect(options.scopesSupported).not.toEqual(
+            expect.arrayContaining([
+                "blogs:write",
+                "docs:read",
+                "changelogs:write",
+            ]),
         );
     });
 

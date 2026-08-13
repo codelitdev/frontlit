@@ -22,15 +22,21 @@ export function DeleteConfirm({
     disabled,
     trigger,
     confirmLabel = "Delete",
+    open: controlledOpen,
+    onOpenChange,
 }: {
     title?: string;
     description: string;
     onConfirm: () => void | Promise<void>;
     disabled?: boolean;
-    trigger?: React.ReactNode;
+    trigger?: React.ReactNode | null;
     confirmLabel?: string;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
 }) {
-    const [open, setOpen] = useState(false);
+    const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+    const open = controlledOpen ?? uncontrolledOpen;
+    const setOpen = onOpenChange ?? setUncontrolledOpen;
     const [busy, setBusy] = useState(false);
 
     async function confirmDeletion() {
@@ -45,19 +51,21 @@ export function DeleteConfirm({
 
     return (
         <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogTrigger asChild disabled={disabled}>
-                {trigger ?? (
-                    <IconButton
-                        variant="ghost"
-                        size="sm"
-                        aria-label={title}
-                        className="text-muted-foreground hover:text-destructive"
-                        disabled={disabled}
-                    >
-                        <Trash2 className="size-4" />
-                    </IconButton>
-                )}
-            </AlertDialogTrigger>
+            {trigger !== null && (
+                <AlertDialogTrigger asChild disabled={disabled}>
+                    {trigger ?? (
+                        <IconButton
+                            variant="ghost"
+                            size="sm"
+                            aria-label={title}
+                            className="text-muted-foreground hover:text-destructive"
+                            disabled={disabled}
+                        >
+                            <Trash2 className="size-4" />
+                        </IconButton>
+                    )}
+                </AlertDialogTrigger>
+            )}
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>{title}</AlertDialogTitle>

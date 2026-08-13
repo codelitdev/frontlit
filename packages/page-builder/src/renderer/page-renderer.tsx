@@ -13,6 +13,8 @@ export interface PageRendererProps {
     pageData?: PageData;
     /** Optional content rendered between the shared header and footer. */
     children?: React.ReactNode;
+    /** Host-resolved data keyed by a generic data-slot's configured name. */
+    dataSlots?: Record<string, React.ReactNode>;
     /** "light" | "dark" — controls which half of the theme's color palette is active. */
     nextTheme?: "light" | "dark";
     /** When true, renders hover controls (edit/move/delete/add) for use inside the builder canvas. */
@@ -40,6 +42,7 @@ export function PageRenderer({
     theme,
     pageData,
     children,
+    dataSlots,
     nextTheme = "light",
     editing = false,
     selectedWidgetId,
@@ -137,8 +140,10 @@ export function PageRenderer({
                     settings={settings as any}
                     state={{ theme }}
                     pageData={resolvedPageData}
-                    content={
-                        instance.name === "page-content" ? children : undefined
+                    data={
+                        instance.name === "data-slot"
+                            ? dataSlots?.[String(settings.slot ?? "")]
+                            : undefined
                     }
                     editing={editing}
                     nextTheme={nextTheme}
@@ -165,7 +170,7 @@ export function PageRenderer({
                 })}
             <div className="flex flex-1 flex-col">
                 {children !== undefined &&
-                !body.some((instance) => instance.name === "page-content")
+                !body.some((instance) => instance.name === "data-slot")
                     ? children
                     : body.map((instance, index) =>
                           renderInstance(instance, {

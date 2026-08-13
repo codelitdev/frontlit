@@ -12,7 +12,7 @@ import {
     teams,
 } from "../db/schema";
 import { createApiKey } from "../apikey/queries";
-import { provisionSendlitForTeam } from "../newsletter/provisioning";
+import { provisionSendlitForTeam } from "../email/provisioning";
 import { seedStandardPages } from "../pages/seed";
 import { deleteTeamMediaFiles } from "../media/queries";
 import { revokeAllTeamOAuthFamilies } from "../auth/oauth-revocation";

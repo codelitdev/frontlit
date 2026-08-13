@@ -1,4 +1,4 @@
-import type { BlogPost } from "./api";
+import type { Article } from "./api";
 
 export type BlogFilter = "all" | "published" | "draft" | "changes";
 
@@ -9,7 +9,7 @@ export interface BlogStatusCounts {
     changes: number;
 }
 
-export function getBlogStatusCounts(posts: BlogPost[]): BlogStatusCounts {
+export function getBlogStatusCounts(posts: Article[]): BlogStatusCounts {
     return posts.reduce<BlogStatusCounts>(
         (counts, post) => {
             counts.all += 1;
@@ -28,10 +28,10 @@ export function getBlogStatusCounts(posts: BlogPost[]): BlogStatusCounts {
 }
 
 export function filterBlogPosts(
-    posts: BlogPost[],
+    posts: Article[],
     filter: BlogFilter,
     query: string,
-): BlogPost[] {
+): Article[] {
     const normalizedQuery = query.trim().toLowerCase();
 
     return posts.filter((post) => {
@@ -56,7 +56,7 @@ export function filterBlogPosts(
     });
 }
 
-export function sortBlogPostsByUpdatedAt(posts: BlogPost[]): BlogPost[] {
+export function sortBlogPostsByUpdatedAt(posts: Article[]): Article[] {
     return [...posts].sort((left, right) => {
         const leftTime = left.updatedAt
             ? new Date(left.updatedAt).getTime()

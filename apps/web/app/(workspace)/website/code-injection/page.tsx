@@ -18,7 +18,7 @@ import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
 
 export default function CodeInjectionPage() {
     useSetBreadcrumb([
-        { label: "Website", href: "/website/pages" },
+        { label: "Website", href: "/website?tab=pages" },
         { label: "Code injection" },
     ]);
     const [settings, setSettings] = useState<TeamSettings | null>(null);

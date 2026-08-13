@@ -7,6 +7,7 @@ import {
     evaluateMembershipRemove,
     GRANTABLE_NON_OWNER_PERMISSIONS,
     normalizePermissionGrants,
+    type AcceptedTeamMember,
     type TeamPermission,
 } from "@frontlit/api-contract";
 import { db } from "../db/client";
@@ -962,8 +963,12 @@ export async function acceptInvitation(input: {
     token: string;
     accountId: string;
     accountEmail: string;
-}) {
-    const outcome = await withDbTransaction(async (tx) => {
+}): Promise<AcceptedTeamMember> {
+    const outcome:
+        | AcceptedTeamMember
+        | {
+              error: "expired" | "stale_inviter_authority";
+          } = await withDbTransaction(async (tx) => {
         const [invitation] = await tx
             .select()
             .from(teamInvitations)
@@ -985,15 +990,24 @@ export async function acceptInvitation(input: {
                 const team = await tx.query.teams.findFirst({
                     where: eq(teams.id, invitation.teamId),
                 });
+                if (!team) {
+                    throw new MembershipError(
+                        "not_found",
+                        "Invitation not found",
+                    );
+                }
                 const account = await tx.query.accounts.findFirst({
                     where: eq(accounts.id, input.accountId),
                 });
-                return toPublicMember({
-                    member: existing,
-                    email: account?.email ?? input.accountEmail,
-                    name: await displayNameForAccount(input.accountId, tx),
-                    ownerAccountId: team?.ownerAccountId ?? "",
-                });
+                return {
+                    ...toPublicMember({
+                        member: existing,
+                        email: account?.email ?? input.accountEmail,
+                        name: await displayNameForAccount(input.accountId, tx),
+                        ownerAccountId: team.ownerAccountId,
+                    }),
+                    teamId: team.teamId,
+                };
             }
         }
         if (invitation.status !== "pending") {
@@ -1037,12 +1051,15 @@ export async function acceptInvitation(input: {
                         eq(teamInvitations.status, "pending"),
                     ),
                 );
-            return toPublicMember({
-                member: existing,
-                email: input.accountEmail,
-                name: await displayNameForAccount(input.accountId, tx),
-                ownerAccountId: team.ownerAccountId,
-            });
+            return {
+                ...toPublicMember({
+                    member: existing,
+                    email: input.accountEmail,
+                    name: await displayNameForAccount(input.accountId, tx),
+                    ownerAccountId: team.ownerAccountId,
+                }),
+                teamId: team.teamId,
+            };
         }
 
         const inviter = invitation.invitedByAccountId
@@ -1160,12 +1177,13 @@ export async function acceptInvitation(input: {
         });
 
         return {
-            member: toPublicMember({
+            ...toPublicMember({
                 member,
                 email: input.accountEmail,
                 name: await displayNameForAccount(input.accountId, tx),
                 ownerAccountId: team.ownerAccountId,
             }),
+            teamId: team.teamId,
         };
     });
     if ("error" in outcome) {
@@ -1174,7 +1192,7 @@ export async function acceptInvitation(input: {
         }
         throw new MembershipError("forbidden", "stale_inviter_authority");
     }
-    return "member" in outcome ? outcome.member : outcome;
+    return outcome;
 }
 
 export async function rejectInvitation(input: {

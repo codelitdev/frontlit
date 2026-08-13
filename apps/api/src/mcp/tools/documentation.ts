@@ -1,8 +1,8 @@
 import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
 import {
-    docSearchResultSchema,
-    docSectionSchema,
+    documentationSearchResultSchema,
+    documentationSectionSchema,
     successMessageSchema,
 } from "@frontlit/api-contract";
 import {
@@ -23,15 +23,17 @@ function toPublicSection<T extends Record<string, unknown>>(section: T) {
 
 export function registerDocumentationTools(server: McpToolRegistrar): void {
     server.registerTool(
-        "search_docs",
+        "search_documentation",
         {
             description:
-                "Semantic search over the team's published help docs. Embeds the query and ranks pgvector doc chunks by cosine similarity, returning the source document, heading and #anchor for each match \u2014 lets an agent answer questions from the vectorized docs directly.",
+                "Semantic search over the team's published documentation. Embeds the query and ranks pgvector chunks by cosine similarity, returning the source page, heading and #anchor for each match.",
             inputSchema: {
                 q: z.string().min(1),
                 k: z.number().int().min(1).max(20).optional(),
             },
-            outputSchema: z.object({ items: z.array(docSearchResultSchema) }),
+            outputSchema: z.object({
+                items: z.array(documentationSearchResultSchema),
+            }),
             annotations: {
                 readOnlyHint: true,
                 idempotentHint: true,
@@ -51,7 +53,7 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
     );
 
     server.registerTool(
-        "create_doc_section",
+        "create_documentation_section",
         {
             description:
                 "Creates a help-center nav section for the current team.",
@@ -59,7 +61,7 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
                 name: z.string().min(1),
                 order: z.number().optional(),
             },
-            outputSchema: docSectionSchema,
+            outputSchema: documentationSectionSchema,
             annotations: {
                 readOnlyHint: false,
                 destructiveHint: false,
@@ -79,13 +81,13 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
     );
 
     server.registerTool(
-        "list_doc_sections",
+        "list_documentation_sections",
         {
             description:
                 "Lists the current team's help-center nav sections, ordered.",
             inputSchema: {},
             outputSchema: z.object({
-                items: z.array(docSectionSchema),
+                items: z.array(documentationSectionSchema),
                 total: z.number(),
             }),
             annotations: {
@@ -110,7 +112,7 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
     );
 
     server.registerTool(
-        "update_doc_section",
+        "update_documentation_section",
         {
             description: "Updates a help-center section's name and/or order.",
             inputSchema: {
@@ -118,7 +120,7 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
                 name: z.string().optional(),
                 order: z.number().optional(),
             },
-            outputSchema: docSectionSchema,
+            outputSchema: documentationSectionSchema,
             annotations: {
                 readOnlyHint: false,
                 destructiveHint: false,
@@ -144,7 +146,7 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
     );
 
     server.registerTool(
-        "delete_doc_section",
+        "delete_documentation_section",
         {
             description: "Deletes a help-center section.",
             inputSchema: { sectionId: z.string() },

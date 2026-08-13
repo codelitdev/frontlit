@@ -1,0 +1,166 @@
+---
+title: Custom Blocks
+description: Create, register, edit, persist, and render a page-builder block in your own application.
+---
+
+`@frontlit/page-builder` includes FrontLit's built-in blocks, but an embedding
+application can add blocks for its own domain. A block is a small definition
+with four optional pieces:
+
+- **Settings** — the serializable configuration persisted in a page layout.
+- **Widget** — the React component used by `PageRenderer` and the editor canvas.
+- **Editor** — a React component for the builder's settings panel.
+- **Metadata and defaults** — the name shown in the block picker, compatible
+  page types, and settings for a newly created instance.
+
+Use a namespaced, durable name. It becomes persisted page data, so changing
+`acme-callout` later would require updating existing layouts.
+
+## 1. Define the block
+
+Create a client module in the host application, for example
+`src/page-builder/blocks.tsx`:
+
+```tsx
+"use client";
+
+import {
+    registerBlock,
+    type Widget,
+    type WidgetDefaultSettings,
+    type WidgetEditorProps,
+    type WidgetProps,
+} from "@frontlit/page-builder";
+
+interface CalloutSettings extends WidgetDefaultSettings {
+    title?: string;
+    message?: string;
+    tone?: "info" | "warning";
+}
+
+function Callout({ settings }: WidgetProps<CalloutSettings>) {
+    const tone = settings.tone === "warning" ? "#fff3cd" : "#e8f3ff";
+
+    return (
+        <section
+            id={settings.cssId}
+            style={{
+                background: tone,
+                padding: settings.verticalPadding ?? 24,
+            }}
+        >
+            {settings.title && <h2>{settings.title}</h2>}
+            {settings.message && <p>{settings.message}</p>}
+        </section>
+    );
+}
+
+function CalloutEditor({
+    settings,
+    onChange,
+}: WidgetEditorProps<CalloutSettings>) {
+    return (
+        <label>
+            Message
+            <textarea
+                value={settings.message ?? ""}
+                onChange={(event) =>
+                    onChange({ ...settings, message: event.target.value })
+                }
+            />
+        </label>
+    );
+}
+
+const CalloutBlock: Widget<CalloutSettings> = {
+    metadata: {
+        name: "acme-callout",
+        displayName: "Callout",
+        description: "An application-specific highlighted message.",
+        compatibleWith: ["site", "landing", "blog", "post", "custom"],
+    },
+    widget: Callout,
+    editor: CalloutEditor,
+    getDefaultSettings: () => ({
+        title: "Good to know",
+        message: "Add a helpful message.",
+        tone: "info",
+    }),
+};
+
+registerBlock(CalloutBlock);
+```
+
+Every setting must be JSON-serializable. Keep data records, functions,
+credentials, and fetched results out of the layout; those belong in the host
+application. The shared layout settings (`cssId`, `verticalPadding`,
+`maxWidth`, and `background`) are available through
+`WidgetDefaultSettings`.
+
+## 2. Register before the builder or renderer mounts
+
+Import the registration module from each client entry point that uses the
+builder or a `PageRenderer` wrapper:
+
+```tsx
+"use client";
+
+import "../page-builder/blocks";
+import { PageBuilder } from "@frontlit/page-builder";
+
+export function PageEditor() {
+    return <PageBuilder pageData={{ pageType: "landing" }} />;
+}
+```
+
+Registration must run before the first `PageBuilder` render so the block is
+available in its picker, and before a `PageRenderer` render so persisted
+instances can be resolved. `registerBlock` rejects duplicate or reserved
+names. Do not register a block under a built-in name such as `hero`, or under
+`data-slot`.
+
+## 3. Persist layout and render it
+
+`PageBuilder` does not write to a backend. Save the state it emits, including
+the complete `layout`, then pass that layout back to the renderer on the public
+page.
+
+```tsx
+import { PageBuilder, type PageBuilderState } from "@frontlit/page-builder";
+
+function Editor({ savedPage }: { savedPage: SavedPage }) {
+    async function save(state: PageBuilderState) {
+        await updatePage(savedPage.id, {
+            layout: state.layout,
+            theme: state.theme,
+            seo: state.seo,
+        });
+    }
+
+    return (
+        <PageBuilder
+            initialLayout={savedPage.layout}
+            initialTheme={savedPage.theme}
+            initialSeo={savedPage.seo}
+            pageData={{ pageType: "landing" }}
+            onChange={save}
+        />
+    );
+}
+```
+
+For a public page, pass the same saved `layout` and `theme` to `PageRenderer`.
+The built-in header and footer are required shared blocks; the builder repairs
+an empty or legacy layout to include them. Validate layout names and settings
+again on your server before accepting a write—client-side registration and
+editor controls are not an authorization boundary.
+
+## Design guidance
+
+Make a custom block when it represents a stable, reusable visual concept in
+your application: an event schedule, a marketplace listing, or a product
+comparison. Use the built-in `rich-text` block for document-flow prose and the
+built-in `content` block for an explanatory text-and-media section. If the
+block's data must be fetched or access-controlled by the host, use a
+[data slot](./data-slots) instead of putting that data-fetching logic in a
+generic block.
