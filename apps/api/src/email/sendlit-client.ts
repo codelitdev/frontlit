@@ -177,6 +177,18 @@ export async function getContact(apiKey: string, contactId: string) {
     return request<SendlitContact>(`/contacts/${contactId}`, { apiKey });
 }
 
+export async function updateContact(
+    apiKey: string,
+    contactId: string,
+    patch: { name?: string; subscribed?: boolean },
+) {
+    return request<SendlitContact>(`/contacts/${contactId}`, {
+        method: "PATCH",
+        apiKey,
+        body: patch,
+    });
+}
+
 export async function deleteContact(apiKey: string, contactId: string) {
     return request<void>(`/contacts/${contactId}`, {
         method: "DELETE",
@@ -661,11 +673,23 @@ export async function updateBroadcast(
         filter: SendlitContactFilter | null;
     }>,
 ) {
-    // Title lives on the sequence, while subject/content live on its sole
-    // email. Read first so the correct public email id is always used.
+    // Title/audience live on the sequence; subject/content live on its
+    // sole email. Apply sequence fields first, then the email — SendLit's
+    // sequence PATCH can return or persist a stale first-email subject.
     let sequence = await request<SendlitSequence>(`/sequences/${sequenceId}`, {
         apiKey,
     });
+
+    if (patch.name !== undefined || patch.filter !== undefined) {
+        sequence = await request<SendlitSequence>(`/sequences/${sequenceId}`, {
+            method: "PATCH",
+            apiKey,
+            body: {
+                ...(patch.name === undefined ? {} : { title: patch.name }),
+                ...(patch.filter === undefined ? {} : { filter: patch.filter }),
+            },
+        });
+    }
 
     if (patch.subject !== undefined || patch.body !== undefined) {
         const email = firstEmail(sequence);
@@ -686,20 +710,7 @@ export async function updateBroadcast(
         );
     }
 
-    // Audience lives on the sequence. Apply it last — SendLit's email
-    // PATCH response can omit or reset `filter`.
-    if (patch.name !== undefined || patch.filter !== undefined) {
-        sequence = await request<SendlitSequence>(`/sequences/${sequenceId}`, {
-            method: "PATCH",
-            apiKey,
-            body: {
-                ...(patch.name === undefined ? {} : { title: patch.name }),
-                ...(patch.filter === undefined ? {} : { filter: patch.filter }),
-            },
-        });
-    }
-
-    return sequence;
+    return request<SendlitSequence>(`/sequences/${sequenceId}`, { apiKey });
 }
 
 export async function sendBroadcast(apiKey: string, sequenceId: string) {

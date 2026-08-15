@@ -17,8 +17,8 @@ export const teamSettingsSchema = z.object({
 });
 
 export const updateTeamSettingsBodySchema = z.object({
-    title: z.string().max(200).optional(),
-    subtitle: z.string().max(500).optional(),
+    title: z.string().max(200).nullable().optional(),
+    subtitle: z.string().max(500).nullable().optional(),
     logo: mediaRefSchema.nullable().optional(),
     themeId: themeReferenceSchema.nullable().optional(),
     // Size-capped per slot (architecture.md §12.5): arbitrary script is a

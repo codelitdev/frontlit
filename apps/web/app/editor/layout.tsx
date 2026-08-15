@@ -1,5 +1,6 @@
 import { requireAuth } from "@/lib/server-auth";
 import { EditorAccessGate } from "@/components/workspace/editor-access-gate";
+import { ImagePickerProvider } from "@/components/media/image-picker-provider";
 
 export default async function EditorLayout({
     children,
@@ -7,5 +8,9 @@ export default async function EditorLayout({
     children: React.ReactNode;
 }) {
     await requireAuth();
-    return <EditorAccessGate>{children}</EditorAccessGate>;
+    return (
+        <ImagePickerProvider>
+            <EditorAccessGate>{children}</EditorAccessGate>
+        </ImagePickerProvider>
+    );
 }

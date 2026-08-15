@@ -1,6 +1,6 @@
 import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "../db/client";
-import { media } from "../db/schema";
+import { documents, media, pages, teamSettings } from "../db/schema";
 import {
     deleteMedia as deleteFromMediaLit,
     sealMedia,
@@ -55,6 +55,64 @@ export async function listMedia(input: {
         offset,
         orderBy: desc(media.createdAt),
     });
+}
+
+function placeContainsMedia(
+    place: unknown,
+    item: { mediaId: string; url: string },
+): boolean {
+    if (place == null) return false;
+    const text = JSON.stringify(place);
+    return text.includes(item.mediaId) || text.includes(item.url);
+}
+
+/** How many saved FrontLit surfaces (branding, pages, documents) mention
+ * each library item. Draft and published copies count separately. */
+export async function countMediaReferences(teamId: string) {
+    const items = await db.query.media.findMany({
+        where: eq(media.teamId, teamId),
+        columns: { mediaId: true, url: true },
+    });
+    const counts: Record<string, number> = Object.fromEntries(
+        items.map((item) => [item.mediaId, 0]),
+    );
+    if (items.length === 0) return counts;
+
+    const [settings, teamPages, teamDocuments] = await Promise.all([
+        db.query.teamSettings.findFirst({
+            where: eq(teamSettings.teamId, teamId),
+        }),
+        db.query.pages.findMany({ where: eq(pages.teamId, teamId) }),
+        db.query.documents.findMany({ where: eq(documents.teamId, teamId) }),
+    ]);
+
+    const places: unknown[] = [
+        settings?.logo,
+        settings?.sharedWidgets,
+        settings?.draftSharedWidgets,
+        ...teamPages.flatMap((page) => [
+            page.layout,
+            page.draftLayout,
+            page.socialImage,
+            page.draftSocialImage,
+        ]),
+        ...teamDocuments.flatMap((document) => [
+            document.content,
+            document.draftContent,
+            document.featuredImage,
+            document.draftFeaturedImage,
+        ]),
+    ];
+
+    for (const place of places) {
+        for (const item of items) {
+            if (placeContainsMedia(place, item)) {
+                counts[item.mediaId] += 1;
+            }
+        }
+    }
+
+    return counts;
 }
 
 export async function countMedia(input: { teamId: string }) {

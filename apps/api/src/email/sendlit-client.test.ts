@@ -160,24 +160,22 @@ describe("SendLit broadcast adapter", () => {
         vi.stubEnv("SENDLIT_API_URL", apiUrl);
         const current = sequence();
         const renamed = sequence({ title: "July update" });
+        const withSubject = sequence({
+            title: "July update",
+            emails: [
+                {
+                    ...current.emails[0],
+                    subject: "New subject",
+                    content: { content: [{ blockType: "text" }] },
+                },
+            ],
+        });
         const fetchMock = vi
             .fn()
             .mockResolvedValueOnce(jsonResponse(current))
             .mockResolvedValueOnce(jsonResponse(renamed))
-            .mockResolvedValueOnce(
-                jsonResponse(
-                    sequence({
-                        title: "July update",
-                        emails: [
-                            {
-                                ...current.emails[0],
-                                subject: "New subject",
-                                content: { content: [{ blockType: "text" }] },
-                            },
-                        ],
-                    }),
-                ),
-            );
+            .mockResolvedValueOnce(jsonResponse(withSubject))
+            .mockResolvedValueOnce(jsonResponse(withSubject));
         vi.stubGlobal("fetch", fetchMock);
 
         await updateBroadcast("team-key", "sequence-1", {
@@ -192,18 +190,9 @@ describe("SendLit broadcast adapter", () => {
 
         expect(fetchMock).toHaveBeenNthCalledWith(
             2,
-            `${apiUrl}/sequences/sequence-1/emails/email-1`,
-            expect.objectContaining({
-                body: JSON.stringify({
-                    subject: "New subject",
-                    content: { content: [{ blockType: "text" }] },
-                }),
-            }),
-        );
-        expect(fetchMock).toHaveBeenNthCalledWith(
-            3,
             `${apiUrl}/sequences/sequence-1`,
             expect.objectContaining({
+                method: "PATCH",
                 body: JSON.stringify({
                     title: "July update",
                     filter: {
@@ -217,6 +206,24 @@ describe("SendLit broadcast adapter", () => {
                         ],
                     },
                 }),
+            }),
+        );
+        expect(fetchMock).toHaveBeenNthCalledWith(
+            3,
+            `${apiUrl}/sequences/sequence-1/emails/email-1`,
+            expect.objectContaining({
+                method: "PATCH",
+                body: JSON.stringify({
+                    subject: "New subject",
+                    content: { content: [{ blockType: "text" }] },
+                }),
+            }),
+        );
+        expect(fetchMock).toHaveBeenNthCalledWith(
+            4,
+            `${apiUrl}/sequences/sequence-1`,
+            expect.objectContaining({
+                method: "GET",
             }),
         );
     });

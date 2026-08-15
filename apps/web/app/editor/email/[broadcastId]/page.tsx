@@ -131,10 +131,14 @@ export default function EmailBroadcastEditorPage({
         setSaving(true);
         setError(null);
         try {
+            const nextSubject = subject.trim() || editable.broadcast.name;
             const updated = await updateBroadcast(
                 editable.broadcast.broadcastId,
                 {
-                    subject: subject.trim() || editable.broadcast.name,
+                    // SendLit broadcasts mirror sequence title onto the email
+                    // subject; a subject-only PATCH is ignored.
+                    name: nextSubject,
+                    subject: nextSubject,
                     body: {
                         ...bodyRef.current,
                         content: editable.managedFooter
@@ -150,6 +154,7 @@ export default function EmailBroadcastEditorPage({
             setEditable((current) =>
                 current ? { ...current, broadcast: updated } : current,
             );
+            setSubject(updated.subject || updated.name);
             setSaved(true);
             window.setTimeout(() => setSaved(false), 2000);
             return updated;
@@ -202,19 +207,28 @@ export default function EmailBroadcastEditorPage({
 
     return (
         <div className="flex h-dvh min-h-0 w-full min-w-0 flex-col overflow-hidden bg-background">
-            <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b px-4">
-                <div className="flex min-w-0 items-center gap-3">
+            <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-3 border-b px-4 py-2 sm:flex-nowrap sm:py-0">
+                <div className="flex min-w-0 shrink-0 items-center gap-3">
                     <Button asChild variant="outline" size="sm">
                         <Link href="/email?tab=broadcasts">
                             <ArrowLeft />
                             Email
                         </Link>
                     </Button>
-                    <p className="truncate text-sm font-semibold">
-                        {editable.broadcast.name}
-                    </p>
                 </div>
-                <div className="flex shrink-0 gap-2">
+                <div className="order-last min-w-0 w-full flex-1 basis-full sm:order-none sm:w-auto sm:basis-0">
+                    <Label htmlFor="broadcast-subject" className="sr-only">
+                        Subject
+                    </Label>
+                    <Input
+                        id="broadcast-subject"
+                        value={subject}
+                        onChange={(event) => setSubject(event.target.value)}
+                        placeholder="Subject"
+                        disabled={saving || sending}
+                    />
+                </div>
+                <div className="ml-auto flex shrink-0 gap-2">
                     <Button onClick={save} disabled={saving || sending}>
                         {saved ? <Check /> : null}
                         {saving ? "Saving…" : saved ? "Saved" : "Save draft"}
@@ -249,29 +263,17 @@ export default function EmailBroadcastEditorPage({
 
             {error && <Banner className="mx-4 mt-4 shrink-0">{error}</Banner>}
 
-            <div className="shrink-0 space-y-4 border-b px-6 py-3">
-                <div>
-                    <Label>Audience</Label>
-                    <p className="mt-1 mb-2 text-sm text-muted-foreground">
-                        Choose who receives this broadcast. Leave it on Everyone
-                        to send to the whole list.
-                    </p>
-                    <BroadcastAudienceFilter
-                        value={audience}
-                        onChange={setAudience}
-                        disabled={saving || sending}
-                    />
-                </div>
-                <div>
-                    <Label htmlFor="broadcast-subject">Subject</Label>
-                    <Input
-                        id="broadcast-subject"
-                        value={subject}
-                        onChange={(event) => setSubject(event.target.value)}
-                        placeholder="Email subject"
-                        className="mt-1 max-w-2xl"
-                    />
-                </div>
+            <div className="shrink-0 border-b px-6 py-3">
+                <Label>Audience</Label>
+                <p className="mt-1 mb-2 text-sm text-muted-foreground">
+                    Choose who receives this broadcast. Leave it on Everyone to
+                    send to the whole list.
+                </p>
+                <BroadcastAudienceFilter
+                    value={audience}
+                    onChange={setAudience}
+                    disabled={saving || sending}
+                />
             </div>
 
             <div className="flex min-h-0 flex-1">

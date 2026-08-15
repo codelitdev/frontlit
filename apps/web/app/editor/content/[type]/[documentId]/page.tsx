@@ -15,7 +15,7 @@ export default async function ContentEditorPage({
     if (type === "documentation") {
         return <DocumentationEditor params={childParams} />;
     }
-    if (type === "product-updates") {
+    if (type === "changelog") {
         return <ProductUpdateEditor params={childParams} />;
     }
     notFound();

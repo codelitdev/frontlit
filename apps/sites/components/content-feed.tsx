@@ -183,7 +183,7 @@ async function ProductUpdatesFeed({ teamId }: { teamId: string }) {
                     ),
                 }}
             />
-            <h1 className="text-3xl font-bold">Product updates</h1>
+            <h1 className="text-3xl font-bold">Changelog</h1>
             <ol className="mt-10 flex flex-col gap-12 border-l border-border pl-8">
                 {items.map((entry) => (
                     <li key={entry.documentId} className="relative">
@@ -229,7 +229,7 @@ async function ProductUpdatesFeed({ teamId }: { teamId: string }) {
                 ))}
                 {items.length === 0 && (
                     <p className="text-muted-foreground">
-                        No product updates published yet.
+                        No changelog entries published yet.
                     </p>
                 )}
             </ol>

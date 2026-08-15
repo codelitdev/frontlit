@@ -12,6 +12,7 @@ import {
     SidebarProvider,
     SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { ImagePickerProvider } from "@/components/media/image-picker-provider";
 
 export default async function AuthenticatedLayout({
     children,
@@ -22,27 +23,29 @@ export default async function AuthenticatedLayout({
 
     return (
         <WorkspaceAccessProvider>
-            <SidebarProvider>
-                <AppSidebar />
+            <ImagePickerProvider>
+                <SidebarProvider>
+                    <AppSidebar />
 
-                <SidebarInset className="min-w-0">
-                    <BreadcrumbProvider>
-                        <header className="flex h-12 w-full shrink-0 items-center gap-2 border-b px-4">
-                            <SidebarTrigger className="-ml-1" />
-                            <Separator
-                                orientation="vertical"
-                                className="mr-2 data-vertical:h-4 data-vertical:self-auto"
-                            />
-                            <WorkspaceBreadcrumb />
-                        </header>
-                        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                            <WorkspaceAccessGate>
-                                {children}
-                            </WorkspaceAccessGate>
-                        </div>
-                    </BreadcrumbProvider>
-                </SidebarInset>
-            </SidebarProvider>
+                    <SidebarInset className="min-w-0">
+                        <BreadcrumbProvider>
+                            <header className="flex h-12 w-full shrink-0 items-center gap-2 border-b px-4">
+                                <SidebarTrigger className="-ml-1" />
+                                <Separator
+                                    orientation="vertical"
+                                    className="mr-2 data-vertical:h-4 data-vertical:self-auto"
+                                />
+                                <WorkspaceBreadcrumb />
+                            </header>
+                            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                                <WorkspaceAccessGate>
+                                    {children}
+                                </WorkspaceAccessGate>
+                            </div>
+                        </BreadcrumbProvider>
+                    </SidebarInset>
+                </SidebarProvider>
+            </ImagePickerProvider>
         </WorkspaceAccessProvider>
     );
 }

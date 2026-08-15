@@ -23,6 +23,7 @@ import {
     listSegments,
     removeContactTag,
     upsertContact,
+    updateContact,
     sendBroadcast,
     toBroadcast,
     updateBroadcast,
@@ -60,6 +61,10 @@ const contactsImpl = s.router(
                 withSendlitKey((req as any).teamId, (apiKey) =>
                     getContact(apiKey, params.contactId),
                 ) as any,
+            update: async ({ params, body, req }) =>
+                withSendlitKey((req as any).teamId, (apiKey) =>
+                    updateContact(apiKey, params.contactId, body),
+                ) as any,
             create: async ({ body, req }) => {
                 const result = await withSendlitKey(
                     (req as any).teamId,
@@ -94,6 +99,7 @@ const contactsImpl = s.router(
         {
             list: "contacts.list",
             get: "contacts.get",
+            update: "contacts.update",
             create: "contacts.create",
             remove: "contacts.remove",
             addTag: "contacts.addTag",

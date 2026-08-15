@@ -6,6 +6,7 @@ import { requireTeam } from "../auth/require-team";
 import { authorizeHandlers } from "../auth/authorize";
 import {
     countMedia,
+    countMediaReferences,
     deleteMediaRecord,
     getMediaByMediaId,
     listMedia,
@@ -13,6 +14,10 @@ import {
     updateMedia,
 } from "./queries";
 import { getMediaUploadSignature } from "./service";
+import {
+    isUnsplashConfigured,
+    searchUnsplash as searchUnsplashPhotos,
+} from "./unsplash";
 import { omitInternal, serializeDates } from "../utils/public";
 
 const router = Router();
@@ -60,19 +65,55 @@ const impl = s.router(
                     };
                 }
             },
+            searchUnsplash: async ({ query }) => {
+                if (!isUnsplashConfigured()) {
+                    return {
+                        status: 200,
+                        body: { configured: false, items: [] },
+                    };
+                }
+                const q = query.q?.trim();
+                if (!q) {
+                    return {
+                        status: 200,
+                        body: { configured: true, items: [] },
+                    };
+                }
+                try {
+                    return {
+                        status: 200,
+                        body: {
+                            configured: true,
+                            items: await searchUnsplashPhotos(q),
+                        },
+                    };
+                } catch {
+                    return {
+                        status: 502,
+                        body: { error: "Failed to search Unsplash" },
+                    };
+                }
+            },
             list: async ({ query, req }) => {
                 const teamId = (req as any).teamId;
-                const [items, total] = await Promise.all([
+                const [items, total, references] = await Promise.all([
                     listMedia({
                         teamId,
                         offset: query.offset,
                         itemsPerPage: query.itemsPerPage,
                     }),
                     countMedia({ teamId }),
+                    countMediaReferences(teamId),
                 ]);
                 return {
                     status: 200,
-                    body: { items: items.map(toPublicMedia), total },
+                    body: {
+                        items: items.map((item) => ({
+                            ...toPublicMedia(item),
+                            referenceCount: references[item.mediaId] ?? 0,
+                        })),
+                        total,
+                    },
                 };
             },
             get: async ({ params, req }) => {
@@ -108,6 +149,7 @@ const impl = s.router(
             presigned: "media.presigned",
             create: "media.create",
             list: "media.list",
+            searchUnsplash: "media.searchUnsplash",
             get: "media.get",
             update: "media.update",
             remove: "media.remove",

@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { TagEditor } from "@sendlit/email-blocks";
@@ -17,6 +19,13 @@ import {
     EMPTY_CONTACT_FILTER,
     serializeContactFilter,
 } from "@/lib/contact-filters";
+import {
+    CONTACT_PAGE_SIZE,
+    contactListHref,
+    contactPageCount,
+    contactPageRange,
+    parseContactPage,
+} from "@/lib/contact-page";
 import { ContactAudienceFilter } from "@/components/contacts/contact-audience-filter";
 import { Loading } from "@/components/workspace/loading";
 import { ScrollablePage } from "@/components/workspace/scrollable-page";
@@ -33,14 +42,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/codelit/dialog";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
 
 /**
@@ -48,8 +49,20 @@ import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
  * and support tickets or created here. A read-through over SendLit contacts
  * (architecture.md §10.2) — FrontLit stores no contact rows of its own.
  */
-export default function ContactsPage() {
+export default function ContactsPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ page?: string | string[] }>;
+}) {
+    const query = use(searchParams);
+    const page = parseContactPage(query.page);
+
+    return <ContactsWorkspace page={page} />;
+}
+
+function ContactsWorkspace({ page }: { page: number }) {
     useSetBreadcrumb([{ label: "Contacts" }]);
+    const router = useRouter();
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [total, setTotal] = useState(0);
     const [hasAnyContacts, setHasAnyContacts] = useState(false);
@@ -75,6 +88,15 @@ export default function ContactsPage() {
         );
     }
 
+    const pageCount = contactPageCount(total);
+    const range = contactPageRange(page, total);
+
+    useEffect(() => {
+        if (total > 0 && page > pageCount) {
+            router.replace(contactListHref(pageCount));
+        }
+    }, [page, pageCount, router, total]);
+
     useEffect(() => {
         let cancelled = false;
         getEmailSettings()
@@ -86,7 +108,8 @@ export default function ContactsPage() {
                 }
                 return listContacts({
                     filter: serializedFilter,
-                    itemsPerPage: 100,
+                    offset: page,
+                    itemsPerPage: CONTACT_PAGE_SIZE,
                 }).then((result) => {
                     if (cancelled) return;
                     setContacts(result.items);
@@ -103,13 +126,14 @@ export default function ContactsPage() {
         return () => {
             cancelled = true;
         };
-    }, [serializedFilter]);
+    }, [page, serializedFilter]);
 
-    async function reload(nextFilter: ContactFilter = filter) {
+    async function reload(nextFilter: ContactFilter = filter, nextPage = page) {
         const serialized = serializeContactFilter(nextFilter);
         const result = await listContacts({
             filter: serialized,
-            itemsPerPage: 100,
+            offset: nextPage,
+            itemsPerPage: CONTACT_PAGE_SIZE,
         });
         setContacts(result.items);
         setTotal(result.total);
@@ -123,6 +147,11 @@ export default function ContactsPage() {
         }
         const unfiltered = await listContacts({ itemsPerPage: 1 });
         setHasAnyContacts(unfiltered.total > 0);
+    }
+
+    function handleFilterChange(next: ContactFilter) {
+        setFilter(next);
+        if (page !== 1) router.replace(contactListHref(1));
     }
 
     async function handleCreateContact(event: React.FormEvent) {
@@ -139,7 +168,8 @@ export default function ContactsPage() {
             setNewName("");
             setNewTags([]);
             setNewContactOpen(false);
-            await reload();
+            if (page !== 1) router.replace(contactListHref(1));
+            await reload(filter, 1);
             toast.success("Contact saved.");
         } catch (err) {
             toast.error(
@@ -155,7 +185,13 @@ export default function ContactsPage() {
     async function handleDeleteContact(contact: Contact) {
         try {
             await deleteContact(contact.contactId);
-            await reload();
+            const remainingOnPage = contacts.length - 1;
+            if (remainingOnPage === 0 && page > 1) {
+                router.replace(contactListHref(page - 1));
+                await reload(filter, page - 1);
+            } else {
+                await reload();
+            }
             toast.success("Contact deleted.");
         } catch (err) {
             toast.error(
@@ -222,90 +258,141 @@ export default function ContactsPage() {
                         <>
                             <ContactAudienceFilter
                                 value={filter}
-                                onChange={setFilter}
+                                onChange={handleFilterChange}
                                 count={total}
                             />
-                            <div className="overflow-hidden rounded-xl border bg-card">
-                                {contacts.length === 0 ? (
-                                    <p className="p-5 text-sm text-muted-foreground">
-                                        No contacts match this filter.
-                                    </p>
-                                ) : (
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Email</TableHead>
-                                                <TableHead>Name</TableHead>
-                                                <TableHead>Tags</TableHead>
-                                                <TableHead>Status</TableHead>
-                                                <TableHead className="w-px" />
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {contacts.map((contact) => (
-                                                <TableRow
-                                                    key={contact.contactId}
+                            {contacts.length === 0 ? (
+                                <p className="p-5 text-sm text-muted-foreground">
+                                    No contacts match this filter.
+                                </p>
+                            ) : (
+                                <div className="divide-y overflow-hidden rounded-xl border bg-card">
+                                    {contacts.map((contact) => {
+                                        const name = contact.name?.trim();
+                                        return (
+                                            <div
+                                                key={contact.contactId}
+                                                className="group flex items-center gap-3 px-4 py-3.5 hover:bg-muted/35 sm:px-5"
+                                            >
+                                                <Link
+                                                    href={`/contacts/${contact.contactId}`}
+                                                    className="min-w-0 flex-1"
                                                 >
-                                                    <TableCell className="font-medium">
-                                                        {contact.email}
-                                                    </TableCell>
-                                                    <TableCell className="text-muted-foreground">
-                                                        {contact.name || "—"}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {contact.tags.length ===
-                                                        0 ? (
-                                                            <span className="text-muted-foreground">
-                                                                —
-                                                            </span>
-                                                        ) : (
-                                                            <div className="flex flex-wrap gap-1">
-                                                                {contact.tags.map(
-                                                                    (tag) => (
-                                                                        <Badge
-                                                                            key={
-                                                                                tag
-                                                                            }
-                                                                            variant="neutral"
-                                                                        >
-                                                                            {
-                                                                                tag
-                                                                            }
-                                                                        </Badge>
-                                                                    ),
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="truncate text-sm font-semibold group-hover:underline">
+                                                            {name ||
+                                                                contact.email}
+                                                        </span>
                                                         <Badge
                                                             variant={
                                                                 contact.subscribed
                                                                     ? "success"
                                                                     : "outline"
                                                             }
+                                                            className="px-2 py-0.5 text-[0.6875rem] font-medium"
                                                         >
                                                             {contact.subscribed
                                                                 ? "Subscribed"
                                                                 : "Unsubscribed"}
                                                         </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <DeleteConfirm
-                                                            description={`Delete ${contact.email} from SendLit? This cannot be undone.`}
-                                                            onConfirm={() =>
-                                                                handleDeleteContact(
-                                                                    contact,
-                                                                )
-                                                            }
-                                                        />
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                )}
-                            </div>
+                                                    </div>
+                                                    <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+                                                        {name ? (
+                                                            <span className="truncate text-xs text-muted-foreground">
+                                                                {contact.email}
+                                                            </span>
+                                                        ) : null}
+                                                        {contact.tags.length ===
+                                                        0 ? (
+                                                            <span className="text-xs text-muted-foreground">
+                                                                No tags
+                                                            </span>
+                                                        ) : (
+                                                            contact.tags.map(
+                                                                (tag) => (
+                                                                    <Badge
+                                                                        key={
+                                                                            tag
+                                                                        }
+                                                                        variant="neutral"
+                                                                        className="px-2 py-0.5 text-[0.6875rem] font-medium"
+                                                                    >
+                                                                        {tag}
+                                                                    </Badge>
+                                                                ),
+                                                            )
+                                                        )}
+                                                    </div>
+                                                </Link>
+                                                <DeleteConfirm
+                                                    title={`Delete ${name || contact.email}?`}
+                                                    description={`Delete ${contact.email}? This cannot be undone.`}
+                                                    onConfirm={() =>
+                                                        handleDeleteContact(
+                                                            contact,
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            {total > CONTACT_PAGE_SIZE && (
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <p className="text-xs text-muted-foreground">
+                                        {range.from}–{range.to} of {total}
+                                    </p>
+                                    <div className="flex gap-2">
+                                        {page > 1 ? (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                asChild
+                                            >
+                                                <Link
+                                                    href={contactListHref(
+                                                        page - 1,
+                                                    )}
+                                                >
+                                                    Previous
+                                                </Link>
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                disabled
+                                            >
+                                                Previous
+                                            </Button>
+                                        )}
+                                        {page < pageCount ? (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                asChild
+                                            >
+                                                <Link
+                                                    href={contactListHref(
+                                                        page + 1,
+                                                    )}
+                                                >
+                                                    Next
+                                                </Link>
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                disabled
+                                            >
+                                                Next
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </>
                     )}
                 </div>

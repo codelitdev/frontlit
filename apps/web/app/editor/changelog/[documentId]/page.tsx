@@ -6,5 +6,5 @@ export default async function LegacyChangelogEditor({
     params: Promise<{ documentId: string }>;
 }) {
     const { documentId } = await params;
-    redirect(`/editor/content/product-updates/${documentId}`);
+    redirect(`/editor/content/changelog/${documentId}`);
 }

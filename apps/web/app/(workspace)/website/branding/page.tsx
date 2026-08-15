@@ -1,22 +1,39 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useMediaLit } from "@/lib/use-medialit";
 import {
     getTeamSettings,
-    registerMedia,
     updateTeamSettings,
     type TeamSettings,
 } from "@/lib/api";
+import { ImageUploadDialog } from "@frontlit/image-uploader";
+import type { FrontLitImage } from "@/lib/frontlit-image-uploader";
 import { PageHeader } from "@/components/workspace/page-header";
 import { Loading } from "@/components/workspace/loading";
 import { ScrollablePage } from "@/components/workspace/scrollable-page";
+import { Banner } from "@/components/workspace/banner";
 import { Card, CardContent } from "@/components/ui/codelit/card";
 import { Button } from "@/components/ui/codelit/button";
 import { Input } from "@/components/ui/codelit/input";
 import { Label } from "@/components/ui/codelit/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
+
+function toLogoRef(image: {
+    src: string;
+    alt?: string;
+    media?: FrontLitImage;
+}): Record<string, unknown> {
+    if (image.media) {
+        return {
+            mediaId: image.media.mediaId,
+            url: image.media.url,
+            thumbnailUrl: image.media.thumbnailUrl ?? undefined,
+            alt: image.media.alt || image.alt,
+        };
+    }
+    return { url: image.src, alt: image.alt };
+}
 
 export default function BrandingPage() {
     useSetBreadcrumb([
@@ -26,6 +43,7 @@ export default function BrandingPage() {
     const [settings, setSettings] = useState<TeamSettings | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         getTeamSettings()
@@ -33,28 +51,36 @@ export default function BrandingPage() {
             .finally(() => setLoading(false));
     }, []);
 
-    const { isUploading, uploadFile } = useMediaLit({
-        signatureEndpoint: "/api/proxy/media/presigned",
-        onUploadComplete: async (media) => {
-            const registered = await registerMedia({
-                mediaLitId: media.mediaId,
-            });
-            setSettings((current) =>
-                current ? { ...current, logo: registered as any } : current,
-            );
-        },
-    });
+    function handleLogo(image: {
+        src: string;
+        alt?: string;
+        media?: FrontLitImage;
+    }) {
+        setSettings((current) =>
+            current
+                ? {
+                      ...current,
+                      logo: toLogoRef(image),
+                  }
+                : current,
+        );
+    }
 
     async function save() {
         if (!settings) return;
         setSaving(true);
+        setError(null);
         try {
             setSettings(
                 await updateTeamSettings({
-                    title: settings.title,
-                    subtitle: settings.subtitle,
+                    title: settings.title ?? "",
+                    subtitle: settings.subtitle ?? "",
                     logo: settings.logo,
-                } as any),
+                }),
+            );
+        } catch (err) {
+            setError(
+                err instanceof Error ? err.message : "Failed to save branding.",
             );
         } finally {
             setSaving(false);
@@ -75,6 +101,8 @@ export default function BrandingPage() {
         <ScrollablePage>
             <div className="max-w-xl space-y-6">
                 <PageHeader title="Branding" />
+
+                {error ? <Banner>{error}</Banner> : null}
 
                 <Card>
                     <CardContent className="space-y-4">
@@ -123,16 +151,16 @@ export default function BrandingPage() {
                                         {settings.title?.slice(0, 1) || "F"}
                                     </AvatarFallback>
                                 </Avatar>
-                                <Input
-                                    type="file"
-                                    accept="image/*"
-                                    disabled={isUploading}
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) uploadFile(file);
-                                    }}
-                                    className="max-w-xs text-sm"
-                                />
+                                <ImageUploadDialog<FrontLitImage>
+                                    onSelect={handleLogo}
+                                    title="Site logo"
+                                    description="Upload a new logo or pick one from the library."
+                                    allowUnsplash={false}
+                                >
+                                    <Button type="button" variant="outline">
+                                        {logoUrl ? "Change logo" : "Add logo"}
+                                    </Button>
+                                </ImageUploadDialog>
                             </div>
                         </div>
                         <Button type="button" onClick={save} disabled={saving}>

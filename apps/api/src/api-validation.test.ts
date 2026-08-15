@@ -201,6 +201,13 @@ describe("API input validation schemas", () => {
                 codeInjectionHead: null,
             }).success,
         ).toBe(true);
+        expect(
+            updateTeamSettingsBodySchema.safeParse({
+                title: null,
+                subtitle: null,
+                logo: null,
+            }).success,
+        ).toBe(true);
 
         expect(
             createThemeBodySchema.safeParse({ name: "", style: {} }).success,

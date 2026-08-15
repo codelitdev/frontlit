@@ -74,6 +74,7 @@ module.exports = defineConfig([
         files: [
             "packages/page-builder/**/*.{js,jsx,ts,tsx}",
             "packages/text-editor/**/*.{js,jsx,ts,tsx}",
+            "packages/image-uploader/**/*.{js,jsx,ts,tsx}",
         ],
         plugins: {
             "@typescript-eslint": tseslint.plugin,

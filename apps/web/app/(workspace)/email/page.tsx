@@ -531,20 +531,22 @@ function BroadcastRow({
 
     return (
         <div
-            className={`flex min-h-17 items-center gap-3 px-3 py-3 ${bordered ? "border-t" : ""}`}
+            className={`group flex items-center gap-3 px-4 py-3.5 hover:bg-muted/35 sm:px-5 ${bordered ? "border-t" : ""}`}
         >
             <div className="min-w-0 flex-1">
                 {isDraft ? (
                     <Link
                         href={`/editor/email/${issue.broadcastId}`}
-                        className="font-medium hover:underline"
+                        className="truncate text-sm font-semibold hover:underline"
                     >
                         {issue.name}
                     </Link>
                 ) : (
-                    <p className="font-medium">{issue.name}</p>
+                    <p className="truncate text-sm font-semibold">
+                        {issue.name}
+                    </p>
                 )}
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 truncate text-xs text-muted-foreground">
                     {relativeDate(
                         isDraft
                             ? (issue.updatedAt ?? issue.createdAt)

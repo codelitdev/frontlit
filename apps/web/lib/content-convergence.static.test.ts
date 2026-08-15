@@ -24,7 +24,7 @@ describe("unified content product", () => {
         const nav = read("components/content/content-type-nav.tsx");
         const editor = read("app/editor/content/[type]/[documentId]/page.tsx");
 
-        for (const type of ["articles", "documentation", "product-updates"]) {
+        for (const type of ["articles", "documentation", "changelog"]) {
             expect(nav).toContain(`"${type}"`);
             expect(editor).toContain(`type === "${type}"`);
         }
@@ -38,7 +38,7 @@ describe("unified content product", () => {
             'redirect("/content?type=documentation")',
         );
         expect(read("app/(workspace)/changelog/page.tsx")).toContain(
-            'redirect("/content?type=product-updates")',
+            'redirect("/content?type=changelog")',
         );
     });
 });

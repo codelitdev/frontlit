@@ -41,6 +41,8 @@ import {
     listMediaQuerySchema,
     mediaSchema,
     mediaUploadSignatureSchema,
+    searchUnsplashQuerySchema,
+    searchUnsplashResponseSchema,
     updateMediaBodySchema,
 } from "./schemas/media";
 import { listDocumentsQuerySchema } from "./schemas/documents";
@@ -89,6 +91,7 @@ import {
     contactSchema,
     createBroadcastBodySchema,
     createContactBodySchema,
+    updateContactBodySchema,
     createEmailTemplateBodySchema,
     createSegmentBodySchema,
     listContactsQuerySchema,
@@ -493,6 +496,18 @@ const mediaContract = c.router(
             query: listMediaQuerySchema,
             responses: { 200: paginated(mediaSchema) },
             summary: "List the team's media library",
+        },
+        searchUnsplash: {
+            method: "GET",
+            path: "/media/unsplash",
+            query: searchUnsplashQuerySchema,
+            responses: {
+                200: searchUnsplashResponseSchema,
+                502: errorSchema,
+            },
+            summary: "Search Unsplash through the FrontLit API",
+            description:
+                "Uses the server-side UNSPLASH_ACCESS_KEY. When the key is unset, `configured` is false and the client should fall back to a pasted Unsplash URL.",
         },
         get: {
             method: "GET",
@@ -1165,6 +1180,17 @@ const contactsContract = c.router(
                 409: errorSchema,
             },
             summary: "Get a SendLit contact",
+        },
+        update: {
+            method: "PATCH",
+            path: "/contacts/:contactId",
+            body: updateContactBodySchema,
+            responses: {
+                200: contactSchema,
+                404: errorSchema,
+                409: errorSchema,
+            },
+            summary: "Update a SendLit contact",
         },
         remove: {
             method: "DELETE",

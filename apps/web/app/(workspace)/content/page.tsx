@@ -7,6 +7,7 @@ import DocumentationView from "@/components/content/documentation-view";
 import ProductUpdatesView from "@/components/content/product-updates-view";
 import {
     CONTENT_TYPES,
+    CONTENT_TYPE_ALIASES,
     canReadContentType,
     firstReadableContentType,
     type ContentType,
@@ -19,6 +20,14 @@ function isContentType(value: string | null): value is ContentType {
     return CONTENT_TYPES.includes(value as ContentType);
 }
 
+function resolveContentType(value: string | null): ContentType | null {
+    if (isContentType(value)) return value;
+    if (value && value in CONTENT_TYPE_ALIASES) {
+        return CONTENT_TYPE_ALIASES[value];
+    }
+    return null;
+}
+
 export default function ContentPage({
     searchParams,
 }: {
@@ -27,7 +36,8 @@ export default function ContentPage({
     const router = useRouter();
     const query = use(searchParams);
     const { currentTeam, loading } = useWorkspaceAccess();
-    const requested = typeof query.type === "string" ? query.type : null;
+    const rawType = typeof query.type === "string" ? query.type : null;
+    const requested = resolveContentType(rawType);
     const fallback = firstReadableContentType(
         currentTeam?.effectivePermissions ?? [],
         currentTeam?.isOwner,
@@ -43,10 +53,10 @@ export default function ContentPage({
             : fallback;
 
     useEffect(() => {
-        if (!loading && type && requested !== type) {
+        if (!loading && type && rawType !== type) {
             router.replace(`/content?type=${type}`);
         }
-    }, [loading, requested, router, type]);
+    }, [loading, rawType, router, type]);
 
     if (loading || !type) {
         return (
@@ -57,6 +67,6 @@ export default function ContentPage({
     }
 
     if (type === "documentation") return <DocumentationView />;
-    if (type === "product-updates") return <ProductUpdatesView />;
+    if (type === "changelog") return <ProductUpdatesView />;
     return <ArticleView />;
 }

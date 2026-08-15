@@ -444,12 +444,27 @@ export interface Media {
     caption?: string | null;
     createdAt: string | null;
     updatedAt: string | null;
+    referenceCount?: number;
 }
 
 export function listMedia(
     params: { offset?: number; itemsPerPage?: number } = {},
 ) {
     return unwrap<Paginated<Media>>(client.media.list({ query: params }));
+}
+
+export interface UnsplashPhoto {
+    id: string;
+    alt?: string;
+    thumbUrl: string;
+    url: string;
+    photographer?: string;
+}
+
+export function searchUnsplash(q?: string) {
+    return unwrap<{ configured: boolean; items: UnsplashPhoto[] }>(
+        client.media.searchUnsplash({ query: { q } }),
+    );
 }
 
 export function registerMedia(input: {
@@ -851,6 +866,15 @@ export function listContacts(
 
 export function getContact(contactId: string) {
     return unwrap<Contact>(client.contacts.get({ params: { contactId } }));
+}
+
+export function updateContact(
+    contactId: string,
+    patch: { name?: string; subscribed?: boolean },
+) {
+    return unwrap<Contact>(
+        client.contacts.update({ params: { contactId }, body: patch }),
+    );
 }
 
 export function deleteContact(contactId: string) {

@@ -229,8 +229,8 @@ export default function EspSettingsPage() {
                         {!esp && (
                             <Banner variant="warning">
                                 No email service provider is configured.
-                                Broadcast and transactional sends remain
-                                disabled until these settings are saved.
+                                Broadcast sends remain disabled until these
+                                settings are saved.
                             </Banner>
                         )}
 

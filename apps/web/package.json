@@ -13,6 +13,7 @@
     "dependencies": {
         "@codelitdev/design-system": "0.1.0-alpha.6",
         "@frontlit/api-contract": "workspace:*",
+        "@frontlit/image-uploader": "workspace:*",
         "@frontlit/page-builder": "workspace:*",
         "@frontlit/text-editor": "workspace:*",
         "@sendlit/email-blocks": "0.1.0-alpha.0",

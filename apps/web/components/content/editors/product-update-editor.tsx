@@ -164,8 +164,8 @@ export default function ProductUpdateEditor({
 
     return (
         <WritingEditorShell
-            backHref="/content?type=product-updates"
-            backLabel="Product updates"
+            backHref="/content?type=changelog"
+            backLabel="Changelog"
             contextLabel={entry.draftMeta.github ? "GitHub import" : undefined}
             title={title || "Untitled update"}
             status={entry.status}

@@ -34,6 +34,11 @@ export const createContactBodySchema = z.object({
     tags: z.array(z.string().min(1)).optional(),
 });
 
+export const updateContactBodySchema = z.object({
+    name: z.string().optional(),
+    subscribed: z.boolean().optional(),
+});
+
 export const contactFilterConditionSchema = z.object({
     name: z.string().min(1),
     condition: z.string().min(1),

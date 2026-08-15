@@ -12,12 +12,14 @@
 @import "../node_modules/@codelitdev/design-system/src/components.css";
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "shadcn/tailwind.css";
 @import "@frontlit/page-builder/theme.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @source "../../../packages/page-builder/src";
 @source "../../../packages/text-editor/src";
+@source "../../../packages/image-uploader/src";
 /* The published SendLit editor ships utility-class markup rather than a
    pre-scoped stylesheet. Scan its distribution so positional controls such
    as the centered add-block button receive their Tailwind rules. */

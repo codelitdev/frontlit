@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ApiError } from "@/lib/api-client";
 import {
@@ -36,11 +37,14 @@ import { ContentTypeNav } from "@/components/content/content-type-nav";
 export default function ChangelogPage() {
     useSetBreadcrumb([
         { label: "Content", href: "/content" },
-        { label: "Product updates" },
+        { label: "Changelog" },
     ]);
+    const router = useRouter();
     const [entries, setEntries] = useState<ProductUpdate[]>([]);
     const [loading, setLoading] = useState(true);
     const [newTitle, setNewTitle] = useState("");
+    const [createError, setCreateError] = useState<string | null>(null);
+    const [creating, setCreating] = useState(false);
     const [github, setGithub] = useState<GithubIntegration | null>(null);
     const [repo, setRepo] = useState("");
     const [token, setToken] = useState("");
@@ -64,10 +68,28 @@ export default function ChangelogPage() {
 
     async function handleCreate(e: React.FormEvent) {
         e.preventDefault();
-        if (!newTitle.trim()) return;
-        await createProductUpdate({ title: newTitle.trim() });
-        setNewTitle("");
-        await refresh();
+        const title = newTitle.trim();
+        if (!title) {
+            setCreateError("Enter a changelog title.");
+            return;
+        }
+
+        setCreateError(null);
+        setCreating(true);
+        try {
+            const created = await createProductUpdate({ title });
+            setNewTitle("");
+            router.push(`/editor/content/changelog/${created.documentId}`);
+        } catch (err) {
+            const message =
+                err instanceof ApiError
+                    ? err.message
+                    : "Failed to create changelog entry.";
+            setCreateError(message);
+            toast.error(message);
+        } finally {
+            setCreating(false);
+        }
     }
 
     async function handleDelete(documentId: string) {
@@ -143,28 +165,50 @@ export default function ChangelogPage() {
     return (
         <ScrollablePage>
             <div className="mx-auto w-full max-w-6xl">
-                <ContentTypeNav activeType="product-updates" />
+                <ContentTypeNav activeType="changelog" />
                 <div className="max-w-2xl space-y-8">
                     <div>
-                        <PageHeader title="Product updates" />
+                        <PageHeader title="Changelog" />
 
                         <form
                             onSubmit={handleCreate}
-                            className="mb-6 flex gap-2"
+                            className="mb-6 space-y-2"
                         >
-                            <Input
-                                value={newTitle}
-                                onChange={(e) => setNewTitle(e.target.value)}
-                                placeholder="Entry title"
-                                className="flex-1"
-                            />
-                            <Button type="submit">Create</Button>
+                            <div className="flex gap-2">
+                                <Input
+                                    value={newTitle}
+                                    onChange={(e) => {
+                                        setNewTitle(e.target.value);
+                                        if (createError) setCreateError(null);
+                                    }}
+                                    placeholder="Entry title"
+                                    className="flex-1"
+                                    aria-invalid={Boolean(createError)}
+                                    aria-describedby={
+                                        createError
+                                            ? "changelog-create-error"
+                                            : undefined
+                                    }
+                                    disabled={creating}
+                                />
+                                <Button type="submit" disabled={creating}>
+                                    {creating ? "Creating…" : "Create"}
+                                </Button>
+                            </div>
+                            {createError ? (
+                                <p
+                                    id="changelog-create-error"
+                                    className="text-sm text-destructive"
+                                >
+                                    {createError}
+                                </p>
+                            ) : null}
                         </form>
 
                         <div className="divide-y rounded-lg border">
                             {entries.length === 0 && (
                                 <p className="p-4 text-sm text-muted-foreground">
-                                    No product updates yet.
+                                    No changelog entries yet.
                                 </p>
                             )}
                             {entries.map((entry) => (
@@ -175,7 +219,7 @@ export default function ChangelogPage() {
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <Link
-                                                href={`/editor/content/product-updates/${entry.documentId}`}
+                                                href={`/editor/content/changelog/${entry.documentId}`}
                                                 className="font-medium hover:underline"
                                             >
                                                 {entry.draftTitle}
@@ -255,7 +299,7 @@ export default function ChangelogPage() {
                                         Connect a repo with a fine-grained
                                         personal access token (read-only
                                         Contents access is enough) to import
-                                        Releases as draft product updates.
+                                        Releases as draft changelog entries.
                                     </p>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="gh-repo">

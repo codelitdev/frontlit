@@ -11,7 +11,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
     const previous = await parent;
     return {
-        title: `Product updates | ${previous.title?.absolute}`,
+        title: `Changelog | ${previous.title?.absolute}`,
         alternates: {
             types: { "application/rss+xml": "/changelog/rss.xml" },
         },

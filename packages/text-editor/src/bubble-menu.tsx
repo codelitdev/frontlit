@@ -142,7 +142,7 @@ const InlineBubbleMenu = ({
     return (
         <TipTapBubbleMenu
             editor={editor}
-            className="bubble-menu rounded-md border border-border bg-background p-2 shadow-xl flex flex-col gap-1"
+            className="bubble-menu flex flex-col gap-1 rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-xl"
         >
             <div className="flex items-center gap-1">
                 <InlineButton

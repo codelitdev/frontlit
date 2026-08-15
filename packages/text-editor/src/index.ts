@@ -1,5 +1,10 @@
 export { default as Editor } from "./editor";
 export type { EditorProps } from "./editor";
+export {
+    ImagePickerContextProvider,
+    useImagePicker,
+    type PickedImage,
+} from "./image-picker";
 export { default as emptyDoc } from "./empty-doc";
 export * from "./extract-headings";
 export * from "./extensions";

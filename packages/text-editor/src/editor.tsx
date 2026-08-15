@@ -18,6 +18,7 @@ import Toolbar from "./toolbar";
 import BubbleMenu from "./bubble-menu";
 import type { ReactEditorProps } from "./types";
 import { cn } from "./lib/cn";
+import { useImagePicker } from "./image-picker";
 
 export interface EditorProps {
     onChange: (json: JSONContent) => void;
@@ -61,6 +62,7 @@ const Editor: EditorType = Object.assign(
     }) => {
         const [isUploading, setIsUploading] = useState(false);
         const fileInputRef = useRef<HTMLInputElement | null>(null);
+        const pickImage = useImagePicker();
         const hasInteractedRef = useRef(false);
         const lastSerializedContentRef = useRef(
             JSON.stringify(initialContent ?? emptyDoc),
@@ -213,9 +215,30 @@ const Editor: EditorType = Object.assign(
             [handleImageUpload],
         );
 
+        const insertPickedImage = useCallback(
+            (image: { src: string; alt?: string }) => {
+                editor
+                    ?.chain()
+                    .focus()
+                    .setImage({
+                        src: image.src,
+                        alt: image.alt,
+                        title: image.alt,
+                    })
+                    .run();
+            },
+            [editor],
+        );
+
         const openFileDialog = useCallback(() => {
+            if (pickImage) {
+                void pickImage().then((image) => {
+                    if (image) insertPickedImage(image);
+                });
+                return;
+            }
             fileInputRef.current?.click();
-        }, []);
+        }, [insertPickedImage, pickImage]);
 
         if (typeof window === "undefined") {
             return <></>;
@@ -254,13 +277,15 @@ const Editor: EditorType = Object.assign(
                             editor={editor}
                             className={`${editorClassName ?? ""} ${editorClassName?.includes("min-h-") ? "" : "min-h-[200px]"}`}
                         />
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleSelectFile}
-                        />
+                        {pickImage ? null : (
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleSelectFile}
+                            />
+                        )}
                         {children}
                         {editor && <BubbleMenu editor={editor} />}
                     </div>

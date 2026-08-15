@@ -84,7 +84,7 @@ const EDITOR_ROUTE_ACCESS: readonly EditorRouteAccess[] = [
         fallbackPath: "/content",
     },
     {
-        href: "/editor/content/product-updates",
+        href: "/editor/content/changelog",
         permissions: ["product-updates:write"],
         fallbackPath: "/content",
     },

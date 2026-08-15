@@ -137,6 +137,7 @@ export const REST_OPERATION_POLICIES = {
     "media.presigned": teamPermission("media:write", MCP_SCOPES.mediaWrite),
     "media.create": teamPermission("media:write", MCP_SCOPES.mediaWrite),
     "media.list": teamPermission("media:read", MCP_SCOPES.mediaRead),
+    "media.searchUnsplash": teamPermission("media:read", MCP_SCOPES.mediaRead),
     "media.get": teamPermission("media:read", MCP_SCOPES.mediaRead),
     "media.update": teamPermission("media:write", MCP_SCOPES.mediaWrite),
     "media.remove": teamPermission("media:write", MCP_SCOPES.mediaWrite),
@@ -267,6 +268,10 @@ export const REST_OPERATION_POLICIES = {
 
     "contacts.list": teamPermission("contacts:read", MCP_SCOPES.contactsRead),
     "contacts.get": teamPermission("contacts:read", MCP_SCOPES.contactsRead),
+    "contacts.update": teamPermission(
+        "contacts:write",
+        MCP_SCOPES.contactsWrite,
+    ),
     "contacts.create": teamPermission(
         "contacts:write",
         MCP_SCOPES.contactsWrite,

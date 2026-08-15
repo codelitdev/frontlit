@@ -8,9 +8,13 @@ import { WorkspaceSectionTabs } from "@/components/workspace/workspace-section-t
 export const CONTENT_TYPES = [
     "articles",
     "documentation",
-    "product-updates",
+    "changelog",
 ] as const;
 export type ContentType = (typeof CONTENT_TYPES)[number];
+
+export const CONTENT_TYPE_ALIASES: Record<string, ContentType> = {
+    "product-updates": "changelog",
+};
 
 const ITEMS: Array<{
     type: ContentType;
@@ -31,8 +35,8 @@ const ITEMS: Array<{
         icon: BookOpen,
     },
     {
-        type: "product-updates",
-        label: "Product updates",
+        type: "changelog",
+        label: "Changelog",
         permission: "product-updates:read",
         icon: History,
     },
