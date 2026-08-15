@@ -12,12 +12,11 @@ describe("unified content product", () => {
     it("presents one Content destination in the workspace navigation", () => {
         const sidebar = read("components/workspace/app-sidebar.tsx");
 
-        expect(sidebar).toContain(
-            '{ href: "/content?type=articles", label: "Content", icon: Library }',
-        );
+        expect(sidebar).toContain('label: "Content"');
+        expect(sidebar).toContain("CONTENT_TYPE_NAV");
         expect(sidebar).not.toContain('label: "Blog"');
         expect(sidebar).not.toContain('label: "Docs"');
-        expect(sidebar).not.toContain('label: "Changelog"');
+        expect(sidebar).not.toMatch(/\{\s*href: "\/changelog"/);
     });
 
     it("uses product-language content types and one editor route", () => {

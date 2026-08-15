@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../db/client";
-import { teamSettings, themes } from "../db/schema";
+import { DEFAULT_SHARED_WIDGETS, teamSettings, themes } from "../db/schema";
 
 const systemThemeIds = new Set([
     "classic",
@@ -34,7 +34,13 @@ export async function getTeamSettings(teamId: string) {
     // no dashboard visit needed before a team can query its own defaults.
     const [created] = await db
         .insert(teamSettings)
-        .values({ teamId })
+        .values({
+            teamId,
+            // Do not rely on the Postgres column default — local DBs keep
+            // the old SQL default until migrations are reset.
+            sharedWidgets: DEFAULT_SHARED_WIDGETS,
+            draftSharedWidgets: DEFAULT_SHARED_WIDGETS,
+        })
         .returning();
     return created;
 }
@@ -42,8 +48,8 @@ export async function getTeamSettings(teamId: string) {
 export async function updateTeamSettings(
     teamId: string,
     patch: Partial<{
-        title: string;
-        subtitle: string;
+        title: string | null;
+        subtitle: string | null;
         logo: Record<string, unknown> | null;
         themeId: string | null;
         codeInjectionHead: string | null;

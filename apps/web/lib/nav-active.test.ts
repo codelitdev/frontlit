@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isNavItemActive } from "./nav-active";
+import { isNavHrefActive, isNavItemActive } from "./nav-active";
 import {
     canAccessWorkspacePath,
     getWorkspaceLandingPath,
@@ -34,6 +34,32 @@ describe("isNavItemActive", () => {
         expect(isNavItemActive("/website", "/website?tab=pages")).toBe(true);
     });
 
+    it("distinguishes query-tab submenu items", () => {
+        expect(
+            isNavHrefActive(
+                "/content",
+                "/content?type=articles",
+                "type=articles",
+            ),
+        ).toBe(true);
+        expect(
+            isNavHrefActive(
+                "/content",
+                "/content?type=articles",
+                "type=documentation",
+            ),
+        ).toBe(false);
+        expect(
+            isNavHrefActive("/website", "/website?tab=pages", "tab=pages"),
+        ).toBe(true);
+        expect(
+            isNavHrefActive("/website", "/website?tab=pages", "tab=branding"),
+        ).toBe(false);
+        expect(isNavHrefActive("/settings/members", "/settings/members")).toBe(
+            true,
+        );
+    });
+
     it("uses effective team permissions to gate workspace routes", () => {
         const readOnlyDocs = team(["documentation:read"]);
         expect(canAccessWorkspacePath("/", readOnlyDocs)).toBe(false);
@@ -44,6 +70,12 @@ describe("isNavItemActive", () => {
         expect(canAccessWorkspacePath("/website?tab=pages", readOnlyDocs)).toBe(
             false,
         );
+        expect(
+            canAccessWorkspacePath("/content?type=articles", readOnlyDocs),
+        ).toBe(false);
+        expect(
+            canAccessWorkspacePath("/content?type=documentation", readOnlyDocs),
+        ).toBe(true);
         expect(
             canAccessWorkspacePath("/website/code-injection", readOnlyDocs),
         ).toBe(false);
@@ -61,6 +93,9 @@ describe("isNavItemActive", () => {
     it("chooses the first permitted workspace route as a safe landing page", () => {
         expect(getWorkspaceLandingPath(team(["documentation:read"]))).toBe(
             "/content",
+        );
+        expect(getWorkspaceLandingPath(team(["chatbot:read"]))).toBe(
+            "/website?tab=chatbot",
         );
         expect(getWorkspaceLandingPath(team([]))).toBeNull();
     });

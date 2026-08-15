@@ -414,8 +414,8 @@ CREATE TABLE IF NOT EXISTS "team_settings" (
 	"theme_id" text,
 	"code_injection_head" text,
 	"code_injection_body" text,
-	"shared_widgets" jsonb DEFAULT '{"header":{"widgetId":"shared-header","name":"header","deletable":false,"moveable":false,"shared":true,"settings":{}},"footer":{"widgetId":"shared-footer","name":"footer","deletable":false,"moveable":false,"shared":true,"settings":{}}}'::jsonb NOT NULL,
-	"draft_shared_widgets" jsonb DEFAULT '{"header":{"widgetId":"shared-header","name":"header","deletable":false,"moveable":false,"shared":true,"settings":{}},"footer":{"widgetId":"shared-footer","name":"footer","deletable":false,"moveable":false,"shared":true,"settings":{}}}'::jsonb NOT NULL,
+	"shared_widgets" jsonb DEFAULT '{"header":{"widgetId":"shared-header","name":"header","deletable":false,"moveable":false,"shared":true,"settings":{"verticalPadding":"py-4"}},"footer":{"widgetId":"shared-footer","name":"footer","deletable":false,"moveable":false,"shared":true,"settings":{}}}'::jsonb NOT NULL,
+	"draft_shared_widgets" jsonb DEFAULT '{"header":{"widgetId":"shared-header","name":"header","deletable":false,"moveable":false,"shared":true,"settings":{"verticalPadding":"py-4"}},"footer":{"widgetId":"shared-footer","name":"footer","deletable":false,"moveable":false,"shared":true,"settings":{}}}'::jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "team_settings_team_id_unique" UNIQUE("team_id")

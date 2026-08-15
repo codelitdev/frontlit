@@ -1,18 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+    Bot,
     Building2,
+    Code,
+    ContactRound,
+    FileText,
+    Globe,
     Images,
     Inbox,
     LayoutGrid,
-    Mail,
     Library,
+    Mail,
+    Palette,
     Send,
-    Sparkles,
     Settings,
-    ContactRound,
+    Sparkles,
     Users,
 } from "lucide-react";
 import {
@@ -32,17 +37,41 @@ import { NavUser } from "@/components/workspace/nav-user";
 import { TeamSwitcher } from "@/components/workspace/team-switcher";
 import { Banner } from "@/components/workspace/banner";
 import { useWorkspaceAccess } from "@/components/workspace/workspace-access";
+import { CONTENT_TYPE_NAV } from "@/components/content/content-type-nav";
 import { canAccessWorkspacePath } from "@/lib/workspace-access";
+import { WEBSITE_TABS, websiteTabHref } from "@/lib/website-tabs";
+
+const WEBSITE_TAB_ICONS = {
+    pages: FileText,
+    branding: Palette,
+    domain: Globe,
+    "code-injection": Code,
+    chatbot: Bot,
+} as const;
 
 const NAV: NavItem[] = [
     { href: "/", label: "Inbox", icon: Inbox },
+    { href: "/email?tab=broadcasts", label: "Email", icon: Mail },
     {
-        href: "/website?tab=pages",
+        href: "/content",
+        label: "Content",
+        icon: Library,
+        items: CONTENT_TYPE_NAV.map((item) => ({
+            href: `/content?type=${item.type}`,
+            label: item.label,
+            icon: item.icon,
+        })),
+    },
+    {
+        href: "/website",
         label: "Website",
         icon: LayoutGrid,
+        items: WEBSITE_TABS.map((tab) => ({
+            href: websiteTabHref(tab.id),
+            label: tab.label,
+            icon: WEBSITE_TAB_ICONS[tab.id],
+        })),
     },
-    { href: "/content?type=articles", label: "Content", icon: Library },
-    { href: "/email?tab=broadcasts", label: "Email", icon: Mail },
     { href: "/contacts", label: "Contacts", icon: ContactRound },
 ];
 
@@ -141,10 +170,12 @@ export function AppSidebar() {
                             </Banner>
                         </div>
                     )}
-                <NavMain items={mainNav} />
-                <SidebarMenu className="mt-auto px-2">
-                    <NavItems items={footerNav} />
-                </SidebarMenu>
+                <Suspense>
+                    <NavMain items={mainNav} />
+                    <SidebarMenu className="mt-auto px-2">
+                        <NavItems items={footerNav} />
+                    </SidebarMenu>
+                </Suspense>
             </SidebarContent>
 
             <SidebarFooter>

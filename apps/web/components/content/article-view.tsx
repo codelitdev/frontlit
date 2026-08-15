@@ -25,7 +25,6 @@ import { ScrollablePage } from "@/components/workspace/scrollable-page";
 import { DeleteConfirm } from "@/components/workspace/delete-confirm";
 import { DocumentStatusBadge } from "@/components/workspace/document-status-badge";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
-import { ContentTypeNav } from "@/components/content/content-type-nav";
 import { Badge } from "@/components/ui/codelit/badge";
 import { Button } from "@/components/ui/codelit/button";
 import {
@@ -155,7 +154,6 @@ export default function BlogPage() {
     return (
         <ScrollablePage>
             <div className="mx-auto w-full max-w-6xl">
-                <ContentTypeNav activeType="articles" />
                 <header className="flex flex-col gap-5 border-b pb-5 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <h1 className="text-2xl font-semibold tracking-tight">

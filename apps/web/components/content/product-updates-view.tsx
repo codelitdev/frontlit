@@ -32,7 +32,6 @@ import {
     CardTitle,
 } from "@/components/ui/codelit/card";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
-import { ContentTypeNav } from "@/components/content/content-type-nav";
 
 export default function ChangelogPage() {
     useSetBreadcrumb([
@@ -165,7 +164,6 @@ export default function ChangelogPage() {
     return (
         <ScrollablePage>
             <div className="mx-auto w-full max-w-6xl">
-                <ContentTypeNav activeType="changelog" />
                 <div className="max-w-2xl space-y-8">
                     <div>
                         <PageHeader title="Changelog" />

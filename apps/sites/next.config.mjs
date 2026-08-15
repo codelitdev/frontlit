@@ -3,6 +3,7 @@ const nextConfig = {
     images: {
         remotePatterns: [{ protocol: "https", hostname: "**" }],
     },
+    allowedDevOrigins: ["*.localhost"],
 };
 
 export default nextConfig;

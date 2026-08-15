@@ -32,6 +32,7 @@ describe("team settings", () => {
             shared: true,
             deletable: false,
             moveable: false,
+            settings: { verticalPadding: "py-4" },
         });
         expect(settings.sharedWidgets.footer).toMatchObject({
             name: "footer",

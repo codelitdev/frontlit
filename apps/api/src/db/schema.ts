@@ -325,7 +325,9 @@ export const DEFAULT_SHARED_WIDGETS: SharedWidgetsRow = {
         deletable: false,
         moveable: false,
         shared: true,
-        settings: {},
+        // Slider value 1 (`py-4`). Without this the header inherits the
+        // theme's content-section padding and renders much taller than a nav.
+        settings: { verticalPadding: "py-4" },
     },
     footer: {
         widgetId: "shared-footer",

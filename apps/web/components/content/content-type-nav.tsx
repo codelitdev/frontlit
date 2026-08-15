@@ -1,9 +1,5 @@
-"use client";
-
 import { BookOpen, History, Newspaper } from "lucide-react";
 import type { TeamPermission } from "@/lib/api";
-import { useWorkspaceAccess } from "@/components/workspace/workspace-access";
-import { WorkspaceSectionTabs } from "@/components/workspace/workspace-section-tabs";
 
 export const CONTENT_TYPES = [
     "articles",
@@ -16,7 +12,7 @@ export const CONTENT_TYPE_ALIASES: Record<string, ContentType> = {
     "product-updates": "changelog",
 };
 
-const ITEMS: Array<{
+export const CONTENT_TYPE_NAV: Array<{
     type: ContentType;
     label: string;
     permission: TeamPermission;
@@ -49,7 +45,7 @@ export function canReadContentType(
 ) {
     if (isOwner) return true;
     return permissions.includes(
-        ITEMS.find((item) => item.type === type)!.permission,
+        CONTENT_TYPE_NAV.find((item) => item.type === type)!.permission,
     );
 }
 
@@ -58,32 +54,8 @@ export function firstReadableContentType(
     isOwner = false,
 ): ContentType | null {
     return (
-        ITEMS.find((item) =>
+        CONTENT_TYPE_NAV.find((item) =>
             canReadContentType(item.type, permissions, isOwner),
         )?.type ?? null
-    );
-}
-
-export function ContentTypeNav({ activeType }: { activeType: ContentType }) {
-    const { currentTeam } = useWorkspaceAccess();
-    const visibleItems = ITEMS.filter((item) =>
-        canReadContentType(
-            item.type,
-            currentTeam?.effectivePermissions ?? [],
-            currentTeam?.isOwner,
-        ),
-    );
-
-    return (
-        <WorkspaceSectionTabs
-            ariaLabel="Content type"
-            currentId={activeType}
-            items={visibleItems.map((item) => ({
-                id: item.type,
-                label: item.label,
-                href: `/content?type=${item.type}`,
-                icon: item.icon,
-            }))}
-        />
     );
 }

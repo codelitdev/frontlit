@@ -100,10 +100,57 @@ const EDITOR_ROUTE_ACCESS: readonly EditorRouteAccess[] = [
     },
 ];
 
+const WEBSITE_TAB_ACCESS_HREF: Record<string, string> = {
+    pages: "/website/pages",
+    branding: "/website/branding",
+    domain: "/website/domain",
+    "code-injection": "/website/code-injection",
+    chatbot: "/website/chatbot",
+};
+
+const CONTENT_TYPE_ACCESS: Record<string, RouteAccess> = {
+    articles: {
+        href: "/content?type=articles",
+        permissions: ["articles:read"],
+    },
+    documentation: {
+        href: "/content?type=documentation",
+        permissions: ["documentation:read"],
+    },
+    changelog: {
+        href: "/content?type=changelog",
+        permissions: ["product-updates:read"],
+    },
+};
+
+const CONTENT_TYPE_ALIASES: Record<string, string> = {
+    "product-updates": "changelog",
+};
+
 function accessForPath(pathname: string): RouteAccess | undefined {
-    const normalizedPathname = pathname.split(/[?#]/, 1)[0] || "/";
+    const [normalizedPathname = "/", query = ""] = pathname.split(/[?#]/, 2);
+    const searchParams = new URLSearchParams(query);
+
+    if (normalizedPathname === "/website") {
+        const tabAccessHref =
+            WEBSITE_TAB_ACCESS_HREF[searchParams.get("tab") ?? ""];
+        if (tabAccessHref) {
+            return ROUTE_ACCESS.find((access) => access.href === tabAccessHref);
+        }
+    }
+
+    if (normalizedPathname === "/content") {
+        const rawType = searchParams.get("type");
+        const type = rawType
+            ? (CONTENT_TYPE_ALIASES[rawType] ?? rawType)
+            : null;
+        if (type && type in CONTENT_TYPE_ACCESS) {
+            return CONTENT_TYPE_ACCESS[type];
+        }
+    }
+
     return ROUTE_ACCESS.find((access) =>
-        isNavItemActive(normalizedPathname, access.href),
+        isNavItemActive(normalizedPathname || "/", access.href),
     );
 }
 

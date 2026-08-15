@@ -7,7 +7,6 @@ import BrandingPage from "./branding/page";
 import DomainPage from "./domain/page";
 import CodeInjectionPage from "./code-injection/page";
 import ChatbotPage from "./chatbot/page";
-import { WebsiteTabs } from "@/components/workspace/website-tabs";
 import { Loading } from "@/components/workspace/loading";
 import { ScrollablePage } from "@/components/workspace/scrollable-page";
 import { useWorkspaceAccess } from "@/components/workspace/workspace-access";
@@ -64,10 +63,5 @@ export default function WebsitePage({
             <PagesPage />
         );
 
-    return (
-        <div className="flex min-h-0 flex-1 flex-col">
-            <WebsiteTabs currentTab={selectedTab} />
-            {view}
-        </div>
-    );
+    return view;
 }
