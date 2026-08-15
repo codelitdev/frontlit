@@ -22,7 +22,9 @@ import ticketsRoutes from "./tickets/routes";
 import domainsRoutes from "./domains/routes";
 import settingsRoutes from "./settings/routes";
 import aiRoutes from "./ai/routes";
+import inboxAiRoutes from "./inbox-ai/routes";
 import publicRoutes from "./public/routes";
+import inboundMailRoutes from "./mail/routes";
 import metricsRoutes from "./metrics/routes";
 import { openApiDocument } from "./openapi";
 
@@ -47,6 +49,7 @@ export function createApp() {
     // own body from the raw request.
     app.all("/api/auth/*", toNodeHandler(auth));
     app.use(oauthPagesRoutes);
+    app.use(inboundMailRoutes);
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
 
@@ -101,6 +104,7 @@ export function createApp() {
     app.use(domainsRoutes);
     app.use(settingsRoutes);
     app.use(aiRoutes);
+    app.use(inboxAiRoutes);
 
     app.use(
         (

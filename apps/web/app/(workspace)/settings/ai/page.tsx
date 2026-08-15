@@ -310,14 +310,15 @@ export default function AiSettingsPage() {
             <div className="max-w-2xl space-y-6">
                 <PageHeader
                     title="AI"
-                    description="Configure your team’s AI credentials, models, and embedding provider."
+                    description="Configure this team's AI credentials and models. Chatbot and Tickets only generate after this is saved, and each channel is enabled separately."
                 />
 
                 {loadError && <Banner>{loadError}</Banner>}
                 {!config && !loadError && (
                     <Banner variant="warning">
-                        No AI provider is configured. AI features use the local
-                        fallback until this team&rsquo;s settings are saved.
+                        No AI provider is configured. Chatbot and Tickets will
+                        not generate replies until this team&rsquo;s settings
+                        are saved. Enable each channel separately after that.
                     </Banner>
                 )}
 

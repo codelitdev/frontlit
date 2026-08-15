@@ -77,6 +77,12 @@ export async function findTeamByPublicId(teamId: string) {
     return db.query.teams.findFirst({ where: eq(teams.teamId, teamId) });
 }
 
+export async function findTeamBySubdomain(subdomain: string) {
+    return db.query.teams.findFirst({
+        where: eq(teams.subdomain, subdomain.toLowerCase()),
+    });
+}
+
 export const getTeamByTeamId = findTeamByPublicId;
 
 export async function findTeamById(id: string, executor = db) {

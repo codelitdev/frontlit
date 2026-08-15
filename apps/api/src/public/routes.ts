@@ -1,5 +1,4 @@
 import { Router } from "express";
-import rateLimit from "express-rate-limit";
 import { createExpressEndpoints, initServer } from "@ts-rest/express";
 import { contract } from "@frontlit/api-contract";
 import {
@@ -9,9 +8,17 @@ import {
 } from "../documents/queries";
 import { listDocSections, searchChunks } from "../documentation/queries";
 import { getChatbotSettings } from "../chatbot/queries";
-import { getChatAnswer } from "../chatbot/completion";
-import { getResolvedAiConfig } from "../ai/queries";
 import { findTeamById, findTeamByPublicId } from "../team/queries";
+import { runInboxAi } from "../inbox-ai/generate";
+import { MAX_MESSAGE_CHARS } from "../inbox-ai/config";
+import {
+    attachFilesToMessage,
+    attachmentsByMessage,
+    createChatConversation,
+    registerTicketAttachment,
+    signatureForTicketAttachments,
+    toPublicAttachment,
+} from "../tickets/attachments";
 import { omitInternal, serializeDates } from "../utils/public";
 import { enqueueOutboxJob } from "../email/outbox";
 import {
@@ -21,7 +28,6 @@ import {
     getTicketMessages,
     getTicketNotificationRecipient,
     textTicketMessage,
-    ticketMessageText,
     verifyTicketAccess,
 } from "../tickets/queries";
 import { notifyTeamOfRequesterMessage } from "../tickets/notify";
@@ -30,110 +36,94 @@ import { getTeamSettings } from "../settings/queries";
 import { getPublishedPageBySlug, listPublishedPages } from "../pages/queries";
 import { getThemeByThemeId } from "../themes/queries";
 import { verifyCaptcha } from "../services/captcha";
-import { incrementCounter } from "../services/metrics";
+import {
+    clientIp,
+    postgresPublicLimit,
+    publicTeamIdFromPath,
+} from "../inbox-ai/rate-limit";
 
-/** Records `rate_limit_hits_total{route=...}` (architecture.md §13.6)
- * without changing the limiter's existing response shape — express-rate-limit's
- * `handler` fully replaces the default response, so it re-sends the same
- * `message`/`statusCode` every limiter below already configures. */
-function rateLimitHandler(route: string) {
-    return (_req: any, res: any, _next: any, options: any) => {
-        incrementCounter("rate_limit_hits_total", { route });
-        res.status(options.statusCode).json(options.message);
-    };
-}
+const MINUTE = 60_000;
+const DAY = 24 * 60 * 60 * 1000;
 
-/** Public writes/expensive reads get a tighter limit than the cacheable
- * reads above (architecture.md §13.2) — chat spends real LLM/embedding
- * tokens per request. */
-const chatLimiter = rateLimit({
-    windowMs: 60_000,
-    max: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-        error: "too_many_requests",
-        error_description:
-            "Too many chat requests. Please wait a moment and try again.",
-    },
-    handler: rateLimitHandler("chat"),
+const chatLimiter = postgresPublicLimit({
+    route: "chat",
+    limits: (req) => [
+        {
+            key: `chat:${clientIp(req)}:${publicTeamIdFromPath(req)}`,
+            windowMs: MINUTE,
+            max: 10,
+        },
+    ],
+    message: "Too many chat requests. Please wait a moment and try again.",
 });
 
-/** Lead capture is a public write from anonymous site visitors (architecture.md
- * §13.2/§13.3) — looser than chat (no LLM cost) but still capped per IP to
- * blunt scraping/spam bursts; the honeypot field below catches simple bots
- * without a CAPTCHA challenge on every legitimate signup. */
-const leadLimiter = rateLimit({
-    windowMs: 60_000,
-    max: 10,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-        error: "too_many_requests",
-        error_description:
-            "Too many submissions. Please wait a moment and try again.",
-    },
-    handler: rateLimitHandler("leads"),
+const leadLimiter = postgresPublicLimit({
+    route: "leads",
+    limits: (req) => [
+        {
+            key: `lead:${clientIp(req)}:${publicTeamIdFromPath(req)}`,
+            windowMs: MINUTE,
+            max: 5,
+        },
+        {
+            key: `lead-day:${publicTeamIdFromPath(req)}`,
+            windowMs: DAY,
+            max: 100,
+        },
+    ],
 });
 
-/** Docs search embeds one query per call — capped separately from plain
- * reads (architecture.md §13.2). */
-const docsSearchLimiter = rateLimit({
-    windowMs: 60_000,
-    max: 60,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-        error: "too_many_requests",
-        error_description:
-            "Too many search requests. Please wait a moment and try again.",
-    },
-    handler: rateLimitHandler("docs_search"),
+const docsSearchLimiter = postgresPublicLimit({
+    route: "docs_search",
+    limits: (req) => [
+        {
+            key: `docs:${clientIp(req)}:${publicTeamIdFromPath(req)}`,
+            windowMs: MINUTE,
+            max: 60,
+        },
+    ],
 });
 
-/** Ticket submission shares lead capture's public-write budget
- * (architecture.md §13.2's table groups them together). */
-const ticketLimiter = rateLimit({
-    windowMs: 60_000,
-    max: 10,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-        error: "too_many_requests",
-        error_description:
-            "Too many submissions. Please wait a moment and try again.",
-    },
-    handler: rateLimitHandler("tickets"),
+const ticketLimiter = postgresPublicLimit({
+    route: "tickets",
+    limits: (req) => [
+        {
+            key: `ticket:${clientIp(req)}:${publicTeamIdFromPath(req)}`,
+            windowMs: MINUTE,
+            max: 5,
+        },
+        {
+            key: `ticket-day:${publicTeamIdFromPath(req)}`,
+            windowMs: DAY,
+            max: 100,
+        },
+    ],
 });
 
-/** Plain public reads (host resolution, settings, pages, sitemap) — generous,
- * since ISR/CDN caching absorbs most real traffic (architecture.md §13.2). */
-const publicReadLimiter = rateLimit({
-    windowMs: 60_000,
-    max: 300,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-        error: "too_many_requests",
-        error_description:
-            "Too many requests. Please wait a moment and try again.",
-    },
-    handler: rateLimitHandler("public_read"),
+const publicReadLimiter = postgresPublicLimit({
+    route: "public_read",
+    limits: (req) => [
+        { key: `read:${clientIp(req)}`, windowMs: MINUTE, max: 300 },
+    ],
 });
 
-/** Ticket thread reads/replies (magic token) — moderate limit, keyed by
- * IP like the other public endpoints (architecture.md §13.2). */
-const ticketThreadLimiter = rateLimit({
-    windowMs: 60_000,
-    max: 30,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-        error: "too_many_requests",
-        error_description:
-            "Too many requests. Please wait a moment and try again.",
+const ticketThreadLimiter = postgresPublicLimit({
+    route: "ticket_thread",
+    limits: (req) => {
+        const token =
+            String(
+                (req.query as { token?: string })?.token ||
+                    (req.body as { token?: string } | undefined)?.token ||
+                    "",
+            ) || "none";
+        return [
+            {
+                key: `thread:${clientIp(req)}:${token}`,
+                windowMs: MINUTE,
+                max: 30,
+            },
+        ];
     },
-    handler: rateLimitHandler("ticket_thread"),
 });
 
 /** Unauthenticated, published-only reads for public site rendering
@@ -175,13 +165,19 @@ function toPublicDocumentProjection<T extends Record<string, unknown>>(doc: T) {
  * to the visitor themselves. */
 function toPublicTicketThread(
     ticket: Record<string, unknown>,
-    messages: Record<string, unknown>[],
+    messages: Array<Record<string, unknown> & { id?: string }>,
+    byMessage?: Map<string, Array<{ attachmentId: string }>>,
 ) {
     return {
         ...serializeDates(omitInternal(ticket, "teamId", "accessTokenHash")),
-        messages: messages.map((m) =>
-            serializeDates(omitInternal(m, "teamId", "ticketId")),
-        ),
+        messages: messages.map((m) => ({
+            ...serializeDates(omitInternal(m, "teamId", "ticketId")),
+            attachments: m.id
+                ? (byMessage?.get(m.id) ?? []).map((row) =>
+                      toPublicAttachment(row as any),
+                  )
+                : [],
+        })),
     } as any;
 }
 
@@ -489,6 +485,108 @@ const impl = s.router(contract.public, {
         if (!doc) return { status: 404, body: { error: "Not found" } };
         return { status: 200, body: toPublicDocumentProjection(doc) };
     },
+    presignChatAttachment: {
+        middleware: [chatLimiter],
+        handler: async ({ params, body }) => {
+            const team = await findTeamByPublicId(params.teamId);
+            if (!team)
+                return { status: 404, body: { error: "Team not found" } };
+            const settings = await getChatbotSettings(team.id);
+            if (!settings.enabled)
+                return {
+                    status: 403,
+                    body: { error: "Chatbot is not enabled for this team" },
+                };
+
+            let conversationId = body.conversationId;
+            let conversationToken = body.conversationToken;
+            if (conversationId && conversationToken) {
+                const ticket = await getTicketByTicketId(
+                    team.id,
+                    conversationId,
+                );
+                if (!ticket || ticket.source !== "chatbot") {
+                    return {
+                        status: 404,
+                        body: { error: "Conversation not found" },
+                    };
+                }
+                if (!(await verifyTicketAccess(ticket, conversationToken))) {
+                    return {
+                        status: 401,
+                        body: { error: "Invalid conversation token" },
+                    };
+                }
+            } else {
+                const created = await createChatConversation(team.id);
+                conversationId = created.ticket.ticketId;
+                conversationToken = created.token;
+            }
+
+            try {
+                const signed = await signatureForTicketAttachments(team.id);
+                return {
+                    status: 200,
+                    body: {
+                        ...signed,
+                        conversationId,
+                        conversationToken,
+                    },
+                };
+            } catch {
+                return {
+                    status: 400,
+                    body: { error: "Failed to create upload signature" },
+                };
+            }
+        },
+    },
+    completeChatAttachment: {
+        middleware: [chatLimiter],
+        handler: async ({ params, body }) => {
+            const team = await findTeamByPublicId(params.teamId);
+            if (!team)
+                return { status: 404, body: { error: "Team not found" } };
+            const ticket = await getTicketByTicketId(
+                team.id,
+                body.conversationId,
+            );
+            if (!ticket || ticket.source !== "chatbot") {
+                return {
+                    status: 404,
+                    body: { error: "Conversation not found" },
+                };
+            }
+            if (!(await verifyTicketAccess(ticket, body.conversationToken))) {
+                return {
+                    status: 401,
+                    body: { error: "Invalid conversation token" },
+                };
+            }
+            try {
+                const row = await registerTicketAttachment({
+                    teamId: team.id,
+                    ticketDbId: ticket.id,
+                    mediaLitId: body.mediaLitId,
+                    fileName: body.fileName,
+                    mimeType: body.mimeType,
+                    size: body.size,
+                });
+                return { status: 201, body: toPublicAttachment(row) };
+            } catch (error) {
+                const code = error instanceof Error ? error.message : "failed";
+                return {
+                    status: 400,
+                    body: {
+                        error:
+                            code === "attachment_too_large"
+                                ? "File is too large"
+                                : "Failed to save attachment",
+                    },
+                };
+            }
+        },
+    },
     chat: {
         middleware: [chatLimiter],
         handler: async ({ params, body }) => {
@@ -514,10 +612,20 @@ const impl = s.router(contract.public, {
                 };
             }
 
+            const message = (body.message ?? "")
+                .trim()
+                .slice(0, MAX_MESSAGE_CHARS);
+            const attachmentIds = body.attachmentIds ?? [];
+            if (!message && attachmentIds.length === 0) {
+                return {
+                    status: 400,
+                    body: { error: "A message or attachment is required" },
+                };
+            }
+
             let ticket: Awaited<ReturnType<typeof getTicketByTicketId>>;
             let conversationToken: string;
-            let history = body.history ?? [];
-            let appendRequesterMessage = false;
+            let triggerMessageId: string;
 
             if (body.conversationId && body.conversationToken) {
                 ticket = await getTicketByTicketId(
@@ -530,74 +638,69 @@ const impl = s.router(contract.public, {
                         body: { error: "Conversation not found" },
                     };
                 }
-                if (!verifyTicketAccess(ticket, body.conversationToken)) {
+                if (
+                    !(await verifyTicketAccess(ticket, body.conversationToken))
+                ) {
                     return {
                         status: 401,
                         body: { error: "Invalid conversation token" },
                     };
                 }
-
-                const priorMessages = await getTicketMessages(ticket.id);
-                history = priorMessages.slice(-20).map((message) => ({
-                    role:
-                        message.author === "requester"
-                            ? ("user" as const)
-                            : ("assistant" as const),
-                    content: ticketMessageText(message.content),
-                }));
-                appendRequesterMessage = true;
-                conversationToken = body.conversationToken;
-            } else {
-                const created = await createTicket({
-                    teamId: team.id,
-                    subject:
-                        body.message.trim().slice(0, 120) ||
-                        "Chat conversation",
-                    message: body.message,
-                    requesterEmail: null,
-                    source: "chatbot",
-                });
-                ticket = created.ticket;
-                conversationToken = created.token;
-            }
-
-            const chunks = await searchChunks(team.id, body.message);
-            // Team title is branding context only — keeps the model as "X's
-            // support assistant" without opening a general chat surface.
-            const teamSettings = await getTeamSettings(team.id);
-            const aiConfig = await getResolvedAiConfig(team.id);
-            const { answer, sources, escalate } = await getChatAnswer(
-                body.message,
-                chunks,
-                history,
-                {
-                    teamName: teamSettings.title || team.name,
-                    aiConfig,
-                },
-            );
-            if (appendRequesterMessage) {
-                await addTicketMessage({
+                const appended = await addTicketMessage({
                     teamId: team.id,
                     ticketDbId: ticket.id,
                     author: "requester",
-                    content: textTicketMessage(body.message),
+                    content: textTicketMessage(message || "Sent an attachment"),
                 });
+                triggerMessageId = appended.id;
+                conversationToken = body.conversationToken;
+                if (attachmentIds.length) {
+                    await attachFilesToMessage({
+                        teamId: team.id,
+                        ticketDbId: ticket.id,
+                        messageDbId: appended.id,
+                        attachmentIds,
+                    });
+                }
+            } else {
+                const created = await createTicket({
+                    teamId: team.id,
+                    subject: message.slice(0, 120) || "Chat conversation",
+                    message: message || "Sent an attachment",
+                    requesterEmail: null,
+                    source: "chatbot",
+                    scheduleAi: false,
+                });
+                ticket = created.ticket;
+                conversationToken = created.token;
+                triggerMessageId = created.firstMessage.id;
+                if (attachmentIds.length) {
+                    await attachFilesToMessage({
+                        teamId: team.id,
+                        ticketDbId: ticket.id,
+                        messageDbId: created.firstMessage.id,
+                        attachmentIds,
+                    });
+                }
             }
-            await addTicketMessage({
+
+            const result = await runInboxAi({
                 teamId: team.id,
                 ticketDbId: ticket.id,
-                author: "bot",
-                content: textTicketMessage(answer),
+                triggerMessageId,
+                channel: "chatbot",
+                mode: "sync",
             });
 
             return {
                 status: 200,
                 body: {
-                    answer,
-                    sources,
+                    outcome: result.outcome,
+                    answer: result.answer,
+                    sources: result.sources,
                     conversationId: ticket.ticketId,
                     conversationToken,
-                    escalate: escalate && settings.escalationEnabled,
+                    escalate: result.outcome === "escalated",
                 },
             };
         },
@@ -685,16 +788,19 @@ const impl = s.router(contract.public, {
 
             const ticket = await getTicketByTicketId(team.id, params.ticketId);
             if (!ticket) return { status: 404, body: { error: "Not found" } };
-            if (!verifyTicketAccess(ticket, query.token))
+            if (!(await verifyTicketAccess(ticket, query.token)))
                 return {
                     status: 401,
                     body: { error: "Invalid or expired token" },
                 };
 
-            const messages = await getTicketMessages(ticket.id);
+            const [messages, byMessage] = await Promise.all([
+                getTicketMessages(ticket.id),
+                attachmentsByMessage(ticket.id),
+            ]);
             return {
                 status: 200,
-                body: toPublicTicketThread(ticket, messages),
+                body: toPublicTicketThread(ticket, messages, byMessage),
             };
         },
     },
@@ -707,7 +813,7 @@ const impl = s.router(contract.public, {
 
             const ticket = await getTicketByTicketId(team.id, params.ticketId);
             if (!ticket) return { status: 404, body: { error: "Not found" } };
-            if (!verifyTicketAccess(ticket, body.token))
+            if (!(await verifyTicketAccess(ticket, body.token)))
                 return {
                     status: 401,
                     body: { error: "Invalid or expired token" },
@@ -746,10 +852,18 @@ const impl = s.router(contract.public, {
                 }).catch(() => {});
             }
 
-            const messages = await getTicketMessages(ticket.id);
+            const [updated, messages, byMessage] = await Promise.all([
+                getTicketByTicketId(team.id, ticket.ticketId),
+                getTicketMessages(ticket.id),
+                attachmentsByMessage(ticket.id),
+            ]);
             return {
                 status: 200,
-                body: toPublicTicketThread(ticket, messages),
+                body: toPublicTicketThread(
+                    updated ?? ticket,
+                    messages,
+                    byMessage,
+                ),
             };
         },
     },

@@ -28,6 +28,16 @@ CREATE TABLE IF NOT EXISTS "ai_settings" (
 	CONSTRAINT "ai_settings_team_id_unique" UNIQUE("team_id")
 );
 --> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "ai_usage_daily" (
+	"id" text PRIMARY KEY NOT NULL,
+	"team_id" text NOT NULL,
+	"usage_date" text NOT NULL,
+	"reserved_tokens" integer DEFAULT 0 NOT NULL,
+	"used_tokens" integer DEFAULT 0 NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "api_keys" (
 	"id" text PRIMARY KEY NOT NULL,
 	"team_id" text NOT NULL,
@@ -290,6 +300,56 @@ CREATE TABLE IF NOT EXISTS "documents" (
 	CONSTRAINT "document_id_prefix_check" CHECK ("document_id" LIKE 'doc\_%' ESCAPE '\')
 );
 --> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "email_reply_tokens" (
+	"id" text PRIMARY KEY NOT NULL,
+	"token" text NOT NULL,
+	"team_id" text NOT NULL,
+	"ticket_id" text NOT NULL,
+	"requester_email" text NOT NULL,
+	"expires_at" timestamp NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "email_reply_tokens_token_unique" UNIQUE("token")
+);
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "inbound_emails" (
+	"id" text PRIMARY KEY NOT NULL,
+	"message_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"ticket_id" text NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "inbound_emails_message_id_unique" UNIQUE("message_id")
+);
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "inbox_ai_runs" (
+	"id" text PRIMARY KEY NOT NULL,
+	"team_id" text NOT NULL,
+	"ticket_id" text NOT NULL,
+	"trigger_message_id" text NOT NULL,
+	"channel" text NOT NULL,
+	"status" text DEFAULT 'queued' NOT NULL,
+	"attempts" integer DEFAULT 0 NOT NULL,
+	"skip_reason" text,
+	"last_error" text,
+	"lease_expires_at" timestamp,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"started_at" timestamp,
+	"finished_at" timestamp
+);
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "inbox_ai_settings" (
+	"id" text PRIMARY KEY NOT NULL,
+	"team_id" text NOT NULL,
+	"channel" text NOT NULL,
+	"auto_reply" boolean DEFAULT false NOT NULL,
+	"escalate_on_visitor_request" boolean DEFAULT true NOT NULL,
+	"escalate_when_unsure" boolean DEFAULT true NOT NULL,
+	"escalate_topics" text[] DEFAULT '{}'::text[] NOT NULL,
+	"escalate_after_bot_turns" integer,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "integrations" (
 	"id" text PRIMARY KEY NOT NULL,
 	"team_id" text NOT NULL,
@@ -369,6 +429,12 @@ CREATE TABLE IF NOT EXISTS "pages" (
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "pages_page_id_unique" UNIQUE("page_id"),
 	CONSTRAINT "page_id_prefix_check" CHECK ("page_id" LIKE 'pg\_%' ESCAPE '\')
+);
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "rate_limit_buckets" (
+	"key" text PRIMARY KEY NOT NULL,
+	"count" integer DEFAULT 0 NOT NULL,
+	"reset_at" timestamp NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "team_invitations" (
@@ -464,6 +530,49 @@ CREATE TABLE IF NOT EXISTS "themes" (
 	CONSTRAINT "theme_id_prefix_check" CHECK ("theme_id" LIKE 'thm\_%' ESCAPE '\')
 );
 --> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "ticket_access_grants" (
+	"id" text PRIMARY KEY NOT NULL,
+	"team_id" text NOT NULL,
+	"ticket_id" text NOT NULL,
+	"token_hash" text NOT NULL,
+	"expires_at" timestamp NOT NULL,
+	"revoked_at" timestamp,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "ticket_access_grants_token_hash_unique" UNIQUE("token_hash")
+);
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "ticket_attachments" (
+	"id" text PRIMARY KEY NOT NULL,
+	"attachment_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"ticket_id" text NOT NULL,
+	"message_id" text,
+	"media_lit_id" text NOT NULL,
+	"url" text NOT NULL,
+	"thumbnail_url" text,
+	"file_name" text NOT NULL,
+	"mime_type" text NOT NULL,
+	"size" integer NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "ticket_attachments_attachment_id_unique" UNIQUE("attachment_id"),
+	CONSTRAINT "attachment_id_prefix_check" CHECK ("attachment_id" LIKE 'att\_%' ESCAPE '\')
+);
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "ticket_mail_outbox" (
+	"id" text PRIMARY KEY NOT NULL,
+	"team_id" text NOT NULL,
+	"ticket_id" text NOT NULL,
+	"sequence" integer NOT NULL,
+	"kind" text NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"payload" jsonb NOT NULL,
+	"attempts" integer DEFAULT 0 NOT NULL,
+	"last_error" text,
+	"next_attempt_at" timestamp DEFAULT now() NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "ticket_messages" (
 	"id" text PRIMARY KEY NOT NULL,
 	"message_id" text NOT NULL,
@@ -488,6 +597,11 @@ CREATE TABLE IF NOT EXISTS "tickets" (
 	"source" text DEFAULT 'form' NOT NULL,
 	"access_token_hash" text NOT NULL,
 	"assignee_account_id" text,
+	"ai_state" text DEFAULT 'idle' NOT NULL,
+	"ai_generation" integer DEFAULT 0 NOT NULL,
+	"ai_trigger_message_id" text,
+	"ai_stop_reason" text,
+	"ai_stopped_at" timestamp,
 	"last_message_at" timestamp DEFAULT now() NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
@@ -503,6 +617,12 @@ END $$;
 --> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "ai_settings" ADD CONSTRAINT "ai_settings_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "ai_usage_daily" ADD CONSTRAINT "ai_usage_daily_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -640,6 +760,54 @@ EXCEPTION
 END $$;
 --> statement-breakpoint
 DO $$ BEGIN
+ ALTER TABLE "email_reply_tokens" ADD CONSTRAINT "email_reply_tokens_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "email_reply_tokens" ADD CONSTRAINT "email_reply_tokens_ticket_id_tickets_id_fk" FOREIGN KEY ("ticket_id") REFERENCES "public"."tickets"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "inbound_emails" ADD CONSTRAINT "inbound_emails_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "inbound_emails" ADD CONSTRAINT "inbound_emails_ticket_id_tickets_id_fk" FOREIGN KEY ("ticket_id") REFERENCES "public"."tickets"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "inbox_ai_runs" ADD CONSTRAINT "inbox_ai_runs_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "inbox_ai_runs" ADD CONSTRAINT "inbox_ai_runs_ticket_id_tickets_id_fk" FOREIGN KEY ("ticket_id") REFERENCES "public"."tickets"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "inbox_ai_runs" ADD CONSTRAINT "inbox_ai_runs_trigger_message_id_ticket_messages_id_fk" FOREIGN KEY ("trigger_message_id") REFERENCES "public"."ticket_messages"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "inbox_ai_settings" ADD CONSTRAINT "inbox_ai_settings_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
  ALTER TABLE "integrations" ADD CONSTRAINT "integrations_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
@@ -718,6 +886,48 @@ EXCEPTION
 END $$;
 --> statement-breakpoint
 DO $$ BEGIN
+ ALTER TABLE "ticket_access_grants" ADD CONSTRAINT "ticket_access_grants_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "ticket_access_grants" ADD CONSTRAINT "ticket_access_grants_ticket_id_tickets_id_fk" FOREIGN KEY ("ticket_id") REFERENCES "public"."tickets"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "ticket_attachments" ADD CONSTRAINT "ticket_attachments_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "ticket_attachments" ADD CONSTRAINT "ticket_attachments_ticket_id_tickets_id_fk" FOREIGN KEY ("ticket_id") REFERENCES "public"."tickets"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "ticket_attachments" ADD CONSTRAINT "ticket_attachments_message_id_ticket_messages_id_fk" FOREIGN KEY ("message_id") REFERENCES "public"."ticket_messages"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "ticket_mail_outbox" ADD CONSTRAINT "ticket_mail_outbox_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "ticket_mail_outbox" ADD CONSTRAINT "ticket_mail_outbox_ticket_id_tickets_id_fk" FOREIGN KEY ("ticket_id") REFERENCES "public"."tickets"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
  ALTER TABLE "ticket_messages" ADD CONSTRAINT "ticket_messages_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
@@ -747,6 +957,7 @@ EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 --> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "ai_usage_daily_team_date_idx" ON "ai_usage_daily" USING btree ("team_id","usage_date");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "api_keys_team_idx" ON "api_keys" USING btree ("team_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "auth_account_user_id_idx" ON "auth_account" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "auth_oauth_access_token_client_id_idx" ON "auth_oauth_access_token" USING btree ("client_id");--> statement-breakpoint
@@ -775,6 +986,10 @@ CREATE INDEX IF NOT EXISTS "document_chunks_embedding_idx" ON "document_chunks" 
 CREATE UNIQUE INDEX IF NOT EXISTS "documents_team_kind_slug_idx" ON "documents" USING btree ("team_id","kind","slug");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "documents_team_kind_idx" ON "documents" USING btree ("team_id","kind");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "documents_published_idx" ON "documents" USING btree ("team_id","kind","published_at");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "email_reply_tokens_ticket_requester_idx" ON "email_reply_tokens" USING btree ("team_id","ticket_id","requester_email");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "inbox_ai_runs_ticket_trigger_idx" ON "inbox_ai_runs" USING btree ("ticket_id","trigger_message_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "inbox_ai_runs_poll_idx" ON "inbox_ai_runs" USING btree ("status","lease_expires_at","created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "inbox_ai_settings_team_channel_idx" ON "inbox_ai_settings" USING btree ("team_id","channel");--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "integrations_team_provider_idx" ON "integrations" USING btree ("team_id","provider");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "media_team_idx" ON "media" USING btree ("team_id","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "media_team_medialit_idx" ON "media" USING btree ("team_id","media_lit_id");--> statement-breakpoint
@@ -787,5 +1002,10 @@ CREATE INDEX IF NOT EXISTS "team_invitations_team_email_idx" ON "team_invitation
 CREATE INDEX IF NOT EXISTS "team_invitations_expires_idx" ON "team_invitations" USING btree ("expires_at");--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "team_members_team_account_idx" ON "team_members" USING btree ("team_id","account_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "themes_team_idx" ON "themes" USING btree ("team_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "ticket_access_grants_ticket_idx" ON "ticket_access_grants" USING btree ("ticket_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "ticket_attachments_ticket_idx" ON "ticket_attachments" USING btree ("ticket_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "ticket_attachments_message_idx" ON "ticket_attachments" USING btree ("message_id");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "ticket_mail_outbox_ticket_seq_idx" ON "ticket_mail_outbox" USING btree ("ticket_id","sequence");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "ticket_mail_outbox_poll_idx" ON "ticket_mail_outbox" USING btree ("status","next_attempt_at");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "ticket_messages_ticket_idx" ON "ticket_messages" USING btree ("ticket_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "tickets_team_status_idx" ON "tickets" USING btree ("team_id","status","last_message_at");

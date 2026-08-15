@@ -3,7 +3,9 @@ import { SendlitApiError } from "./sendlit-client";
 
 const NOT_CONNECTED = {
     status: 409 as const,
-    body: { error: "SendLit is not connected for this team yet" },
+    body: {
+        error: "Configure the email delivery connection in Settings first",
+    },
 };
 
 /** Runs a team-scoped SendLit request without ever exposing the stored

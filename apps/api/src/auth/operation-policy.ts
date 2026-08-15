@@ -358,6 +358,8 @@ export const REST_OPERATION_POLICIES = {
     "ai.get": teamPermission("ai:read", "unsupported"),
     "ai.update": teamPermission("ai:write", "unsupported"),
     "ai.remove": teamPermission("ai:write", "unsupported"),
+    "inboxAi.get": teamMember(MCP_SCOPES.chatbotRead),
+    "inboxAi.update": teamMember(MCP_SCOPES.chatbotWrite),
 
     "tickets.list": teamPermission("helpdesk:read", MCP_SCOPES.helpdeskRead),
     "tickets.create": teamPermission(
@@ -366,6 +368,14 @@ export const REST_OPERATION_POLICIES = {
     ),
     "tickets.get": teamPermission("helpdesk:read", MCP_SCOPES.helpdeskRead),
     "tickets.reply": teamPermission("helpdesk:write", MCP_SCOPES.helpdeskWrite),
+    "tickets.presignAttachment": teamPermission(
+        "helpdesk:write",
+        MCP_SCOPES.helpdeskWrite,
+    ),
+    "tickets.completeAttachment": teamPermission(
+        "helpdesk:write",
+        MCP_SCOPES.helpdeskWrite,
+    ),
     "tickets.update": teamPermission(
         "helpdesk:write",
         MCP_SCOPES.helpdeskWrite,

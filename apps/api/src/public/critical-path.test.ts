@@ -9,10 +9,11 @@ vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 vi.mock("../tickets/notify", () => ({
     notifyTeamOfRequesterMessage: vi.fn().mockResolvedValue(undefined),
     notifyRequesterOfReply: vi.fn().mockResolvedValue(undefined),
+    notifyRequesterOfTicketCreated: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { db as testDb } from "../db/client";
-import { outboxJobs } from "../db/schema";
+import { outboxJobs, ticketMailOutbox } from "../db/schema";
 import { updateChatbotSettings } from "../chatbot/queries";
 import {
     createDocument,
@@ -199,15 +200,19 @@ describe("public critical paths", () => {
             );
             expect(enabled.status).toBe(200);
             const body = (await enabled.json()) as {
-                answer: string;
+                outcome: string;
+                answer: string | null;
                 conversationId: string;
                 conversationToken: string;
                 sources: unknown[];
+                escalate: boolean;
             };
-            expect(body.answer).toEqual(expect.any(String));
+            expect(body.outcome).toBe("human_only");
+            expect(body.answer).toBeNull();
+            expect(body.escalate).toBe(false);
             expect(body.conversationId).toMatch(/^tkt_/);
             expect(body.conversationToken).toEqual(expect.any(String));
-            expect(Array.isArray(body.sources)).toBe(true);
+            expect(body.sources).toEqual([]);
         });
     });
 
@@ -288,6 +293,16 @@ describe("public critical paths", () => {
             };
             expect(ticketId).toMatch(/^tkt_/);
             expect(token.length).toBeGreaterThan(10);
+            const mail = await db.query.ticketMailOutbox.findMany({
+                where: eq(ticketMailOutbox.teamId, teamInternalId),
+            });
+            expect(mail).toHaveLength(1);
+            expect(mail[0]).toMatchObject({
+                sequence: 1,
+                kind: "receipt",
+                status: "pending",
+                payload: { token },
+            });
 
             const thread = await fetch(
                 `${origin}/public/${teamPublicId}/tickets/${ticketId}/messages?token=${encodeURIComponent(token)}`,
@@ -307,6 +322,23 @@ describe("public critical paths", () => {
             });
             expect(body.messages).toHaveLength(1);
             expect(body.accessTokenHash).toBeUndefined();
+
+            const jobs = await db.query.outboxJobs.findMany({
+                where: eq(outboxJobs.teamId, teamInternalId),
+            });
+            expect(jobs).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        type: "contact_sync",
+                        status: "pending",
+                        payload: {
+                            email: "customer@example.com",
+                            name: "Casey",
+                            sourcePath: "/help",
+                        },
+                    }),
+                ]),
+            );
 
             const badToken = await fetch(
                 `${origin}/public/${teamPublicId}/tickets/${ticketId}/messages?token=not-the-token`,

@@ -77,32 +77,77 @@ export const publicChatbotSettingsSchema = z.object({
     widgetStyle: chatbotWidgetStyleSchema,
 });
 
-export const chatRequestBodySchema = z.object({
-    message: z.string().min(1),
-    /** Returned by the first response. Supplying both values appends the
-     * message to the same persisted chatbot conversation. */
-    conversationId: z.string().optional(),
-    conversationToken: z.string().optional(),
-    history: z
-        .array(
-            z.object({
-                role: z.enum(["user", "assistant"]),
-                content: z.string(),
-            }),
-        )
-        .max(20)
-        .optional(),
+export const chatRequestBodySchema = z
+    .object({
+        message: z.string().trim().max(4000).optional().default(""),
+        /** Returned by the first response. Supplying both values appends the
+         * message to the same persisted chatbot conversation. */
+        conversationId: z.string().optional(),
+        conversationToken: z.string().optional(),
+        attachmentIds: z.array(z.string().min(1)).max(5).optional(),
+        /** Ignored. Persisted ticket messages are the only model history. */
+        history: z
+            .array(
+                z.object({
+                    role: z.enum(["user", "assistant"]),
+                    content: z.string(),
+                }),
+            )
+            .max(20)
+            .optional(),
+    })
+    .refine(
+        (value) =>
+            Boolean(value.conversationId) === Boolean(value.conversationToken),
+        {
+            message:
+                "conversationId and conversationToken must be provided together",
+        },
+    )
+    .refine(
+        (value) =>
+            Boolean(value.message?.trim()) ||
+            Boolean(value.attachmentIds?.length),
+        { message: "A message or at least one attachment is required" },
+    );
+
+export const chatAttachmentPresignBodySchema = z
+    .object({
+        conversationId: z.string().optional(),
+        conversationToken: z.string().optional(),
+    })
+    .refine(
+        (value) =>
+            Boolean(value.conversationId) === Boolean(value.conversationToken),
+        {
+            message:
+                "conversationId and conversationToken must be provided together",
+        },
+    );
+
+export const chatAttachmentCompleteBodySchema = z.object({
+    conversationId: z.string().min(1),
+    conversationToken: z.string().min(1),
+    mediaLitId: z.string().min(1),
+    fileName: z.string().min(1).max(255).optional(),
+    mimeType: z.string().max(200).optional(),
+    size: z.number().int().nonnegative().optional(),
 });
 
+export const chatOutcomeSchema = z.enum([
+    "answered",
+    "human_only",
+    "escalated",
+]);
+
 export const chatResponseSchema = z.object({
-    answer: z.string(),
+    outcome: chatOutcomeSchema,
+    answer: z.string().nullable(),
     sources: z.array(chatSourceSchema),
     conversationId: z.string(),
     /** Opaque capability used by the visitor widget to read agent replies
      * without requiring an account. */
     conversationToken: z.string(),
-    /** True when the bot found no grounding sources — the widget offers
-     * "talk to a human" (architecture.md §11.2) if the team's chatbot
-     * settings have `escalationEnabled`. */
+    /** Deprecated compatibility field: true only when outcome is escalated. */
     escalate: z.boolean(),
 });

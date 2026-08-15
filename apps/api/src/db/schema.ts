@@ -681,9 +681,28 @@ export const ticketStatuses = [
 export type TicketStatus = (typeof ticketStatuses)[number];
 
 /** "form" = support-form page-builder block, "chatbot" = RAG escalation
- * (§11.2), "api" = headless MCP/REST submission. */
-export const ticketSources = ["form", "chatbot", "api"] as const;
+ * (§11.2), "api" = headless MCP/REST submission, "email" = inbound
+ * support@ mailbox. */
+export const ticketSources = ["form", "chatbot", "api", "email"] as const;
 export type TicketSource = (typeof ticketSources)[number];
+
+export const ticketAiStates = [
+    "idle",
+    "generating",
+    "waiting",
+    "escalated",
+    "taken_over",
+] as const;
+export type TicketAiState = (typeof ticketAiStates)[number];
+
+export const ticketAiStopReasons = [
+    "visitor_request",
+    "unsure",
+    "topic",
+    "turn_cap",
+    "agent_takeover",
+] as const;
+export type TicketAiStopReason = (typeof ticketAiStopReasons)[number];
 
 export const tickets = pgTable(
     "tickets",
@@ -707,13 +726,25 @@ export const tickets = pgTable(
         source: text("source", { enum: ticketSources })
             .notNull()
             .default("form"),
-        /** SHA-256 hash of the visitor's magic-link token (§13.4); never store
-         * the raw token. */
+        /** SHA-256 hash of the visitor's first magic-link token. Additional
+         * grants live in `ticket_access_grants`; this column stays so older
+         * links remain valid. */
         accessTokenHash: text("access_token_hash").notNull(),
         assigneeAccountId: text("assignee_account_id").references(
             () => accounts.id,
             { onDelete: "set null" },
         ),
+        aiState: text("ai_state", {
+            enum: ticketAiStates,
+        })
+            .notNull()
+            .default("idle"),
+        aiGeneration: integer("ai_generation").notNull().default(0),
+        aiTriggerMessageId: text("ai_trigger_message_id"),
+        aiStopReason: text("ai_stop_reason", {
+            enum: ticketAiStopReasons,
+        }),
+        aiStoppedAt: timestamp("ai_stopped_at"),
         lastMessageAt: timestamp("last_message_at").notNull().defaultNow(),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -758,6 +789,248 @@ export const ticketMessages = pgTable(
         publicIdCheck("message_id", "tmsg"),
     ],
 );
+
+/** Files shared on a ticket thread. Stored in MediaLit, never the media
+ * library table. Ticket (and message) delete cascades the row. */
+export const ticketAttachments = pgTable(
+    "ticket_attachments",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        attachmentId: text("attachment_id")
+            .notNull()
+            .unique()
+            .$defaultFn(() => genPublicId("att")),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        ticketId: text("ticket_id")
+            .notNull()
+            .references(() => tickets.id, { onDelete: "cascade" }),
+        messageId: text("message_id").references(() => ticketMessages.id, {
+            onDelete: "cascade",
+        }),
+        mediaLitId: text("media_lit_id").notNull(),
+        url: text("url").notNull(),
+        thumbnailUrl: text("thumbnail_url"),
+        fileName: text("file_name").notNull(),
+        mimeType: text("mime_type").notNull(),
+        size: integer("size").notNull(),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => [
+        index("ticket_attachments_ticket_idx").on(table.ticketId),
+        index("ticket_attachments_message_idx").on(table.messageId),
+        publicIdCheck("attachment_id", "att"),
+    ],
+);
+
+export const inboxAiChannels = ["chatbot", "tickets"] as const;
+export type InboxAiChannel = (typeof inboxAiChannels)[number];
+
+export const inboxAiSettings = pgTable(
+    "inbox_ai_settings",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        channel: text("channel", { enum: inboxAiChannels }).notNull(),
+        autoReply: boolean("auto_reply").notNull().default(false),
+        escalateOnVisitorRequest: boolean("escalate_on_visitor_request")
+            .notNull()
+            .default(true),
+        escalateWhenUnsure: boolean("escalate_when_unsure")
+            .notNull()
+            .default(true),
+        escalateTopics: text("escalate_topics")
+            .array()
+            .notNull()
+            .default(sql`'{}'::text[]`),
+        escalateAfterBotTurns: integer("escalate_after_bot_turns"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => [
+        uniqueIndex("inbox_ai_settings_team_channel_idx").on(
+            table.teamId,
+            table.channel,
+        ),
+    ],
+);
+
+export const inboxAiRunStatuses = [
+    "queued",
+    "generating",
+    "succeeded",
+    "skipped",
+    "failed",
+] as const;
+export type InboxAiRunStatus = (typeof inboxAiRunStatuses)[number];
+
+export const inboxAiRuns = pgTable(
+    "inbox_ai_runs",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        ticketId: text("ticket_id")
+            .notNull()
+            .references(() => tickets.id, { onDelete: "cascade" }),
+        triggerMessageId: text("trigger_message_id")
+            .notNull()
+            .references(() => ticketMessages.id, { onDelete: "cascade" }),
+        channel: text("channel", { enum: inboxAiChannels }).notNull(),
+        status: text("status", { enum: inboxAiRunStatuses })
+            .notNull()
+            .default("queued"),
+        attempts: integer("attempts").notNull().default(0),
+        skipReason: text("skip_reason"),
+        lastError: text("last_error"),
+        leaseExpiresAt: timestamp("lease_expires_at"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+        startedAt: timestamp("started_at"),
+        finishedAt: timestamp("finished_at"),
+    },
+    (table) => [
+        uniqueIndex("inbox_ai_runs_ticket_trigger_idx").on(
+            table.ticketId,
+            table.triggerMessageId,
+        ),
+        index("inbox_ai_runs_poll_idx").on(
+            table.status,
+            table.leaseExpiresAt,
+            table.createdAt,
+        ),
+    ],
+);
+
+export const ticketAccessGrants = pgTable(
+    "ticket_access_grants",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        ticketId: text("ticket_id")
+            .notNull()
+            .references(() => tickets.id, { onDelete: "cascade" }),
+        tokenHash: text("token_hash").notNull().unique(),
+        expiresAt: timestamp("expires_at").notNull(),
+        revokedAt: timestamp("revoked_at"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => [index("ticket_access_grants_ticket_idx").on(table.ticketId)],
+);
+
+export const aiUsageDaily = pgTable(
+    "ai_usage_daily",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        usageDate: text("usage_date").notNull(),
+        reservedTokens: integer("reserved_tokens").notNull().default(0),
+        usedTokens: integer("used_tokens").notNull().default(0),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => [
+        uniqueIndex("ai_usage_daily_team_date_idx").on(
+            table.teamId,
+            table.usageDate,
+        ),
+    ],
+);
+
+export const ticketMailKinds = ["receipt", "reply"] as const;
+export type TicketMailKind = (typeof ticketMailKinds)[number];
+
+export const ticketMailStatuses = [
+    "pending",
+    "sending",
+    "sent",
+    "failed",
+] as const;
+export type TicketMailStatus = (typeof ticketMailStatuses)[number];
+
+export const ticketMailOutbox = pgTable(
+    "ticket_mail_outbox",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        ticketId: text("ticket_id")
+            .notNull()
+            .references(() => tickets.id, { onDelete: "cascade" }),
+        sequence: integer("sequence").notNull(),
+        kind: text("kind", { enum: ticketMailKinds }).notNull(),
+        status: text("status", { enum: ticketMailStatuses })
+            .notNull()
+            .default("pending"),
+        payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+        attempts: integer("attempts").notNull().default(0),
+        lastError: text("last_error"),
+        nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => [
+        uniqueIndex("ticket_mail_outbox_ticket_seq_idx").on(
+            table.ticketId,
+            table.sequence,
+        ),
+        index("ticket_mail_outbox_poll_idx").on(
+            table.status,
+            table.nextAttemptAt,
+        ),
+    ],
+);
+
+export const rateLimitBuckets = pgTable("rate_limit_buckets", {
+    key: text("key").primaryKey(),
+    count: integer("count").notNull().default(0),
+    resetAt: timestamp("reset_at").notNull(),
+});
+
+export const emailReplyTokens = pgTable(
+    "email_reply_tokens",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        token: text("token").notNull().unique(),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        ticketId: text("ticket_id")
+            .notNull()
+            .references(() => tickets.id, { onDelete: "cascade" }),
+        requesterEmail: text("requester_email").notNull(),
+        expiresAt: timestamp("expires_at").notNull(),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => [
+        uniqueIndex("email_reply_tokens_ticket_requester_idx").on(
+            table.teamId,
+            table.ticketId,
+            table.requesterEmail,
+        ),
+    ],
+);
+
+export const inboundEmails = pgTable("inbound_emails", {
+    id: text("id").primaryKey().$defaultFn(genId),
+    messageId: text("message_id").notNull().unique(),
+    teamId: text("team_id")
+        .notNull()
+        .references(() => teams.id, { onDelete: "cascade" }),
+    ticketId: text("ticket_id")
+        .notNull()
+        .references(() => tickets.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+});
 
 // ---------------------------------------------------------------------------
 // Email (architecture.md §10): FrontLit stores no contact data of its

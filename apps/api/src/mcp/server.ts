@@ -14,6 +14,7 @@ import { registerProductUpdateTools } from "./tools/changelogs";
 import { registerEmailTools } from "./tools/email";
 import { registerDocumentationTools } from "./tools/documentation";
 import { registerChatbotTools } from "./tools/chatbot";
+import { registerInboxAiTools } from "./tools/inbox-ai";
 import { registerHelpdeskTools } from "./tools/helpdesk";
 import { registerDomainTools } from "./tools/domains";
 import { registerSettingsTools } from "./tools/settings";
@@ -43,6 +44,7 @@ export function registerAllTools(tools: McpToolRegistrar): void {
     registerEmailTools(tools);
     registerDocumentationTools(tools);
     registerChatbotTools(tools);
+    registerInboxAiTools(tools);
     registerHelpdeskTools(tools);
     registerDomainTools(tools);
     registerSettingsTools(tools);

@@ -241,7 +241,6 @@ function ContactsWorkspace({ page }: { page: number }) {
                 <div className="space-y-7">
                     {notConnected && (
                         <Banner variant="warning">
-                            This team isn&rsquo;t connected to SendLit yet.
                             Configure the email delivery connection in Settings
                             first.
                         </Banner>

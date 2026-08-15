@@ -6,6 +6,11 @@ export type MailMessage = {
     subject: string;
     text: string;
     html?: string;
+    from?: string;
+    replyTo?: string;
+    messageId?: string;
+    inReplyTo?: string;
+    references?: string[];
 };
 
 export class MailDeliveryError extends Error {
@@ -59,7 +64,11 @@ export async function sendMail(message: MailMessage): Promise<void> {
             auth: config.auth,
         });
         await transporter.sendMail({
-            from: config.from,
+            from: message.from ?? config.from,
+            replyTo: message.replyTo,
+            messageId: message.messageId,
+            inReplyTo: message.inReplyTo,
+            references: message.references,
             to: message.to,
             subject: message.subject,
             text: message.text,

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { getPageBySlug } from "@/lib/api";
+import { getPageBySlug, getSettings } from "@/lib/api";
 import { API_PUBLIC_URL } from "@/lib/config";
 import { loadSiteTheme } from "@/lib/load-site-theme";
 import { SitePageRenderer } from "@/components/site-page-renderer";
@@ -25,10 +25,19 @@ export async function SiteChrome({
     pageSlug?: string;
     children?: ReactNode;
 }) {
-    const [requestedPage, siteTheme] = await Promise.all([
+    const [requestedPage, settings, siteTheme] = await Promise.all([
         getPageBySlug(teamId, pageSlug),
+        getSettings(teamId),
         loadSiteTheme(teamId),
     ]);
+    const siteLogoUrl =
+        typeof settings?.logo?.url === "string" ? settings.logo.url : null;
+    const siteLogoAlt =
+        typeof settings?.logo?.alt === "string"
+            ? settings.logo.alt
+            : typeof settings?.logo?.caption === "string"
+              ? settings.logo.caption
+              : null;
     const page =
         requestedPage ??
         (pageSlug ? await getPageBySlug(teamId, "") : requestedPage);
@@ -52,6 +61,8 @@ export async function SiteChrome({
             themeId={siteTheme.themeId}
             themeStyle={siteTheme.themeStyle}
             pageData={pageData}
+            siteLogoUrl={siteLogoUrl}
+            siteLogoAlt={siteLogoAlt}
             dataSlots={dataSlots}
         >
             {children}

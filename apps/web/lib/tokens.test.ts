@@ -15,7 +15,7 @@ describe("needsTeamSelection", () => {
         expect(
             needsTeamSelection(
                 409,
-                "SendLit is not connected for this team yet",
+                "Configure the email delivery connection in Settings first",
             ),
         ).toBe(false);
         expect(needsTeamSelection(409, "duplicate_slug")).toBe(false);

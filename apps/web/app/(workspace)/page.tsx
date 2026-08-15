@@ -1,22 +1,45 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bot, Check, Clock3, Inbox, Loader2, Search, Send } from "lucide-react";
+import {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
+import {
+    Bot,
+    Check,
+    Clock3,
+    Inbox,
+    Loader2,
+    Paperclip,
+    Search,
+    Send,
+    X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { TextRenderer } from "@frontlit/text-editor";
 import type { TextEditorContent } from "@frontlit/text-editor";
 import {
+    completeTicketAttachment,
+    getChatbotSettings,
     getTicket,
     listTickets,
     replyToTicket,
     updateTicket,
     type Ticket,
+    type TicketAttachment,
     type TicketStatus,
     type TicketWithMessages,
 } from "@/lib/api";
+import { useMediaLit } from "@/lib/use-medialit";
 import { ApiError } from "@/lib/api-client";
+import { useInboxLive } from "@/lib/use-inbox-live";
 import { Button } from "@/components/ui/codelit/button";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
+import { useWorkspaceAccess } from "@/components/workspace/workspace-access";
 import { cn } from "@/lib/utils";
 
 type InboxFilter = "open" | "done";
@@ -36,6 +59,7 @@ function requesterLabel(ticket: Ticket) {
 function sourceLabel(ticket: Ticket) {
     if (ticket.source === "chatbot") return "Chat";
     if (ticket.source === "form") return "Support";
+    if (ticket.source === "email") return "Email";
     return "API";
 }
 
@@ -64,6 +88,67 @@ function relativeTime(value: string | null) {
     });
 }
 
+function isImageMime(mime: string) {
+    return mime.startsWith("image/");
+}
+
+function formatBytes(size: number) {
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function MessageAttachments({
+    attachments,
+    align,
+}: {
+    attachments: TicketAttachment[];
+    align: "start" | "end";
+}) {
+    if (!attachments.length) return null;
+    return (
+        <div
+            className={cn(
+                "mt-2 flex flex-col gap-2",
+                align === "end" && "items-end",
+            )}
+        >
+            {attachments.map((file) =>
+                isImageMime(file.mimeType) ? (
+                    <a
+                        key={file.attachmentId}
+                        href={file.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block overflow-hidden rounded-lg border bg-background"
+                    >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={file.thumbnailUrl || file.url}
+                            alt={file.fileName}
+                            className="max-h-56 max-w-full object-contain"
+                        />
+                    </a>
+                ) : (
+                    <a
+                        key={file.attachmentId}
+                        href={file.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex max-w-full items-center gap-2 rounded-lg border bg-background px-3 py-2 text-xs hover:bg-muted"
+                    >
+                        <Paperclip className="size-3.5 shrink-0" />
+                        <span className="truncate">{file.fileName}</span>
+                        <span className="shrink-0 text-muted-foreground">
+                            {formatBytes(file.size)}
+                        </span>
+                    </a>
+                ),
+            )}
+        </div>
+    );
+}
+
 function textContent(text: string): TextEditorContent {
     return {
         type: "doc",
@@ -73,6 +158,7 @@ function textContent(text: string): TextEditorContent {
 
 export default function InboxPage() {
     useSetBreadcrumb([{ label: "Inbox" }]);
+    const { currentTeamId } = useWorkspaceAccess();
 
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [filter, setFilter] = useState<InboxFilter>("open");
@@ -87,6 +173,20 @@ export default function InboxPage() {
     const [loadingThread, setLoadingThread] = useState(false);
     const [sending, setSending] = useState(false);
     const [updating, setUpdating] = useState(false);
+    const [assistantName, setAssistantName] = useState("Assistant");
+    const threadRef = useRef<HTMLDivElement>(null);
+    const stickToBottomRef = useRef(true);
+    const lastThreadIdRef = useRef<string | null>(null);
+    const [pendingFiles, setPendingFiles] = useState<TicketAttachment[]>([]);
+    const [attaching, setAttaching] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const { uploadFile } = useMediaLit({
+        signatureEndpoint: selectedTicket
+            ? `/api/proxy/tickets/${selectedTicket.ticketId}/attachments/presign`
+            : "/api/proxy/media/presigned",
+        access: "private",
+    });
 
     const loadInbox = useCallback(async () => {
         try {
@@ -106,6 +206,53 @@ export default function InboxPage() {
     useEffect(() => {
         void loadInbox();
     }, [loadInbox]);
+
+    useEffect(() => {
+        setPendingFiles([]);
+    }, [selectedTicketId]);
+
+    useEffect(() => {
+        getChatbotSettings()
+            .then((settings) => {
+                if (settings.name.trim())
+                    setAssistantName(settings.name.trim());
+            })
+            .catch(() => {});
+    }, []);
+
+    const onLiveUpdate = useCallback(
+        (ticketId: string) => {
+            void loadInbox();
+            if (ticketId === selectedTicketId && !sending) {
+                getTicket(ticketId)
+                    .then(setSelectedTicket)
+                    .catch(() => {
+                        // List refresh still ran; thread can be opened again.
+                    });
+            }
+        },
+        [loadInbox, selectedTicketId, sending],
+    );
+    useInboxLive(onLiveUpdate, currentTeamId);
+
+    const lastMessageId =
+        selectedTicket?.messages[selectedTicket.messages.length - 1]
+            ?.messageId ?? null;
+
+    useLayoutEffect(() => {
+        const el = threadRef.current;
+        if (!el || !selectedTicketId) return;
+        const switched = lastThreadIdRef.current !== selectedTicketId;
+        lastThreadIdRef.current = selectedTicketId;
+        if (switched) stickToBottomRef.current = true;
+        if (!switched && !stickToBottomRef.current) return;
+        el.scrollTop = el.scrollHeight;
+        requestAnimationFrame(() => {
+            if (threadRef.current) {
+                threadRef.current.scrollTop = threadRef.current.scrollHeight;
+            }
+        });
+    }, [selectedTicketId, lastMessageId, selectedTicket?.messages.length]);
 
     const visibleTickets = useMemo(() => {
         const normalizedQuery = query.trim().toLocaleLowerCase();
@@ -194,14 +341,60 @@ export default function InboxPage() {
         }
     }
 
+    async function attachInboxFiles(list: FileList | null) {
+        if (!selectedTicket || !list?.length) return;
+        setAttaching(true);
+        try {
+            const added: TicketAttachment[] = [];
+            for (const file of Array.from(list).slice(0, 5)) {
+                const uploaded = await uploadFile(file);
+                const mediaLitId =
+                    typeof uploaded.mediaId === "string"
+                        ? uploaded.mediaId
+                        : typeof uploaded.id === "string"
+                          ? uploaded.id
+                          : "";
+                if (!mediaLitId) continue;
+                added.push(
+                    await completeTicketAttachment(
+                        selectedTicket.ticketId,
+                        mediaLitId,
+                        {
+                            fileName: file.name,
+                            mimeType: file.type,
+                            size: file.size,
+                        },
+                    ),
+                );
+            }
+            setPendingFiles((current) => [...current, ...added].slice(0, 5));
+        } catch (error) {
+            toast.error(
+                error instanceof ApiError
+                    ? error.message
+                    : "Failed to attach the file.",
+            );
+        } finally {
+            setAttaching(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    }
+
     async function sendReply() {
         const message = reply.trim();
-        if (!selectedTicket || !message || sending) return;
+        if (
+            !selectedTicket ||
+            sending ||
+            (!message && pendingFiles.length === 0)
+        )
+            return;
+        stickToBottomRef.current = true;
         setSending(true);
         try {
             const updated = await replyToTicket(
                 selectedTicket.ticketId,
-                textContent(message),
+                textContent(message || "Sent an attachment"),
+                pendingFiles.map((file) => file.attachmentId),
             );
             setSelectedTicket(updated);
             setTickets((current) =>
@@ -212,6 +405,7 @@ export default function InboxPage() {
                 ),
             );
             setReply("");
+            setPendingFiles([]);
         } catch (error) {
             toast.error(
                 error instanceof ApiError
@@ -226,8 +420,8 @@ export default function InboxPage() {
     const openCount = tickets.filter((ticket) => isOpen(ticket.status)).length;
 
     return (
-        <div className="grid h-[calc(100svh-3rem)] min-h-[36rem] grid-cols-[minmax(19rem,23rem)_minmax(30rem,1fr)] overflow-x-auto">
-            <section className="flex min-w-0 flex-col border-r bg-background">
+        <div className="grid h-full min-h-0 grid-cols-[minmax(19rem,23rem)_minmax(30rem,1fr)] overflow-hidden">
+            <section className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r bg-background">
                 <div className="border-b px-5 pb-3 pt-4">
                     <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2">
@@ -324,7 +518,7 @@ export default function InboxPage() {
                                         )}
                                         {ticket.status === "pending" && (
                                             <span className="ml-auto rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
-                                                Snoozed
+                                                Waiting on customer
                                             </span>
                                         )}
                                     </div>
@@ -338,7 +532,7 @@ export default function InboxPage() {
                 </div>
             </section>
 
-            <section className="flex min-w-0 flex-col bg-muted/20">
+            <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-muted/20">
                 {!selectedTicketId ? (
                     <div className="flex h-full flex-col items-center justify-center text-center">
                         <Inbox className="mb-3 size-10 text-muted-foreground/40" />
@@ -363,6 +557,15 @@ export default function InboxPage() {
                                         {requesterLabel(selectedTicket)}
                                     </p>
                                     <p className="truncate text-sm text-muted-foreground">
+                                        {selectedTicket.status === "pending"
+                                            ? "Waiting on customer"
+                                            : selectedTicket.status === "open"
+                                              ? "Needs reply"
+                                              : selectedTicket.status ===
+                                                  "resolved"
+                                                ? "Done"
+                                                : "Closed"}
+                                        {" · "}
                                         {sourceLabel(selectedTicket)}
                                         {selectedTicket.requesterEmail
                                             ? ` · ${selectedTicket.requesterEmail}`
@@ -388,8 +591,8 @@ export default function InboxPage() {
                                         >
                                             <Clock3 className="size-4" />
                                             {selectedTicket.status === "pending"
-                                                ? "Unsnooze"
-                                                : "Snooze"}
+                                                ? "Mark as needs reply"
+                                                : "Mark as waiting"}
                                         </Button>
                                         <Button
                                             size="sm"
@@ -417,7 +620,19 @@ export default function InboxPage() {
                             </div>
                         </header>
 
-                        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-7 py-6">
+                        <div
+                            ref={threadRef}
+                            onScroll={() => {
+                                const el = threadRef.current;
+                                if (!el) return;
+                                stickToBottomRef.current =
+                                    el.scrollHeight -
+                                        el.scrollTop -
+                                        el.clientHeight <
+                                    80;
+                            }}
+                            className="min-h-0 flex-1 space-y-5 overflow-y-auto px-7 py-6"
+                        >
                             <div className="mx-auto max-w-4xl">
                                 <p className="mb-6 text-center text-xs text-muted-foreground">
                                     {selectedTicket.subject} ·{" "}
@@ -458,6 +673,17 @@ export default function InboxPage() {
                                                                 message.content
                                                             }
                                                         />
+                                                        <MessageAttachments
+                                                            attachments={
+                                                                message.attachments ??
+                                                                []
+                                                            }
+                                                            align={
+                                                                isRequester
+                                                                    ? "start"
+                                                                    : "end"
+                                                            }
+                                                        />
                                                     </div>
                                                     <p
                                                         className={cn(
@@ -473,7 +699,7 @@ export default function InboxPage() {
                                                               )
                                                             : message.author ===
                                                                 "bot"
-                                                              ? "FrontLit assistant"
+                                                              ? assistantName
                                                               : "Support agent"}
                                                         {message.createdAt
                                                             ? ` · ${new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
@@ -488,7 +714,65 @@ export default function InboxPage() {
                         </div>
 
                         <div className="shrink-0 border-t bg-background p-4">
+                            {pendingFiles.length > 0 && (
+                                <div className="mx-auto mb-2 flex max-w-4xl flex-wrap gap-2">
+                                    {pendingFiles.map((file) => (
+                                        <span
+                                            key={file.attachmentId}
+                                            className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-1 text-xs"
+                                        >
+                                            <Paperclip className="size-3" />
+                                            <span className="max-w-40 truncate">
+                                                {file.fileName}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                aria-label={`Remove ${file.fileName}`}
+                                                onClick={() =>
+                                                    setPendingFiles((current) =>
+                                                        current.filter(
+                                                            (item) =>
+                                                                item.attachmentId !==
+                                                                file.attachmentId,
+                                                        ),
+                                                    )
+                                                }
+                                            >
+                                                <X className="size-3" />
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
                             <div className="mx-auto flex max-w-4xl items-end gap-2">
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    multiple
+                                    className="hidden"
+                                    onChange={(event) =>
+                                        void attachInboxFiles(
+                                            event.target.files,
+                                        )
+                                    }
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="md"
+                                    className="size-11 rounded-xl"
+                                    disabled={sending || attaching}
+                                    onClick={() =>
+                                        fileInputRef.current?.click()
+                                    }
+                                    aria-label="Attach a file"
+                                >
+                                    {attaching ? (
+                                        <Loader2 className="size-4 animate-spin" />
+                                    ) : (
+                                        <Paperclip className="size-4" />
+                                    )}
+                                </Button>
                                 <textarea
                                     value={reply}
                                     onChange={(event) =>
@@ -510,7 +794,12 @@ export default function InboxPage() {
                                 <Button
                                     size="md"
                                     className="size-11 rounded-xl"
-                                    disabled={sending || !reply.trim()}
+                                    disabled={
+                                        sending ||
+                                        attaching ||
+                                        (!reply.trim() &&
+                                            pendingFiles.length === 0)
+                                    }
                                     onClick={() => void sendReply()}
                                     aria-label="Send reply"
                                 >

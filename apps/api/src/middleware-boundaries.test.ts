@@ -37,6 +37,7 @@ import docsRoutes from "./documents/docs-routes";
 import changelogsRoutes from "./documents/changelogs-routes";
 import emailRoutes from "./email/routes";
 import chatbotRoutes from "./chatbot/routes";
+import inboxAiRoutes from "./inbox-ai/routes";
 import ticketsRoutes from "./tickets/routes";
 import domainsRoutes from "./domains/routes";
 import settingsRoutes from "./settings/routes";
@@ -99,6 +100,13 @@ const cases: Array<{
         name: "chatbot",
         router: chatbotRoutes,
         path: "/chatbot",
+        auth: 1,
+        team: 1,
+    },
+    {
+        name: "inbox AI",
+        router: inboxAiRoutes,
+        path: "/inbox/ai",
         auth: 1,
         team: 1,
     },

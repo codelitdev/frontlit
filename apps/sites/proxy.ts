@@ -45,10 +45,12 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
     matcher: [
-        // Every request except Next's own internals, static files, and the
+        // Every request except Next's own internals and the
         // signed server-to-server webhook callback (architecture.md
         // §12.4's "sole exceptions" pattern — authenticated by an HMAC
         // signature, not a tenant host, so it must never be rewritten).
-        "/((?!_next/static|_next/image|favicon.ico|api/webhooks).*)",
+        // `/favicon.ico` is intentionally included: it is resolved to the
+        // requesting tenant by `app/sites/[teamId]/favicon.ico/route.ts`.
+        "/((?!_next/static|_next/image|api/webhooks).*)",
     ],
 };

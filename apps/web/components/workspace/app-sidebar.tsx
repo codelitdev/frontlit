@@ -86,6 +86,7 @@ const FOOTER_NAV: NavItem[] = [
             { href: "/settings/members", label: "Members", icon: Users },
             { href: "/settings/esp", label: "ESP", icon: Send },
             { href: "/settings/ai", label: "AI", icon: Sparkles },
+            { href: "/settings/help-desk", label: "Help desk", icon: Inbox },
         ],
     },
 ];

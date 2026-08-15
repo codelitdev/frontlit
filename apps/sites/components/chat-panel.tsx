@@ -2,12 +2,115 @@
 
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { ChatMessageList } from "@/components/chat-message-list";
+import { PaperclipIcon, SpinnerIcon } from "@/components/chat-icons";
 import { useVisitorChat } from "@/lib/use-visitor-chat";
 import {
     resolveChatAccent,
     resolveSiteTheme,
     siteThemeStyleTag,
 } from "@/lib/site-theme";
+
+function AttachControl({
+    attaching,
+    disabled,
+    accent,
+    border,
+    muted,
+    mutedForeground,
+    card,
+    onFiles,
+    className,
+}: {
+    attaching: boolean;
+    disabled: boolean;
+    accent: string;
+    border: string;
+    muted: string;
+    mutedForeground: string;
+    card: string;
+    onFiles: (files: FileList | null) => void;
+    className: string;
+}) {
+    return (
+        <label
+            className={`flex shrink-0 cursor-pointer items-center justify-center border ${className} ${disabled ? "pointer-events-none opacity-50" : ""}`}
+            style={{
+                borderColor: border,
+                color: attaching ? accent : mutedForeground,
+                backgroundColor: card,
+            }}
+            onMouseEnter={(event) => {
+                if (disabled) return;
+                event.currentTarget.style.backgroundColor = muted;
+            }}
+            onMouseLeave={(event) => {
+                event.currentTarget.style.backgroundColor = card;
+            }}
+        >
+            <input
+                type="file"
+                multiple
+                className="hidden"
+                disabled={disabled}
+                onChange={(event) => {
+                    onFiles(event.target.files);
+                    event.target.value = "";
+                }}
+            />
+            {attaching ? (
+                <SpinnerIcon className="h-4 w-4 animate-spin" color={accent} />
+            ) : (
+                <PaperclipIcon className="h-4 w-4" />
+            )}
+            <span className="sr-only">
+                {attaching ? "Uploading file" : "Attach a file"}
+            </span>
+        </label>
+    );
+}
+
+function PendingFileChips({
+    files,
+    onRemove,
+    border,
+    muted,
+    foreground,
+    mutedForeground,
+}: {
+    files: { attachmentId: string; fileName: string }[];
+    onRemove: (attachmentId: string) => void;
+    border: string;
+    muted: string;
+    foreground: string;
+    mutedForeground: string;
+}) {
+    if (files.length === 0) return null;
+    return (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+            {files.map((file) => (
+                <button
+                    key={file.attachmentId}
+                    type="button"
+                    className="inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[11px]"
+                    style={{
+                        borderColor: border,
+                        backgroundColor: muted,
+                        color: foreground,
+                    }}
+                    onClick={() => onRemove(file.attachmentId)}
+                >
+                    <PaperclipIcon className="h-3 w-3 shrink-0" />
+                    <span
+                        className="truncate"
+                        style={{ color: mutedForeground }}
+                    >
+                        {file.fileName} ×
+                    </span>
+                </button>
+            ))}
+        </div>
+    );
+}
 
 /**
  * The chat widget's actual UI, hosted at `/embed/chat` and iframed by both
@@ -70,6 +173,10 @@ export function ChatPanel({
         onListScroll,
         sendMessage,
         setInput,
+        pendingFiles,
+        attaching,
+        attachFiles,
+        removePendingFile,
     } = chat;
 
     const [focused, setFocused] = useState(false);
@@ -220,6 +327,14 @@ export function ChatPanel({
                     className="w-full shrink-0"
                     style={{ maxWidth: widthPx, width: "100%" }}
                 >
+                    <PendingFileChips
+                        files={pendingFiles}
+                        onRemove={removePendingFile}
+                        border={palette.border}
+                        muted={palette.muted}
+                        foreground={palette.foreground}
+                        mutedForeground={palette.mutedForeground}
+                    />
                     <div
                         className="flex items-end gap-2 border px-3 py-2 shadow-lg"
                         style={{
@@ -228,6 +343,17 @@ export function ChatPanel({
                             backgroundColor: palette.card,
                         }}
                     >
+                        <AttachControl
+                            attaching={attaching}
+                            disabled={isSending || attaching}
+                            accent={color}
+                            border={palette.border}
+                            muted={palette.muted}
+                            mutedForeground={palette.mutedForeground}
+                            card={palette.card}
+                            onFiles={(files) => void attachFiles(files)}
+                            className="mb-0.5 h-8 w-8 rounded-full"
+                        />
                         <textarea
                             ref={inputRef}
                             value={input}
@@ -257,26 +383,10 @@ export function ChatPanel({
                             }}
                         >
                             {isSending ? (
-                                <svg
+                                <SpinnerIcon
                                     className="h-3.5 w-3.5 animate-spin"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    aria-hidden
-                                >
-                                    <circle
-                                        className="opacity-25"
-                                        cx="12"
-                                        cy="12"
-                                        r="10"
-                                        stroke="currentColor"
-                                        strokeWidth="3"
-                                    />
-                                    <path
-                                        className="opacity-90"
-                                        fill="currentColor"
-                                        d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"
-                                    />
-                                </svg>
+                                    color={palette.primaryForeground}
+                                />
                             ) : (
                                 <svg
                                     viewBox="0 0 24 24"
@@ -337,7 +447,26 @@ export function ChatPanel({
                 onSubmit={onSubmit}
                 className="shrink-0 border-t border-border bg-card p-3"
             >
+                <PendingFileChips
+                    files={pendingFiles}
+                    onRemove={removePendingFile}
+                    border={palette.border}
+                    muted={palette.muted}
+                    foreground={palette.foreground}
+                    mutedForeground={palette.mutedForeground}
+                />
                 <div className="flex items-end gap-2">
+                    <AttachControl
+                        attaching={attaching}
+                        disabled={isSending || attaching}
+                        accent={color}
+                        border={palette.border}
+                        muted={palette.muted}
+                        mutedForeground={palette.mutedForeground}
+                        card={palette.card}
+                        onFiles={(files) => void attachFiles(files)}
+                        className="h-10 w-10 rounded-xl"
+                    />
                     <textarea
                         ref={inputRef}
                         value={input}
@@ -358,26 +487,10 @@ export function ChatPanel({
                         style={{ backgroundColor: color }}
                     >
                         {isSending ? (
-                            <svg
+                            <SpinnerIcon
                                 className="h-4 w-4 animate-spin"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                aria-hidden
-                            >
-                                <circle
-                                    className="opacity-25"
-                                    cx="12"
-                                    cy="12"
-                                    r="10"
-                                    stroke="currentColor"
-                                    strokeWidth="3"
-                                />
-                                <path
-                                    className="opacity-90"
-                                    fill="currentColor"
-                                    d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"
-                                />
-                            </svg>
+                                color={palette.primaryForeground}
+                            />
                         ) : (
                             <svg
                                 viewBox="0 0 24 24"

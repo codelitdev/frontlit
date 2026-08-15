@@ -22,7 +22,14 @@ async function processContactSync(
     if (!apiKey) throw new Error("Team has no SendLit integration yet");
 
     const email = String(payload.email);
-    const contact = await upsertContact(apiKey, { email });
+    const name =
+        typeof payload.name === "string" && payload.name.trim()
+            ? payload.name.trim()
+            : undefined;
+    const contact = await upsertContact(apiKey, {
+        email,
+        ...(name ? { name } : {}),
+    });
     await addContactTag(apiKey, contact.contactId, "frontlit");
 
     const sourcePath =

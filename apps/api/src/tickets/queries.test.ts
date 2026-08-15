@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { eq } from "drizzle-orm";
 import { makeTestDb, seedTeam, type TestDb } from "../test/db";
 
 vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 
 import { db as testDb } from "../db/client";
+import { outboxJobs } from "../db/schema";
 import {
     addTicketMessage,
     createTicket,
@@ -38,8 +40,8 @@ describe("persisted chatbot conversations", () => {
 
         expect(ticket.requesterEmail).toBeNull();
         expect(ticket.source).toBe("chatbot");
-        expect(verifyTicketAccess(ticket, token)).toBe(true);
-        expect(verifyTicketAccess(ticket, "not-the-token")).toBe(false);
+        expect(await verifyTicketAccess(ticket, token)).toBe(true);
+        expect(await verifyTicketAccess(ticket, "not-the-token")).toBe(false);
 
         await addTicketMessage({
             teamId,
@@ -47,6 +49,9 @@ describe("persisted chatbot conversations", () => {
             author: "bot",
             content: textTicketMessage("It includes six seats."),
         });
+        expect(
+            (await getTicketByTicketId(teamId, ticket.ticketId))?.status,
+        ).toBe("open");
 
         const messages = await getTicketMessages(ticket.id);
         expect(messages.map((message) => message.author)).toEqual([
@@ -80,6 +85,38 @@ describe("help-desk ticket lifecycle", () => {
         teamId = seeded.team.id;
         ownerAccountId = seeded.account.id;
         otherTeamId = other.team.id;
+    });
+
+    it("enqueues a SendLit contact sync for ticket requesters with an email", async () => {
+        await createTicket({
+            teamId,
+            subject: "Cannot login",
+            message: "Password reset never arrives.",
+            requesterEmail: "user@example.com",
+            requesterName: "Alex",
+            source: "form",
+        });
+        await createTicket({
+            teamId,
+            subject: "How does billing work?",
+            message: "How does billing work?",
+            requesterEmail: null,
+            source: "chatbot",
+        });
+
+        const jobs = await db.query.outboxJobs.findMany({
+            where: eq(outboxJobs.teamId, teamId),
+        });
+        expect(jobs).toHaveLength(1);
+        expect(jobs[0]).toMatchObject({
+            type: "contact_sync",
+            status: "pending",
+            payload: {
+                email: "user@example.com",
+                name: "Alex",
+                sourcePath: "/help",
+            },
+        });
     });
 
     it("supports workspace list/get/status update with team isolation", async () => {
@@ -142,7 +179,7 @@ describe("help-desk ticket lifecycle", () => {
         ).toBe("pending");
     });
 
-    it("lets the requester reply with a valid token and rotates access on reissue", async () => {
+    it("lets the requester reply with a valid token and keeps earlier grants valid", async () => {
         const { ticket, token } = await createTicket({
             teamId,
             subject: "Invoice copy",
@@ -151,7 +188,7 @@ describe("help-desk ticket lifecycle", () => {
             source: "form",
         });
 
-        expect(verifyTicketAccess(ticket, token)).toBe(true);
+        expect(await verifyTicketAccess(ticket, token)).toBe(true);
 
         await addTicketMessage({
             teamId,
@@ -160,6 +197,9 @@ describe("help-desk ticket lifecycle", () => {
             authorAccountId: ownerAccountId,
             content: textTicketMessage("Sent — check your email."),
         });
+        expect(
+            (await getTicketByTicketId(teamId, ticket.ticketId))?.status,
+        ).toBe("pending");
 
         await addTicketMessage({
             teamId,
@@ -167,6 +207,9 @@ describe("help-desk ticket lifecycle", () => {
             author: "requester",
             content: textTicketMessage("Got it, thanks."),
         });
+        expect(
+            (await getTicketByTicketId(teamId, ticket.ticketId))?.status,
+        ).toBe("open");
 
         const messages = await getTicketMessages(ticket.id);
         expect(messages.map((message) => message.author)).toEqual([
@@ -176,13 +219,65 @@ describe("help-desk ticket lifecycle", () => {
         ]);
         expect(ticketMessageText(messages[2].content)).toBe("Got it, thanks.");
 
-        const freshToken = await reissueTicketAccessToken(ticket.id);
+        const freshToken = await reissueTicketAccessToken(teamId, ticket.id);
         expect(freshToken).not.toBe(token);
 
         const reloaded = await getTicketByTicketId(teamId, ticket.ticketId);
         expect(reloaded).toBeDefined();
-        expect(verifyTicketAccess(reloaded!, token)).toBe(false);
-        expect(verifyTicketAccess(reloaded!, freshToken)).toBe(true);
+        expect(await verifyTicketAccess(reloaded!, token)).toBe(true);
+        expect(await verifyTicketAccess(reloaded!, freshToken)).toBe(true);
+    });
+
+    it("leaves a closed ticket closed when either side writes", async () => {
+        const { ticket } = await createTicket({
+            teamId,
+            subject: "Old issue",
+            message: "This was already finished.",
+            requesterEmail: "done@example.com",
+            source: "form",
+        });
+        await updateTicket(teamId, ticket.ticketId, { status: "closed" });
+
+        await addTicketMessage({
+            teamId,
+            ticketDbId: ticket.id,
+            author: "agent",
+            content: textTicketMessage("Closing note."),
+        });
+        expect(
+            (await getTicketByTicketId(teamId, ticket.ticketId))?.status,
+        ).toBe("closed");
+
+        await addTicketMessage({
+            teamId,
+            ticketDbId: ticket.id,
+            author: "requester",
+            content: textTicketMessage("Wait, one more thing."),
+        });
+        expect(
+            (await getTicketByTicketId(teamId, ticket.ticketId))?.status,
+        ).toBe("closed");
+    });
+
+    it("reopens a resolved ticket when the visitor replies", async () => {
+        const { ticket } = await createTicket({
+            teamId,
+            subject: "Resolved issue",
+            message: "This was marked done.",
+            requesterEmail: "back@example.com",
+            source: "form",
+        });
+        await updateTicket(teamId, ticket.ticketId, { status: "resolved" });
+
+        await addTicketMessage({
+            teamId,
+            ticketDbId: ticket.id,
+            author: "requester",
+            content: textTicketMessage("This happened again."),
+        });
+        expect(
+            (await getTicketByTicketId(teamId, ticket.ticketId))?.status,
+        ).toBe("open");
     });
 
     it("notifies the assignee when set, otherwise the team owner", async () => {

@@ -132,17 +132,13 @@ function buildMessages(
     ];
 }
 
-const NO_DOCS_LOCAL =
-    "I don't have any published help articles to search yet, so I can't answer product specifics. " +
-    "Please contact support or publish help docs so I can help next time.";
-
 /**
  * Generates a chat answer using Vercel AI SDK Core on the server.
  *
  * - With retrieved chunks: grounded support answer + citations.
  * - Without chunks: still calls the LLM under a strict support-only policy
  *   (not a free general inference endpoint). `escalate` is true.
- * - `local` provider: extractive top-chunk / fixed no-docs message (no LLM).
+ * - No team model: no generated answer. Inbox AI uses `runInboxAi`.
  */
 export async function getChatAnswer(
     question: string,
@@ -155,10 +151,7 @@ export async function getChatAnswer(
 
     const model = await getChatLanguageModel(options.aiConfig);
     if (!model) {
-        if (chunks.length === 0) {
-            return { answer: NO_DOCS_LOCAL, sources: [], escalate: true };
-        }
-        return { ...getLocalAnswer(chunks), escalate: false };
+        return { answer: "", sources, escalate };
     }
 
     const { text } = await generateText({
@@ -188,10 +181,7 @@ export async function* streamChatAnswer(
 
     const model = await getChatLanguageModel(options.aiConfig);
     if (!model) {
-        const answer =
-            chunks.length === 0 ? NO_DOCS_LOCAL : getLocalAnswer(chunks).answer;
-        yield { type: "token", text: answer };
-        yield { type: "done", answer, sources, escalate };
+        yield { type: "done", answer: "", sources, escalate };
         return;
     }
 
@@ -207,10 +197,4 @@ export async function* streamChatAnswer(
         yield { type: "token", text: delta };
     }
     yield { type: "done", answer, sources, escalate };
-}
-
-function getLocalAnswer(chunks: SearchResult[]): Omit<ChatAnswer, "escalate"> {
-    const top = chunks[0];
-    const citation = top.title ? ` (from "${top.title}")` : "";
-    return { answer: `${top.content}${citation}`, sources: toSources(chunks) };
 }

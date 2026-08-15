@@ -64,7 +64,18 @@ export default async function SitePage({ params }: Props) {
     if (!page) notFound();
 
     const canonicalHost = await getCanonicalHost();
-    const siteTheme = await loadSiteTheme(teamId);
+    const [settings, siteTheme] = await Promise.all([
+        getSettings(teamId),
+        loadSiteTheme(teamId),
+    ]);
+    const siteLogoUrl =
+        typeof settings?.logo?.url === "string" ? settings.logo.url : null;
+    const siteLogoAlt =
+        typeof settings?.logo?.alt === "string"
+            ? settings.logo.alt
+            : typeof settings?.logo?.caption === "string"
+              ? settings.logo.caption
+              : null;
 
     return (
         <>
@@ -87,6 +98,8 @@ export default async function SitePage({ params }: Props) {
                 layout={page.layout}
                 themeId={siteTheme.themeId}
                 themeStyle={siteTheme.themeStyle}
+                siteLogoUrl={siteLogoUrl}
+                siteLogoAlt={siteLogoAlt}
                 pageData={{
                     pageType: page.type,
                     teamId,

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
     getChatbotSettings,
+    getInboxAiSettings,
     searchDocumentation,
     updateChatbotSettings,
     type ChatbotSettings,
@@ -20,6 +21,8 @@ import { Switch } from "@/components/ui/codelit/switch";
 import { Button } from "@/components/ui/codelit/button";
 import { cn } from "@/lib/utils";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
+import { InboxAiPolicyForm } from "@/components/workspace/inbox-ai-policy-form";
+import type { InboxAiSettings } from "@/lib/api";
 
 const VARIANTS: {
     id: ChatbotWidgetVariant;
@@ -287,6 +290,7 @@ export default function ChatbotPage() {
         { label: "Chatbot" },
     ]);
     const [settings, setSettings] = useState<ChatbotSettings | null>(null);
+    const [inboxAi, setInboxAi] = useState<InboxAiSettings | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [testMessage, setTestMessage] = useState("");
@@ -297,8 +301,11 @@ export default function ChatbotPage() {
     const [asking, setAsking] = useState(false);
 
     useEffect(() => {
-        getChatbotSettings()
-            .then(setSettings)
+        Promise.all([getChatbotSettings(), getInboxAiSettings()])
+            .then(([chatbot, ai]) => {
+                setSettings(chatbot);
+                setInboxAi(ai);
+            })
             .finally(() => setLoading(false));
     }, []);
 
@@ -443,35 +450,32 @@ export default function ChatbotPage() {
                             </p>
                         </div>
 
-                        <div className="flex items-center justify-between">
-                            <Label
-                                htmlFor="chatbot-escalation"
-                                className="text-sm font-medium"
-                            >
-                                Offer &ldquo;talk to a human&rdquo;
-                            </Label>
-                            <Switch
-                                id="chatbot-escalation"
-                                checked={settings.escalationEnabled}
-                                onCheckedChange={(checked) =>
-                                    setSettings({
-                                        ...settings,
-                                        escalationEnabled: checked,
-                                    })
-                                }
-                                disabled={saving}
-                                data-testid="chatbot-escalation-toggle"
-                            />
-                        </div>
-                        <p className="-mt-2 text-xs text-muted-foreground">
-                            When the bot can&apos;t answer, it offers to raise a
-                            support ticket with the conversation attached.
-                        </p>
                         <Button type="button" onClick={save} disabled={saving}>
                             {saving ? "Saving…" : "Save chatbot"}
                         </Button>
                     </CardContent>
                 </Card>
+
+                {inboxAi && (
+                    <Card>
+                        <CardContent className="space-y-5">
+                            <div>
+                                <h2 className="text-base font-semibold">
+                                    AI auto-reply
+                                </h2>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Independent of the launcher. Live chat still
+                                    works with auto-reply off.
+                                </p>
+                            </div>
+                            <InboxAiPolicyForm
+                                channel="chatbot"
+                                initial={inboxAi.channels.chatbot}
+                                aiConfigured={inboxAi.aiConfigured}
+                            />
+                        </CardContent>
+                    </Card>
+                )}
 
                 <Card>
                     <CardContent className="space-y-5">
@@ -634,14 +638,14 @@ export default function ChatbotPage() {
                                             .join(", ")}
                                     </p>
                                 )}
-                                {testAnswer.sources.length === 0 &&
-                                    settings.escalationEnabled && (
-                                        <p className="mt-2 text-xs text-warning">
-                                            No grounding found — the live widget
-                                            would offer &ldquo;talk to a
-                                            human&rdquo; here.
-                                        </p>
-                                    )}
+                                {testAnswer.sources.length === 0 && (
+                                    <p className="mt-2 text-xs text-muted-foreground">
+                                        No grounding found. If auto-reply is on
+                                        and unsure escalation is enabled, the
+                                        live bot hands this thread to a
+                                        teammate.
+                                    </p>
+                                )}
                             </CardContent>
                         </Card>
                     )}

@@ -92,7 +92,9 @@ export default function EmailBroadcastEditorPage({
         getEmailSettings()
             .then((settings) => {
                 if (!settings.connected) {
-                    setError("This team isn’t connected to SendLit yet.");
+                    setError(
+                        "Configure the email delivery connection in Settings first.",
+                    );
                     return null;
                 }
                 return listBroadcasts();

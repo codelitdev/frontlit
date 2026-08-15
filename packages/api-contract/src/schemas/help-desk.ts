@@ -7,14 +7,25 @@ export const ticketStatusSchema = z.enum([
     "resolved",
     "closed",
 ]);
-export const ticketSourceSchema = z.enum(["form", "chatbot", "api"]);
+export const ticketSourceSchema = z.enum(["form", "chatbot", "api", "email"]);
 export const ticketMessageAuthorSchema = z.enum(["requester", "agent", "bot"]);
+
+export const ticketAttachmentSchema = z.object({
+    attachmentId: z.string(),
+    fileName: z.string(),
+    mimeType: z.string(),
+    size: z.number().int(),
+    url: z.string(),
+    thumbnailUrl: z.string().nullable().optional(),
+    createdAt: z.string().nullable(),
+});
 
 export const ticketMessageSchema = z.object({
     messageId: z.string(),
     author: ticketMessageAuthorSchema,
     authorAccountId: z.string().nullable().optional(),
     content: textEditorContentSchema,
+    attachments: z.array(ticketAttachmentSchema).optional(),
     createdAt: z.string().nullable(),
 });
 
@@ -57,7 +68,15 @@ export const createTicketBodySchema = z.object({
 });
 
 export const replyToTicketBodySchema = z.object({
-    content: textEditorContentSchema,
+    content: textEditorContentSchema.optional(),
+    attachmentIds: z.array(z.string().min(1)).max(5).optional(),
+});
+
+export const completeTicketAttachmentBodySchema = z.object({
+    mediaLitId: z.string().min(1),
+    fileName: z.string().min(1).max(255).optional(),
+    mimeType: z.string().max(200).optional(),
+    size: z.number().int().nonnegative().optional(),
 });
 
 export const updateTicketBodySchema = z.object({

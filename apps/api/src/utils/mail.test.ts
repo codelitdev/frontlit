@@ -70,6 +70,10 @@ describe("sendMail", () => {
         });
         expect(sendMailMock).toHaveBeenCalledWith({
             from: "FrontLit <noreply@example.com>",
+            replyTo: undefined,
+            messageId: undefined,
+            inReplyTo: undefined,
+            references: undefined,
             to: message.to,
             subject: message.subject,
             text: message.text,

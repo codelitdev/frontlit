@@ -46,6 +46,7 @@ const ROUTE_ACCESS: readonly RouteAccess[] = [
     { href: "/settings/members", permissions: ["members:read"] },
     { href: "/settings/esp", permissions: ["esp:read"] },
     { href: "/settings/ai", permissions: ["ai:read"] },
+    { href: "/settings/help-desk", permissions: ["helpdesk:read"] },
     { href: "/media", permissions: ["media:read"] },
     { href: "/contacts", permissions: ["contacts:read"] },
     { href: "/support", permissions: ["helpdesk:read"] },
@@ -67,6 +68,7 @@ const WORKSPACE_LANDING_PATHS = [
     "/settings/members",
     "/settings/esp",
     "/settings/ai",
+    "/settings/help-desk",
 ] as const;
 
 /** Editors are separate chrome-free routes, so they need their own explicit

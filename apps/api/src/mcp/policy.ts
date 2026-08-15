@@ -131,6 +131,8 @@ const toolScopes = {
 
     get_chatbot_settings: MCP_SCOPES.chatbotRead,
     update_chatbot_settings: MCP_SCOPES.chatbotWrite,
+    get_inbox_ai_settings: MCP_SCOPES.chatbotRead,
+    update_inbox_ai_settings: MCP_SCOPES.chatbotWrite,
 
     list_tickets: MCP_SCOPES.helpdeskRead,
     get_ticket: MCP_SCOPES.helpdeskRead,
@@ -272,7 +274,15 @@ export function authorizeMcpTool(
             : errorResult("OAuth user authentication is required.");
     }
 
-    if (authKind !== "oauth" || !authInfo.scopes.includes(policy.oauthScope)) {
+    if (
+        name === "get_inbox_ai_settings" ||
+        name === "update_inbox_ai_settings"
+    ) {
+        // Field-level: chatbot OR helpdesk is enough to call the tool.
+    } else if (
+        authKind !== "oauth" ||
+        !authInfo.scopes.includes(policy.oauthScope)
+    ) {
         return errorResult(
             `insufficient_scope: this tool requires '${policy.oauthScope}'.`,
         );
@@ -300,6 +310,37 @@ export function authorizeMcpTool(
 
     if (human.kind === "owner" && extra?.isOwner !== true) {
         return errorResult("owner_required: only the team owner can do this.");
+    }
+
+    if (
+        name === "get_inbox_ai_settings" ||
+        name === "update_inbox_ai_settings"
+    ) {
+        const write = name === "update_inbox_ai_settings";
+        const needed = write
+            ? (["chatbot:write", "helpdesk:write"] as const)
+            : (["chatbot:read", "helpdesk:read"] as const);
+        const scopes = write
+            ? [MCP_SCOPES.chatbotWrite, MCP_SCOPES.helpdeskWrite]
+            : [MCP_SCOPES.chatbotRead, MCP_SCOPES.helpdeskRead];
+        const hasScope =
+            authKind === "api_key" ||
+            scopes.some((scope) => authInfo.scopes.includes(scope));
+        const permissions = extra?.permissions ?? [];
+        const hasPermission =
+            extra?.isOwner === true ||
+            needed.some((permission) => permissions.includes(permission));
+        if (!hasScope) {
+            return errorResult(
+                `insufficient_scope: this tool requires '${scopes.join("' or '")}'.`,
+            );
+        }
+        if (!hasPermission) {
+            return errorResult(
+                `insufficient_permission: this tool requires '${needed.join("' or '")}'.`,
+            );
+        }
+        return null;
     }
 
     if (human.kind === "permission") {

@@ -8,6 +8,8 @@ import { createApp } from "./app";
 import { startOutboxWorker } from "./email/worker";
 import { describeChatProvider } from "./ai/provider";
 import { startAuthorizationMaintenance } from "./team/maintenance";
+import { attachInboxLive } from "./tickets/live-server";
+import { startInboxAiWorker } from "./inbox-ai/worker";
 
 const app = createApp();
 const port = process.env.PORT || 4000;
@@ -16,11 +18,13 @@ checkConfig()
     .then(checkDatabaseConnection)
     .then(createSuperAdminIfMissing)
     .then(() => {
-        app.listen(port, () => {
+        const server = app.listen(port, () => {
             logger.info(`FrontLit API running at ${port}`);
             logger.info(describeChatProvider());
         });
+        attachInboxLive(server);
         startOutboxWorker();
+        startInboxAiWorker();
         startAuthorizationMaintenance();
     })
     .catch((err) => {

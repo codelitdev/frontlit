@@ -13,10 +13,10 @@ import {
     getTicketMessages,
     listTickets,
     reissueTicketAccessToken,
+    ticketMessageText,
     updateTicket,
 } from "../../tickets/queries";
 import { notifyRequesterOfReply } from "../../tickets/notify";
-import { findTeamById } from "../../team/queries";
 import { omitInternal, serializeDates } from "../../utils/public";
 import { AUTH_ERROR, INTERNAL_ERROR, jsonResult, NOT_FOUND } from "./responses";
 import { getAuthAccount, getTeamId } from "./auth";
@@ -170,16 +170,18 @@ export function registerHelpdeskTools(server: McpToolRegistrar): void {
                     content: args.content,
                 });
 
-                const team = await findTeamById(teamId);
-                if (team && ticket.requesterEmail) {
-                    const token = await reissueTicketAccessToken(ticket.id);
+                if (ticket.requesterEmail) {
+                    const token = await reissueTicketAccessToken(
+                        teamId,
+                        ticket.id,
+                    );
                     notifyRequesterOfReply({
                         teamId,
-                        teamPublicId: team.teamId,
                         ticketId: ticket.ticketId,
                         token,
                         requesterEmail: ticket.requesterEmail,
                         subject: ticket.subject,
+                        replyText: ticketMessageText(args.content),
                     }).catch(() => {});
                 }
 

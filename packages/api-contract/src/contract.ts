@@ -69,12 +69,18 @@ import {
     sitemapResponseSchema,
 } from "./schemas/public";
 import {
+    chatAttachmentCompleteBodySchema,
+    chatAttachmentPresignBodySchema,
     chatRequestBodySchema,
     chatResponseSchema,
     chatbotSettingsSchema,
     publicChatbotSettingsSchema,
     updateChatbotSettingsBodySchema,
 } from "./schemas/chatbot";
+import {
+    inboxAiSettingsSchema,
+    updateInboxAiSettingsBodySchema,
+} from "./schemas/inbox-ai";
 import {
     productUpdateMetaSchema,
     productUpdateSchema,
@@ -111,7 +117,9 @@ import {
     publicCreateTicketResponseSchema,
     publicReplyToTicketBodySchema,
     publicTicketThreadQuerySchema,
+    completeTicketAttachmentBodySchema,
     replyToTicketBodySchema,
+    ticketAttachmentSchema,
     ticketSchema,
     ticketWithMessagesSchema,
     updateTicketBodySchema,
@@ -863,6 +871,38 @@ const publicContract = c.router(
             responses: { 200: publicProductUpdateSchema, 404: errorSchema },
             summary: "Get a team's published product update by slug",
         },
+        presignChatAttachment: {
+            method: "POST",
+            path: "/public/:teamId/chat/attachments/presign",
+            body: chatAttachmentPresignBodySchema,
+            responses: {
+                200: mediaUploadSignatureSchema.extend({
+                    conversationId: z.string(),
+                    conversationToken: z.string(),
+                }),
+                401: errorSchema,
+                403: errorSchema,
+                404: errorSchema,
+                429: errorSchema,
+            },
+            summary:
+                "Mint a MediaLit signature for a chatbot file. Does not add the file to the media library.",
+        },
+        completeChatAttachment: {
+            method: "POST",
+            path: "/public/:teamId/chat/attachments",
+            body: chatAttachmentCompleteBodySchema,
+            responses: {
+                201: ticketAttachmentSchema,
+                400: errorSchema,
+                401: errorSchema,
+                403: errorSchema,
+                404: errorSchema,
+                429: errorSchema,
+            },
+            summary:
+                "Seal a MediaLit upload and attach it to the chatbot ticket, not the media library.",
+        },
         chat: {
             method: "POST",
             path: "/public/:teamId/chat",
@@ -967,8 +1007,35 @@ const ticketsContract = c.router(
             method: "POST",
             path: "/tickets/:ticketId/messages",
             body: replyToTicketBodySchema,
-            responses: { 201: ticketWithMessagesSchema, 404: errorSchema },
+            responses: {
+                201: ticketWithMessagesSchema,
+                400: errorSchema,
+                404: errorSchema,
+            },
             summary: "Reply to a ticket as an agent",
+        },
+        presignAttachment: {
+            method: "POST",
+            path: "/tickets/:ticketId/attachments/presign",
+            body: c.noBody(),
+            responses: {
+                200: mediaUploadSignatureSchema,
+                404: errorSchema,
+            },
+            summary:
+                "Mint a MediaLit signature for an inbox attachment (not the media library)",
+        },
+        completeAttachment: {
+            method: "POST",
+            path: "/tickets/:ticketId/attachments",
+            body: completeTicketAttachmentBodySchema,
+            responses: {
+                201: ticketAttachmentSchema,
+                400: errorSchema,
+                404: errorSchema,
+            },
+            summary:
+                "Seal a MediaLit upload onto the ticket without registering it in the media library",
         },
         update: {
             method: "PATCH",
@@ -1000,6 +1067,30 @@ const chatbotContract = c.router(
         },
     },
     { metadata: { tag: "Chatbot" } },
+);
+
+const inboxAiContract = c.router(
+    {
+        get: {
+            method: "GET",
+            path: "/inbox/ai",
+            responses: { 200: inboxAiSettingsSchema, 403: errorSchema },
+            summary: "Get per-channel inbox AI auto-reply policy",
+        },
+        update: {
+            method: "PATCH",
+            path: "/inbox/ai",
+            body: updateInboxAiSettingsBodySchema,
+            responses: {
+                200: inboxAiSettingsSchema,
+                400: errorSchema,
+                403: errorSchema,
+                409: errorSchema,
+            },
+            summary: "Update Chatbot and/or Tickets inbox AI policy",
+        },
+    },
+    { metadata: { tag: "Inbox AI" } },
 );
 
 const aiContract = c.router(
@@ -1390,6 +1481,7 @@ export const contract = c.router({
     email: emailContract,
     chatbot: chatbotContract,
     ai: aiContract,
+    inboxAi: inboxAiContract,
     tickets: ticketsContract,
     domains: domainsContract,
     settings: settingsContract,

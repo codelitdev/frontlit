@@ -27,7 +27,7 @@ export default async function AuthenticatedLayout({
                 <SidebarProvider>
                     <AppSidebar />
 
-                    <SidebarInset className="min-w-0">
+                    <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
                         <BreadcrumbProvider>
                             <header className="flex h-12 w-full shrink-0 items-center gap-2 border-b px-4">
                                 <SidebarTrigger className="-ml-1" />
@@ -37,7 +37,7 @@ export default async function AuthenticatedLayout({
                                 />
                                 <WorkspaceBreadcrumb />
                             </header>
-                            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                                 <WorkspaceAccessGate>
                                     {children}
                                 </WorkspaceAccessGate>

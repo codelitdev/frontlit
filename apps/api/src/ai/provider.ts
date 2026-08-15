@@ -21,7 +21,7 @@ import type { ResolvedAiConfig } from "./queries";
  * - OpenCode → `ai-sdk-provider-opencode-sdk` backed by `@opencode-ai/sdk`
  * - OpenAI → `@ai-sdk/openai`
  * - Anthropic → `@ai-sdk/anthropic`
- * - no team configuration → extractive fallback in chatbot/completion.ts
+ * - no team configuration → inbox AI does not generate a reply
  */
 
 export type ChatProviderName =
@@ -49,7 +49,7 @@ export function resolveModelId(
 
 /**
  * AI SDK language model for the team's configured provider, or `null` when
- * the extractive local fallback should run (no team credential).
+ * inbox AI should skip generation (no team credential).
  */
 export function getChatLanguageModel(
     teamConfig?: TeamProviderConfig | null,
@@ -117,5 +117,5 @@ export function getLanguageModel(
 
 /** One-line summary for boot logs. */
 export function describeChatProvider(): string {
-    return "chat=team-configured (local extractive fallback when a team has no AI provider)";
+    return "chat=team-configured (no generation when a team has no AI provider)";
 }

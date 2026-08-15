@@ -45,7 +45,7 @@ import {
 import { getTeamId } from "./auth";
 
 const NOT_CONNECTED_ERROR = errorResult(
-    "SendLit is not connected for this team yet.",
+    "Configure the email delivery connection in Settings first.",
 );
 
 /** All tools proxy the team's provisioned SendLit team \u2014 FrontLit has no

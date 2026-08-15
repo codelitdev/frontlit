@@ -1142,6 +1142,48 @@ export function deleteAiConfig() {
     return unwrap<void>(client.ai.remove());
 }
 
+export type InboxAiChannel = "chatbot" | "tickets";
+
+export interface InboxAiPolicy {
+    channel: InboxAiChannel;
+    autoReply: boolean;
+    escalateOnVisitorRequest: boolean;
+    escalateWhenUnsure: boolean;
+    escalateTopics: string[];
+    escalateAfterBotTurns: number | null;
+    createdAt: string | null;
+    updatedAt: string | null;
+}
+
+export interface InboxAiSettings {
+    aiConfigured: boolean;
+    channels: {
+        chatbot?: InboxAiPolicy;
+        tickets?: InboxAiPolicy;
+    };
+}
+
+export type InboxAiPolicyPatch = Partial<{
+    autoReply: boolean;
+    escalateOnVisitorRequest: boolean;
+    escalateWhenUnsure: boolean;
+    escalateTopics: string[];
+    escalateAfterBotTurns: number | null;
+}>;
+
+export function getInboxAiSettings() {
+    return unwrap<InboxAiSettings>(client.inboxAi.get());
+}
+
+export function updateInboxAiSettings(channels: {
+    chatbot?: InboxAiPolicyPatch;
+    tickets?: InboxAiPolicyPatch;
+}) {
+    return unwrap<InboxAiSettings>(
+        client.inboxAi.update({ body: { channels } }),
+    );
+}
+
 // ---- Chatbot --------------------------------------------------------------
 
 export type ChatbotWidgetVariant = "bubble" | "text_input";
@@ -1188,13 +1230,24 @@ export function updateChatbotSettings(
 // ---- Help desk (support tickets) -------------------------------------------
 
 export type TicketStatus = "open" | "pending" | "resolved" | "closed";
-export type TicketSource = "form" | "chatbot" | "api";
+export type TicketSource = "form" | "chatbot" | "api" | "email";
+
+export interface TicketAttachment {
+    attachmentId: string;
+    fileName: string;
+    mimeType: string;
+    size: number;
+    url: string;
+    thumbnailUrl?: string | null;
+    createdAt: string | null;
+}
 
 export interface TicketMessage {
     messageId: string;
     author: "requester" | "agent" | "bot";
     authorAccountId?: string | null;
     content: TextEditorContent;
+    attachments?: TicketAttachment[];
     createdAt: string | null;
 }
 
@@ -1233,11 +1286,37 @@ export function getTicket(ticketId: string) {
     );
 }
 
-export function replyToTicket(ticketId: string, content: TextEditorContent) {
+export function replyToTicket(
+    ticketId: string,
+    content: TextEditorContent,
+    attachmentIds: string[] = [],
+) {
     return unwrap<TicketWithMessages>(
         client.tickets.reply({
             params: { ticketId },
-            body: { content: content as any },
+            body: {
+                content: content as any,
+                ...(attachmentIds.length ? { attachmentIds } : {}),
+            },
+        }),
+    );
+}
+
+export function presignTicketAttachment(ticketId: string) {
+    return unwrap<{ signature: string; endpoint: string }>(
+        client.tickets.presignAttachment({ params: { ticketId } }),
+    );
+}
+
+export function completeTicketAttachment(
+    ticketId: string,
+    mediaLitId: string,
+    meta: { fileName?: string; mimeType?: string; size?: number } = {},
+) {
+    return unwrap<TicketAttachment>(
+        client.tickets.completeAttachment({
+            params: { ticketId },
+            body: { mediaLitId, ...meta },
         }),
     );
 }

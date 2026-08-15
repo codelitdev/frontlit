@@ -58,6 +58,11 @@ export interface WidgetDefaultSettings {
 
 export interface PageData extends Record<string, unknown> {
     pageType: PageType;
+    /** Tenant branding supplied by the host application. Layout blocks use
+     * this on published sites, while the builder can continue to use its
+     * own local block settings. */
+    siteLogoUrl?: string;
+    siteLogoAlt?: string;
     /** The page's team (public id) and slug, plus the base URL of FrontLit's
      * public API — threaded through so blocks that make unauthenticated
      * public calls (e.g. the email-form block's lead capture, architecture.md

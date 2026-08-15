@@ -275,19 +275,24 @@ export interface TicketThread {
     messages: TicketMessage[];
 }
 
-export function getTicketThread(
+export async function getTicketThread(
     teamId: string,
     ticketId: string,
     token: string,
 ): Promise<TicketThread | null> {
     // Never cached — a live, token-guarded conversation containing visitor
     // PII (architecture.md §13.4), the opposite of the published-content
-    // reads above.
-    return unwrapOrNull(
-        client.getTicketThread({
-            params: { teamId, ticketId },
-            query: { token },
-            fetchOptions: { cache: "no-store" },
-        }),
+    // reads above. 401 is a bad/rotated magic token, not a server failure.
+    const result = await client.getTicketThread({
+        params: { teamId, ticketId },
+        query: { token },
+        fetchOptions: { cache: "no-store" },
+    });
+    if (result.status >= 200 && result.status < 300) {
+        return result.body as TicketThread;
+    }
+    if (result.status === 401 || result.status === 404) return null;
+    throw new Error(
+        `Public API request failed (${result.status}): ${JSON.stringify(result.body)}`,
     );
 }

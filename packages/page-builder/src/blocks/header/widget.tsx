@@ -56,6 +56,7 @@ export function HeaderWidget({
         background,
     },
     state: { theme },
+    pageData,
     nextTheme,
 }: WidgetProps<HeaderSettings>) {
     const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
@@ -70,14 +71,19 @@ export function HeaderWidget({
     const isFixed = !isFloating;
     const primaryLinks = links.filter((link) => !link.isButton);
     const buttonLinks = links.filter((link) => link.isButton);
+    // On a published tenant site, branding is owned by the site settings,
+    // not the header instance. Retain the block-local image for standalone
+    // renderer and builder previews where no tenant logo is supplied.
+    const resolvedLogoImage = pageData.siteLogoUrl || logoImage;
+    const resolvedLogoAlt = pageData.siteLogoAlt || logoText || "";
 
     const logo = (
         <NavLink href="/" className="no-underline">
             <div className="flex items-center gap-2">
-                {logoImage && (
+                {resolvedLogoImage && (
                     <Image
-                        src={logoImage}
-                        alt={logoText || ""}
+                        src={resolvedLogoImage}
+                        alt={resolvedLogoAlt}
                         width="w-8"
                         height="h-8"
                         borderRadius={2}

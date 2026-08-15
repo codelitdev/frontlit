@@ -216,7 +216,6 @@ export default function EspSettingsPage() {
 
                 {notConnected && (
                     <Banner variant="warning">
-                        This team isn&rsquo;t connected to SendLit yet.
                         It&rsquo;s provisioned automatically in the background —
                         check back shortly, or contact support if this persists.
                     </Banner>

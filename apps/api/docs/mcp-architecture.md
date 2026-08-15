@@ -412,9 +412,10 @@ pnpm dev:api
 ```
 
 If the API crashes with `relation "auth_oauth_resource" does not exist`, the
-application was started before `0004` was applied. If token exchange reports
-that `alg` does not exist in the JWKS Drizzle schema, `0005` is missing or the
-deployed application/schema versions do not match.
+application was started before `0000_baseline` was applied. If token exchange
+reports that `alg` does not exist in the JWKS Drizzle schema, reset the
+database and re-apply the baseline so the deployed application and schema
+match.
 
 The migration ledger is normally under `drizzle.__drizzle_migrations`, not
 necessarily the default PostgreSQL schema. Row counts in OAuth tables do not
