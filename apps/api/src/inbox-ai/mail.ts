@@ -1,4 +1,4 @@
-import { and, asc, eq, lte } from "drizzle-orm";
+import { and, asc, desc, eq, lte } from "drizzle-orm";
 import { db } from "../db/client";
 import { ticketMailOutbox, tickets } from "../db/schema";
 import {
@@ -8,18 +8,29 @@ import {
 import { logger } from "../services/log";
 import { incrementCounter } from "../services/metrics";
 
+export async function nextTicketMailSequence(ticketDbId: string) {
+    const latest = await db.query.ticketMailOutbox.findFirst({
+        where: eq(ticketMailOutbox.ticketId, ticketDbId),
+        orderBy: desc(ticketMailOutbox.sequence),
+        columns: { sequence: true },
+    });
+    return (latest?.sequence ?? 0) + 1;
+}
+
 export async function enqueueTicketMail(input: {
     teamId: string;
     ticketDbId: string;
-    sequence: number;
+    sequence?: number;
     kind: "receipt" | "reply";
     payload: Record<string, unknown>;
 }) {
+    const sequence =
+        input.sequence ?? (await nextTicketMailSequence(input.ticketDbId));
     try {
         await db.insert(ticketMailOutbox).values({
             teamId: input.teamId,
             ticketId: input.ticketDbId,
-            sequence: input.sequence,
+            sequence,
             kind: input.kind,
             payload: input.payload,
         });
@@ -95,6 +106,13 @@ export async function processTicketMailJob(
             requesterEmail: ticket.requesterEmail,
             subject: ticket.subject,
             replyText: String(job.payload.replyText ?? ""),
+            sources: Array.isArray(job.payload.sources)
+                ? (job.payload.sources as {
+                      slug: string;
+                      title: string | null;
+                      anchor?: string | null;
+                  }[])
+                : [],
         });
     }
 

@@ -79,6 +79,15 @@ describe("isNavItemActive", () => {
         expect(
             canAccessWorkspacePath("/website/code-injection", readOnlyDocs),
         ).toBe(false);
+        expect(
+            canAccessWorkspacePath("/website?tab=help-desk", readOnlyDocs),
+        ).toBe(false);
+        expect(
+            canAccessWorkspacePath(
+                "/website?tab=help-desk",
+                team(["helpdesk:read"]),
+            ),
+        ).toBe(true);
     });
 
     it("keeps owner-only workspace routes hidden from non-owner updaters", () => {
@@ -96,6 +105,9 @@ describe("isNavItemActive", () => {
         );
         expect(getWorkspaceLandingPath(team(["chatbot:read"]))).toBe(
             "/website?tab=chatbot",
+        );
+        expect(getWorkspaceLandingPath(team(["helpdesk:read"]))).toBe(
+            "/website?tab=help-desk",
         );
         expect(getWorkspaceLandingPath(team([]))).toBeNull();
     });

@@ -30,7 +30,9 @@ import {
     replyToTicket,
     updateTicket,
     type Ticket,
+    type TicketAiOptics,
     type TicketAttachment,
+    type TicketMessage,
     type TicketStatus,
     type TicketWithMessages,
 } from "@/lib/api";
@@ -96,6 +98,131 @@ function formatBytes(size: number) {
     if (size < 1024) return `${size} B`;
     if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
     return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function aiStopLabel(reason: string | null | undefined, retrievalCount = 0) {
+    switch (reason) {
+        case "visitor_request":
+            return "The visitor asked for a human";
+        case "empty_retrieval":
+            return "No help articles passed the 25% match floor";
+        case "unsure":
+            return retrievalCount > 0
+                ? "The model was unsure the retrieved articles answered the question"
+                : "No help articles passed the 25% match floor";
+        case "topic":
+            return "Matched an escalation topic";
+        case "turn_cap":
+            return "Reached the bot turn limit";
+        case "agent_takeover":
+            return "A teammate took over";
+        default:
+            return reason || "AI activity";
+    }
+}
+
+function TicketAiPanel({ ai }: { ai: TicketAiOptics }) {
+    const latest = [...ai.runs].reverse()[0];
+    return (
+        <div className="mx-auto mb-6 max-w-4xl rounded-xl border bg-background px-4 py-3 text-xs">
+            <div className="flex items-center gap-2 font-medium text-foreground">
+                <Bot className="size-3.5" />
+                AI
+                <span className="font-normal text-muted-foreground">
+                    {ai.state === "escalated"
+                        ? `Escalated · ${aiStopLabel(ai.stopReason, latest?.retrieval.length ?? 0)}`
+                        : ai.state === "taken_over"
+                          ? `Handed to a teammate · ${aiStopLabel(ai.stopReason, latest?.retrieval.length ?? 0)}`
+                          : ai.state === "waiting"
+                            ? "Waiting on the visitor"
+                            : "Idle"}
+                </span>
+            </div>
+            {latest && (
+                <div className="mt-2 space-y-1 text-muted-foreground">
+                    {latest.stopReason &&
+                        latest.stopReason !== ai.stopReason && (
+                            <p>
+                                {aiStopLabel(
+                                    latest.stopReason,
+                                    latest.retrieval.length,
+                                )}
+                            </p>
+                        )}
+                    {latest.lastError && (
+                        <p className="text-destructive">
+                            Provider error: {latest.lastError}
+                        </p>
+                    )}
+                    {latest.retrieval.length > 0 ? (
+                        <div>
+                            <p className="mb-1 font-medium text-foreground/80">
+                                Docs retrieved
+                            </p>
+                            <ul className="flex flex-col gap-0.5">
+                                {latest.retrieval.map((hit, index) => (
+                                    <li
+                                        key={`${hit.documentId}-${hit.anchor ?? ""}-${index}`}
+                                    >
+                                        <a
+                                            href={`/editor/content/documentation/${hit.documentId}`}
+                                            className="text-primary underline-offset-2 hover:underline"
+                                        >
+                                            {hit.title ?? hit.slug}
+                                            {hit.heading
+                                                ? ` — ${hit.heading}`
+                                                : ""}
+                                        </a>
+                                        {typeof hit.similarity === "number" && (
+                                            <span className="ml-1 text-muted-foreground">
+                                                (
+                                                {Math.round(
+                                                    hit.similarity * 100,
+                                                )}
+                                                %)
+                                            </span>
+                                        )}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    ) : (
+                        <p>
+                            No help articles were retrieved for the last turn.
+                        </p>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function MessageCitations({ sources }: { sources?: TicketMessage["sources"] }) {
+    if (!sources?.length) return null;
+    const unique = sources.filter(
+        (source, index, list) =>
+            list.findIndex((item) => item.documentId === source.documentId) ===
+            index,
+    );
+    return (
+        <div className="mt-2 border-t border-primary/10 pt-2">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Sources
+            </p>
+            <ol className="mt-1 flex flex-col gap-0.5 text-xs">
+                {unique.map((source, index) => (
+                    <li key={source.documentId}>
+                        <a
+                            href={`/editor/content/documentation/${source.documentId}`}
+                            className="text-primary underline-offset-2 hover:underline"
+                        >
+                            [{index + 1}] {source.title ?? source.slug}
+                        </a>
+                    </li>
+                ))}
+            </ol>
+        </div>
+    );
 }
 
 function MessageAttachments({
@@ -642,6 +769,9 @@ export default function InboxPage() {
                                           ).toLocaleString()
                                         : ""}
                                 </p>
+                                {selectedTicket.ai && (
+                                    <TicketAiPanel ai={selectedTicket.ai} />
+                                )}
                                 <div className="space-y-5">
                                     {selectedTicket.messages.map((message) => {
                                         const isRequester =
@@ -684,6 +814,14 @@ export default function InboxPage() {
                                                                     : "end"
                                                             }
                                                         />
+                                                        {message.author ===
+                                                            "bot" && (
+                                                            <MessageCitations
+                                                                sources={
+                                                                    message.sources
+                                                                }
+                                                            />
+                                                        )}
                                                     </div>
                                                     <p
                                                         className={cn(

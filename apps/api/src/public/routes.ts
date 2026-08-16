@@ -169,7 +169,19 @@ function toPublicTicketThread(
     byMessage?: Map<string, Array<{ attachmentId: string }>>,
 ) {
     return {
-        ...serializeDates(omitInternal(ticket, "teamId", "accessTokenHash")),
+        ...serializeDates(
+            omitInternal(
+                ticket,
+                "teamId",
+                "accessTokenHash",
+                "id",
+                "aiState",
+                "aiGeneration",
+                "aiTriggerMessageId",
+                "aiStopReason",
+                "aiStoppedAt",
+            ),
+        ),
         messages: messages.map((m) => ({
             ...serializeDates(omitInternal(m, "teamId", "ticketId")),
             attachments: m.id

@@ -698,6 +698,7 @@ export type TicketAiState = (typeof ticketAiStates)[number];
 export const ticketAiStopReasons = [
     "visitor_request",
     "unsure",
+    "empty_retrieval",
     "topic",
     "turn_cap",
     "agent_takeover",
@@ -762,6 +763,13 @@ export const tickets = pgTable(
 export const ticketMessageAuthors = ["requester", "agent", "bot"] as const;
 export type TicketMessageAuthor = (typeof ticketMessageAuthors)[number];
 
+export type TicketMessageSource = {
+    documentId: string;
+    slug: string;
+    title: string | null;
+    anchor: string | null;
+};
+
 export const ticketMessages = pgTable(
     "ticket_messages",
     {
@@ -782,6 +790,10 @@ export const ticketMessages = pgTable(
             { onDelete: "set null" },
         ),
         content: jsonb("content").$type<TextEditorContentRow>().notNull(),
+        sources: jsonb("sources")
+            .$type<TicketMessageSource[]>()
+            .notNull()
+            .default(sql`'[]'::jsonb`),
         createdAt: timestamp("created_at").notNull().defaultNow(),
     },
     (table) => [
@@ -867,6 +879,15 @@ export const inboxAiRunStatuses = [
 ] as const;
 export type InboxAiRunStatus = (typeof inboxAiRunStatuses)[number];
 
+export type InboxAiRetrievalHit = {
+    documentId: string;
+    slug: string;
+    title: string | null;
+    heading: string | null;
+    anchor: string | null;
+    similarity: number;
+};
+
 export const inboxAiRuns = pgTable(
     "inbox_ai_runs",
     {
@@ -886,7 +907,12 @@ export const inboxAiRuns = pgTable(
             .default("queued"),
         attempts: integer("attempts").notNull().default(0),
         skipReason: text("skip_reason"),
+        stopReason: text("stop_reason"),
         lastError: text("last_error"),
+        retrieval: jsonb("retrieval")
+            .$type<InboxAiRetrievalHit[]>()
+            .notNull()
+            .default(sql`'[]'::jsonb`),
         leaseExpiresAt: timestamp("lease_expires_at"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().defaultNow(),

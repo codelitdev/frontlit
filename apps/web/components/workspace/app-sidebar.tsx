@@ -17,6 +17,7 @@ import {
     Palette,
     Send,
     Settings,
+    LifeBuoy,
     Sparkles,
     Users,
 } from "lucide-react";
@@ -47,6 +48,7 @@ const WEBSITE_TAB_ICONS = {
     domain: Globe,
     "code-injection": Code,
     chatbot: Bot,
+    "help-desk": LifeBuoy,
 } as const;
 
 const NAV: NavItem[] = [
@@ -86,7 +88,6 @@ const FOOTER_NAV: NavItem[] = [
             { href: "/settings/members", label: "Members", icon: Users },
             { href: "/settings/esp", label: "ESP", icon: Send },
             { href: "/settings/ai", label: "AI", icon: Sparkles },
-            { href: "/settings/help-desk", label: "Help desk", icon: Inbox },
         ],
     },
 ];

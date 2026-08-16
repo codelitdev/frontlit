@@ -27,6 +27,11 @@ export const WEBSITE_TABS = [
         label: "Chatbot",
         accessPath: "/website/chatbot",
     },
+    {
+        id: "help-desk",
+        label: "Help desk",
+        accessPath: "/website/help-desk",
+    },
 ] as const;
 
 export type WebsiteTab = (typeof WEBSITE_TABS)[number]["id"];

@@ -1,6 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
+import { CitationList } from "@/components/citation-list";
 import { PaperclipIcon } from "@/components/chat-icons";
 import type { ChatMessage } from "@/lib/use-visitor-chat";
 
@@ -123,24 +124,7 @@ export function ChatMessageList({
                                 Support agent
                             </p>
                         )}
-                        {message.sources && message.sources.length > 0 && (
-                            <ul className="mt-1.5 flex flex-col gap-0.5 px-1 text-xs text-muted-foreground">
-                                {message.sources.map((source) => (
-                                    <li
-                                        key={`${source.documentId}-${source.anchor ?? ""}`}
-                                    >
-                                        <a
-                                            href={`/docs/${source.slug}${source.anchor ? `#${source.anchor}` : ""}`}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="underline underline-offset-2 hover:text-foreground"
-                                        >
-                                            {source.title ?? source.slug}
-                                        </a>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
+                        <CitationList sources={message.sources} />
                         {message.notice && (
                             <p className="mt-1 px-1 text-xs text-muted-foreground">
                                 A teammate will continue this conversation.

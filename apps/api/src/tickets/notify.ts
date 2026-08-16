@@ -24,6 +24,33 @@ function sitesOrigin(canonicalHost: string | null): string {
     return `${local ? "http" : "https"}://${canonicalHost}${local ? ":3002" : ""}`;
 }
 
+export type TicketMailSource = {
+    slug: string;
+    title: string | null;
+    anchor?: string | null;
+};
+
+function uniqueMailSources(sources: TicketMailSource[]): TicketMailSource[] {
+    const seen = new Set<string>();
+    const unique: TicketMailSource[] = [];
+    for (const source of sources) {
+        if (seen.has(source.slug)) continue;
+        seen.add(source.slug);
+        unique.push(source);
+    }
+    return unique;
+}
+
+function publicDocUrl(origin: string, source: TicketMailSource): string {
+    const hash = source.anchor ? `#${encodeURIComponent(source.anchor)}` : "";
+    return `${origin}/docs/${encodeURIComponent(source.slug)}${hash}`;
+}
+
+async function siteOriginForTeam(teamId: string): Promise<string> {
+    const settings = await getDomainSettings(teamId);
+    return sitesOrigin(settings?.canonicalHost ?? null);
+}
+
 async function threadUrl(
     teamId: string,
     ticketId: string,
@@ -140,19 +167,23 @@ export async function notifyRequesterOfReply(input: {
     requesterEmail: string;
     subject: string;
     replyText: string;
+    sources?: TicketMailSource[];
 }) {
     const url = await threadUrl(input.teamId, input.ticketId, input.token);
+    const origin = await siteOriginForTeam(input.teamId);
     const reply = input.replyText.trim();
+    const sources = uniqueMailSources(input.sources ?? []);
     await notify(
         input.teamId,
         input.ticketId,
         input.requesterEmail,
         `Re: ${input.subject}`,
         [
-            reply || "You have a new reply on your support ticket.",
+            replyWithSourceUrls(reply, sources, origin) ||
+                "You have a new reply on your support ticket.",
             `Reply to this email, or view the ticket: ${url}`,
         ].join("\n\n"),
-        `${replyHtml(reply)}
+        `${replyHtml(reply, sources, origin)}
 <p>Reply to this email, or <a href="${url}">view the ticket</a>.</p>`,
         true,
     );
@@ -179,17 +210,60 @@ export async function notifyTeamOfRequesterMessage(input: {
     );
 }
 
-function replyHtml(reply: string): string {
+function linkCitationMarkers(
+    escaped: string,
+    sources: TicketMailSource[],
+    origin: string,
+): string {
+    return escaped.replace(/\[(\d+)\]/g, (match, raw) => {
+        const index = Number(raw);
+        const source = sources[index - 1];
+        if (!source) return match;
+        return `<a href="${escapeHtml(publicDocUrl(origin, source))}">[${index}]</a>`;
+    });
+}
+
+function replyWithSourceUrls(
+    reply: string,
+    sources: TicketMailSource[],
+    origin: string,
+): string {
+    if (sources.length === 0) return reply;
+    const lines = sources.map((source, index) => {
+        const label = source.title ?? source.slug;
+        return `[${index + 1}] ${label}\n${publicDocUrl(origin, source)}`;
+    });
+    return `${reply}\n\nSources:\n${lines.join("\n")}`;
+}
+
+function sourcesHtml(sources: TicketMailSource[], origin: string): string {
+    if (sources.length === 0) return "";
+    const items = sources
+        .map((source, index) => {
+            const href = escapeHtml(publicDocUrl(origin, source));
+            const label = escapeHtml(source.title ?? source.slug);
+            return `<li><a href="${href}">[${index + 1}] ${label}</a></li>`;
+        })
+        .join("");
+    return `<p><strong>Sources</strong></p><ol>${items}</ol>`;
+}
+
+function replyHtml(
+    reply: string,
+    sources: TicketMailSource[] = [],
+    origin = "",
+): string {
     if (!reply) {
         return "<p>You have a new reply on your support ticket.</p>";
     }
-    return reply
+    const body = reply
         .split(/\n{2,}/)
-        .map(
-            (paragraph) =>
-                `<p>${escapeHtml(paragraph).replaceAll("\n", "<br>")}</p>`,
-        )
+        .map((paragraph) => {
+            const escaped = escapeHtml(paragraph).replaceAll("\n", "<br>");
+            return `<p>${origin ? linkCitationMarkers(escaped, sources, origin) : escaped}</p>`;
+        })
         .join("");
+    return `${body}${origin ? sourcesHtml(sources, origin) : ""}`;
 }
 
 function escapeHtml(value: string): string {

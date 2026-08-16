@@ -6,6 +6,12 @@ export const VISITOR_HANDOFF_PHRASES = [
     "talk to a human",
     "speak to a person",
     "speak to a human",
+    "connect me to a person",
+    "connect me to a human",
+    "connect me to a teammate",
+    "connect me to an agent",
+    "connect me",
+    "transfer me",
     "human",
     "agent",
 ] as const;

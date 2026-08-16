@@ -1242,12 +1242,20 @@ export interface TicketAttachment {
     createdAt: string | null;
 }
 
+export interface TicketMessageSource {
+    documentId: string;
+    slug: string;
+    title: string | null;
+    anchor: string | null;
+}
+
 export interface TicketMessage {
     messageId: string;
     author: "requester" | "agent" | "bot";
     authorAccountId?: string | null;
     content: TextEditorContent;
     attachments?: TicketAttachment[];
+    sources?: TicketMessageSource[];
     createdAt: string | null;
 }
 
@@ -1264,8 +1272,33 @@ export interface Ticket {
     updatedAt: string | null;
 }
 
+export interface TicketAiRetrieval {
+    documentId: string;
+    slug: string;
+    title: string | null;
+    heading?: string | null;
+    anchor: string | null;
+    similarity?: number;
+}
+
+export interface TicketAiRun {
+    triggerMessageId: string;
+    status: string;
+    stopReason?: string | null;
+    lastError?: string | null;
+    retrieval: TicketAiRetrieval[];
+    createdAt: string | null;
+}
+
+export interface TicketAiOptics {
+    state: string;
+    stopReason: string | null;
+    runs: TicketAiRun[];
+}
+
 export interface TicketWithMessages extends Ticket {
     messages: TicketMessage[];
+    ai?: TicketAiOptics;
 }
 
 export function listTickets(

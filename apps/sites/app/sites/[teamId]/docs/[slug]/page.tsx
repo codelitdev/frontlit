@@ -1,6 +1,7 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { notFound } from "next/navigation";
-import { TextRenderer, extractHeadings } from "@frontlit/text-editor";
+import { TextRenderer } from "@frontlit/text-editor";
+import { extractDocHeadings } from "@/lib/extract-doc-headings";
 import { getDocumentationBySlug, getSettings } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
 import { getCanonicalHost } from "@/lib/request-host";
@@ -54,7 +55,7 @@ export default async function DocPage({ params }: Props) {
     if (!doc) notFound();
 
     const canonicalHost = await getCanonicalHost();
-    const headings = doc.content ? extractHeadings(doc.content as any) : [];
+    const headings = doc.content ? extractDocHeadings(doc.content) : [];
 
     return (
         <SiteChrome teamId={teamId}>

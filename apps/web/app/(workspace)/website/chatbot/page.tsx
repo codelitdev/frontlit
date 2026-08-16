@@ -640,10 +640,9 @@ export default function ChatbotPage() {
                                 )}
                                 {testAnswer.sources.length === 0 && (
                                     <p className="mt-2 text-xs text-muted-foreground">
-                                        No grounding found. If auto-reply is on
-                                        and unsure escalation is enabled, the
-                                        live bot hands this thread to a
-                                        teammate.
+                                        No grounding found. The live bot may
+                                        still answer or ask if the visitor wants
+                                        a teammate.
                                     </p>
                                 )}
                             </CardContent>

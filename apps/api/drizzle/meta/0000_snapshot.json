@@ -1,5 +1,5 @@
 {
-    "id": "3e4ed9f2-3862-4985-a5cf-100d02b94ed6",
+    "id": "79ac4503-7a4d-4e75-87c7-22cb177d3f72",
     "prevId": "00000000-0000-0000-0000-000000000000",
     "version": "7",
     "dialect": "postgresql",
@@ -2712,11 +2712,24 @@
                     "primaryKey": false,
                     "notNull": false
                 },
+                "stop_reason": {
+                    "name": "stop_reason",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false
+                },
                 "last_error": {
                     "name": "last_error",
                     "type": "text",
                     "primaryKey": false,
                     "notNull": false
+                },
+                "retrieval": {
+                    "name": "retrieval",
+                    "type": "jsonb",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "default": "'[]'::jsonb"
                 },
                 "lease_expires_at": {
                     "name": "lease_expires_at",
@@ -4747,6 +4760,13 @@
                     "type": "jsonb",
                     "primaryKey": false,
                     "notNull": true
+                },
+                "sources": {
+                    "name": "sources",
+                    "type": "jsonb",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "default": "'[]'::jsonb"
                 },
                 "created_at": {
                     "name": "created_at",

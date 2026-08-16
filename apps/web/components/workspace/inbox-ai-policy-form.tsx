@@ -125,7 +125,8 @@ export function InboxAiPolicyForm({
             </div>
             <div className="flex items-center justify-between gap-4">
                 <Label htmlFor={`${channel}-unsure`}>
-                    Escalate when the bot is unsure
+                    When help articles miss, offer a human (wait for
+                    confirmation)
                 </Label>
                 <Switch
                     id={`${channel}-unsure`}
@@ -138,7 +139,7 @@ export function InboxAiPolicyForm({
             </div>
             <div className="space-y-1.5">
                 <Label htmlFor={`${channel}-topics`}>
-                    Escalate on topics (comma-separated)
+                    Topics the AI should escalate (similar meaning counts)
                 </Label>
                 <Input
                     id={`${channel}-topics`}

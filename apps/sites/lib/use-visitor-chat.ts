@@ -35,6 +35,7 @@ interface ThreadMessage {
     author: "requester" | "agent" | "bot";
     content: unknown;
     attachments?: ChatAttachment[];
+    sources?: ChatSource[];
 }
 
 function extractText(content: unknown): string {
@@ -166,6 +167,7 @@ export function useVisitorChat({
                 author: message.author,
                 content: extractText(message.content),
                 attachments: message.attachments ?? [],
+                sources: message.sources ?? [],
             }));
 
             if (next.length === 0 && greeting) {

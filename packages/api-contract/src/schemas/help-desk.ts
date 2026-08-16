@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { chatSourceSchema } from "./chatbot";
 import { textEditorContentSchema } from "./documents";
 
 export const ticketStatusSchema = z.enum([
@@ -26,6 +27,7 @@ export const ticketMessageSchema = z.object({
     authorAccountId: z.string().nullable().optional(),
     content: textEditorContentSchema,
     attachments: z.array(ticketAttachmentSchema).optional(),
+    sources: z.array(chatSourceSchema).optional(),
     createdAt: z.string().nullable(),
 });
 
@@ -44,8 +46,34 @@ export const ticketSchema = z.object({
     updatedAt: z.string().nullable(),
 });
 
+export const ticketAiRetrievalSchema = z.object({
+    documentId: z.string(),
+    slug: z.string(),
+    title: z.string().nullable(),
+    heading: z.string().nullable().optional(),
+    anchor: z.string().nullable(),
+    similarity: z.number().optional(),
+});
+
+export const ticketAiRunSchema = z.object({
+    triggerMessageId: z.string(),
+    status: z.string(),
+    stopReason: z.string().nullable().optional(),
+    lastError: z.string().nullable().optional(),
+    retrieval: z.array(ticketAiRetrievalSchema),
+    createdAt: z.string().nullable(),
+});
+
+/** Present only on authed inbox reads when the team has AI configured. */
+export const ticketAiOpticsSchema = z.object({
+    state: z.string(),
+    stopReason: z.string().nullable(),
+    runs: z.array(ticketAiRunSchema),
+});
+
 export const ticketWithMessagesSchema = ticketSchema.extend({
     messages: z.array(ticketMessageSchema),
+    ai: ticketAiOpticsSchema.optional(),
 });
 
 // ---- Workspace (authed) -----------------------------------------------------

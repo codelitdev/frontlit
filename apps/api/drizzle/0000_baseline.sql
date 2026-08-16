@@ -329,7 +329,9 @@ CREATE TABLE IF NOT EXISTS "inbox_ai_runs" (
 	"status" text DEFAULT 'queued' NOT NULL,
 	"attempts" integer DEFAULT 0 NOT NULL,
 	"skip_reason" text,
+	"stop_reason" text,
 	"last_error" text,
+	"retrieval" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"lease_expires_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
@@ -581,6 +583,7 @@ CREATE TABLE IF NOT EXISTS "ticket_messages" (
 	"author" text NOT NULL,
 	"author_account_id" text,
 	"content" jsonb NOT NULL,
+	"sources" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "ticket_messages_message_id_unique" UNIQUE("message_id"),
 	CONSTRAINT "message_id_prefix_check" CHECK ("message_id" LIKE 'tmsg\_%' ESCAPE '\')

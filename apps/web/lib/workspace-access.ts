@@ -23,6 +23,7 @@ const ROUTE_ACCESS: readonly RouteAccess[] = [
     { href: "/website/branding", permissions: ["settings:read"] },
     { href: "/website/domain", permissions: ["domains:read"] },
     { href: "/website/chatbot", permissions: ["chatbot:read"] },
+    { href: "/website/help-desk", permissions: ["helpdesk:read"] },
     {
         href: "/website",
         permissions: [
@@ -30,6 +31,7 @@ const ROUTE_ACCESS: readonly RouteAccess[] = [
             "settings:read",
             "domains:read",
             "chatbot:read",
+            "helpdesk:read",
         ],
         permissionMode: "any",
     },
@@ -46,6 +48,7 @@ const ROUTE_ACCESS: readonly RouteAccess[] = [
     { href: "/settings/members", permissions: ["members:read"] },
     { href: "/settings/esp", permissions: ["esp:read"] },
     { href: "/settings/ai", permissions: ["ai:read"] },
+    /** Legacy URL; the page redirects to Website → Help desk. */
     { href: "/settings/help-desk", permissions: ["helpdesk:read"] },
     { href: "/media", permissions: ["media:read"] },
     { href: "/contacts", permissions: ["contacts:read"] },
@@ -61,6 +64,7 @@ const WORKSPACE_LANDING_PATHS = [
     "/website?tab=branding",
     "/website?tab=domain",
     "/website?tab=chatbot",
+    "/website?tab=help-desk",
     "/content",
     "/email?tab=broadcasts",
     "/contacts",
@@ -68,7 +72,6 @@ const WORKSPACE_LANDING_PATHS = [
     "/settings/members",
     "/settings/esp",
     "/settings/ai",
-    "/settings/help-desk",
 ] as const;
 
 /** Editors are separate chrome-free routes, so they need their own explicit
@@ -108,6 +111,7 @@ const WEBSITE_TAB_ACCESS_HREF: Record<string, string> = {
     domain: "/website/domain",
     "code-injection": "/website/code-injection",
     chatbot: "/website/chatbot",
+    "help-desk": "/website/help-desk",
 };
 
 const CONTENT_TYPE_ACCESS: Record<string, RouteAccess> = {

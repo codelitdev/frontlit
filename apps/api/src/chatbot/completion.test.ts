@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
     buildInstructions,
+    extractCitationIndexes,
     getChatAnswer,
+    sourcesFromCitations,
+    toSources,
     wrapVisitorMessage,
 } from "./completion";
 
@@ -47,6 +50,53 @@ describe("prompt containment", () => {
         expect(instructions).toContain("<help_article");
         expect(instructions).toContain("Plans start at $10.");
         expect(instructions).toContain("</help_article>");
+        expect(instructions).toMatch(/\[1\]/);
+        expect(instructions).not.toMatch(/list those indexes in citations/i);
+    });
+
+    it("maps 1-based citations onto unique retrieved articles", () => {
+        const chunks = [
+            {
+                documentId: "d1",
+                slug: "billing",
+                title: "Billing",
+                heading: null,
+                anchor: null,
+                content: "Plans start at $10.",
+                similarity: 0.9,
+            },
+            {
+                documentId: "d2",
+                slug: "refunds",
+                title: "Refunds",
+                heading: "Policy",
+                anchor: "policy",
+                content: "Refunds take 5 days.",
+                similarity: 0.8,
+            },
+        ];
+        expect(sourcesFromCitations(chunks, [2, 2, 9])).toEqual([
+            {
+                documentId: "d2",
+                slug: "refunds",
+                title: "Refunds",
+                anchor: "policy",
+            },
+        ]);
+        expect(sourcesFromCitations(chunks, [])).toHaveLength(2);
+        expect(
+            toSources([
+                { ...chunks[0], heading: "A", anchor: "a" },
+                { ...chunks[0], heading: "B", anchor: "b" },
+            ]),
+        ).toHaveLength(1);
+        expect(
+            extractCitationIndexes(
+                "Refunds take 5 days [2]. See also [2] [9] [1].",
+                2,
+            ),
+        ).toEqual([2, 1]);
+        expect(extractCitationIndexes("No markers here", 2)).toEqual([]);
     });
 
     it("states no articles were retrieved when ungrounded", () => {

@@ -92,6 +92,52 @@ describe("ticket notification emails", () => {
         );
     });
 
+    it("dedupes the same article in the source list", async () => {
+        await notifyRequesterOfReply({
+            teamId: "team_1",
+            ticketId: "tkt_1",
+            token: "fresh-token",
+            requesterEmail: "tester1@frontlit.app",
+            subject: "API question",
+            replyText: "Use the product API. [1][2][3]",
+            sources: [
+                { slug: "rest-api", title: "REST API", anchor: "a" },
+                { slug: "rest-api", title: "REST API", anchor: "b" },
+                { slug: "rest-api", title: "REST API", anchor: "c" },
+            ],
+        });
+        const html = sendMail.mock.calls[0][0].html as string;
+        expect(html.match(/REST API/g)?.length).toBe(1);
+    });
+
+    it("turns citation markers and the source list into doc links", async () => {
+        await notifyRequesterOfReply({
+            teamId: "team_1",
+            ticketId: "tkt_1",
+            token: "fresh-token",
+            requesterEmail: "tester1@frontlit.app",
+            subject: "API question",
+            replyText: "Use the product API. [1]",
+            sources: [
+                {
+                    slug: "rest-api",
+                    title: "REST API For Product and Customer Management",
+                    anchor: "overview",
+                },
+            ],
+        });
+        const html = sendMail.mock.calls[0][0].html as string;
+        const text = sendMail.mock.calls[0][0].text as string;
+        expect(html).toContain(
+            'href="http://acme.localhost:3002/docs/rest-api#overview"',
+        );
+        expect(html).toContain(">[1]</a>");
+        expect(html).toContain("Sources");
+        expect(text).toContain(
+            "http://acme.localhost:3002/docs/rest-api#overview",
+        );
+    });
+
     it("puts an opaque reply+ token on Reply-To when inbound domain is set", async () => {
         vi.stubEnv("INBOUND_EMAIL_DOMAIN", "replies.localhost");
         await notifyRequesterOfReply({

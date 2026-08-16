@@ -31,6 +31,9 @@ describe("website tabs", () => {
         expect(firstAccessibleWebsiteTab(team(["chatbot:read"]))).toBe(
             "chatbot",
         );
+        expect(firstAccessibleWebsiteTab(team(["helpdesk:read"]))).toBe(
+            "help-desk",
+        );
         expect(firstAccessibleWebsiteTab(team([]))).toBeNull();
     });
 });

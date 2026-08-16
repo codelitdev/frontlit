@@ -261,10 +261,18 @@ export async function listProductUpdates(
     return result ?? { items: [], total: 0 };
 }
 
+export interface TicketMessageSource {
+    documentId: string;
+    slug: string;
+    title: string | null;
+    anchor: string | null;
+}
+
 export interface TicketMessage {
     messageId: string;
     author: "requester" | "agent" | "bot";
     content: TextEditorContent;
+    sources?: TicketMessageSource[];
     createdAt: string | null;
 }
 

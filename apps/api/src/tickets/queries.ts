@@ -8,6 +8,7 @@ import {
     type TicketSource,
     type TicketStatus,
     type TextEditorContentRow,
+    type TicketMessageSource,
 } from "../db/schema";
 import { generateTicketToken, hashTicketToken } from "./token";
 import { enqueueOutboxJob } from "../email/outbox";
@@ -207,6 +208,7 @@ export async function addTicketMessage(input: {
     author: "requester" | "agent" | "bot";
     authorAccountId?: string;
     content: TextEditorContentRow;
+    sources?: TicketMessageSource[];
 }) {
     const [message] = await db
         .insert(ticketMessages)
@@ -216,6 +218,7 @@ export async function addTicketMessage(input: {
             author: input.author,
             authorAccountId: input.authorAccountId,
             content: input.content,
+            sources: input.sources ?? [],
         })
         .returning();
 

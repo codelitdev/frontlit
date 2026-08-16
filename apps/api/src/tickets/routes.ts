@@ -24,6 +24,7 @@ import {
 } from "./attachments";
 import { notifyRequesterOfReply } from "./notify";
 import { omitInternal, serializeDates } from "../utils/public";
+import { ticketAiOptics } from "../inbox-ai/optics";
 
 const router = Router();
 router.use("/tickets", requireAuth, requireTeam);
@@ -31,7 +32,19 @@ router.use("/tickets", requireAuth, requireTeam);
 const s = initServer();
 
 function toPublicTicket<T extends Record<string, unknown>>(ticket: T) {
-    return serializeDates(omitInternal(ticket, "teamId", "accessTokenHash"));
+    return serializeDates(
+        omitInternal(
+            ticket,
+            "teamId",
+            "accessTokenHash",
+            "id",
+            "aiState",
+            "aiGeneration",
+            "aiTriggerMessageId",
+            "aiStopReason",
+            "aiStoppedAt",
+        ),
+    );
 }
 
 function toPublicMessage<T extends Record<string, unknown>>(message: T) {
@@ -51,6 +64,7 @@ async function toTicketWithMessages(ticket: any) {
                 toPublicAttachment,
             ),
         })),
+        ai: await ticketAiOptics(ticket.teamId, ticket, messages),
     } as any;
 }
 

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { TextRenderer } from "@frontlit/text-editor";
 import { getTicketThread } from "@/lib/api";
 import { API_PUBLIC_URL } from "@/lib/config";
+import { CitationList } from "@/components/citation-list";
 import { TicketReplyForm } from "@/components/ticket-reply-form";
 
 interface Props {
@@ -48,6 +49,9 @@ export default async function TicketThreadPage({
                         <div className="prose prose-sm mt-1 max-w-none">
                             <TextRenderer json={message.content} />
                         </div>
+                        {message.author === "bot" && (
+                            <CitationList sources={message.sources} />
+                        )}
                     </li>
                 ))}
             </ol>

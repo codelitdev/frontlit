@@ -5,10 +5,10 @@ import {
     ticketMessages,
     tickets,
     type InboxAiChannel,
+    type InboxAiRetrievalHit,
 } from "../db/schema";
 import { getResolvedAiConfig } from "../ai/queries";
 import { getLanguageModel } from "../ai/provider";
-import { searchChunks } from "../documentation/queries";
 import { getTeamSettings } from "../settings/queries";
 import { findTeamById } from "../team/queries";
 import {
@@ -28,16 +28,15 @@ import {
     MAX_OUTPUT_TOKENS,
     TICKET_PROVIDER_RETRIES,
     TICKET_PROVIDER_TIMEOUT_MS,
-    VISITOR_HANDOFF_PHRASES,
     estimateTokens,
     inboxAiEnabled,
 } from "./config";
-import { findMatchingPhrase } from "./normalize";
 import { getInboxAiPolicy, type InboxAiPolicy } from "./policy";
 import { chargeReservation, releaseReservation, reserveTokens } from "./usage";
 import {
     InboxAiProviderError,
-    generateStructuredInboxAnswer,
+    citationsFromModel,
+    generateInboxAnswer,
 } from "./completion";
 import { enqueueTicketMail } from "./mail";
 import { mintAccessGrant } from "./grants";
@@ -75,17 +74,44 @@ function hardStopReason(ticket: TicketRow): string | null {
     return null;
 }
 
+function toRetrieval(
+    chunks: {
+        documentId: string;
+        slug: string;
+        title: string | null;
+        heading: string | null;
+        anchor: string | null;
+        similarity: number;
+    }[],
+): InboxAiRetrievalHit[] {
+    return chunks.map((chunk) => ({
+        documentId: chunk.documentId,
+        slug: chunk.slug,
+        title: chunk.title,
+        heading: chunk.heading,
+        anchor: chunk.anchor,
+        similarity: Math.round(chunk.similarity * 1000) / 1000,
+    }));
+}
+
 async function markRun(
     runId: string,
     status: "succeeded" | "skipped" | "failed",
-    extra: { skipReason?: string; lastError?: string } = {},
+    extra: {
+        skipReason?: string;
+        stopReason?: string | null;
+        lastError?: string;
+        retrieval?: InboxAiRetrievalHit[];
+    } = {},
 ) {
     await db
         .update(inboxAiRuns)
         .set({
             status,
             skipReason: extra.skipReason,
+            stopReason: extra.stopReason ?? null,
             lastError: extra.lastError?.slice(0, 500),
+            retrieval: extra.retrieval ?? [],
             finishedAt: new Date(),
             leaseExpiresAt: null,
             updatedAt: new Date(),
@@ -209,16 +235,6 @@ function historyFromMessages(
         }));
 }
 
-function countBotAnswers(
-    messages: Array<{ author: string; content: unknown }>,
-) {
-    return messages.filter(
-        (message) =>
-            message.author === "bot" &&
-            ticketMessageText(message.content) !== HANDOFF_COPY,
-    ).length;
-}
-
 async function persistHandoff(
     ticket: TicketRow,
     reason: NonNullable<TicketRow["aiStopReason"]>,
@@ -250,6 +266,7 @@ async function persistAnswer(
     answer: string,
     claim: number,
     triggerMessageId: string,
+    sources: InboxAiResult["sources"],
 ): Promise<boolean> {
     const committed = await finalizeTicket({
         ticket,
@@ -263,6 +280,7 @@ async function persistAnswer(
         ticketDbId: ticket.id,
         author: "bot",
         content: textTicketMessage(answer),
+        sources,
     });
     return true;
 }
@@ -271,15 +289,23 @@ async function notifyIfTicketChannel(
     ticket: TicketRow,
     channel: InboxAiChannel,
     replyText: string,
+    sources: InboxAiResult["sources"] = [],
 ) {
     if (channel !== "tickets" || !ticket.requesterEmail) return;
     const token = await mintAccessGrant(ticket.teamId, ticket.id);
     await enqueueTicketMail({
         teamId: ticket.teamId,
         ticketDbId: ticket.id,
-        sequence: 2,
         kind: "reply",
-        payload: { token, replyText },
+        payload: {
+            token,
+            replyText,
+            sources: sources.map((source) => ({
+                slug: source.slug,
+                title: source.title,
+                anchor: source.anchor,
+            })),
+        },
     });
 }
 
@@ -393,6 +419,7 @@ export async function runInboxAi(input: {
 
     const escalateDeterministic = async (
         reason: NonNullable<TicketRow["aiStopReason"]>,
+        retrieval: InboxAiRetrievalHit[] = [],
     ): Promise<InboxAiResult> => {
         const ok = await persistHandoff(ticket, reason, claim, trigger.id);
         if (!ok) {
@@ -403,7 +430,11 @@ export async function runInboxAi(input: {
             if (runId) await markRun(runId, "skipped", { skipReason: "stale" });
             return { ...empty, skipReason: "stale" };
         }
-        if (runId) await markRun(runId, "succeeded");
+        if (runId)
+            await markRun(runId, "succeeded", {
+                stopReason: reason,
+                retrieval,
+            });
         logEscalated(reason, input.channel);
         await notifyIfTicketChannel(ticket, input.channel, HANDOFF_COPY);
         publishInboxUpdate(ticket.teamId, ticket.ticketId);
@@ -413,27 +444,6 @@ export async function runInboxAi(input: {
             sources: [],
         };
     };
-
-    if (policy.escalateOnVisitorRequest) {
-        if (findMatchingPhrase(visitorText, VISITOR_HANDOFF_PHRASES)) {
-            return escalateDeterministic("visitor_request");
-        }
-    }
-    if (policy.escalateTopics.length > 0) {
-        if (findMatchingPhrase(visitorText, policy.escalateTopics)) {
-            return escalateDeterministic("topic");
-        }
-    }
-    if (policy.escalateAfterBotTurns) {
-        if (countBotAnswers(messages) >= policy.escalateAfterBotTurns) {
-            return escalateDeterministic("turn_cap");
-        }
-    }
-
-    const chunks = await searchChunks(input.teamId, visitorText);
-    if (chunks.length === 0 && policy.escalateWhenUnsure) {
-        return escalateDeterministic("unsure");
-    }
 
     const team = await findTeamById(input.teamId);
     const teamSettings = await getTeamSettings(input.teamId);
@@ -448,28 +458,28 @@ export async function runInboxAi(input: {
 
     let usedTokens = estimated;
     let callStarted = false;
+    let retrieval: InboxAiRetrievalHit[] = [];
     try {
         callStarted = true;
-        const { result, usedTokens: actual } =
-            await generateStructuredInboxAnswer({
-                question: visitorText,
-                chunks,
-                history,
-                teamName: teamSettings.title || team?.name,
-                aiConfig,
-                escalateWhenUnsure: policy.escalateWhenUnsure,
-                timeoutMs:
-                    input.mode === "sync"
-                        ? CHAT_PROVIDER_TIMEOUT_MS
-                        : TICKET_PROVIDER_TIMEOUT_MS,
-            });
-        usedTokens = actual || estimated;
+        const generated = await generateInboxAnswer({
+            teamId: input.teamId,
+            question: visitorText,
+            history,
+            teamName: teamSettings.title || team?.name,
+            aiConfig,
+            offerHuman: policy.escalateWhenUnsure,
+            allowVisitorHandoff: policy.escalateOnVisitorRequest,
+            escalateTopics: policy.escalateTopics,
+            timeoutMs:
+                input.mode === "sync"
+                    ? CHAT_PROVIDER_TIMEOUT_MS
+                    : TICKET_PROVIDER_TIMEOUT_MS,
+        });
+        usedTokens = generated.usedTokens || estimated;
+        retrieval = toRetrieval(generated.chunks);
 
-        if (result.escalate && !policy.escalateWhenUnsure) {
-            throw new InboxAiProviderError(
-                "invalid_output",
-                "escalate_disabled",
-            );
+        if (generated.handoff) {
+            return escalateDeterministic(generated.handoff.reason, retrieval);
         }
 
         const stillValid = await canCommit(ticket, claim, trigger.id, policy);
@@ -481,19 +491,21 @@ export async function runInboxAi(input: {
             if (runId)
                 await markRun(runId, "skipped", {
                     skipReason: stillValid.reason,
+                    retrieval,
                 });
             return { ...empty, skipReason: stillValid.reason };
         }
 
-        if (result.escalate && policy.escalateWhenUnsure) {
-            return escalateDeterministic("unsure");
-        }
-
+        const sources = citationsFromModel(
+            generated.chunks,
+            generated.result.citations,
+        );
         const ok = await persistAnswer(
             ticket,
-            result.answer,
+            generated.result.answer,
             claim,
             trigger.id,
+            sources,
         );
         if (!ok) {
             incrementCounter("inbox_ai_discarded_total", {
@@ -503,22 +515,22 @@ export async function runInboxAi(input: {
             if (runId) await markRun(runId, "skipped", { skipReason: "stale" });
             return { ...empty, skipReason: "stale" };
         }
-        if (runId) await markRun(runId, "succeeded");
+        if (runId) await markRun(runId, "succeeded", { retrieval });
         incrementCounter("inbox_ai_generated_total", {
             channel: input.channel,
             outcome: "answered",
         });
-        await notifyIfTicketChannel(ticket, input.channel, result.answer);
+        await notifyIfTicketChannel(
+            ticket,
+            input.channel,
+            generated.result.answer,
+            sources,
+        );
         publishInboxUpdate(ticket.teamId, ticket.ticketId);
         return {
             outcome: "answered",
-            answer: result.answer,
-            sources: chunks.slice(0, 6).map((chunk) => ({
-                documentId: chunk.documentId,
-                slug: chunk.slug,
-                title: chunk.title,
-                anchor: chunk.anchor,
-            })),
+            answer: generated.result.answer,
+            sources,
         };
     } catch (error) {
         const kind =
@@ -530,12 +542,20 @@ export async function runInboxAi(input: {
             reason: kind,
         });
         logger.warn(
-            { channel: input.channel, reason: kind },
+            {
+                channel: input.channel,
+                reason: kind,
+                error: error instanceof Error ? error.message : String(error),
+            },
             "Inbox AI provider call failed",
         );
         if (runId) {
             await markRun(runId, "failed", {
-                lastError: kind,
+                lastError:
+                    error instanceof Error
+                        ? `${kind}: ${error.message}`.slice(0, 500)
+                        : kind,
+                retrieval,
             });
         }
         await db
