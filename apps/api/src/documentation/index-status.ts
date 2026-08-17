@@ -96,8 +96,10 @@ export function indexForPublishedDoc(
 
 export async function attachOneDocumentIndex<
     T extends { id: string; publishedAt: Date | string | null },
->(kind: DocumentKind, doc: T | null) {
-    if (!doc) return null;
+>(
+    kind: DocumentKind,
+    doc: T,
+): Promise<T & { index?: PublicDocumentIndex | null }> {
     const [withIndex] = await attachDocumentIndex(kind, [doc]);
-    return withIndex;
+    return withIndex!;
 }

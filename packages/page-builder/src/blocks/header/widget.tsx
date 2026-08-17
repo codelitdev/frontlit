@@ -104,6 +104,8 @@ export function HeaderWidget({
                 resolved={nextTheme ?? "light"}
                 onToggle={toggleTheme}
                 theme={overriddenTheme}
+                size="sm"
+                variant="outline"
             />
         ) : null;
 
@@ -124,44 +126,48 @@ export function HeaderWidget({
                     </NavLink>
                 </div>
             )}
-            <Drawer
-                open={mobileNavOpen}
-                setOpen={setMobileNavOpen}
-                side="right"
-                theme={overriddenTheme}
-                trigger={
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        theme={overriddenTheme}
-                        className="lg:!hidden"
-                    >
-                        <MenuIcon className="h-4 w-4" />
-                        <span className="sr-only">Toggle menu</span>
-                    </Button>
-                }
-            >
-                <div className="mt-6 flex flex-col gap-4">
-                    {links.map((link) => (
-                        <HeaderLink
-                            key={link.id}
-                            link={link}
+            <div className="lg:hidden">
+                <Drawer
+                    open={mobileNavOpen}
+                    setOpen={setMobileNavOpen}
+                    side="right"
+                    theme={overriddenTheme}
+                    trigger={
+                        <Button
+                            variant="outline"
+                            size="sm"
                             theme={overriddenTheme}
-                            onClick={() => setMobileNavOpen(false)}
-                        />
-                    ))}
-                    {ctaLabel && ctaHref && (
-                        <NavLink
-                            href={ctaHref}
-                            onClick={() => setMobileNavOpen(false)}
                         >
-                            <Button theme={overriddenTheme} className="w-full">
-                                {ctaLabel}
-                            </Button>
-                        </NavLink>
-                    )}
-                </div>
-            </Drawer>
+                            <MenuIcon className="h-4 w-4" />
+                            <span className="sr-only">Toggle menu</span>
+                        </Button>
+                    }
+                >
+                    <div className="mt-6 flex flex-col gap-4">
+                        {links.map((link) => (
+                            <HeaderLink
+                                key={link.id}
+                                link={link}
+                                theme={overriddenTheme}
+                                onClick={() => setMobileNavOpen(false)}
+                            />
+                        ))}
+                        {ctaLabel && ctaHref && (
+                            <NavLink
+                                href={ctaHref}
+                                onClick={() => setMobileNavOpen(false)}
+                            >
+                                <Button
+                                    theme={overriddenTheme}
+                                    className="w-full"
+                                >
+                                    {ctaLabel}
+                                </Button>
+                            </NavLink>
+                        )}
+                    </div>
+                </Drawer>
+            </div>
         </div>
     );
 

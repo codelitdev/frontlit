@@ -8,11 +8,11 @@ import {
     attachCustomDomain,
     getDomainSettings,
     removeCustomDomain,
+    setSubdomainPublic,
     setTeamSubdomain,
     verifyCustomDomain,
 } from "./queries";
-import { findTeamById } from "../team/queries";
-import { revalidateTeam } from "../services/revalidate";
+import { revalidateAfterDomainChange } from "./revalidate";
 
 const router = Router();
 router.use("/domain", requireAuth, requireTeam);
@@ -34,16 +34,6 @@ function toPublicSettings(
     };
 }
 
-/** Every domain mutation changes what host(s) a team's site resolves at
- * (architecture.md §12.2's "revalidated on ... domain changes") — best
- * effort, never blocks the response. */
-async function revalidateAfterDomainChange(
-    internalTeamId: string,
-): Promise<void> {
-    const team = await findTeamById(internalTeamId);
-    if (team) revalidateTeam(team.teamId).catch(() => {});
-}
-
 const impl = s.router(
     contract.domains,
     authorizeHandlers(
@@ -53,6 +43,7 @@ const impl = s.router(
                 return { status: 200, body: toPublicSettings(settings!) };
             },
             setSubdomain: async ({ body, req }) => {
+                const previous = await getDomainSettings((req as any).teamId);
                 const result = await setTeamSubdomain(
                     (req as any).teamId,
                     body.slug,
@@ -60,7 +51,35 @@ const impl = s.router(
                 if (!result.ok)
                     return {
                         status: 409,
-                        body: { error: "That subdomain is already taken" },
+                        body: {
+                            error:
+                                result.reason === "reserved"
+                                    ? "That subdomain is reserved"
+                                    : "That subdomain is already taken",
+                        },
+                    };
+                await revalidateAfterDomainChange(
+                    (req as any).teamId,
+                    previous?.subdomain ? [previous.subdomain.hostname] : [],
+                );
+                return {
+                    status: 200,
+                    body: toPublicSettings(
+                        (await getDomainSettings((req as any).teamId))!,
+                    ),
+                };
+            },
+            setSubdomainPublic: async ({ body, req }) => {
+                const result = await setSubdomainPublic(
+                    (req as any).teamId,
+                    body.subdomainPublic,
+                );
+                if (!result.ok)
+                    return {
+                        status: 409,
+                        body: {
+                            error: "A verified custom domain is required to hide the FrontLit subdomain",
+                        },
                     };
                 await revalidateAfterDomainChange((req as any).teamId);
                 return {
@@ -71,6 +90,7 @@ const impl = s.router(
                 };
             },
             attachCustomDomain: async ({ body, req }) => {
+                const previous = await getDomainSettings((req as any).teamId);
                 const result = await attachCustomDomain(
                     (req as any).teamId,
                     body.hostname,
@@ -90,7 +110,12 @@ const impl = s.router(
                         body: { error: messages[result.reason] },
                     };
                 }
-                await revalidateAfterDomainChange((req as any).teamId);
+                await revalidateAfterDomainChange(
+                    (req as any).teamId,
+                    previous?.customDomain
+                        ? [previous.customDomain.hostname]
+                        : [],
+                );
                 return {
                     status: 200,
                     body: toPublicSettings(
@@ -114,13 +139,19 @@ const impl = s.router(
                 };
             },
             removeCustomDomain: async ({ req }) => {
+                const previous = await getDomainSettings((req as any).teamId);
                 const removed = await removeCustomDomain((req as any).teamId);
                 if (!removed)
                     return {
                         status: 404,
                         body: { error: "No custom domain attached" },
                     };
-                await revalidateAfterDomainChange((req as any).teamId);
+                await revalidateAfterDomainChange(
+                    (req as any).teamId,
+                    previous?.customDomain
+                        ? [previous.customDomain.hostname]
+                        : [],
+                );
                 return {
                     status: 200,
                     body: toPublicSettings(
@@ -132,6 +163,7 @@ const impl = s.router(
         {
             get: "domains.get",
             setSubdomain: "domains.setSubdomain",
+            setSubdomainPublic: "domains.setSubdomainPublic",
             attachCustomDomain: "domains.attachCustomDomain",
             verifyCustomDomain: "domains.verifyCustomDomain",
             removeCustomDomain: "domains.removeCustomDomain",

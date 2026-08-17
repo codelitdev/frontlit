@@ -65,7 +65,7 @@ export const accounts = pgTable("accounts", {
  * setup (not inferred from a person's name or email), and is
  * environment-independent; the full hostname is assembled from
  * `PLATFORM_SITE_DOMAIN` at runtime. A team may additionally attach one
- * verified custom domain. */
+ * verified custom domain and optionally hide the platform subdomain. */
 export const customDomainStatuses = ["pending", "verified", "failed"] as const;
 export type CustomDomainStatus = (typeof customDomainStatuses)[number];
 
@@ -83,12 +83,17 @@ export const teams = pgTable(
             .references(() => accounts.id, { onDelete: "restrict" }),
         externalId: text("external_id").unique(),
         subdomain: text("subdomain").unique(),
+        subdomainPublic: boolean("subdomain_public").notNull().default(true),
         customDomain: text("custom_domain").unique(),
         customDomainStatus: text("custom_domain_status", {
             enum: customDomainStatuses,
         }),
         customDomainVerificationToken: text("custom_domain_verification_token"),
         customDomainVerifiedAt: timestamp("custom_domain_verified_at"),
+        customDomainTxtSatisfied: boolean("custom_domain_txt_satisfied"),
+        customDomainRoutingSatisfied: boolean(
+            "custom_domain_routing_satisfied",
+        ),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().defaultNow(),
     },
@@ -100,13 +105,19 @@ export const teams = pgTable(
                 ("custom_domain" IS NULL
                     AND "custom_domain_status" IS NULL
                     AND "custom_domain_verification_token" IS NULL
-                    AND "custom_domain_verified_at" IS NULL)
+                    AND "custom_domain_verified_at" IS NULL
+                    AND "custom_domain_txt_satisfied" IS NULL
+                    AND "custom_domain_routing_satisfied" IS NULL)
                 OR
                 ("custom_domain" IS NOT NULL
                     AND "custom_domain_status" IS NOT NULL
                     AND "custom_domain_verification_token" IS NOT NULL
                     AND ("custom_domain_status" <> 'verified' OR "custom_domain_verified_at" IS NOT NULL))
             )`,
+        ),
+        check(
+            "teams_subdomain_public_check",
+            sql`("subdomain_public" = true OR "custom_domain_status" = 'verified')`,
         ),
     ],
 );

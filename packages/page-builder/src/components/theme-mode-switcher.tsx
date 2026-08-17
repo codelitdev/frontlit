@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
-import { Button } from "../primitives";
+import { Button, type ButtonProps } from "../primitives";
 import { Button as ChromeButton } from "../primitives/components/ui/button";
 import type { ThemeStyle } from "../models";
 import type { ResolvedColorMode } from "../utils";
@@ -20,11 +20,15 @@ export function ThemeModeSwitcher({
     onToggle,
     theme,
     className,
+    size,
+    variant,
 }: {
     resolved: ResolvedColorMode;
     onToggle: () => void;
     theme?: ThemeStyle;
     className?: string;
+    size?: ButtonProps["size"];
+    variant?: ButtonProps["variant"];
 }) {
     const [mounted, setMounted] = useState(false);
     useEffect(() => {
@@ -40,8 +44,8 @@ export function ThemeModeSwitcher({
         return (
             <Button
                 type="button"
-                variant="ghost"
-                size="icon"
+                variant={variant ?? "outline"}
+                size={size ?? "sm"}
                 theme={theme}
                 title={label}
                 aria-label={label}

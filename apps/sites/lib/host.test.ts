@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { createHostCache, decideHost, normalizeHost } from "./host";
+import {
+    createHostCache,
+    decideHost,
+    hostCache,
+    invalidateCachedHosts,
+    normalizeHost,
+} from "./host";
 
 const url = { pathname: "/blog/hello", search: "?ref=x", protocol: "https:" };
 
@@ -58,5 +64,19 @@ describe("createHostCache", () => {
         } finally {
             vi.useRealTimers();
         }
+    });
+
+    it("deletes listed hosts from the same process-wide cache the proxy uses", () => {
+        hostCache.set("acme.localhost", {
+            teamId: "team_abc",
+            canonicalHost: "www.example.com",
+        });
+        hostCache.set("www.example.com", {
+            teamId: "team_abc",
+            canonicalHost: "www.example.com",
+        });
+        invalidateCachedHosts(["Acme.Localhost:3002", "www.example.com"]);
+        expect(hostCache.get("acme.localhost")).toBeUndefined();
+        expect(hostCache.get("www.example.com")).toBeUndefined();
     });
 });

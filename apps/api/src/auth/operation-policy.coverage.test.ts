@@ -61,7 +61,7 @@ describe("fail-closed operation policy coverage", () => {
 
     it("registers every MCP tool with an explicit policy", () => {
         const policies = listMcpToolPolicies();
-        expect(Object.keys(policies).length).toBe(93);
+        expect(Object.keys(policies).length).toBe(94);
         for (const policy of Object.values(policies)) {
             expect(policy.oauthScope || policy.scope).toBeTruthy();
             expect(["allow", "deny"]).toContain(policy.apiKeyAccess);

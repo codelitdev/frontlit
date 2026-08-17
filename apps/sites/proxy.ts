@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveHost } from "./lib/api";
-import { createHostCache, decideHost, normalizeHost } from "./lib/host";
-
-// Module-level: persists across requests within one server instance
-// (architecture.md §12.2).
-const hostCache = createHostCache();
+import { decideHost, hostCache, normalizeHost } from "./lib/host";
 
 export async function proxy(request: NextRequest) {
     const requestHost = request.headers.get("host");

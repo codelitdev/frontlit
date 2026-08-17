@@ -1409,7 +1409,12 @@ export interface DomainSettings {
         cnameTarget: string;
         txtName: string;
         txtValue: string;
+        kind: "cname" | "alias";
+        txtSatisfied: boolean | null;
+        routingSatisfied: boolean | null;
     } | null;
+    subdomainPublic: boolean;
+    platformDomain: string;
 }
 
 export function getDomainSettings() {
@@ -1434,6 +1439,12 @@ export function verifyCustomDomain() {
 
 export function removeCustomDomain() {
     return unwrap<DomainSettings>(client.domains.removeCustomDomain());
+}
+
+export function setSubdomainPublic(subdomainPublic: boolean) {
+    return unwrap<DomainSettings>(
+        client.domains.setSubdomainPublic({ body: { subdomainPublic } }),
+    );
 }
 
 // ---- Team settings (branding + code injection) -------------------------------

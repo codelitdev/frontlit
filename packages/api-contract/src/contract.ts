@@ -129,6 +129,7 @@ import {
     domainSettingsSchema,
     resolveHostQuerySchema,
     resolveHostResponseSchema,
+    setSubdomainPublicBodySchema,
     setTeamSubdomainBodySchema,
 } from "./schemas/domains";
 import {
@@ -755,7 +756,7 @@ const publicContract = c.router(
             summary:
                 'Resolve a request Host to a team (apps/sites tenant middleware + TLS "ask")',
             description:
-                "Answers only for hosts it actually knows: a team's `<slug>.<PLATFORM_SITE_DOMAIN>` subdomain, or a verified custom domain (architecture.md §12.1/§12.2).",
+                "Answers 200 only for a public claimed `<slug>.<PLATFORM_SITE_DOMAIN>` subdomain or a verified custom host (architecture.md §12.1/§12.2). A hidden platform subdomain is the same as an unknown host (404).",
         },
         getSettings: {
             method: "GET",
@@ -1138,6 +1139,16 @@ const domainsContract = c.router(
             responses: { 200: domainSettingsSchema, 409: errorSchema },
             summary: "Change the team's default subdomain slug",
         },
+        setSubdomainPublic: {
+            method: "PATCH",
+            path: "/domain/subdomain-public",
+            body: setSubdomainPublicBodySchema,
+            responses: { 200: domainSettingsSchema, 409: errorSchema },
+            summary:
+                "Show or hide the team's FrontLit subdomain after a custom domain is verified",
+            description:
+                "Hiding is not a redirect: resolve-host returns 404 for the platform subdomain. Requires a verified custom domain.",
+        },
         attachCustomDomain: {
             method: "POST",
             path: "/domain/custom",
@@ -1152,7 +1163,7 @@ const domainsContract = c.router(
             responses: { 200: domainSettingsSchema, 404: errorSchema },
             summary: "Re-check DNS for the attached custom domain",
             description:
-                "Looks up the required TXT record and flips status to verified on a match. Re-runnable.",
+                "Looks up the ownership TXT record and the routing CNAME/apex records. Status becomes verified only when both pass. Re-runnable.",
         },
         removeCustomDomain: {
             method: "DELETE",
