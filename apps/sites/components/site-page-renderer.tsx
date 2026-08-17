@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { PageRenderer } from "@frontlit/page-builder/renderer";
 import type { PageData, WidgetInstance } from "@frontlit/page-builder/models";
 import { resolveSiteTheme } from "@/lib/site-theme";
 import { SiteThemeProvider } from "@/lib/site-theme-context";
+import { useColorMode } from "@/components/color-mode-provider";
 
 /**
  * Thin client wrapper around `PageRenderer`. Theme resolution lives in
@@ -34,6 +36,14 @@ export function SitePageRenderer({
     dataSlots?: Record<string, React.ReactNode>;
 }) {
     const theme = resolveSiteTheme(themeId, themeStyle);
+    const { mode, resolved, setMode } = useColorMode();
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+    const nextTheme = mounted ? resolved : "light";
+    const themeMode = mounted ? mode : "system";
+
     return (
         <SiteThemeProvider theme={theme}>
             <PageRenderer
@@ -45,6 +55,9 @@ export function SitePageRenderer({
                     ...(siteLogoAlt ? { siteLogoAlt } : {}),
                 }}
                 dataSlots={dataSlots}
+                nextTheme={nextTheme}
+                themeMode={themeMode}
+                onThemeModeChange={setMode}
             >
                 {children}
             </PageRenderer>

@@ -1,4 +1,6 @@
-import { ReactNode } from "react";
+"use client";
+
+import { ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "./components/ui/sheet";
 import { cn } from "./lib/utils";
 import type { ThemeStyle } from "../models";
@@ -22,20 +24,33 @@ export function Drawer({
     setOpen,
     style,
     className = "",
-    theme,
+    theme: _theme,
 }: DrawerProps) {
-    const classes = cn(
-        // Base styles
-        "courselit-theme",
-        className,
-    );
+    const triggerWrapRef = useRef<HTMLSpanElement>(null);
+    const [container, setContainer] = useState<HTMLElement | null>(null);
+
+    useLayoutEffect(() => {
+        const root = triggerWrapRef.current?.closest(
+            "[data-pb-theme], .pb-theme",
+        );
+        setContainer(root instanceof HTMLElement ? root : null);
+    }, []);
 
     return (
         <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-                <span>{trigger}</span>
+                <span ref={triggerWrapRef}>{trigger}</span>
             </SheetTrigger>
-            <SheetContent side={side} style={style} className={classes}>
+            <SheetContent
+                side={side}
+                style={style}
+                container={container}
+                className={cn(
+                    "bg-background text-foreground",
+                    !container && "pb-theme",
+                    className,
+                )}
+            >
                 {children}
             </SheetContent>
         </Sheet>

@@ -5,7 +5,7 @@ import { resolveSiteTheme } from "./site-theme";
 
 describe("resolveSiteTheme", () => {
     it("resolves a built-in team theme by its logical id", () => {
-        expect(resolveSiteTheme("learning", null).id).toBe("learning");
+        expect(resolveSiteTheme("studio", null).id).toBe("studio");
     });
 
     it("uses a saved custom team theme style", () => {

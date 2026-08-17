@@ -83,7 +83,13 @@ export interface WidgetProps<
     /** Host-resolved data rendered by a generic `data-slot` block. */
     data?: ReactNode;
     editing?: boolean;
+    /** Resolved palette currently painted (`system` is already applied). */
     nextTheme?: "light" | "dark";
+    /** Visitor or preview preference, including follow-the-OS. */
+    themeMode?: "light" | "dark" | "system";
+    setThemeMode?: (mode: "light" | "dark" | "system") => void;
+    /** Flips the resolved palette. Used by compact header controls. */
+    toggleTheme?: () => void;
 }
 
 export interface WidgetEditorProps<

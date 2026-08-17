@@ -1,14 +1,14 @@
 import { classic } from "./classic";
-import { learning } from "./learning";
-import { neobrutalism } from "./neobrutalism";
-import { editorial } from "./editorial";
+import { studio } from "./studio";
 import { midnight } from "./midnight";
+import { editorial } from "./editorial";
+import { neobrutalism } from "./neobrutalism";
 import { Theme } from "../../models";
 
 export const themes: Theme[] = [
     classic,
-    learning,
-    neobrutalism,
-    editorial,
+    studio,
     midnight,
+    editorial,
+    neobrutalism,
 ];

@@ -15,8 +15,11 @@ export interface PageRendererProps {
     children?: React.ReactNode;
     /** Host-resolved data keyed by a generic data-slot's configured name. */
     dataSlots?: Record<string, React.ReactNode>;
-    /** "light" | "dark" — controls which half of the theme's color palette is active. */
+    /** Resolved palette currently painted (`system` is already applied). */
     nextTheme?: "light" | "dark";
+    /** Visitor or preview preference, including follow-the-OS. */
+    themeMode?: "light" | "dark" | "system";
+    onThemeModeChange?: (mode: "light" | "dark" | "system") => void;
     /** When true, renders hover controls (edit/move/delete/add) for use inside the builder canvas. */
     editing?: boolean;
     selectedWidgetId?: string;
@@ -44,6 +47,8 @@ export function PageRenderer({
     children,
     dataSlots,
     nextTheme = "light",
+    themeMode = "light",
+    onThemeModeChange,
     editing = false,
     selectedWidgetId,
     highlightedWidgetId,
@@ -147,6 +152,16 @@ export function PageRenderer({
                     }
                     editing={editing}
                     nextTheme={nextTheme}
+                    themeMode={themeMode}
+                    setThemeMode={onThemeModeChange}
+                    toggleTheme={
+                        onThemeModeChange
+                            ? () =>
+                                  onThemeModeChange(
+                                      nextTheme === "dark" ? "light" : "dark",
+                                  )
+                            : undefined
+                    }
                 />
             </EditableBlock>
         );

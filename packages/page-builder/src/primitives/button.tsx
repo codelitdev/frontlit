@@ -21,6 +21,7 @@ export const Button: React.FC<ButtonProps> = ({
 }) => {
     const buttonStyles = theme?.interactives?.button;
     const typographyStyles = theme?.typography?.button;
+    const isIcon = size === "icon";
 
     const classes = cn(
         // Base styles
@@ -34,9 +35,10 @@ export const Button: React.FC<ButtonProps> = ({
         typographyStyles?.textTransform,
         typographyStyles?.textDecoration,
         typographyStyles?.textOverflow,
-        // Theme interactivity
-        buttonStyles?.padding?.x,
-        buttonStyles?.padding?.y,
+        // Theme interactivity. Icon buttons stay square — CTA padding
+        // would stretch them off the size="icon" box.
+        !isIcon && buttonStyles?.padding?.x,
+        !isIcon && buttonStyles?.padding?.y,
         buttonStyles?.border?.width,
         buttonStyles?.border?.radius,
         buttonStyles?.border?.style,

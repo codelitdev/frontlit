@@ -14,6 +14,7 @@ export const headerDefaults: Partial<HeaderSettings> = {
     linkAlignment: "left",
     layout: "fixed",
     backdropBlur: false,
+    showThemeSwitcher: true,
     // Slider value 1. Keeps a new header compact instead of inheriting the
     // theme's content-section padding (`py-12` / slider 5 on most themes).
     verticalPadding: "py-4",

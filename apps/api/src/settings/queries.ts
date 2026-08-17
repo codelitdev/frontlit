@@ -4,10 +4,10 @@ import { DEFAULT_SHARED_WIDGETS, teamSettings, themes } from "../db/schema";
 
 const systemThemeIds = new Set([
     "classic",
-    "learning",
-    "neobrutalism",
-    "editorial",
+    "studio",
     "midnight",
+    "editorial",
+    "neobrutalism",
 ]);
 
 export class InvalidSiteThemeReferenceError extends Error {}

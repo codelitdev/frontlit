@@ -3,7 +3,7 @@ import clsx from "clsx";
 import { MenuIcon } from "lucide-react";
 import type { WidgetProps, ThemeStyle } from "../../models";
 import type { HeaderNavLink, HeaderSettings } from "./settings";
-import { Image, NavLink } from "../../components";
+import { Image, NavLink, ThemeModeSwitcher } from "../../components";
 import {
     Button,
     Drawer,
@@ -50,6 +50,7 @@ export function HeaderWidget({
         linkAlignment = "left",
         layout = "fixed",
         backdropBlur = false,
+        showThemeSwitcher = true,
         cssId,
         maxWidth,
         verticalPadding,
@@ -58,6 +59,7 @@ export function HeaderWidget({
     state: { theme },
     pageData,
     nextTheme,
+    toggleTheme,
 }: WidgetProps<HeaderSettings>) {
     const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
     overriddenTheme.structure.page.width =
@@ -96,8 +98,18 @@ export function HeaderWidget({
         </NavLink>
     );
 
+    const colorModeControl =
+        showThemeSwitcher && toggleTheme ? (
+            <ThemeModeSwitcher
+                resolved={nextTheme ?? "light"}
+                onToggle={toggleTheme}
+                theme={overriddenTheme}
+            />
+        ) : null;
+
     const ctaAndMenu = (
         <div className="flex items-center gap-3">
+            {colorModeControl}
             {buttonLinks.map((link) => (
                 <div className="hidden lg:!block" key={link.id}>
                     <HeaderLink link={link} theme={overriddenTheme} />

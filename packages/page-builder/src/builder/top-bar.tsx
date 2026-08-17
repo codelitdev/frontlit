@@ -4,15 +4,15 @@ import React from "react";
 import {
     Globe,
     Monitor,
-    Moon,
     Palette,
     Plus,
     Smartphone,
-    Sun,
     Tablet,
 } from "lucide-react";
 import { Button } from "../primitives/components/ui/button";
 import { cn } from "../primitives/lib/utils";
+import { ThemeModeSwitcher } from "../components/theme-mode-switcher";
+import { toggleColorMode, type ResolvedColorMode } from "../utils";
 
 export type PreviewDevice = "mobile" | "tablet" | "desktop";
 
@@ -27,7 +27,7 @@ const DEVICES: Array<{
 ];
 
 export function BuilderTopBar({
-    mode,
+    resolvedMode,
     onModeChange,
     device,
     onDeviceChange,
@@ -36,8 +36,8 @@ export function BuilderTopBar({
     onAddBlock,
     allowThemeEditing = true,
 }: {
-    mode: "light" | "dark";
-    onModeChange: (mode: "light" | "dark") => void;
+    resolvedMode: ResolvedColorMode;
+    onModeChange: (mode: ResolvedColorMode) => void;
     device: PreviewDevice;
     onDeviceChange: (device: PreviewDevice) => void;
     onOpenTheme: () => void;
@@ -83,6 +83,12 @@ export function BuilderTopBar({
                     aria-orientation="vertical"
                 />
                 <div className="flex items-center gap-2">
+                    <ThemeModeSwitcher
+                        resolved={resolvedMode}
+                        onToggle={() =>
+                            onModeChange(toggleColorMode(resolvedMode))
+                        }
+                    />
                     {allowThemeEditing && (
                         <Button
                             variant="outline"
@@ -102,25 +108,6 @@ export function BuilderTopBar({
                         onClick={onOpenSeo}
                     >
                         <Globe className="h-4 w-4" />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        title={
-                            mode === "light"
-                                ? "Preview dark mode"
-                                : "Preview light mode"
-                        }
-                        aria-label="Toggle light/dark preview"
-                        onClick={() =>
-                            onModeChange(mode === "light" ? "dark" : "light")
-                        }
-                    >
-                        {mode === "light" ? (
-                            <Moon className="h-4 w-4" />
-                        ) : (
-                            <Sun className="h-4 w-4" />
-                        )}
                     </Button>
                 </div>
                 <div

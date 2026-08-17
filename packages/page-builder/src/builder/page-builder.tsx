@@ -11,7 +11,7 @@ import {
     ensureRequiredSharedWidgets,
     getDefaultTheme,
 } from "../starter";
-import { debounce } from "../utils";
+import { debounce, resolveColorMode, type ColorMode } from "../utils";
 import { themes } from "../primitives";
 import { cn } from "../primitives/lib/utils";
 import { BuilderTopBar, type PreviewDevice } from "./top-bar";
@@ -84,6 +84,8 @@ export function PageBuilder({
     const [theme, setTheme] = useState<Theme>(
         () => initialTheme ?? getDefaultTheme(),
     );
+    const [previewTheme, setPreviewTheme] = useState<Theme | null>(null);
+    const paintedTheme = previewTheme ?? theme;
     const [seo, setSeo] = useState<PageSeo>(
         () => initialSeo ?? { robotsAllowed: true },
     );
@@ -91,7 +93,8 @@ export function PageBuilder({
     const [customThemes, setCustomThemes] = useState<Theme[]>(
         () => providedThemes?.custom ?? [],
     );
-    const [mode, setMode] = useState<"light" | "dark">("light");
+    const [mode, setMode] = useState<ColorMode>("system");
+    const [systemPrefersDark, setSystemPrefersDark] = useState(false);
     const [device, setDevice] = useState<PreviewDevice>("desktop");
     const [panel, setPanel] = useState<PanelState>(null);
     const [insertAfter, setInsertAfter] = useState<string | "end" | null>(null);
@@ -103,6 +106,16 @@ export function PageBuilder({
             if (movedTimeoutRef.current) clearTimeout(movedTimeoutRef.current);
         };
     }, []);
+
+    useEffect(() => {
+        const media = window.matchMedia("(prefers-color-scheme: dark)");
+        const apply = () => setSystemPrefersDark(media.matches);
+        apply();
+        media.addEventListener("change", apply);
+        return () => media.removeEventListener("change", apply);
+    }, []);
+
+    const resolvedMode = resolveColorMode(mode, systemPrefersDark);
 
     const onChangeRef = useRef(onChange);
     onChangeRef.current = onChange;
@@ -228,12 +241,17 @@ export function PageBuilder({
     const showSeoPanel = panel?.mode === "seo";
     const panelOpen = showBlockPanel || showThemePanel || showSeoPanel;
 
+    function closePanel() {
+        setPreviewTheme(null);
+        setPanel(null);
+    }
+
     return (
         <div
             className={`flex h-full w-full flex-col overflow-hidden ${className ?? ""}`}
         >
             <BuilderTopBar
-                mode={mode}
+                resolvedMode={resolvedMode}
                 onModeChange={setMode}
                 device={device}
                 onDeviceChange={setDevice}
@@ -259,9 +277,11 @@ export function PageBuilder({
                     >
                         <PageRenderer
                             layout={layout}
-                            theme={theme}
+                            theme={paintedTheme}
                             pageData={pageData}
-                            nextTheme={mode}
+                            nextTheme={resolvedMode}
+                            themeMode={mode}
+                            onThemeModeChange={setMode}
                             editing
                             selectedWidgetId={selectedWidgetId ?? undefined}
                             highlightedWidgetId={movedWidgetId ?? undefined}
@@ -285,7 +305,7 @@ export function PageBuilder({
                                 selectedDefinition.metadata.description
                             }
                             icon={LayoutTemplate}
-                            onClose={() => setPanel(null)}
+                            onClose={closePanel}
                         >
                             <BlockSettings
                                 key={selectedInstance.widgetId}
@@ -302,20 +322,25 @@ export function PageBuilder({
                         </SettingsPanel>
                     )}
                 {showThemePanel && (
-                    <SettingsPanel title="Theme" onClose={() => setPanel(null)}>
+                    <SettingsPanel title="Theme" onClose={closePanel}>
                         <ThemeEditor
-                            theme={theme}
+                            theme={paintedTheme}
+                            appliedThemeId={theme.id}
                             systemThemes={systemThemes}
                             customThemes={customThemes}
-                            colorMode={mode}
+                            colorMode={resolvedMode}
                             onColorModeChange={setMode}
-                            onApply={setTheme}
+                            onPreview={setPreviewTheme}
+                            onApply={(next) => {
+                                setPreviewTheme(null);
+                                setTheme(next);
+                            }}
                             onCustomThemesChange={setCustomThemes}
                         />
                     </SettingsPanel>
                 )}
                 {showSeoPanel && (
-                    <SettingsPanel title="SEO" onClose={() => setPanel(null)}>
+                    <SettingsPanel title="SEO" onClose={closePanel}>
                         <SeoEditor seo={seo} onChange={setSeo} />
                     </SettingsPanel>
                 )}
