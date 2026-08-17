@@ -12,9 +12,7 @@ import {
     updateDocument,
 } from "../documents/queries";
 import { upsertAiConfig } from "../ai/queries";
-import {
-    enqueuePublishedDocsForTeam,
-} from "./index-jobs";
+import { enqueuePublishedDocsForTeam } from "./index-jobs";
 import { processOneDocumentIndexJob } from "./worker";
 
 function testDbAny(db: TestDb): any {
