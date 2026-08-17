@@ -38,7 +38,6 @@ function toPublicTicket<T extends Record<string, unknown>>(ticket: T) {
             "teamId",
             "accessTokenHash",
             "id",
-            "aiState",
             "aiGeneration",
             "aiTriggerMessageId",
             "aiStopReason",

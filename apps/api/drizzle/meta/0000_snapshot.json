@@ -1,5 +1,5 @@
 {
-    "id": "79ac4503-7a4d-4e75-87c7-22cb177d3f72",
+    "id": "ec75cd91-b486-4283-830b-304077f2dfd0",
     "prevId": "00000000-0000-0000-0000-000000000000",
     "version": "7",
     "dialect": "postgresql",
@@ -146,6 +146,20 @@
                     "type": "text",
                     "primaryKey": false,
                     "notNull": false
+                },
+                "index_articles": {
+                    "name": "index_articles",
+                    "type": "boolean",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "default": false
+                },
+                "index_changelog": {
+                    "name": "index_changelog",
+                    "type": "boolean",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "default": false
                 },
                 "created_at": {
                     "name": "created_at",
@@ -2230,6 +2244,158 @@
                 "document_chunks_document_id_documents_id_fk": {
                     "name": "document_chunks_document_id_documents_id_fk",
                     "tableFrom": "document_chunks",
+                    "tableTo": "documents",
+                    "columnsFrom": ["document_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "policies": {},
+            "checkConstraints": {},
+            "isRLSEnabled": false
+        },
+        "public.document_index_jobs": {
+            "name": "document_index_jobs",
+            "schema": "",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true
+                },
+                "team_id": {
+                    "name": "team_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "document_id": {
+                    "name": "document_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true
+                },
+                "status": {
+                    "name": "status",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "default": "'queued'"
+                },
+                "generation": {
+                    "name": "generation",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "default": 0
+                },
+                "attempts": {
+                    "name": "attempts",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "default": 0
+                },
+                "last_error": {
+                    "name": "last_error",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false
+                },
+                "lease_expires_at": {
+                    "name": "lease_expires_at",
+                    "type": "timestamp",
+                    "primaryKey": false,
+                    "notNull": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "timestamp",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "default": "now()"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "timestamp",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "default": "now()"
+                },
+                "started_at": {
+                    "name": "started_at",
+                    "type": "timestamp",
+                    "primaryKey": false,
+                    "notNull": false
+                },
+                "finished_at": {
+                    "name": "finished_at",
+                    "type": "timestamp",
+                    "primaryKey": false,
+                    "notNull": false
+                }
+            },
+            "indexes": {
+                "document_index_jobs_document_idx": {
+                    "name": "document_index_jobs_document_idx",
+                    "columns": [
+                        {
+                            "expression": "document_id",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        }
+                    ],
+                    "isUnique": true,
+                    "concurrently": false,
+                    "method": "btree",
+                    "with": {}
+                },
+                "document_index_jobs_poll_idx": {
+                    "name": "document_index_jobs_poll_idx",
+                    "columns": [
+                        {
+                            "expression": "status",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        },
+                        {
+                            "expression": "lease_expires_at",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        },
+                        {
+                            "expression": "created_at",
+                            "isExpression": false,
+                            "asc": true,
+                            "nulls": "last"
+                        }
+                    ],
+                    "isUnique": false,
+                    "concurrently": false,
+                    "method": "btree",
+                    "with": {}
+                }
+            },
+            "foreignKeys": {
+                "document_index_jobs_team_id_teams_id_fk": {
+                    "name": "document_index_jobs_team_id_teams_id_fk",
+                    "tableFrom": "document_index_jobs",
+                    "tableTo": "teams",
+                    "columnsFrom": ["team_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "document_index_jobs_document_id_documents_id_fk": {
+                    "name": "document_index_jobs_document_id_documents_id_fk",
+                    "tableFrom": "document_index_jobs",
                     "tableTo": "documents",
                     "columnsFrom": ["document_id"],
                     "columnsTo": ["id"],

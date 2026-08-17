@@ -15,7 +15,7 @@ export const footerDefaults: Partial<FooterSettings> = {
                     label: "Features",
                     href: "/#features",
                 },
-                { id: generateUniqueId(), label: "Pricing", href: "#pricing" },
+                { id: generateUniqueId(), label: "Pricing", href: "/#pricing" },
                 {
                     id: generateUniqueId(),
                     label: "Changelog",

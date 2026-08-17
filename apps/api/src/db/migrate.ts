@@ -3,6 +3,7 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { db, pool } from "./client";
 
 async function main() {
+    await pool.query("CREATE EXTENSION IF NOT EXISTS vector;");
     await migrate(db, {
         migrationsFolder: process.env.MIGRATIONS_FOLDER || "./drizzle",
     });

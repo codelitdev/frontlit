@@ -18,6 +18,13 @@ interface DocumentationSuggestion {
     documentId: string;
     slug: string;
     title: string | null;
+    kind?: "blog" | "doc" | "changelog";
+}
+
+function suggestionHref(item: DocumentationSuggestion) {
+    if (item.kind === "blog") return `/blog/${item.slug}`;
+    if (item.kind === "changelog") return `/changelog`;
+    return `/docs/${item.slug}`;
 }
 
 /** Documentation deflection (architecture.md §6.4/§11.2): searches the
@@ -217,7 +224,7 @@ export function SupportFormWidget({
                                 {suggestions.map((doc) => (
                                     <li key={doc.documentId}>
                                         <a
-                                            href={`/docs/${doc.slug}`}
+                                            href={suggestionHref(doc)}
                                             target="_blank"
                                             rel="noreferrer"
                                             className="underline"

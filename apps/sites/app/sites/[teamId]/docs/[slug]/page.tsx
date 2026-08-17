@@ -1,12 +1,14 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { notFound } from "next/navigation";
-import { TextRenderer } from "@frontlit/text-editor";
 import { extractDocHeadings } from "@/lib/extract-doc-headings";
 import { getDocumentationBySlug, getSettings } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
 import { getCanonicalHost } from "@/lib/request-host";
 import { serializeJsonLd, techArticleJsonLd } from "@/lib/json-ld";
+import { API_PUBLIC_URL } from "@/lib/config";
 import { SiteChrome } from "@/components/site-chrome";
+import { ThemedDocArticle } from "@/components/themed-docs";
+import { collectionHref, loadDocsTree } from "@/lib/docs-tree";
 
 interface Props {
     params: Promise<{ teamId: string; slug: string }>;
@@ -51,70 +53,65 @@ export async function generateMetadata(
 
 export default async function DocPage({ params }: Props) {
     const { teamId, slug } = await params;
-    const doc = await getDocumentationBySlug(teamId, slug);
+    const [doc, collections] = await Promise.all([
+        getDocumentationBySlug(teamId, slug),
+        loadDocsTree(teamId),
+    ]);
     if (!doc) notFound();
 
     const canonicalHost = await getCanonicalHost();
     const headings = doc.content ? extractDocHeadings(doc.content) : [];
+    const collection =
+        collections.find((item) =>
+            item.items.some((entry) => entry.slug === slug),
+        ) ?? null;
+    const collectionUrl = collection ? collectionHref(collection) : null;
 
     return (
         <SiteChrome teamId={teamId}>
-            <main className="mx-auto max-w-5xl px-6 py-16">
-                <script
-                    type="application/ld+json"
-                    // eslint-disable-next-line react/no-danger
-                    dangerouslySetInnerHTML={{
-                        __html: serializeJsonLd(
-                            techArticleJsonLd({
-                                title: doc.title ?? slug,
-                                excerpt: doc.excerpt,
-                                publishedAt: doc.publishedAt,
-                                updatedAt: doc.updatedAt,
-                                url: `https://${canonicalHost}/docs/${slug}`,
-                                breadcrumb: [
-                                    {
-                                        name: "Docs",
-                                        url: `https://${canonicalHost}/docs`,
-                                    },
-                                    {
-                                        name: doc.title ?? slug,
-                                        url: `https://${canonicalHost}/docs/${slug}`,
-                                    },
-                                ],
-                            }),
-                        ),
-                    }}
-                />
-                <div className="grid gap-10 lg:grid-cols-[1fr_220px]">
-                    <article>
-                        <h1 className="text-3xl font-bold">{doc.title}</h1>
-                        {doc.content && (
-                            <div className="prose mt-8 max-w-none">
-                                <TextRenderer json={doc.content} />
-                            </div>
-                        )}
-                    </article>
-                    {headings.length > 0 && (
-                        <nav className="hidden lg:block">
-                            <p className="text-sm font-semibold text-muted-foreground">
-                                On this page
-                            </p>
-                            <ul className="mt-3 flex flex-col gap-2 text-sm">
-                                {headings.map((heading) => (
-                                    <li key={heading.id}>
-                                        <a
-                                            href={`#${heading.id}`}
-                                            className="text-muted-foreground hover:text-foreground hover:underline"
-                                        >
-                                            {heading.text}
-                                        </a>
-                                    </li>
-                                ))}
-                            </ul>
-                        </nav>
-                    )}
-                </div>
-            </main>
+            <script
+                type="application/ld+json"
+                // eslint-disable-next-line react/no-danger
+                dangerouslySetInnerHTML={{
+                    __html: serializeJsonLd(
+                        techArticleJsonLd({
+                            title: doc.title ?? slug,
+                            excerpt: doc.excerpt,
+                            publishedAt: doc.publishedAt,
+                            updatedAt: doc.updatedAt,
+                            url: `https://${canonicalHost}/docs/${slug}`,
+                            breadcrumb: [
+                                {
+                                    name: "Help Center",
+                                    url: `https://${canonicalHost}/docs`,
+                                },
+                                ...(collection && collectionUrl
+                                    ? [
+                                          {
+                                              name: collection.name,
+                                              url: `https://${canonicalHost}${collectionUrl}`,
+                                          },
+                                      ]
+                                    : []),
+                                {
+                                    name: doc.title ?? slug,
+                                    url: `https://${canonicalHost}/docs/${slug}`,
+                                },
+                            ],
+                        }),
+                    ),
+                }}
+            />
+            <ThemedDocArticle
+                title={doc.title}
+                content={doc.content}
+                headings={headings}
+                collections={collections}
+                currentSlug={slug}
+                collection={collection}
+                teamId={teamId}
+                publicApiBaseUrl={API_PUBLIC_URL}
+            />
         </SiteChrome>
     );
 }

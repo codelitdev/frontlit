@@ -6,6 +6,8 @@ import type {
 } from "@frontlit/api-contract";
 import { db } from "../db/client";
 import { aiSettings } from "../db/schema";
+import { enqueuePublishedDocsForTeam } from "../documentation/index-jobs";
+import { deleteChunksForTeamKind } from "../documentation/queries";
 import { decryptSecret, encryptSecret } from "../utils/crypto";
 
 type AiSettingsRow = typeof aiSettings.$inferSelect;
@@ -22,6 +24,7 @@ export type PublicAiConfig = {
         endpoint: string | null;
         hasApiKey: boolean;
     } | null;
+    indexContent: { articles: boolean; changelog: boolean };
     createdAt: Date;
     updatedAt: Date;
 };
@@ -76,6 +79,10 @@ function toPublic(row: AiSettingsRow): PublicAiConfig {
                   hasApiKey: Boolean(row.encryptedEmbeddingApiKey),
               }
             : null,
+        indexContent: {
+            articles: row.indexArticles,
+            changelog: row.indexChangelog,
+        },
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     };
@@ -166,6 +173,7 @@ export async function upsertAiConfig(
             deployment?: string;
             endpoint?: string;
         };
+        indexContent?: { articles?: boolean; changelog?: boolean };
     },
 ): Promise<PublicAiConfig> {
     const existing = await db.query.aiSettings.findFirst({
@@ -217,10 +225,23 @@ export async function upsertAiConfig(
                                 : {}),
                       }
                     : {}),
+                ...(input.indexContent?.articles !== undefined
+                    ? { indexArticles: input.indexContent.articles }
+                    : {}),
+                ...(input.indexContent?.changelog !== undefined
+                    ? { indexChangelog: input.indexContent.changelog }
+                    : {}),
                 updatedAt: new Date(),
             })
             .where(eq(aiSettings.id, existing.id))
             .returning();
+        if (existing.indexArticles && !updated.indexArticles) {
+            await deleteChunksForTeamKind(teamId, "blog");
+        }
+        if (existing.indexChangelog && !updated.indexChangelog) {
+            await deleteChunksForTeamKind(teamId, "changelog");
+        }
+        await enqueuePublishedDocsForTeam(teamId);
         return toPublic(updated);
     }
 
@@ -238,11 +259,17 @@ export async function upsertAiConfig(
             encryptedEmbeddingApiKey: encryptedEmbeddingApiKey ?? null,
             embeddingDeployment: input.embedding?.deployment || null,
             embeddingEndpoint: input.embedding?.endpoint || null,
+            indexArticles: input.indexContent?.articles ?? false,
+            indexChangelog: input.indexContent?.changelog ?? false,
         })
         .returning();
+    await enqueuePublishedDocsForTeam(teamId);
     return toPublic(created);
 }
 
 export async function deleteAiConfig(teamId: string) {
+    await deleteChunksForTeamKind(teamId, "blog");
+    await deleteChunksForTeamKind(teamId, "changelog");
     await db.delete(aiSettings).where(eq(aiSettings.teamId, teamId));
+    await enqueuePublishedDocsForTeam(teamId);
 }

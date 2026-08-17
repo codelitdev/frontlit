@@ -5,6 +5,7 @@ import { Editor } from "@frontlit/text-editor";
 import type { TextEditorContent } from "@frontlit/text-editor";
 import {
     discardArticleDraft,
+    getAiConfig,
     getArticle,
     publishArticle,
     updateArticle,
@@ -18,6 +19,7 @@ import { Input } from "@/components/ui/codelit/input";
 import { Label } from "@/components/ui/codelit/label";
 import { Textarea } from "@/components/ui/codelit/textarea";
 import { parseTags } from "@/lib/writing-editor";
+import { ContentIndexSettings } from "@/components/workspace/content-index-settings";
 
 export default function ArticleEditor({
     params,
@@ -33,6 +35,7 @@ export default function ArticleEditor({
     const [publishing, setPublishing] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [resetKey, setResetKey] = useState(0);
+    const [teamIndexesArticles, setTeamIndexesArticles] = useState(false);
     const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const descriptionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
         null,
@@ -47,6 +50,11 @@ export default function ArticleEditor({
             setDescription(loaded.draftExcerpt ?? "");
             setTags(loaded.draftMeta.tags.join(", "));
         });
+        getAiConfig()
+            .then((config) =>
+                setTeamIndexesArticles(Boolean(config?.indexContent?.articles)),
+            )
+            .catch(() => setTeamIndexesArticles(false));
     }, [documentId]);
 
     useEffect(
@@ -59,6 +67,16 @@ export default function ArticleEditor({
         },
         [],
     );
+
+    useEffect(() => {
+        if (!teamIndexesArticles || post?.index?.state !== "pending") return;
+        const timer = window.setInterval(() => {
+            getArticle(documentId)
+                .then(setPost)
+                .catch(() => {});
+        }, 2000);
+        return () => window.clearInterval(timer);
+    }, [documentId, teamIndexesArticles, post?.index?.state]);
 
     async function saveTitle(value: string) {
         setSaving(true);
@@ -104,6 +122,19 @@ export default function ArticleEditor({
                 setSaving(false);
             }
         }, 600);
+    }
+
+    async function handleIndexableChange(indexable: boolean) {
+        setSaving(true);
+        try {
+            setPost(
+                await updateArticle(documentId, {
+                    meta: { tags: parseTags(tags), indexable },
+                }),
+            );
+        } finally {
+            setSaving(false);
+        }
     }
 
     async function handleContentChange(json: TextEditorContent) {
@@ -160,6 +191,7 @@ export default function ArticleEditor({
             title={title || "Untitled article"}
             status={post.status}
             statusTestId="blog-status-badge"
+            index={teamIndexesArticles ? post.index : null}
             updatedAt={post.updatedAt}
             saving={saving}
             publishing={publishing}
@@ -210,6 +242,16 @@ export default function ArticleEditor({
                             Separate tags with commas.
                         </p>
                     </div>
+
+                    {teamIndexesArticles && (
+                        <ContentIndexSettings
+                            checked={post.draftMeta.indexable !== false}
+                            disabled={saving || publishing}
+                            onCheckedChange={(checked) =>
+                                void handleIndexableChange(checked)
+                            }
+                        />
+                    )}
 
                     <div className="border-t pt-6">
                         <h3 className="text-sm font-semibold">Publishing</h3>

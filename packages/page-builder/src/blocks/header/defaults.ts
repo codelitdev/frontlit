@@ -6,10 +6,11 @@ export const headerDefaults: Partial<HeaderSettings> = {
     links: [
         { id: generateUniqueId(), label: "Features", href: "/#features" },
         { id: generateUniqueId(), label: "Pricing", href: "/#pricing" },
+        { id: generateUniqueId(), label: "Docs", href: "/docs" },
         { id: generateUniqueId(), label: "Blog", href: "/blog" },
     ],
     ctaLabel: "Get started",
-    ctaHref: "#",
+    ctaHref: "/help",
     linkAlignment: "left",
     layout: "fixed",
     backdropBlur: false,

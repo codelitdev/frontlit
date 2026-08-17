@@ -17,6 +17,10 @@ import {
     updateDocument,
 } from "./queries";
 import { omitInternal, serializeDates } from "../utils/public";
+import {
+    attachDocumentIndex,
+    attachOneDocumentIndex,
+} from "../documentation/index-status";
 import { findTeamById } from "../team/queries";
 import { revalidateTeam } from "../services/revalidate";
 import { InvalidSlugError, SlugConflictError } from "../utils/slug";
@@ -60,7 +64,12 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
                     teamId: req.teamId,
                     ...body,
                 });
-                return { status: 201, body: toPublicDocument(doc) };
+                return {
+                    status: 201,
+                    body: toPublicDocument(
+                        await attachOneDocumentIndex(kind, doc),
+                    ),
+                };
             },
             list: async ({ query, req }: any) => {
                 const teamId = req.teamId;
@@ -76,7 +85,9 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
                 return {
                     status: 200,
                     body: {
-                        items: items.map((item: any) => toPublicDocument(item)),
+                        items: (await attachDocumentIndex(kind, items)).map(
+                            (item: any) => toPublicDocument(item),
+                        ),
                         total,
                     },
                 };
@@ -88,7 +99,12 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
                 );
                 if (!doc || doc.teamId !== req.teamId)
                     return { status: 404, body: { error: "Not found" } };
-                return { status: 200, body: toPublicDocument(doc) };
+                return {
+                    status: 200,
+                    body: toPublicDocument(
+                        await attachOneDocumentIndex(kind, doc),
+                    ),
+                };
             },
             update: async ({ params, body, req }: any) => {
                 try {
@@ -104,7 +120,12 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
                         const team = await findTeamById(req.teamId);
                         if (team) revalidateTeam(team.teamId).catch(() => {});
                     }
-                    return { status: 200, body: toPublicDocument(doc) };
+                    return {
+                        status: 200,
+                        body: toPublicDocument(
+                            await attachOneDocumentIndex(kind, doc),
+                        ),
+                    };
                 } catch (error) {
                     if (error instanceof InvalidSlugError) {
                         return { status: 400, body: { error: error.message } };
@@ -124,7 +145,12 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
                 if (!doc) return { status: 404, body: { error: "Not found" } };
                 const team = await findTeamById(req.teamId);
                 if (team) revalidateTeam(team.teamId).catch(() => {});
-                return { status: 200, body: toPublicDocument(doc) };
+                return {
+                    status: 200,
+                    body: toPublicDocument(
+                        await attachOneDocumentIndex(kind, doc),
+                    ),
+                };
             },
             discardDraft: async ({ params, req }: any) => {
                 const doc = await discardDocumentDraft(
@@ -133,7 +159,12 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
                     params.documentId,
                 );
                 if (!doc) return { status: 404, body: { error: "Not found" } };
-                return { status: 200, body: toPublicDocument(doc) };
+                return {
+                    status: 200,
+                    body: toPublicDocument(
+                        await attachOneDocumentIndex(kind, doc),
+                    ),
+                };
             },
             remove: async ({ params, req }: any) => {
                 const result = await deleteDocument(

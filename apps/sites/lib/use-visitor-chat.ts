@@ -10,6 +10,7 @@ export interface ChatSource {
     slug: string;
     title: string | null;
     anchor: string | null;
+    kind?: "blog" | "doc" | "changelog";
 }
 
 export interface ChatMessage {

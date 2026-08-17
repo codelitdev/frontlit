@@ -494,12 +494,14 @@ export type DocumentStatus = "draft" | "published" | "published_with_changes";
 
 export interface ArticleMeta {
     tags: string[];
+    indexable?: boolean;
 }
 
 export interface Article {
     documentId: string;
     slug: string;
     status: DocumentStatus;
+    index?: DocumentationIndex | null;
     publishedAt?: string | null;
     title?: string | null;
     content?: TextEditorContent | null;
@@ -575,12 +577,22 @@ export function deleteArticle(documentId: string) {
 export interface DocumentationMeta {
     sectionId?: string;
     order: number;
+    indexable?: boolean;
+}
+
+export type DocumentationIndexState =
+    "pending" | "indexed" | "failed" | "excluded";
+
+export interface DocumentationIndex {
+    state: DocumentationIndexState;
+    lastError?: string | null;
 }
 
 export interface DocumentationPage {
     documentId: string;
     slug: string;
     status: DocumentStatus;
+    index?: DocumentationIndex | null;
     publishedAt?: string | null;
     title?: string | null;
     content?: TextEditorContent | null;
@@ -706,6 +718,7 @@ export interface DocumentationSearchResult {
     anchor: string | null;
     content: string;
     similarity: number;
+    kind?: "blog" | "doc" | "changelog";
 }
 
 export function searchDocumentation(q: string, k?: number) {
@@ -721,12 +734,14 @@ export interface ProductUpdateMeta {
     labels: string[];
     releaseDate?: string;
     github?: { releaseId: number; releaseUrl: string; tagName: string };
+    indexable?: boolean;
 }
 
 export interface ProductUpdate {
     documentId: string;
     slug: string;
     status: DocumentStatus;
+    index?: DocumentationIndex | null;
     publishedAt?: string | null;
     title?: string | null;
     content?: TextEditorContent | null;
@@ -1106,6 +1121,11 @@ export interface EmbeddingConfig {
     hasApiKey: boolean;
 }
 
+export interface AiIndexContent {
+    articles: boolean;
+    changelog: boolean;
+}
+
 export interface AiConfig {
     provider: AiProvider;
     models: AiModelSettings;
@@ -1113,6 +1133,7 @@ export interface AiConfig {
     endpoint: string | null;
     hasApiKey: boolean;
     embedding: EmbeddingConfig | null;
+    indexContent: AiIndexContent;
     createdAt: string | null;
     updatedAt: string | null;
 }
@@ -1134,6 +1155,7 @@ export function updateAiConfig(input: {
         deployment?: string;
         endpoint?: string;
     };
+    indexContent?: Partial<AiIndexContent>;
 }) {
     return unwrap<AiConfig>(client.ai.update({ body: input }));
 }
@@ -1247,6 +1269,7 @@ export interface TicketMessageSource {
     slug: string;
     title: string | null;
     anchor: string | null;
+    kind?: "blog" | "doc" | "changelog";
 }
 
 export interface TicketMessage {
@@ -1267,6 +1290,7 @@ export interface Ticket {
     requesterName?: string | null;
     source: TicketSource;
     assigneeAccountId?: string | null;
+    aiState?: "idle" | "generating" | "waiting" | "escalated" | "taken_over";
     lastMessageAt: string | null;
     createdAt: string | null;
     updatedAt: string | null;
@@ -1279,6 +1303,7 @@ export interface TicketAiRetrieval {
     heading?: string | null;
     anchor: string | null;
     similarity?: number;
+    kind?: "blog" | "doc" | "changelog";
 }
 
 export interface TicketAiRun {

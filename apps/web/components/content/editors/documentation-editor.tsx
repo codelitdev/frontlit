@@ -17,6 +17,7 @@ import { SlugEditor } from "@/components/workspace/slug-editor";
 import { WritingEditorDocumentHeader } from "@/components/workspace/writing-editor-document-header";
 import { WritingEditorShell } from "@/components/workspace/writing-editor-shell";
 import { Label } from "@/components/ui/codelit/label";
+import { Switch } from "@/components/ui/codelit/switch";
 import {
     Select,
     SelectContent,
@@ -56,6 +57,16 @@ export default function DocumentationEditor({
         });
         listDocumentationSections().then(({ items }) => setSections(items));
     }, [documentId]);
+
+    useEffect(() => {
+        if (doc?.index?.state !== "pending") return;
+        const timer = window.setInterval(() => {
+            getDocumentationPage(documentId)
+                .then((loaded) => setDoc(loaded))
+                .catch(() => {});
+        }, 2000);
+        return () => window.clearInterval(timer);
+    }, [documentId, doc?.index?.state]);
 
     useEffect(
         () => () => {
@@ -153,6 +164,23 @@ export default function DocumentationEditor({
         }
     }
 
+    async function handleIndexableChange(indexable: boolean) {
+        setSaving(true);
+        try {
+            setDoc(
+                await updateDocumentationPage(documentId, {
+                    meta: {
+                        sectionId: doc?.draftMeta.sectionId,
+                        order: doc?.draftMeta.order ?? 0,
+                        indexable,
+                    },
+                }),
+            );
+        } finally {
+            setSaving(false);
+        }
+    }
+
     async function handleSlugSave(slug: string) {
         const updated = await updateDocumentationPage(documentId, { slug });
         setDoc(updated);
@@ -175,10 +203,11 @@ export default function DocumentationEditor({
             title={title || "Untitled doc"}
             status={doc.status}
             statusTestId="doc-status-badge"
+            index={doc.index}
             updatedAt={doc.updatedAt}
             saving={saving}
             publishing={publishing}
-            publishingLabel="Publishing & indexing…"
+            publishingLabel="Publishing…"
             settingsOpen={settingsOpen}
             onSettingsOpenChange={setSettingsOpen}
             onPublish={handlePublish}
@@ -243,13 +272,26 @@ export default function DocumentationEditor({
                     </div>
 
                     <div className="border-t pt-6">
-                        <h3 className="text-sm font-semibold">
-                            Search indexing
-                        </h3>
-                        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                            This doc is chunked and indexed for semantic search
-                            every time you publish it.
-                        </p>
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <Label htmlFor="doc-indexable">
+                                    Include in search and chatbot
+                                </Label>
+                                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                                    When on, the published page is chunked for
+                                    site search and AI answers. Turn off to keep
+                                    the page live but out of retrieval.
+                                </p>
+                            </div>
+                            <Switch
+                                id="doc-indexable"
+                                checked={doc.draftMeta.indexable !== false}
+                                disabled={saving || publishing}
+                                onCheckedChange={(checked) =>
+                                    void handleIndexableChange(checked)
+                                }
+                            />
+                        </div>
                     </div>
                 </div>
             }

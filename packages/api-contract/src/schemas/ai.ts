@@ -74,6 +74,12 @@ const embeddingConfigSchema = z.object({
     hasApiKey: z.boolean(),
 });
 
+export const aiIndexContentSchema = z.object({
+    articles: z.boolean(),
+    changelog: z.boolean(),
+});
+export type AiIndexContent = z.infer<typeof aiIndexContentSchema>;
+
 /** Credentials are write-only. The API only reports whether one is stored. */
 export const aiConfigSchema = z.object({
     provider: aiProviderSchema,
@@ -82,6 +88,7 @@ export const aiConfigSchema = z.object({
     endpoint: z.string().nullable(),
     hasApiKey: z.boolean(),
     embedding: embeddingConfigSchema.nullable(),
+    indexContent: aiIndexContentSchema,
     createdAt: z.string().nullable(),
     updatedAt: z.string().nullable(),
 });
@@ -115,6 +122,7 @@ export const updateAiConfigBodySchema = z
                 endpoint: z.string().url().max(500).optional(),
             })
             .optional(),
+        indexContent: aiIndexContentSchema.partial().optional(),
     })
     .superRefine((value, ctx) => {
         if (value.provider === "bedrock" && !value.region?.trim()) {

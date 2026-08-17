@@ -253,6 +253,7 @@ describe("runInboxAi", () => {
                 anchor: null,
                 content: "Plans start at $10.",
                 similarity: 0.9,
+                kind: "doc",
             },
             {
                 documentId: "d2",
@@ -262,6 +263,7 @@ describe("runInboxAi", () => {
                 anchor: "policy",
                 content: "Refunds take 5 days.",
                 similarity: 0.8,
+                kind: "doc",
             },
         ]);
         vi.mocked(generateInboxAnswer).mockResolvedValue({
@@ -280,6 +282,7 @@ describe("runInboxAi", () => {
                     anchor: null,
                     content: "Plans start at $10.",
                     similarity: 0.9,
+                    kind: "doc",
                 },
                 {
                     documentId: "d2",
@@ -289,6 +292,7 @@ describe("runInboxAi", () => {
                     anchor: "policy",
                     content: "Refunds take 5 days.",
                     similarity: 0.8,
+                    kind: "doc",
                 },
             ],
         });
@@ -315,6 +319,7 @@ describe("runInboxAi", () => {
                 slug: "refunds",
                 title: "Refunds",
                 anchor: "policy",
+                kind: "doc",
             },
         ]);
         const bot = (await getTicketMessages(created.ticket.id)).find(

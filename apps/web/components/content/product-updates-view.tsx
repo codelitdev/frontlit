@@ -21,6 +21,7 @@ import { Loading } from "@/components/workspace/loading";
 import { ScrollablePage } from "@/components/workspace/scrollable-page";
 import { DeleteConfirm } from "@/components/workspace/delete-confirm";
 import { DocumentStatusBadge } from "@/components/workspace/document-status-badge";
+import { DocumentIndexBadge } from "@/components/workspace/document-index-badge";
 import { Button } from "@/components/ui/codelit/button";
 import { Input } from "@/components/ui/codelit/input";
 import { Label } from "@/components/ui/codelit/label";
@@ -229,6 +230,9 @@ export default function ChangelogPage() {
                                             )}
                                             <DocumentStatusBadge
                                                 status={entry.status}
+                                            />
+                                            <DocumentIndexBadge
+                                                index={entry.index}
                                             />
                                         </div>
                                         <p className="text-xs text-muted-foreground">

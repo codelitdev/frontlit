@@ -41,6 +41,10 @@ export const ticketSchema = z.object({
     requesterName: z.string().nullable().optional(),
     source: ticketSourceSchema,
     assigneeAccountId: z.string().nullable().optional(),
+    /** Present on workspace inbox reads so the list can split escalated vs agent. */
+    aiState: z
+        .enum(["idle", "generating", "waiting", "escalated", "taken_over"])
+        .optional(),
     lastMessageAt: z.string().nullable(),
     createdAt: z.string().nullable(),
     updatedAt: z.string().nullable(),
@@ -53,6 +57,7 @@ export const ticketAiRetrievalSchema = z.object({
     heading: z.string().nullable().optional(),
     anchor: z.string().nullable(),
     similarity: z.number().optional(),
+    kind: z.enum(["blog", "doc", "changelog"]).optional(),
 });
 
 export const ticketAiRunSchema = z.object({

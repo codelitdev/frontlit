@@ -16,9 +16,20 @@ export const productUpdateMetaSchema = z.object({
             tagName: z.string(),
         })
         .optional(),
+    indexable: z.boolean().optional(),
 });
 
-export const productUpdateSchema = makeDocumentSchema(productUpdateMetaSchema);
+export const productUpdateSchema = makeDocumentSchema(
+    productUpdateMetaSchema,
+).extend({
+    index: z
+        .object({
+            state: z.enum(["pending", "indexed", "failed", "excluded"]),
+            lastError: z.string().nullable().optional(),
+        })
+        .nullable()
+        .optional(),
+});
 export const createProductUpdateBodySchema = makeCreateDocumentBodySchema(
     productUpdateMetaSchema,
 );

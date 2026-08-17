@@ -3,6 +3,7 @@
 import { PageRenderer } from "@frontlit/page-builder/renderer";
 import type { PageData, WidgetInstance } from "@frontlit/page-builder/models";
 import { resolveSiteTheme } from "@/lib/site-theme";
+import { SiteThemeProvider } from "@/lib/site-theme-context";
 
 /**
  * Thin client wrapper around `PageRenderer`. Theme resolution lives in
@@ -34,17 +35,19 @@ export function SitePageRenderer({
 }) {
     const theme = resolveSiteTheme(themeId, themeStyle);
     return (
-        <PageRenderer
-            layout={layout}
-            theme={theme}
-            pageData={{
-                ...pageData,
-                ...(siteLogoUrl ? { siteLogoUrl } : {}),
-                ...(siteLogoAlt ? { siteLogoAlt } : {}),
-            }}
-            dataSlots={dataSlots}
-        >
-            {children}
-        </PageRenderer>
+        <SiteThemeProvider theme={theme}>
+            <PageRenderer
+                layout={layout}
+                theme={theme}
+                pageData={{
+                    ...pageData,
+                    ...(siteLogoUrl ? { siteLogoUrl } : {}),
+                    ...(siteLogoAlt ? { siteLogoAlt } : {}),
+                }}
+                dataSlots={dataSlots}
+            >
+                {children}
+            </PageRenderer>
+        </SiteThemeProvider>
     );
 }

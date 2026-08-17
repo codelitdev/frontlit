@@ -11,12 +11,16 @@ import {
 import {
     Bot,
     Check,
+    ChevronLeft,
+    CircleCheck,
     Clock3,
     Inbox,
     Loader2,
+    type LucideIcon,
     Paperclip,
     Search,
     Send,
+    Siren,
     X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -25,6 +29,7 @@ import type { TextEditorContent } from "@frontlit/text-editor";
 import {
     completeTicketAttachment,
     getChatbotSettings,
+    getInboxAiSettings,
     getTicket,
     listTickets,
     replyToTicket,
@@ -40,14 +45,27 @@ import { useMediaLit } from "@/lib/use-medialit";
 import { ApiError } from "@/lib/api-client";
 import { useInboxLive } from "@/lib/use-inbox-live";
 import { Button } from "@/components/ui/codelit/button";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/codelit/tooltip";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
 import { useWorkspaceAccess } from "@/components/workspace/workspace-access";
 import { cn } from "@/lib/utils";
+import { workspaceContentPath } from "@frontlit/api-contract";
 
-type InboxFilter = "open" | "done";
+type InboxFilter = "open" | "escalated" | "agent" | "closed";
 
-function isOpen(status: TicketStatus) {
-    return status === "open" || status === "pending";
+function isClosed(status: TicketStatus) {
+    return status === "resolved" || status === "closed";
+}
+
+function ticketQueue(ticket: Ticket, splitAiQueues: boolean): InboxFilter {
+    if (isClosed(ticket.status)) return "closed";
+    if (!splitAiQueues) return "open";
+    if (ticket.aiState === "escalated") return "escalated";
+    return "agent";
 }
 
 function requesterLabel(ticket: Ticket) {
@@ -165,7 +183,10 @@ function TicketAiPanel({ ai }: { ai: TicketAiOptics }) {
                                         key={`${hit.documentId}-${hit.anchor ?? ""}-${index}`}
                                     >
                                         <a
-                                            href={`/editor/content/documentation/${hit.documentId}`}
+                                            href={workspaceContentPath(
+                                                hit.kind,
+                                                hit.documentId,
+                                            )}
                                             className="text-primary underline-offset-2 hover:underline"
                                         >
                                             {hit.title ?? hit.slug}
@@ -213,7 +234,10 @@ function MessageCitations({ sources }: { sources?: TicketMessage["sources"] }) {
                 {unique.map((source, index) => (
                     <li key={source.documentId}>
                         <a
-                            href={`/editor/content/documentation/${source.documentId}`}
+                            href={workspaceContentPath(
+                                source.kind,
+                                source.documentId,
+                            )}
                             className="text-primary underline-offset-2 hover:underline"
                         >
                             [{index + 1}] {source.title ?? source.slug}
@@ -289,6 +313,7 @@ export default function InboxPage() {
 
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [filter, setFilter] = useState<InboxFilter>("open");
+    const [aiQueues, setAiQueues] = useState(false);
     const [query, setQuery] = useState("");
     const [selectedTicketId, setSelectedTicketId] = useState<string | null>(
         null,
@@ -302,8 +327,10 @@ export default function InboxPage() {
     const [updating, setUpdating] = useState(false);
     const [assistantName, setAssistantName] = useState("Assistant");
     const threadRef = useRef<HTMLDivElement>(null);
+    const inboxRef = useRef<HTMLDivElement>(null);
     const stickToBottomRef = useRef(true);
     const lastThreadIdRef = useRef<string | null>(null);
+    const [narrowInbox, setNarrowInbox] = useState(false);
     const [pendingFiles, setPendingFiles] = useState<TicketAttachment[]>([]);
     const [attaching, setAttaching] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -339,6 +366,16 @@ export default function InboxPage() {
     }, [selectedTicketId]);
 
     useEffect(() => {
+        const el = inboxRef.current;
+        if (!el) return;
+        const update = () => setNarrowInbox(el.clientWidth < 672);
+        update();
+        const observer = new ResizeObserver(update);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
+
+    useEffect(() => {
         getChatbotSettings()
             .then((settings) => {
                 if (settings.name.trim())
@@ -346,6 +383,34 @@ export default function InboxPage() {
             })
             .catch(() => {});
     }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        getInboxAiSettings()
+            .then((settings) => {
+                if (cancelled) return;
+                const autoReplyOn = Boolean(
+                    settings.channels.chatbot?.autoReply ||
+                    settings.channels.tickets?.autoReply,
+                );
+                setAiQueues(settings.aiConfigured && autoReplyOn);
+            })
+            .catch(() => {
+                if (!cancelled) setAiQueues(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [currentTeamId]);
+
+    useEffect(() => {
+        if (!aiQueues && (filter === "agent" || filter === "escalated")) {
+            setFilter("open");
+        }
+        if (aiQueues && filter === "open") {
+            setFilter("escalated");
+        }
+    }, [aiQueues, filter]);
 
     const onLiveUpdate = useCallback(
         (ticketId: string) => {
@@ -384,12 +449,7 @@ export default function InboxPage() {
     const visibleTickets = useMemo(() => {
         const normalizedQuery = query.trim().toLocaleLowerCase();
         return tickets.filter((ticket) => {
-            if (
-                filter === "open"
-                    ? !isOpen(ticket.status)
-                    : isOpen(ticket.status)
-            )
-                return false;
+            if (ticketQueue(ticket, aiQueues) !== filter) return false;
             if (!normalizedQuery) return true;
             return [
                 ticket.subject,
@@ -402,17 +462,19 @@ export default function InboxPage() {
                     value!.toLocaleLowerCase().includes(normalizedQuery),
                 );
         });
-    }, [filter, query, tickets]);
+    }, [aiQueues, filter, query, tickets]);
 
     useEffect(() => {
-        if (
-            !visibleTickets.some(
-                (ticket) => ticket.ticketId === selectedTicketId,
-            )
-        ) {
-            setSelectedTicketId(visibleTickets[0]?.ticketId ?? null);
+        const inQueue = visibleTickets.some(
+            (ticket) => ticket.ticketId === selectedTicketId,
+        );
+        if (inQueue) return;
+        if (narrowInbox) {
+            setSelectedTicketId(null);
+            return;
         }
-    }, [selectedTicketId, visibleTickets]);
+        setSelectedTicketId(visibleTickets[0]?.ticketId ?? null);
+    }, [narrowInbox, selectedTicketId, visibleTickets]);
 
     useEffect(() => {
         if (!selectedTicketId) {
@@ -544,39 +606,111 @@ export default function InboxPage() {
         }
     }
 
-    const openCount = tickets.filter((ticket) => isOpen(ticket.status)).length;
+    const queueCounts = {
+        open: tickets.filter(
+            (ticket) => ticketQueue(ticket, aiQueues) === "open",
+        ).length,
+        escalated: tickets.filter(
+            (ticket) => ticketQueue(ticket, aiQueues) === "escalated",
+        ).length,
+        agent: tickets.filter(
+            (ticket) => ticketQueue(ticket, aiQueues) === "agent",
+        ).length,
+        closed: tickets.filter(
+            (ticket) => ticketQueue(ticket, aiQueues) === "closed",
+        ).length,
+    };
+
+    const queueTabs: {
+        value: InboxFilter;
+        label: string;
+        icon: LucideIcon;
+        count: number;
+    }[] = (
+        aiQueues
+            ? ([
+                  ["escalated", "Escalated", Siren],
+                  ["agent", "Agent", Bot],
+                  ["closed", "Closed", CircleCheck],
+              ] as const)
+            : ([
+                  ["open", "Open", Inbox],
+                  ["closed", "Closed", CircleCheck],
+              ] as const)
+    ).map(([value, label, icon]) => ({
+        value,
+        label,
+        icon,
+        count: queueCounts[value],
+    }));
+
+    const inboxBadge = aiQueues ? queueCounts.escalated : queueCounts.open;
 
     return (
-        <div className="grid h-full min-h-0 grid-cols-[minmax(19rem,23rem)_minmax(30rem,1fr)] overflow-hidden">
-            <section className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r bg-background">
-                <div className="border-b px-5 pb-3 pt-4">
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
+        <div
+            ref={inboxRef}
+            className={cn(
+                "grid h-full min-h-0 overflow-hidden",
+                narrowInbox
+                    ? "grid-cols-1"
+                    : "grid-cols-[minmax(16rem,23rem)_minmax(0,1fr)]",
+            )}
+        >
+            <section
+                className={cn(
+                    "flex min-h-0 min-w-0 flex-col overflow-hidden border-r bg-background",
+                    narrowInbox && selectedTicketId && "hidden",
+                )}
+            >
+                <div className="border-b px-4 pb-3 pt-4 sm:px-5">
+                    <div className="flex min-w-0 items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-2">
                             <h1 className="text-2xl font-semibold tracking-tight">
                                 Inbox
                             </h1>
-                            {openCount > 0 && (
+                            {inboxBadge > 0 && (
                                 <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">
-                                    {openCount}
+                                    {inboxBadge}
                                 </span>
                             )}
                         </div>
-                        <div className="flex rounded-lg bg-muted p-1 text-sm">
-                            {(["open", "done"] as const).map((value) => (
-                                <button
-                                    key={value}
-                                    type="button"
-                                    onClick={() => setFilter(value)}
-                                    className={cn(
-                                        "rounded-md px-3 py-1.5 capitalize transition-colors",
-                                        filter === value
-                                            ? "bg-background font-medium shadow-sm"
-                                            : "text-muted-foreground hover:text-foreground",
-                                    )}
-                                >
-                                    {value}
-                                </button>
-                            ))}
+                        <div
+                            role="tablist"
+                            aria-label="Inbox queues"
+                            className="flex shrink-0 rounded-lg bg-muted p-1"
+                        >
+                            {queueTabs.map(
+                                ({ value, label, icon: Icon, count }) => (
+                                    <Tooltip key={value}>
+                                        <TooltipTrigger asChild>
+                                            <button
+                                                type="button"
+                                                role="tab"
+                                                aria-label={`${label}${count > 0 ? `, ${count}` : ""}`}
+                                                aria-selected={filter === value}
+                                                onClick={() => setFilter(value)}
+                                                className={cn(
+                                                    "inline-flex items-center gap-1 rounded-md px-2 py-1.5 transition-colors",
+                                                    filter === value
+                                                        ? "bg-background text-foreground shadow-sm"
+                                                        : "text-muted-foreground hover:text-foreground",
+                                                )}
+                                            >
+                                                <Icon
+                                                    className="size-4 shrink-0"
+                                                    aria-hidden
+                                                />
+                                                <span className="min-w-4 text-right text-[11px] leading-none tabular-nums">
+                                                    {count}
+                                                </span>
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom">
+                                            {label}
+                                        </TooltipContent>
+                                    </Tooltip>
+                                ),
+                            )}
                         </div>
                     </div>
                     <label className="mt-4 flex h-11 items-center gap-2 rounded-lg border bg-background px-3 focus-within:ring-2 focus-within:ring-ring/40">
@@ -599,14 +733,24 @@ export default function InboxPage() {
                         <div className="flex h-full min-h-56 flex-col items-center justify-center px-8 text-center">
                             <Inbox className="mb-3 size-8 text-muted-foreground/60" />
                             <p className="font-medium">
-                                No {filter} conversations
+                                {filter === "escalated"
+                                    ? "No escalated conversations"
+                                    : filter === "agent"
+                                      ? "No agent conversations"
+                                      : filter === "open"
+                                        ? "No open conversations"
+                                        : "No closed conversations"}
                             </p>
                             <p className="mt-1 text-sm text-muted-foreground">
                                 {query
                                     ? "Try a different search."
-                                    : filter === "open"
-                                      ? "New chats and support tickets will appear here."
-                                      : "Completed conversations will appear here."}
+                                    : filter === "escalated"
+                                      ? "When the bot hands a chat or ticket to a human, it shows up here."
+                                      : filter === "agent"
+                                        ? "Tickets you take over and other human-owned threads live here."
+                                        : filter === "open"
+                                          ? "New chats and tickets show up here."
+                                          : "Completed conversations will appear here."}
                             </p>
                         </div>
                     ) : (
@@ -643,11 +787,18 @@ export default function InboxPage() {
                                                 · {ticket.requesterEmail}
                                             </span>
                                         )}
-                                        {ticket.status === "pending" && (
-                                            <span className="ml-auto rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
-                                                Waiting on customer
-                                            </span>
-                                        )}
+                                        {ticket.aiState === "escalated" &&
+                                            !isClosed(ticket.status) && (
+                                                <span className="ml-auto rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                                                    Escalated
+                                                </span>
+                                            )}
+                                        {ticket.status === "pending" &&
+                                            ticket.aiState !== "escalated" && (
+                                                <span className="ml-auto rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                                                    Waiting on customer
+                                                </span>
+                                            )}
                                     </div>
                                     <p className="mt-2 truncate text-sm text-foreground/80">
                                         {ticket.subject}
@@ -659,7 +810,12 @@ export default function InboxPage() {
                 </div>
             </section>
 
-            <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-muted/20">
+            <section
+                className={cn(
+                    "flex min-h-0 min-w-0 flex-col overflow-hidden bg-muted/20",
+                    narrowInbox && !selectedTicketId && "hidden",
+                )}
+            >
                 {!selectedTicketId ? (
                     <div className="flex h-full flex-col items-center justify-center text-center">
                         <Inbox className="mb-3 size-10 text-muted-foreground/40" />
@@ -674,8 +830,23 @@ export default function InboxPage() {
                     </div>
                 ) : selectedTicket ? (
                     <>
-                        <header className="flex min-h-20 shrink-0 items-center justify-between gap-4 border-b bg-background px-7 py-3">
+                        <header className="flex min-h-20 shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-background px-4 py-3 sm:gap-4 sm:px-7">
                             <div className="flex min-w-0 items-center gap-3">
+                                {narrowInbox && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="shrink-0"
+                                        onClick={() =>
+                                            setSelectedTicketId(null)
+                                        }
+                                        aria-label="Back to inbox"
+                                    >
+                                        <ChevronLeft className="size-4" />
+                                        Inbox
+                                    </Button>
+                                )}
                                 <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
                                     {initials(requesterLabel(selectedTicket))}
                                 </div>
@@ -700,8 +871,8 @@ export default function InboxPage() {
                                     </p>
                                 </div>
                             </div>
-                            <div className="flex shrink-0 items-center gap-2">
-                                {isOpen(selectedTicket.status) ? (
+                            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                                {!isClosed(selectedTicket.status) ? (
                                     <>
                                         <Button
                                             variant="outline"

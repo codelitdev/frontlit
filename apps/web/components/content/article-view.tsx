@@ -24,6 +24,7 @@ import { Loading } from "@/components/workspace/loading";
 import { ScrollablePage } from "@/components/workspace/scrollable-page";
 import { DeleteConfirm } from "@/components/workspace/delete-confirm";
 import { DocumentStatusBadge } from "@/components/workspace/document-status-badge";
+import { DocumentIndexBadge } from "@/components/workspace/document-index-badge";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
 import { Badge } from "@/components/ui/codelit/badge";
 import { Button } from "@/components/ui/codelit/button";
@@ -277,6 +278,9 @@ export default function BlogPage() {
                                                     status={post.status}
                                                 />
                                             )}
+                                            <DocumentIndexBadge
+                                                index={post.index}
+                                            />
                                         </div>
                                         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
                                             <span className="truncate font-mono text-xs text-muted-foreground">

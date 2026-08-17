@@ -8,9 +8,22 @@ import {
 export const documentationMetaSchema = z.object({
     sectionId: z.string().optional(),
     order: z.number().default(0),
+    /** When false, the published page stays live but is not chunked for
+     * search or the chatbot. Defaults to true when omitted. */
+    indexable: z.boolean().optional(),
 });
 
-export const documentationSchema = makeDocumentSchema(documentationMetaSchema);
+export const documentationIndexSchema = z.object({
+    state: z.enum(["pending", "indexed", "failed", "excluded"]),
+    lastError: z.string().nullable().optional(),
+});
+export type DocumentationIndex = z.infer<typeof documentationIndexSchema>;
+
+export const documentationSchema = makeDocumentSchema(
+    documentationMetaSchema,
+).extend({
+    index: documentationIndexSchema.nullable().optional(),
+});
 export const createDocumentationBodySchema = makeCreateDocumentBodySchema(
     documentationMetaSchema,
 );
@@ -50,4 +63,5 @@ export const documentationSearchResultSchema = z.object({
     anchor: z.string().nullable(),
     content: z.string(),
     similarity: z.number(),
+    kind: z.enum(["blog", "doc", "changelog"]).optional(),
 });

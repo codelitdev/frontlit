@@ -63,6 +63,7 @@ export const chatSourceSchema = z.object({
     slug: z.string(),
     title: z.string().nullable(),
     anchor: z.string().nullable(),
+    kind: z.enum(["blog", "doc", "changelog"]).optional(),
 });
 
 /** What `apps/sites` needs to decide whether to mount the floating widget

@@ -597,17 +597,23 @@ On **publish** of a `doc` (never on draft saves):
 
 On unpublish/delete: delete chunks (plus FK cascade as backstop).
 
-Chunking and embedding run **inline on the publish request**, not on a
-job queue. The only Postgres-backed background jobs are the SendLit
-outbox in §10.5.
+Chunking and embedding run on a durable `document_index_jobs` queue, not
+inline on the publish request. Publish (and AI-config create/update/
+delete) enqueue one job per published document whose kind is enabled for
+indexing (docs always; articles and changelog via Settings → AI). A worker claims with a lease,
+re-chunks, embeds, and replaces `document_chunks`. Republish bumps
+`generation` so an in-flight run is discarded and the latest content is
+indexed. Existing docs published before a team configured embeddings are
+backfilled when AI settings are saved.
 
 ### 6.4 Retrieval
 
 `searchChunks(teamId, queryEmbedding, k = 6)`: cosine distance over the HNSW
 index, `WHERE team_id = …`, with a similarity floor (~0.25) to avoid feeding
-garbage to the LLM. Also reused for `/docs` search-as-you-type
-(`GET /public/:teamId/content/documentation/search?q=`) and the help desk's deflection
-suggestions (§11.2).
+garbage to the LLM. Results include the document `kind` so citations can
+link to `/docs`, `/blog`, or `/changelog`. Also reused for documentation
+search (`GET /public/:teamId/content/documentation/search?q=`) and the
+help desk's deflection suggestions (§11.2).
 
 ---
 
@@ -991,7 +997,8 @@ in-process poll loop. There is no Redis, no Bull, no generic `jobs`
 table, and no separate worker service. The same API process that serves
 HTTP also drains the queue.
 
-The outbox exists so work that **must talk to SendLit** never blocks the
+Document chunking uses a separate `document_index_jobs` queue (§6.3).
+The SendLit outbox exists so work that **must talk to SendLit** never blocks the
 request that triggered it, and so a SendLit outage does not drop that
 work. Everything else that looks async (embeddings on publish, custom-
 domain DNS verification, ticket-notification emails, GitHub release

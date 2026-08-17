@@ -12,6 +12,7 @@ import {
     type AiConfig,
     type AiModelSettings,
     type AiProvider,
+    type AiIndexContent,
     type EmbeddingProvider,
 } from "@/lib/api";
 import { Banner } from "@/components/workspace/banner";
@@ -21,6 +22,7 @@ import { PageHeader } from "@/components/workspace/page-header";
 import { ScrollablePage } from "@/components/workspace/scrollable-page";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
 import { Button } from "@/components/ui/codelit/button";
+import { Switch } from "@/components/ui/codelit/switch";
 import {
     Card,
     CardContent,
@@ -180,6 +182,11 @@ export default function AiSettingsPage() {
         useState<EmbeddingForm>(EMPTY_EMBEDDING_FORM);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [indexContent, setIndexContent] = useState<AiIndexContent>({
+        articles: false,
+        changelog: false,
+    });
+    const [savingIndex, setSavingIndex] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
 
     const selectedProvider = useMemo(
@@ -197,6 +204,12 @@ export default function AiSettingsPage() {
                     setForm(formFromConfig(result));
                     setModelForm(modelFormFromConfig(result));
                     setEmbeddingForm(embeddingFormFromConfig(result));
+                    setIndexContent(
+                        result.indexContent ?? {
+                            articles: false,
+                            changelog: false,
+                        },
+                    );
                 }
             })
             .catch((error) =>
@@ -270,6 +283,9 @@ export default function AiSettingsPage() {
             setForm(formFromConfig(updated));
             setModelForm(modelFormFromConfig(updated));
             setEmbeddingForm(embeddingFormFromConfig(updated));
+            setIndexContent(
+                updated.indexContent ?? { articles: false, changelog: false },
+            );
             toast.success("AI provider settings saved.");
         } catch (error) {
             toast.error(
@@ -280,6 +296,33 @@ export default function AiSettingsPage() {
         }
     }
 
+    async function saveIndexContent() {
+        if (!config) {
+            toast.error("Configure an AI provider before changing indexing.");
+            return;
+        }
+        setSavingIndex(true);
+        try {
+            const updated = await updateAiConfig({
+                provider: config.provider,
+                indexContent,
+            });
+            setConfig(updated);
+            setIndexContent(
+                updated.indexContent ?? { articles: false, changelog: false },
+            );
+            toast.success("Content indexing settings saved.");
+        } catch (error) {
+            toast.error(
+                error instanceof ApiError
+                    ? error.message
+                    : "Failed to save indexing settings.",
+            );
+        } finally {
+            setSavingIndex(false);
+        }
+    }
+
     async function remove() {
         try {
             await deleteAiConfig();
@@ -287,6 +330,7 @@ export default function AiSettingsPage() {
             setForm(EMPTY_FORM);
             setModelForm(defaultAiModels.openai);
             setEmbeddingForm(EMPTY_EMBEDDING_FORM);
+            setIndexContent({ articles: false, changelog: false });
             toast.success("AI provider configuration removed.");
         } catch (error) {
             toast.error(
@@ -539,6 +583,73 @@ export default function AiSettingsPage() {
                             </p>
                             <Button type="submit" disabled={saving}>
                                 {saving ? "Saving…" : "Save"}
+                            </Button>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-sm">
+                                <Sparkles className="size-4" /> Content indexing
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                                Help docs are always indexed for search and the
+                                chatbot. Turn on articles or changelog to
+                                include those too, then control each page from
+                                its editor.
+                            </p>
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <Label htmlFor="index-articles">
+                                        Index articles
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        Published blog posts can ground answers
+                                        and appear in semantic search.
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="index-articles"
+                                    checked={indexContent.articles}
+                                    disabled={!config || savingIndex}
+                                    onCheckedChange={(checked) =>
+                                        setIndexContent((current) => ({
+                                            ...current,
+                                            articles: checked,
+                                        }))
+                                    }
+                                />
+                            </div>
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <Label htmlFor="index-changelog">
+                                        Index changelog
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        Published product updates can ground
+                                        answers and appear in semantic search.
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="index-changelog"
+                                    checked={indexContent.changelog}
+                                    disabled={!config || savingIndex}
+                                    onCheckedChange={(checked) =>
+                                        setIndexContent((current) => ({
+                                            ...current,
+                                            changelog: checked,
+                                        }))
+                                    }
+                                />
+                            </div>
+                            <Button
+                                type="button"
+                                disabled={!config || savingIndex}
+                                onClick={() => void saveIndexContent()}
+                            >
+                                {savingIndex ? "Saving…" : "Save indexing"}
                             </Button>
                         </CardContent>
                     </Card>

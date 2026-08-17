@@ -28,6 +28,7 @@ export async function makeTestDb() {
     // loaded explicitly — the real dev/prod Postgres has it via the
     // `pgvector/pgvector:pg16` image instead (architecture.md §6.1).
     const client = new PGlite({ extensions: { vector } });
+    await client.exec("CREATE EXTENSION IF NOT EXISTS vector;");
     const db = drizzle(client, { schema });
     await migrate(db, {
         // Resolved from cwd: tests always run via vitest, whose root (and

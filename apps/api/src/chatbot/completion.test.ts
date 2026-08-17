@@ -64,6 +64,7 @@ describe("prompt containment", () => {
                 anchor: null,
                 content: "Plans start at $10.",
                 similarity: 0.9,
+                kind: "doc" as const,
             },
             {
                 documentId: "d2",
@@ -73,6 +74,7 @@ describe("prompt containment", () => {
                 anchor: "policy",
                 content: "Refunds take 5 days.",
                 similarity: 0.8,
+                kind: "doc" as const,
             },
         ];
         expect(sourcesFromCitations(chunks, [2, 2, 9])).toEqual([
@@ -81,6 +83,7 @@ describe("prompt containment", () => {
                 slug: "refunds",
                 title: "Refunds",
                 anchor: "policy",
+                kind: "doc",
             },
         ]);
         expect(sourcesFromCitations(chunks, [])).toHaveLength(2);

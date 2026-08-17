@@ -38,10 +38,12 @@ import {
 } from "@/lib/docs-screen";
 import { formatSavedAt } from "@/lib/writing-editor";
 import { cn } from "@/lib/utils";
+import { workspaceContentPath } from "@frontlit/api-contract";
 import { Loading } from "@/components/workspace/loading";
 import { ScrollablePage } from "@/components/workspace/scrollable-page";
 import { DeleteConfirm } from "@/components/workspace/delete-confirm";
 import { DocumentStatusBadge } from "@/components/workspace/document-status-badge";
+import { DocumentIndexBadge } from "@/components/workspace/document-index-badge";
 import { Button } from "@/components/ui/codelit/button";
 import { Input } from "@/components/ui/codelit/input";
 import { Card, CardContent } from "@/components/ui/codelit/card";
@@ -447,7 +449,10 @@ export default function DocumentationPage() {
                                                                 FROM
                                                             </span>
                                                             <Link
-                                                                href={`/editor/content/documentation/${result.documentId}`}
+                                                                href={workspaceContentPath(
+                                                                    result.kind,
+                                                                    result.documentId,
+                                                                )}
                                                                 className="font-medium text-primary hover:underline"
                                                             >
                                                                 {result.title ??
@@ -657,6 +662,11 @@ export default function DocumentationPage() {
                                                                             }
                                                                         />
                                                                     )}
+                                                                    <DocumentIndexBadge
+                                                                        index={
+                                                                            doc.index
+                                                                        }
+                                                                    />
                                                                 </div>
                                                                 <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
                                                                     /docs/

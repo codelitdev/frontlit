@@ -52,6 +52,7 @@ export type InboxAiResult = {
         slug: string;
         title: string | null;
         anchor: string | null;
+        kind?: "blog" | "doc" | "changelog";
     }>;
     skipReason?: string;
 };
@@ -82,6 +83,7 @@ function toRetrieval(
         heading: string | null;
         anchor: string | null;
         similarity: number;
+        kind?: "blog" | "doc" | "changelog";
     }[],
 ): InboxAiRetrievalHit[] {
     return chunks.map((chunk) => ({
@@ -91,6 +93,7 @@ function toRetrieval(
         heading: chunk.heading,
         anchor: chunk.anchor,
         similarity: Math.round(chunk.similarity * 1000) / 1000,
+        kind: chunk.kind,
     }));
 }
 

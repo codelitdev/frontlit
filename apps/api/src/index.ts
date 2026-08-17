@@ -10,6 +10,7 @@ import { describeChatProvider } from "./ai/provider";
 import { startAuthorizationMaintenance } from "./team/maintenance";
 import { attachInboxLive } from "./tickets/live-server";
 import { startInboxAiWorker } from "./inbox-ai/worker";
+import { startDocumentIndexWorker } from "./documentation/worker";
 
 const app = createApp();
 const port = process.env.PORT || 4000;
@@ -25,6 +26,7 @@ checkConfig()
         attachInboxLive(server);
         startOutboxWorker();
         startInboxAiWorker();
+        startDocumentIndexWorker();
         startAuthorizationMaintenance();
     })
     .catch((err) => {

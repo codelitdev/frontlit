@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Button, Text2, Textarea } from "@frontlit/page-builder/primitives";
+import { useSiteThemeStyle } from "@/lib/site-theme-context";
 
 /**
  * The visitor-side reply box on a ticket's magic-link thread page
@@ -19,6 +21,7 @@ export function TicketReplyForm({
     ticketId: string;
     token: string;
 }) {
+    const theme = useSiteThemeStyle();
     const [message, setMessage] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -55,22 +58,27 @@ export function TicketReplyForm({
 
     return (
         <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-3">
-            <textarea
+            <Textarea
+                theme={theme}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Write a reply…"
                 required
                 rows={4}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30"
             />
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <button
+            {error && (
+                <Text2 theme={theme} className="text-destructive">
+                    {error}
+                </Text2>
+            )}
+            <Button
+                theme={theme}
                 type="submit"
                 disabled={isSubmitting || !message}
-                className="self-start rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm disabled:opacity-50"
+                className="self-start"
             >
                 {isSubmitting ? "Sending…" : "Send reply"}
-            </button>
+            </Button>
         </form>
     );
 }

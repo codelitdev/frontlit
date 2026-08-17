@@ -8,6 +8,7 @@ export * from "./schemas/pages";
 export * from "./schemas/themes";
 export * from "./schemas/media";
 export * from "./schemas/documents";
+export * from "./content-paths";
 export * from "./schemas/articles";
 export * from "./schemas/documentation";
 export * from "./schemas/product-updates";

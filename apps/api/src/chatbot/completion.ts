@@ -8,6 +8,7 @@ export interface ChatSource {
     slug: string;
     title: string | null;
     anchor: string | null;
+    kind?: "blog" | "doc" | "changelog";
 }
 
 export interface ChatAnswer {
@@ -67,6 +68,7 @@ export function toSources(chunks: SearchResult[]): ChatSource[] {
             slug: chunk.slug,
             title: chunk.title,
             anchor: chunk.anchor,
+            kind: chunk.kind,
         });
     }
     return sources;

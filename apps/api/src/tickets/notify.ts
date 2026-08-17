@@ -11,6 +11,7 @@ import {
 } from "../mail/address";
 import { inboundEmailDomain } from "../mail/config";
 import { mintReplyToken } from "../mail/reply-token";
+import { publicContentPath } from "@frontlit/api-contract";
 
 function sitesOrigin(canonicalHost: string | null): string {
     if (!canonicalHost) {
@@ -28,6 +29,7 @@ export type TicketMailSource = {
     slug: string;
     title: string | null;
     anchor?: string | null;
+    kind?: "blog" | "doc" | "changelog";
 };
 
 function uniqueMailSources(sources: TicketMailSource[]): TicketMailSource[] {
@@ -42,8 +44,7 @@ function uniqueMailSources(sources: TicketMailSource[]): TicketMailSource[] {
 }
 
 function publicDocUrl(origin: string, source: TicketMailSource): string {
-    const hash = source.anchor ? `#${encodeURIComponent(source.anchor)}` : "";
-    return `${origin}/docs/${encodeURIComponent(source.slug)}${hash}`;
+    return `${origin}${publicContentPath(source.kind, source.slug, source.anchor)}`;
 }
 
 async function siteOriginForTeam(teamId: string): Promise<string> {

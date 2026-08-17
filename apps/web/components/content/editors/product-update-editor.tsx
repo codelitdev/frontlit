@@ -5,6 +5,7 @@ import { Editor } from "@frontlit/text-editor";
 import type { TextEditorContent } from "@frontlit/text-editor";
 import {
     discardProductUpdateDraft,
+    getAiConfig,
     getProductUpdate,
     publishProductUpdate,
     updateProductUpdate,
@@ -18,6 +19,7 @@ import { Badge } from "@/components/ui/codelit/badge";
 import { Input } from "@/components/ui/codelit/input";
 import { Label } from "@/components/ui/codelit/label";
 import { Toggle } from "@/components/ui/toggle";
+import { ContentIndexSettings } from "@/components/workspace/content-index-settings";
 
 const LABEL_OPTIONS = ["added", "fixed", "improved", "removed"] as const;
 
@@ -35,6 +37,7 @@ export default function ProductUpdateEditor({
     const [publishing, setPublishing] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [resetKey, setResetKey] = useState(0);
+    const [teamIndexesChangelog, setTeamIndexesChangelog] = useState(false);
     const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const versionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
         null,
@@ -51,6 +54,13 @@ export default function ProductUpdateEditor({
             setVersion(loaded.draftMeta.version ?? "");
             setReleaseDate(loaded.draftMeta.releaseDate ?? "");
         });
+        getAiConfig()
+            .then((config) =>
+                setTeamIndexesChangelog(
+                    Boolean(config?.indexContent?.changelog),
+                ),
+            )
+            .catch(() => setTeamIndexesChangelog(false));
     }, [documentId]);
 
     useEffect(
@@ -64,6 +74,16 @@ export default function ProductUpdateEditor({
         },
         [],
     );
+
+    useEffect(() => {
+        if (!teamIndexesChangelog || entry?.index?.state !== "pending") return;
+        const timer = window.setInterval(() => {
+            getProductUpdate(documentId)
+                .then(setEntry)
+                .catch(() => {});
+        }, 2000);
+        return () => window.clearInterval(timer);
+    }, [documentId, teamIndexesChangelog, entry?.index?.state]);
 
     async function saveMeta(meta: Partial<ProductUpdate["draftMeta"]>) {
         setSaving(true);
@@ -170,6 +190,7 @@ export default function ProductUpdateEditor({
             title={title || "Untitled update"}
             status={entry.status}
             statusTestId="changelog-status-badge"
+            index={teamIndexesChangelog ? entry.index : null}
             updatedAt={entry.updatedAt}
             saving={saving}
             publishing={publishing}
@@ -240,6 +261,15 @@ export default function ProductUpdateEditor({
                             ))}
                         </div>
                     </div>
+                    {teamIndexesChangelog && (
+                        <ContentIndexSettings
+                            checked={entry.draftMeta.indexable !== false}
+                            disabled={saving || publishing}
+                            onCheckedChange={(checked) =>
+                                void saveMeta({ indexable: checked })
+                            }
+                        />
+                    )}
                     <div className="border-t pt-6">
                         <h3 className="text-sm font-semibold">Publishing</h3>
                         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">

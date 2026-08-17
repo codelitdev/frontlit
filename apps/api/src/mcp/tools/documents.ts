@@ -1,6 +1,7 @@
 import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
 import {
+    documentationIndexSchema,
     documentStatusSchema,
     successMessageSchema,
     textEditorContentSchema,
@@ -20,6 +21,10 @@ import {
 import { AUTH_ERROR, INTERNAL_ERROR, NOT_FOUND, jsonResult } from "./responses";
 import { getTeamId } from "./auth";
 import { omitInternal, serializeDates } from "../../utils/public";
+import {
+    attachDocumentIndex,
+    attachOneDocumentIndex,
+} from "../../documentation/index-status";
 
 function toPublicDocument<T extends Record<string, unknown>>(doc: T) {
     return serializeDates(
@@ -61,6 +66,7 @@ export function registerDocumentTools(
         draftMeta: metaSchema,
         createdAt: z.string().nullable(),
         updatedAt: z.string().nullable(),
+        index: documentationIndexSchema.nullable().optional(),
     });
 
     server.registerTool(
@@ -87,7 +93,9 @@ export function registerDocumentTools(
                     title: args.title,
                     meta: args.meta,
                 });
-                return jsonResult(toPublicDocument(doc));
+                return jsonResult(
+                    toPublicDocument(await attachOneDocumentIndex(kind, doc)),
+                );
             } catch {
                 return INTERNAL_ERROR;
             }
@@ -118,7 +126,9 @@ export function registerDocumentTools(
                     countDocuments(kind, { teamId, q: args.q }),
                 ]);
                 return jsonResult({
-                    items: items.map(toPublicDocument),
+                    items: (await attachDocumentIndex(kind, items)).map(
+                        toPublicDocument,
+                    ),
                     total,
                 });
             } catch {
@@ -148,7 +158,9 @@ export function registerDocumentTools(
                     args.documentId,
                 );
                 if (!doc || doc.teamId !== teamId) return NOT_FOUND;
-                return jsonResult(toPublicDocument(doc));
+                return jsonResult(
+                    toPublicDocument(await attachOneDocumentIndex(kind, doc)),
+                );
             } catch {
                 return INTERNAL_ERROR;
             }
@@ -186,7 +198,9 @@ export function registerDocumentTools(
                     patch,
                 );
                 if (!doc) return NOT_FOUND;
-                return jsonResult(toPublicDocument(doc));
+                return jsonResult(
+                    toPublicDocument(await attachOneDocumentIndex(kind, doc)),
+                );
             } catch {
                 return INTERNAL_ERROR;
             }
@@ -216,7 +230,9 @@ export function registerDocumentTools(
                     args.documentId,
                 );
                 if (!doc) return NOT_FOUND;
-                return jsonResult(toPublicDocument(doc));
+                return jsonResult(
+                    toPublicDocument(await attachOneDocumentIndex(kind, doc)),
+                );
             } catch {
                 return INTERNAL_ERROR;
             }
@@ -246,7 +262,9 @@ export function registerDocumentTools(
                     args.documentId,
                 );
                 if (!doc) return NOT_FOUND;
-                return jsonResult(toPublicDocument(doc));
+                return jsonResult(
+                    toPublicDocument(await attachOneDocumentIndex(kind, doc)),
+                );
             } catch {
                 return INTERNAL_ERROR;
             }

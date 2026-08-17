@@ -1,5 +1,3 @@
-CREATE EXTENSION IF NOT EXISTS vector;
---> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "accounts" (
 	"id" text PRIMARY KEY NOT NULL,
 	"auth_user_id" text,
@@ -23,6 +21,8 @@ CREATE TABLE IF NOT EXISTS "ai_settings" (
 	"encrypted_embedding_api_key" text,
 	"embedding_deployment" text,
 	"embedding_endpoint" text,
+	"index_articles" boolean DEFAULT false NOT NULL,
+	"index_changelog" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "ai_settings_team_id_unique" UNIQUE("team_id")
@@ -274,6 +274,21 @@ CREATE TABLE IF NOT EXISTS "document_chunks" (
 	"content" text NOT NULL,
 	"embedding" vector(1536) NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "document_index_jobs" (
+	"id" text PRIMARY KEY NOT NULL,
+	"team_id" text NOT NULL,
+	"document_id" text NOT NULL,
+	"status" text DEFAULT 'queued' NOT NULL,
+	"generation" integer DEFAULT 0 NOT NULL,
+	"attempts" integer DEFAULT 0 NOT NULL,
+	"last_error" text,
+	"lease_expires_at" timestamp,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"started_at" timestamp,
+	"finished_at" timestamp
 );
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "documents" (
@@ -751,6 +766,18 @@ EXCEPTION
 END $$;
 --> statement-breakpoint
 DO $$ BEGIN
+ ALTER TABLE "document_index_jobs" ADD CONSTRAINT "document_index_jobs_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "document_index_jobs" ADD CONSTRAINT "document_index_jobs_document_id_documents_id_fk" FOREIGN KEY ("document_id") REFERENCES "public"."documents"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
  ALTER TABLE "documents" ADD CONSTRAINT "documents_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
@@ -986,6 +1013,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS "doc_sections_team_slug_idx" ON "doc_sections"
 CREATE INDEX IF NOT EXISTS "doc_sections_team_idx" ON "doc_sections" USING btree ("team_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "document_chunks_team_idx" ON "document_chunks" USING btree ("team_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "document_chunks_embedding_idx" ON "document_chunks" USING hnsw ("embedding" vector_cosine_ops);--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "document_index_jobs_document_idx" ON "document_index_jobs" USING btree ("document_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "document_index_jobs_poll_idx" ON "document_index_jobs" USING btree ("status","lease_expires_at","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "documents_team_kind_slug_idx" ON "documents" USING btree ("team_id","kind","slug");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "documents_team_kind_idx" ON "documents" USING btree ("team_id","kind");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "documents_published_idx" ON "documents" USING btree ("team_id","kind","published_at");--> statement-breakpoint

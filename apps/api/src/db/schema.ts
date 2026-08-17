@@ -480,6 +480,48 @@ export const documentChunks = pgTable(
     ],
 );
 
+export const documentIndexJobStatuses = [
+    "queued",
+    "running",
+    "done",
+    "failed",
+] as const;
+export type DocumentIndexJobStatus = (typeof documentIndexJobStatuses)[number];
+
+/** One durable index job per document. Publish and AI-config changes enqueue
+ * (or re-enqueue) instead of embedding inline on the request. */
+export const documentIndexJobs = pgTable(
+    "document_index_jobs",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        documentId: text("document_id")
+            .notNull()
+            .references(() => documents.id, { onDelete: "cascade" }),
+        status: text("status", { enum: documentIndexJobStatuses })
+            .notNull()
+            .default("queued"),
+        generation: integer("generation").notNull().default(0),
+        attempts: integer("attempts").notNull().default(0),
+        lastError: text("last_error"),
+        leaseExpiresAt: timestamp("lease_expires_at"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+        startedAt: timestamp("started_at"),
+        finishedAt: timestamp("finished_at"),
+    },
+    (table) => [
+        uniqueIndex("document_index_jobs_document_idx").on(table.documentId),
+        index("document_index_jobs_poll_idx").on(
+            table.status,
+            table.leaseExpiresAt,
+            table.createdAt,
+        ),
+    ],
+);
+
 // ---------------------------------------------------------------------------
 // Chatbot (architecture.md §7): per-team RAG chat settings.
 // ---------------------------------------------------------------------------
@@ -561,6 +603,8 @@ export const aiSettings = pgTable("ai_settings", {
     encryptedEmbeddingApiKey: text("encrypted_embedding_api_key"),
     embeddingDeployment: text("embedding_deployment"),
     embeddingEndpoint: text("embedding_endpoint"),
+    indexArticles: boolean("index_articles").notNull().default(false),
+    indexChangelog: boolean("index_changelog").notNull().default(false),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -886,6 +930,7 @@ export type InboxAiRetrievalHit = {
     heading: string | null;
     anchor: string | null;
     similarity: number;
+    kind?: "blog" | "doc" | "changelog";
 };
 
 export const inboxAiRuns = pgTable(
