@@ -1,10 +1,14 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { notFound } from "next/navigation";
-import { TextRenderer, extractHeadings } from "@frontlit/text-editor";
-import { getDocBySlug, getSettings } from "@/lib/api";
+import { extractDocHeadings } from "@/lib/extract-doc-headings";
+import { getDocumentationBySlug, getSettings } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
 import { getCanonicalHost } from "@/lib/request-host";
 import { serializeJsonLd, techArticleJsonLd } from "@/lib/json-ld";
+import { API_PUBLIC_URL } from "@/lib/config";
+import { SiteChrome } from "@/components/site-chrome";
+import { ThemedDocArticle } from "@/components/themed-docs";
+import { collectionHref, loadDocsTree } from "@/lib/docs-tree";
 
 interface Props {
     params: Promise<{ teamId: string; slug: string }>;
@@ -16,7 +20,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
     const { teamId, slug } = await params;
     const [doc, settings, previous] = await Promise.all([
-        getDocBySlug(teamId, slug),
+        getDocumentationBySlug(teamId, slug),
         getSettings(teamId),
         parent,
     ]);
@@ -49,14 +53,22 @@ export async function generateMetadata(
 
 export default async function DocPage({ params }: Props) {
     const { teamId, slug } = await params;
-    const doc = await getDocBySlug(teamId, slug);
+    const [doc, collections] = await Promise.all([
+        getDocumentationBySlug(teamId, slug),
+        loadDocsTree(teamId),
+    ]);
     if (!doc) notFound();
 
     const canonicalHost = await getCanonicalHost();
-    const headings = doc.content ? extractHeadings(doc.content as any) : [];
+    const headings = doc.content ? extractDocHeadings(doc.content) : [];
+    const collection =
+        collections.find((item) =>
+            item.items.some((entry) => entry.slug === slug),
+        ) ?? null;
+    const collectionUrl = collection ? collectionHref(collection) : null;
 
     return (
-        <main className="mx-auto max-w-5xl px-6 py-16">
+        <SiteChrome teamId={teamId}>
             <script
                 type="application/ld+json"
                 // eslint-disable-next-line react/no-danger
@@ -70,9 +82,17 @@ export default async function DocPage({ params }: Props) {
                             url: `https://${canonicalHost}/docs/${slug}`,
                             breadcrumb: [
                                 {
-                                    name: "Docs",
+                                    name: "Help Center",
                                     url: `https://${canonicalHost}/docs`,
                                 },
+                                ...(collection && collectionUrl
+                                    ? [
+                                          {
+                                              name: collection.name,
+                                              url: `https://${canonicalHost}${collectionUrl}`,
+                                          },
+                                      ]
+                                    : []),
                                 {
                                     name: doc.title ?? slug,
                                     url: `https://${canonicalHost}/docs/${slug}`,
@@ -82,35 +102,16 @@ export default async function DocPage({ params }: Props) {
                     ),
                 }}
             />
-            <div className="grid gap-10 lg:grid-cols-[1fr_220px]">
-                <article>
-                    <h1 className="text-3xl font-bold">{doc.title}</h1>
-                    {doc.content && (
-                        <div className="prose mt-8 max-w-none">
-                            <TextRenderer json={doc.content} />
-                        </div>
-                    )}
-                </article>
-                {headings.length > 0 && (
-                    <nav className="hidden lg:block">
-                        <p className="text-sm font-semibold text-neutral-500">
-                            On this page
-                        </p>
-                        <ul className="mt-3 flex flex-col gap-2 text-sm">
-                            {headings.map((heading) => (
-                                <li key={heading.id}>
-                                    <a
-                                        href={`#${heading.id}`}
-                                        className="text-neutral-600 hover:underline"
-                                    >
-                                        {heading.text}
-                                    </a>
-                                </li>
-                            ))}
-                        </ul>
-                    </nav>
-                )}
-            </div>
-        </main>
+            <ThemedDocArticle
+                title={doc.title}
+                content={doc.content}
+                headings={headings}
+                collections={collections}
+                currentSlug={slug}
+                collection={collection}
+                teamId={teamId}
+                publicApiBaseUrl={API_PUBLIC_URL}
+            />
+        </SiteChrome>
     );
 }

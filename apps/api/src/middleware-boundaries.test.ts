@@ -21,6 +21,12 @@ vi.mock("./auth/require-team", () => ({
     },
 }));
 vi.mock("./db/client", () => ({ db: {} }));
+vi.mock("./auth/better-auth", () => ({
+    authBaseUrl: "http://localhost:4000",
+    mcpResourceUrl: "http://localhost:4000/mcp",
+    webClientUrl: "http://localhost:3000",
+    auth: {},
+}));
 
 import pagesRoutes from "./pages/routes";
 import themesRoutes from "./themes/routes";
@@ -29,8 +35,9 @@ import blogsRoutes from "./documents/blogs-routes";
 import docSectionsRoutes from "./documentation/routes";
 import docsRoutes from "./documents/docs-routes";
 import changelogsRoutes from "./documents/changelogs-routes";
-import newsletterRoutes from "./newsletter/routes";
+import emailRoutes from "./email/routes";
 import chatbotRoutes from "./chatbot/routes";
+import inboxAiRoutes from "./inbox-ai/routes";
 import ticketsRoutes from "./tickets/routes";
 import domainsRoutes from "./domains/routes";
 import settingsRoutes from "./settings/routes";
@@ -47,32 +54,44 @@ const cases: Array<{
     { name: "pages", router: pagesRoutes, path: "/pages", auth: 1, team: 1 },
     { name: "themes", router: themesRoutes, path: "/themes", auth: 1, team: 1 },
     { name: "media", router: mediaRoutes, path: "/media", auth: 1, team: 1 },
-    { name: "blogs", router: blogsRoutes, path: "/blogs", auth: 1, team: 1 },
     {
-        name: "doc sections",
+        name: "articles",
+        router: blogsRoutes,
+        path: "/content/articles",
+        auth: 1,
+        team: 1,
+    },
+    {
+        name: "documentation sections",
         router: docSectionsRoutes,
-        path: "/doc-sections",
+        path: "/content/documentation/sections",
         auth: 1,
         team: 1,
     },
-    { name: "docs", router: docsRoutes, path: "/help-docs", auth: 1, team: 1 },
     {
-        name: "changelogs",
+        name: "documentation",
+        router: docsRoutes,
+        path: "/content/documentation",
+        auth: 1,
+        team: 1,
+    },
+    {
+        name: "product updates",
         router: changelogsRoutes,
-        path: "/changelogs",
+        path: "/content/product-updates",
         auth: 1,
         team: 1,
     },
     {
-        name: "newsletter",
-        router: newsletterRoutes,
-        path: "/newsletter",
+        name: "email",
+        router: emailRoutes,
+        path: "/email",
         auth: 1,
         team: 1,
     },
     {
         name: "contacts",
-        router: newsletterRoutes,
+        router: emailRoutes,
         path: "/contacts",
         auth: 1,
         team: 1,
@@ -81,6 +100,13 @@ const cases: Array<{
         name: "chatbot",
         router: chatbotRoutes,
         path: "/chatbot",
+        auth: 1,
+        team: 1,
+    },
+    {
+        name: "inbox AI",
+        router: inboxAiRoutes,
+        path: "/inbox/ai",
         auth: 1,
         team: 1,
     },

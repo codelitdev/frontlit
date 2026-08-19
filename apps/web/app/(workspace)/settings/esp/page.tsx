@@ -6,13 +6,14 @@ import { ApiError } from "@/lib/api-client";
 import {
     deleteEspConfig,
     getEspConfig,
-    getNewsletterSettings,
+    getEmailSettings,
+    retryEmailProvision,
     testEspConfig,
     updateEspConfig,
-    updateNewsletterSettings,
+    updateEmailSettings,
     type EspConfig,
     type EspProvider,
-    type NewsletterSettings,
+    type EmailSettings,
 } from "@/lib/api";
 import { PageHeader } from "@/components/workspace/page-header";
 import { Loading } from "@/components/workspace/loading";
@@ -86,7 +87,7 @@ function formFromConfig(config: EspConfig): EspForm {
 
 export default function EspSettingsPage() {
     useSetBreadcrumb([{ label: "Settings" }, { label: "ESP" }]);
-    const [settings, setSettings] = useState<NewsletterSettings | null>(null);
+    const [settings, setSettings] = useState<EmailSettings | null>(null);
     const [esp, setEsp] = useState<EspConfig | null>(null);
     const [form, setForm] = useState<EspForm>(EMPTY_FORM);
     const [testRecipient, setTestRecipient] = useState("");
@@ -98,13 +99,14 @@ export default function EspSettingsPage() {
     const [saving, setSaving] = useState(false);
     const [testing, setTesting] = useState(false);
     const [notConnected, setNotConnected] = useState(false);
+    const [retrying, setRetrying] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
 
     useEffect(() => {
         async function load() {
             try {
                 const [general, config] = await Promise.all([
-                    getNewsletterSettings(),
+                    getEmailSettings(),
                     getEspConfig(),
                 ]);
                 setSettings(general);
@@ -138,7 +140,7 @@ export default function EspSettingsPage() {
         }
         setSaving(true);
         try {
-            const updatedSettings = await updateNewsletterSettings({
+            const updatedSettings = await updateEmailSettings({
                 mailingAddress: settings.mailingAddress ?? "",
             });
             const updatedEsp = await updateEspConfig({
@@ -184,6 +186,37 @@ export default function EspSettingsPage() {
         }
     }
 
+    async function handleRetryProvision() {
+        setRetrying(true);
+        try {
+            const result = await retryEmailProvision();
+            if (result.connected) {
+                setNotConnected(false);
+                const [general, config] = await Promise.all([
+                    getEmailSettings(),
+                    getEspConfig(),
+                ]);
+                setSettings(general);
+                setEsp(config);
+                setForm(config ? formFromConfig(config) : EMPTY_FORM);
+                toast.success("SendLit connection is ready.");
+            } else {
+                toast.error(
+                    result.error ||
+                        "SendLit is still not connected. Try again after checking the organization key.",
+                );
+            }
+        } catch (err) {
+            toast.error(
+                err instanceof ApiError
+                    ? err.message
+                    : "Failed to retry SendLit provisioning.",
+            );
+        } finally {
+            setRetrying(false);
+        }
+    }
+
     async function handleRemove() {
         try {
             await deleteEspConfig();
@@ -211,14 +244,26 @@ export default function EspSettingsPage() {
             <div className="max-w-2xl space-y-6">
                 <PageHeader
                     title="ESP"
-                    description="Configure the email service provider used for newsletters and transactional mail. FrontLit sends through SendLit."
+                    description="Configure the email service provider used for broadcasts and transactional mail. FrontLit sends through SendLit."
                 />
 
                 {notConnected && (
                     <Banner variant="warning">
-                        This team isn&rsquo;t connected to SendLit yet.
-                        It&rsquo;s provisioned automatically in the background —
-                        check back shortly, or contact support if this persists.
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p>
+                                It&rsquo;s provisioned automatically in the
+                                background — check back shortly, or retry now if
+                                this persists.
+                            </p>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={retrying}
+                                onClick={() => void handleRetryProvision()}
+                            >
+                                {retrying ? "Retrying…" : "Retry now"}
+                            </Button>
+                        </div>
                     </Banner>
                 )}
 
@@ -229,8 +274,8 @@ export default function EspSettingsPage() {
                         {!esp && (
                             <Banner variant="warning">
                                 No email service provider is configured.
-                                Newsletter and transactional sends remain
-                                disabled until these settings are saved.
+                                Broadcast sends remain disabled until these
+                                settings are saved.
                             </Banner>
                         )}
 
@@ -366,6 +411,9 @@ export default function EspSettingsPage() {
                                         />
                                     </div>
                                 </div>
+                                <Button type="submit" disabled={saving}>
+                                    {saving ? "Saving…" : "Save ESP settings"}
+                                </Button>
                             </CardContent>
                         </Card>
 
@@ -434,10 +482,13 @@ export default function EspSettingsPage() {
                                     />
                                     <p className="text-xs text-muted-foreground">
                                         SendLit includes this address in managed
-                                        newsletter footers and requires it
-                                        before sending.
+                                        email footers and requires it before
+                                        sending.
                                     </p>
                                 </div>
+                                <Button type="submit" disabled={saving}>
+                                    {saving ? "Saving…" : "Save ESP settings"}
+                                </Button>
                             </CardContent>
                         </Card>
 
@@ -452,7 +503,7 @@ export default function EspSettingsPage() {
                             {esp && (
                                 <DeleteConfirm
                                     title="Remove ESP configuration?"
-                                    description="SendLit will stop sending newsletters and transactional email for this team until another ESP is configured."
+                                    description="SendLit will stop sending broadcasts and transactional email for this team until another ESP is configured."
                                     onConfirm={handleRemove}
                                     trigger={
                                         <Button type="button" variant="outline">

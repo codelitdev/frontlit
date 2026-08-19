@@ -189,7 +189,7 @@ const Toolbar = ({
                             <ChevronDown className="size-4 text-muted-foreground" />
                         </button>
                         {activePopover === "heading" && (
-                            <div className="absolute left-0 top-full z-30 mt-1 w-40 rounded-md border bg-popover p-1 shadow-lg">
+                            <div className="te-popover absolute left-0 top-full z-30 mt-1 w-40 rounded-md p-1 shadow-lg">
                                 {headingOptions.map((option) => (
                                     <button
                                         key={option.value}
@@ -299,7 +299,7 @@ const Toolbar = ({
                             Insert
                         </button>
                         {activePopover === "insert" && (
-                            <div className="absolute right-0 top-full z-30 mt-1 w-52 rounded-md border bg-popover p-1 shadow-lg">
+                            <div className="te-popover absolute right-0 top-full z-30 mt-1 w-52 rounded-md p-1 shadow-lg">
                                 <button
                                     type="button"
                                     className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-sm hover:bg-muted"

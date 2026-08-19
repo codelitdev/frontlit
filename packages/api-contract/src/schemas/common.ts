@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-export const errorSchema = z.object({ error: z.string() });
+export const errorSchema = z.object({
+    error: z.string(),
+    error_description: z.string().optional(),
+    permission: z.string().optional(),
+    scope: z.string().optional(),
+});
 
 export const successMessageSchema = z.object({ message: z.string() });
 

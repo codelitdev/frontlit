@@ -1,0 +1,132 @@
+---
+title: Text editor
+description: Install and use the TipTap-based rich text editor and static renderer.
+---
+
+`@frontlit/text-editor` is a TipTap-based rich text editor and static renderer for React. It is
+framework-agnostic: it depends only on `react` / `react-dom`. No Next.js, no backend, and no media-upload
+service.
+
+Uploaded images are embedded as data URLs by default. Hosts can replace that with their own picker via
+`ImagePickerContextProvider`.
+
+The page builder's rich-text block uses this package. You can also use it on its own — for example in a
+dashboard form, a comment field, or a help-center article editor.
+
+<TextEditorDemo />
+
+## Installation
+
+```bash
+npm i @frontlit/text-editor
+# or
+pnpm add @frontlit/text-editor
+```
+
+Peer dependencies: `react` and `react-dom` (^18 or ^19).
+
+### CSS
+
+Import the compiled stylesheet. It includes Tailwind utilities, fallback tokens for the editor chrome,
+ProseMirror/renderer rules, and a small highlight.js theme. Tailwind is **not** required in the host:
+
+```ts
+import "@frontlit/text-editor/styles.css";
+```
+
+If you already run Tailwind CSS v4 and want to generate the utilities yourself, skip `styles.css`, scan the
+package, and import the prose rules (lists, blockquotes, code blocks — these are not utilities):
+
+```css
+@import "@frontlit/text-editor/tokens.css";
+@import "@frontlit/text-editor/prose.css";
+@source "./node_modules/@frontlit/text-editor";
+```
+
+## Usage
+
+`Editor` is a client component. Persist the TipTap JSON it emits, then render that JSON with `TextRenderer`.
+
+```tsx
+import { Editor, TextRenderer, emptyDoc } from "@frontlit/text-editor";
+import "@frontlit/text-editor/styles.css";
+
+<Editor initialContent={emptyDoc} onChange={(json) => save(json)} />;
+<TextRenderer json={savedJson} />;
+```
+
+A typical host component:
+
+```tsx
+"use client";
+
+import { useState } from "react";
+import {
+    Editor,
+    TextRenderer,
+    emptyDoc,
+    type TextEditorContent,
+} from "@frontlit/text-editor";
+import "@frontlit/text-editor/styles.css";
+
+export function ArticleBody({
+    initial,
+    onSave,
+}: {
+    initial?: TextEditorContent;
+    onSave: (json: TextEditorContent) => void;
+}) {
+    const [doc, setDoc] = useState<TextEditorContent>(initial ?? emptyDoc);
+
+    return (
+        <>
+            <Editor
+                initialContent={doc}
+                placeholder="Write something…"
+                onChange={(json) => {
+                    setDoc(json);
+                    onSave(json);
+                }}
+            />
+            <TextRenderer json={doc} />
+        </>
+    );
+}
+```
+
+### Custom image picker
+
+By default the editor embeds uploaded images as data URLs. Wrap the editor with
+`ImagePickerContextProvider` to open your own media library instead:
+
+```tsx
+import { Editor, ImagePickerContextProvider } from "@frontlit/text-editor";
+
+<ImagePickerContextProvider
+    pickImage={async () => {
+        const media = await openMediaLibrary();
+        if (!media) return null;
+        return { src: media.url, alt: media.alt };
+    }}
+>
+    <Editor initialContent={emptyDoc} onChange={save} />
+</ImagePickerContextProvider>;
+```
+
+### Theming the renderer
+
+`TextRenderer` accepts an optional, loosely-typed `theme` prop (`TextRendererTheme`) to style headings,
+paragraphs, and links. Without one it falls back to plain semantic HTML tags. It is structurally typed against
+that small theme shape instead of importing `@frontlit/page-builder`, so this package stays usable on its own.
+
+## What's inside
+
+- `Editor` — the WYSIWYG editing surface (toolbar, bubble menu, tables, code blocks with syntax highlighting,
+  images, links).
+- `TextRenderer` — renders saved `TextEditorContent` (TipTap JSON) as static React elements.
+- `TextEditorContent` — the TipTap doc-JSON type both of the above operate on.
+- `normalizeTextEditorContent`, `extractTextFromTextEditorContent`, `truncateTextEditorContent` — content
+  utilities (e.g. for building excerpts).
+- `emptyDoc`, `createExtensions`, `createId`, `extractHeadings`, `extractTextFromNode` — lower-level building
+  blocks, exported for advanced use.
+- `ImagePickerContextProvider` — optional hook so a host can supply its own image-upload UI.

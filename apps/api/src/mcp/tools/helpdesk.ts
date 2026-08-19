@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
 import {
     ticketSchema,
@@ -13,10 +13,10 @@ import {
     getTicketMessages,
     listTickets,
     reissueTicketAccessToken,
+    ticketMessageText,
     updateTicket,
 } from "../../tickets/queries";
 import { notifyRequesterOfReply } from "../../tickets/notify";
-import { findTeamById } from "../../team/queries";
 import { omitInternal, serializeDates } from "../../utils/public";
 import { AUTH_ERROR, INTERNAL_ERROR, jsonResult, NOT_FOUND } from "./responses";
 import { getAuthAccount, getTeamId } from "./auth";
@@ -42,7 +42,7 @@ async function toTicketWithMessages(
 /** Support ticket inbox (architecture.md §11.3) — team-scoped CRUD twin of
  * the `contract.tickets` REST router. Public submission and the magic-link
  * thread endpoints are visitor-facing only and have no MCP equivalent. */
-export function registerHelpdeskTools(server: McpServer): void {
+export function registerHelpdeskTools(server: McpToolRegistrar): void {
     server.registerTool(
         "create_ticket",
         {
@@ -170,16 +170,18 @@ export function registerHelpdeskTools(server: McpServer): void {
                     content: args.content,
                 });
 
-                const team = await findTeamById(teamId);
-                if (team && ticket.requesterEmail) {
-                    const token = await reissueTicketAccessToken(ticket.id);
+                if (ticket.requesterEmail) {
+                    const token = await reissueTicketAccessToken(
+                        teamId,
+                        ticket.id,
+                    );
                     notifyRequesterOfReply({
                         teamId,
-                        teamPublicId: team.teamId,
                         ticketId: ticket.ticketId,
                         token,
                         requesterEmail: ticket.requesterEmail,
                         subject: ticket.subject,
+                        replyText: ticketMessageText(args.content),
                     }).catch(() => {});
                 }
 

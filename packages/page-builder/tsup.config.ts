@@ -15,11 +15,14 @@ export default defineConfig({
         "blocks/index": "src/blocks/index.tsx",
         "renderer/index": "src/renderer/index.ts",
         "builder/index": "src/builder/index.ts",
+        "data-slots": "src/data-slots.ts",
     },
     format: ["esm"],
     dts: true,
     sourcemap: true,
-    clean: true,
+    // Don't wipe dist/ on watch: the CSS is emitted by a later tailwind
+    // step, and apps that import `./styles.css` crash if it's missing.
+    clean: !process.argv.includes("--watch"),
     splitting: true,
     treeshake: true,
     external: externalDeps,

@@ -1,6 +1,5 @@
 import { fromNodeHeaders } from "better-auth/node";
 import {
-    verifyOAuthAccessToken,
     type AuthenticatedIdentity,
     type AuthenticationResult,
 } from "@codelitdev/oauth-server-kit";
@@ -19,6 +18,7 @@ import {
     oauthResourceClient,
     validOAuthAudiences,
 } from "./better-auth";
+import { getSessionAuthenticatedAt } from "./session-freshness";
 
 export type AuthInput = {
     authorization?: unknown;
@@ -34,9 +34,14 @@ export type AuthResult =
           identity: Extract<AuthenticatedIdentity, { method: "oauth" }>;
           account: Account;
           accountId: string;
+          oauthToken: string;
           clientId: string;
           scopes: string[];
           teamId?: string;
+          claimedTeamId?: string;
+          oauthTeamInvalid?: boolean;
+          oauthIssuedAt?: Date;
+          audiences: string[];
       }
     | {
           status: "authenticated";
@@ -45,12 +50,13 @@ export type AuthResult =
           account: Account;
           accountId: string;
           scopes: ["web"];
+          sessionAuthenticatedAt?: Date;
       }
     | {
           status: "authenticated";
           kind: "apikey";
           account: null;
-          apiKey: string;
+          apiKeyId: string;
           teamId: string;
       }
     | { status: "invalid_token" }
@@ -63,9 +69,13 @@ export type AuthDependencies = {
     resolveSession: (
         headers: Record<string, string | string[] | undefined>,
     ) => Promise<AuthenticationResult>;
-    authenticateBearer: (token: string) => Promise<{
+    authenticateBearer: (
+        token: string,
+        expectedAudience?: string,
+    ) => Promise<{
         identity: Extract<AuthenticatedIdentity, { method: "oauth" }>;
         teamId?: string;
+        issuedAt?: Date;
     } | null>;
     ensureAccountForBetterAuthUserId: (
         userId: string,
@@ -78,7 +88,17 @@ export type AuthDependencies = {
     getTeamMembership: (
         teamId: string,
         accountId: string,
-    ) => Promise<unknown | null>;
+    ) => Promise<
+        { createdAt?: Date } | Record<string, unknown> | null | undefined
+    >;
+    getSessionAuthenticatedAt?: (
+        userId: string,
+        headers?: Record<string, string | string[] | undefined>,
+    ) => Promise<Date | undefined>;
+};
+
+export type ResolveAuthOptions = {
+    expectedAudience?: string;
 };
 
 function headerValue(value: unknown): string | undefined {
@@ -88,19 +108,15 @@ function headerValue(value: unknown): string | undefined {
     return typeof value === "string" ? value : undefined;
 }
 
-function teamClaimFromVerifiedJwt(token: string): string | undefined {
-    try {
-        const parts = token.split(".");
-        if (parts.length !== 3) return undefined;
-        const payload = JSON.parse(
-            Buffer.from(parts[1], "base64url").toString("utf8"),
-        ) as Record<string, unknown>;
-        return typeof payload.team_id === "string"
-            ? payload.team_id
-            : undefined;
-    } catch {
-        return undefined;
-    }
+function optionalString(value: unknown): string | undefined {
+    return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function stringClaims(value: unknown): string[] {
+    if (typeof value === "string") return [value];
+    return Array.isArray(value)
+        ? value.filter((item): item is string => typeof item === "string")
+        : [];
 }
 
 const defaultDependencies: AuthDependencies = {
@@ -111,35 +127,68 @@ const defaultDependencies: AuthDependencies = {
             fromNodeHeaders(headers),
         );
     },
-    async authenticateBearer(token) {
-        const result = await verifyOAuthAccessToken(
-            {
-                oauthResourceClient,
-                audiences: validOAuthAudiences,
-                issuer: authIssuer,
-                resourceMetadataMappings: { mcp: mcpResourceUrl },
-            },
-            token,
-        );
-        if (
-            result.status !== "authenticated" ||
-            result.identity.method !== "oauth"
-        ) {
+    async authenticateBearer(token, expectedAudience) {
+        try {
+            // Use Better Auth's current resource-server API. The published
+            // oauth-server-kit helper targets an obsolete resource-client
+            // action and rejects otherwise valid SDK 2 bearer tokens.
+            const acceptedAudiences = expectedAudience
+                ? [expectedAudience]
+                : validOAuthAudiences;
+            const claims = await oauthResourceClient
+                .getActions()
+                .verifyBearerToken(token, {
+                    verifyOptions: {
+                        issuer: authIssuer,
+                        audience: acceptedAudiences,
+                    },
+                    resourceMetadataMappings: { mcp: mcpResourceUrl },
+                });
+            const subject = optionalString(claims.sub);
+            const clientId =
+                optionalString(claims.azp) ?? optionalString(claims.client_id);
+            const audiences = stringClaims(claims.aud).filter((audience) =>
+                acceptedAudiences.includes(audience),
+            );
+            if (!subject || !clientId || audiences.length === 0) return null;
+            const email = optionalString(claims.email);
+            const name = optionalString(claims.name);
+            const scopes = stringClaims(claims.scope).flatMap((scope) =>
+                scope.split(/\s+/).filter(Boolean),
+            );
+            const issuedAt =
+                typeof claims.iat === "number"
+                    ? new Date(claims.iat * 1000)
+                    : undefined;
+
+            return {
+                identity: {
+                    method: "oauth",
+                    issuer: authIssuer,
+                    subject,
+                    ...(email ? { email } : {}),
+                    ...(name ? { name } : {}),
+                    clientId,
+                    scopes,
+                    audiences,
+                },
+                teamId: optionalString(claims.team_id),
+                issuedAt,
+            };
+        } catch {
             return null;
         }
-        return {
-            identity: result.identity,
-            teamId: teamClaimFromVerifiedJwt(token),
-        };
     },
     ensureAccountForBetterAuthUserId: ensureFrontLitAccountForBetterAuthUserId,
     ensureAccountForUser: ensureFrontLitAccountForUser,
     getTeamMembership,
+    getSessionAuthenticatedAt,
 };
 
 export async function resolveAuth(
     input: AuthInput,
     dependencies: AuthDependencies = defaultDependencies,
+    options: ResolveAuthOptions = {},
 ): Promise<AuthResult> {
     const authorization = headerValue(input.authorization);
     if (authorization) {
@@ -147,6 +196,7 @@ export async function resolveAuth(
         if (match) {
             const authenticated = await dependencies.authenticateBearer(
                 match[1],
+                options.expectedAudience,
             );
             if (!authenticated) return { status: "invalid_token" };
             const account = await dependencies.ensureAccountForBetterAuthUserId(
@@ -154,15 +204,30 @@ export async function resolveAuth(
             );
             if (!account) return { status: "unauthorized" };
 
+            const claimedTeamId = authenticated.teamId;
             let teamId: string | undefined;
-            if (
-                authenticated.teamId &&
-                (await dependencies.getTeamMembership(
-                    authenticated.teamId,
+            let oauthTeamInvalid = false;
+            if (claimedTeamId) {
+                const membership = await dependencies.getTeamMembership(
+                    claimedTeamId,
                     account.id,
-                ))
-            ) {
-                teamId = authenticated.teamId;
+                );
+                const createdAt =
+                    membership &&
+                    "createdAt" in membership &&
+                    membership.createdAt instanceof Date
+                        ? membership.createdAt
+                        : undefined;
+                const generationOk = Boolean(
+                    authenticated.issuedAt &&
+                    createdAt &&
+                    authenticated.issuedAt.getTime() >= createdAt.getTime(),
+                );
+                if (membership && generationOk) {
+                    teamId = claimedTeamId;
+                } else {
+                    oauthTeamInvalid = true;
+                }
             }
             return {
                 status: "authenticated",
@@ -170,9 +235,14 @@ export async function resolveAuth(
                 identity: authenticated.identity,
                 account,
                 accountId: account.id,
+                oauthToken: match[1],
                 clientId: authenticated.identity.clientId,
                 scopes: authenticated.identity.scopes,
                 teamId,
+                claimedTeamId,
+                oauthTeamInvalid,
+                oauthIssuedAt: authenticated.issuedAt,
+                audiences: authenticated.identity.audiences,
             };
         }
     }
@@ -186,7 +256,7 @@ export async function resolveAuth(
             status: "authenticated",
             kind: "apikey",
             account: null,
-            apiKey: submittedApiKey,
+            apiKeyId: apiKey.id,
             teamId: apiKey.teamId,
         };
     }
@@ -203,6 +273,11 @@ export async function resolveAuth(
                 email: result.identity.email,
                 name: result.identity.name,
             });
+            const sessionAuthenticatedAt =
+                await dependencies.getSessionAuthenticatedAt?.(
+                    result.identity.subject,
+                    input.headers,
+                );
             return {
                 status: "authenticated",
                 kind: "session",
@@ -210,6 +285,7 @@ export async function resolveAuth(
                 account,
                 accountId: account.id,
                 scopes: ["web"],
+                sessionAuthenticatedAt,
             };
         }
     }

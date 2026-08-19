@@ -99,7 +99,7 @@ export function MarqueeWidget({
                             style={{
                                 width: fadeWidth,
                                 background:
-                                    "linear-gradient(to right, hsl(var(--background)), transparent)",
+                                    "linear-gradient(to right, var(--background), transparent)",
                             }}
                         />
                         <div
@@ -107,7 +107,7 @@ export function MarqueeWidget({
                             style={{
                                 width: fadeWidth,
                                 background:
-                                    "linear-gradient(to left, hsl(var(--background)), transparent)",
+                                    "linear-gradient(to left, var(--background), transparent)",
                             }}
                         />
                     </>

@@ -8,7 +8,7 @@ export const faqDefaults: Partial<FaqSettings> = {
         {
             id: generateUniqueId(),
             question: "What can I build with FrontLit?",
-            answer: "A marketing website, a blog, a help desk, an email newsletter and a changelog — all from a single dashboard, without wiring together separate tools.",
+            answer: "A marketing website, articles, documentation, product updates, customer support, and email — all from one connected dashboard.",
         },
         {
             id: generateUniqueId(),

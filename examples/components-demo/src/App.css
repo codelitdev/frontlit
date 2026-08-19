@@ -1,0 +1,225 @@
+:root {
+    --demo-ink: #161412;
+    --demo-paper: #f4efe6;
+    --demo-rule: #d7cfc3;
+    --demo-muted: #6b645b;
+    --demo-accent: #1d4ed8;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    background: var(--demo-paper);
+    color: var(--demo-ink);
+    font-family:
+        "Iowan Old Style", "Palatino Linotype", Palatino, "Times New Roman",
+        serif;
+}
+
+code {
+    font-family:
+        ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono",
+        monospace;
+    font-size: 0.85em;
+}
+
+.shell {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.masthead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.85rem 1.15rem;
+    background: var(--demo-ink);
+    color: var(--demo-paper);
+}
+
+.masthead__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.masthead__mark {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid color-mix(in srgb, var(--demo-paper) 45%, transparent);
+    font-size: 1.05rem;
+    line-height: 1;
+}
+
+.masthead__title {
+    margin: 0;
+    font-size: 1.05rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.masthead__sub {
+    margin: 0.15rem 0 0;
+    color: color-mix(in srgb, var(--demo-paper) 70%, transparent);
+    font-family:
+        "Segoe UI",
+        system-ui,
+        -apple-system,
+        sans-serif;
+    font-size: 0.78rem;
+}
+
+.tabs,
+.pills {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.tabs button,
+.pills button {
+    appearance: none;
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 0.35rem 0.75rem;
+}
+
+.tabs button {
+    color: var(--demo-paper);
+}
+
+.tabs button.is-active {
+    background: var(--demo-paper);
+    color: var(--demo-ink);
+}
+
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.65rem 1.15rem;
+    border-bottom: 1px solid var(--demo-rule);
+    background: color-mix(in srgb, var(--demo-paper) 88%, white);
+}
+
+.toolbar__copy {
+    margin: 0;
+    max-width: 48rem;
+    color: var(--demo-muted);
+    font-family:
+        "Segoe UI",
+        system-ui,
+        -apple-system,
+        sans-serif;
+    font-size: 0.88rem;
+}
+
+.pills button.is-active {
+    background: var(--demo-ink);
+    color: var(--demo-paper);
+    border-color: var(--demo-ink);
+}
+
+.canvas {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+}
+
+.demo-stage {
+    position: absolute;
+    inset: 0;
+    min-height: 0;
+}
+
+.demo-stage[hidden] {
+    display: none;
+}
+
+.demo-stage--scroll {
+    overflow: auto;
+}
+
+.text-demo {
+    display: grid;
+    gap: 1.25rem;
+    padding: 1.15rem;
+}
+
+@media (min-width: 960px) {
+    .text-demo {
+        grid-template-columns: 1fr 1fr;
+        align-items: start;
+        min-height: 100%;
+    }
+}
+
+@media (max-width: 720px) {
+    .masthead {
+        align-items: flex-start;
+    }
+
+    .tabs,
+    .pills {
+        flex-wrap: wrap;
+    }
+
+    .toolbar__copy {
+        font-size: 0.8rem;
+    }
+}
+
+.text-demo__label {
+    margin-bottom: 0.65rem;
+}
+
+.text-demo__label h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+}
+
+.text-demo__label p {
+    margin: 0.2rem 0 0;
+    color: var(--demo-muted);
+    font-family:
+        "Segoe UI",
+        system-ui,
+        -apple-system,
+        sans-serif;
+    font-size: 0.82rem;
+}
+
+.text-demo__pane {
+    min-width: 0;
+}
+
+.text-demo__editor {
+    background: white;
+    overflow-x: auto;
+}
+
+.text-demo__render {
+    min-height: 16rem;
+    padding: 1.25rem 1.35rem;
+    border: 1px solid var(--demo-rule);
+    background: white;
+    overflow-x: auto;
+}

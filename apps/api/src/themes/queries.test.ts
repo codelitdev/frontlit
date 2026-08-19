@@ -1,12 +1,10 @@
-import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeTestDb, seedTeam, type TestDb } from "../test/db";
 
 vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 
 import { db as testDb } from "../db/client";
-import { pages as pagesTable } from "../db/schema";
-import { createPage } from "../pages/queries";
+import { getTeamSettings, updateTeamSettings } from "../settings/queries";
 import {
     createTheme,
     deleteTheme,
@@ -61,19 +59,14 @@ describe("themes", () => {
         expect(await listThemes(teamId)).toEqual([]);
     });
 
-    it("scopes update/delete to the owning team and clears page theme refs on delete", async () => {
+    it("scopes update/delete to the owning team and clears the site theme on delete", async () => {
         const theme = await createTheme({
             teamId,
             name: "Owned",
             style: { primary: "#000000" },
         });
-        const page = await createPage({
-            teamId,
-            name: "Themed page",
-            type: "custom",
-            themeId: theme.themeId,
-        });
-        expect(page.themeId).toBe(theme.themeId);
+        await updateTeamSettings(teamId, { themeId: theme.themeId });
+        expect((await getTeamSettings(teamId)).themeId).toBe(theme.themeId);
 
         expect(
             await updateTheme(otherTeamId, theme.themeId, { name: "Hijack" }),
@@ -88,10 +81,6 @@ describe("themes", () => {
         await deleteTheme(teamId, theme.themeId);
         expect(await getThemeByThemeId(theme.themeId)).toBeUndefined();
 
-        const pages = await db.query.pages.findMany({
-            where: eq(pagesTable.teamId, teamId),
-        });
-        const themed = pages.find((row) => row.pageId === page.pageId);
-        expect(themed?.themeId).toBeNull();
+        expect((await getTeamSettings(teamId)).themeId).toBeNull();
     });
 });

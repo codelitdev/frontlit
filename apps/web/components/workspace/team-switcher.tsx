@@ -18,13 +18,17 @@ import {
     useSidebar,
 } from "@/components/ui/sidebar";
 import { FrontLitLogo } from "@/components/workspace/frontlit-logo";
-import type { Team } from "@/lib/api";
+import type { TeamMembership } from "@/lib/api";
+import {
+    canAccessWorkspacePath,
+    getWorkspaceLandingPath,
+} from "@/lib/workspace-access";
 
 export function TeamSwitcher({
     teams,
     currentTeamId,
 }: {
-    teams: Team[];
+    teams: TeamMembership[];
     currentTeamId: string | null;
 }) {
     const { isMobile } = useSidebar();
@@ -89,7 +93,16 @@ export function TeamSwitcher({
                                         <input
                                             type="hidden"
                                             name="redirectTo"
-                                            value={pathname}
+                                            value={
+                                                canAccessWorkspacePath(
+                                                    pathname,
+                                                    team,
+                                                )
+                                                    ? pathname
+                                                    : (getWorkspaceLandingPath(
+                                                          team,
+                                                      ) ?? "/teams")
+                                            }
                                         />
                                         <button
                                             type="submit"

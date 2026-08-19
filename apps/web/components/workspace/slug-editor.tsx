@@ -13,6 +13,8 @@ interface SlugEditorProps {
     disabled?: boolean;
     disabledReason?: string;
     testId?: string;
+    /** A one-line treatment for compact editor toolbars. */
+    compact?: boolean;
 }
 
 export function SlugEditor({
@@ -22,6 +24,7 @@ export function SlugEditor({
     disabled = false,
     disabledReason,
     testId,
+    compact = false,
 }: SlugEditorProps) {
     const [value, setValue] = useState(slug);
     const [saving, setSaving] = useState(false);
@@ -59,10 +62,31 @@ export function SlugEditor({
     const helpId = `${testId ?? "resource"}-slug-help`;
     const unchanged = value === slug;
 
+    const message =
+        disabled && disabledReason
+            ? disabledReason
+            : "Changing this updates the public URL immediately.";
+
     return (
-        <form className="w-full max-w-xl" onSubmit={handleSubmit}>
-            <Label htmlFor={`${testId ?? "resource"}-slug`}>Slug</Label>
-            <div className="mt-1 flex items-center gap-2">
+        <form
+            className={cn(
+                "relative w-full max-w-xl",
+                compact && "max-w-[min(20rem,30vw)]",
+            )}
+            onSubmit={handleSubmit}
+        >
+            <Label
+                htmlFor={`${testId ?? "resource"}-slug`}
+                className={compact ? "sr-only" : undefined}
+            >
+                Slug
+            </Label>
+            <div
+                className={cn(
+                    "mt-1 flex items-center gap-2",
+                    compact && "mt-0",
+                )}
+            >
                 <div
                     className={cn(
                         "flex min-w-0 flex-1 items-center overflow-hidden rounded-[var(--radius)] border border-input bg-card transition-[border-color,box-shadow] focus-within:border-ring focus-within:shadow-[0_0_0_3px_var(--primary-soft)]",
@@ -87,7 +111,10 @@ export function SlugEditor({
                         autoComplete="off"
                         spellCheck={false}
                         data-testid={testId}
-                        className="border-0 bg-transparent shadow-none focus-visible:border-transparent focus-visible:shadow-none"
+                        className={cn(
+                            "border-0 bg-transparent shadow-none focus-visible:border-transparent focus-visible:shadow-none",
+                            compact && "h-[30px]",
+                        )}
                     />
                 </div>
                 <Button
@@ -103,15 +130,24 @@ export function SlugEditor({
                 <p
                     id={errorId}
                     role="alert"
-                    className="mt-1 text-xs text-destructive"
+                    className={cn(
+                        "mt-1 text-xs text-destructive",
+                        compact &&
+                            "absolute left-0 top-full z-10 rounded bg-background px-2 py-1 shadow",
+                    )}
                 >
                     {error}
                 </p>
             ) : (
-                <p id={helpId} className="mt-1 text-xs text-muted-foreground">
-                    {disabled && disabledReason
-                        ? disabledReason
-                        : "Changing this updates the public URL immediately."}
+                <p
+                    id={helpId}
+                    className={
+                        compact
+                            ? "sr-only"
+                            : "mt-1 text-xs text-muted-foreground"
+                    }
+                >
+                    {message}
                 </p>
             )}
         </form>

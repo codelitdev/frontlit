@@ -5,6 +5,7 @@ import { toNodeHandler } from "better-auth/node";
 import { logger } from "./services/log";
 import { auth } from "./auth/better-auth";
 import oauthPagesRoutes from "./auth/oauth-pages";
+import sessionReverifyRoutes from "./auth/session-reverify";
 import mcpRoutes from "./mcp/routes";
 import provisioningRoutes from "./provisioning/routes";
 import teamRoutes from "./team/routes";
@@ -14,13 +15,16 @@ import mediaRoutes from "./media/routes";
 import blogsRoutes from "./documents/blogs-routes";
 import docsRoutes from "./documents/docs-routes";
 import changelogsRoutes from "./documents/changelogs-routes";
-import newsletterRoutes from "./newsletter/routes";
+import emailRoutes from "./email/routes";
 import docSectionsRoutes from "./documentation/routes";
 import chatbotRoutes from "./chatbot/routes";
 import ticketsRoutes from "./tickets/routes";
 import domainsRoutes from "./domains/routes";
 import settingsRoutes from "./settings/routes";
+import aiRoutes from "./ai/routes";
+import inboxAiRoutes from "./inbox-ai/routes";
 import publicRoutes from "./public/routes";
+import inboundMailRoutes from "./mail/routes";
 import metricsRoutes from "./metrics/routes";
 import { openApiDocument } from "./openapi";
 
@@ -36,11 +40,16 @@ export function createApp() {
         process.env.ENABLE_TRUST_PROXY === "true" ? 1 : false,
     );
 
+    // MCP and its discovery routes own their body parsing and CORS contract.
+    // Keep them ahead of the global CORS/body-parser middleware so SDK 2 can
+    // validate the wire protocol directly.
+    app.use(mcpRoutes);
     app.use(cors());
     // Mounted before express.json(): Better Auth's Node handler parses its
     // own body from the raw request.
     app.all("/api/auth/*", toNodeHandler(auth));
     app.use(oauthPagesRoutes);
+    app.use(inboundMailRoutes);
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
 
@@ -55,8 +64,8 @@ export function createApp() {
     });
 
     // Keep this at the same organization-standard path as SendLit. Private
-    // help-document CRUD lives at `/help-docs`, leaving `/docs` exclusively
-    // for the interactive API reference.
+    // documentation CRUD lives below `/content/documentation`, leaving
+    // `/docs` exclusively for the interactive API reference.
     app.use(
         "/docs",
         swaggerUi.serve,
@@ -75,25 +84,27 @@ export function createApp() {
     // routers scope their middleware to their own path prefixes, so adding a
     // router can no longer cause its auth or rate limits to intercept an
     // unrelated route mounted later.
-    app.use(mcpRoutes);
     app.use(provisioningRoutes);
     app.use(publicRoutes);
+    app.use(sessionReverifyRoutes);
 
     app.use(teamRoutes);
     app.use(pagesRoutes);
     app.use(themesRoutes);
     app.use(mediaRoutes);
     app.use(blogsRoutes);
-    // Must precede docsRoutes: its literal `/help-docs/search` path would
-    // otherwise be shadowed by docsRoutes' `/help-docs/:documentId` wildcard.
+    // Literal documentation section/search paths precede the document-id
+    // wildcard because Express matches routes in registration order.
     app.use(docSectionsRoutes);
     app.use(docsRoutes);
     app.use(changelogsRoutes);
-    app.use(newsletterRoutes);
+    app.use(emailRoutes);
     app.use(chatbotRoutes);
     app.use(ticketsRoutes);
     app.use(domainsRoutes);
     app.use(settingsRoutes);
+    app.use(aiRoutes);
+    app.use(inboxAiRoutes);
 
     app.use(
         (

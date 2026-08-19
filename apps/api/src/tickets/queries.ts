@@ -2,18 +2,35 @@ import { and, count, desc, eq, ilike, or } from "drizzle-orm";
 import { db } from "../db/client";
 import {
     accounts,
-    teamMembers,
+    teams,
     ticketMessages,
     tickets,
     type TicketSource,
     type TicketStatus,
     type TextEditorContentRow,
+    type TicketMessageSource,
 } from "../db/schema";
+import { generateTicketToken, hashTicketToken } from "./token";
+import { enqueueOutboxJob } from "../email/outbox";
+import { publishInboxUpdate } from "./live";
+import { withDbTransaction } from "../db/transaction";
 import {
-    generateTicketToken,
-    hashTicketToken,
-    verifyTicketToken,
-} from "./token";
+    mintAccessGrant,
+    seedLegacyGrant,
+    verifyTicketAccessToken,
+} from "../inbox-ai/grants";
+import {
+    enqueueInboxAiRun,
+    ticketsChannelForSource,
+} from "../inbox-ai/schedule";
+import { enqueueTicketMail } from "../inbox-ai/mail";
+
+function ticketContactSourcePath(source: TicketSource): string {
+    if (source === "chatbot") return "/chat";
+    if (source === "api") return "/api";
+    if (source === "email") return "/email";
+    return "/help";
+}
 
 export const textTicketMessage = (text: string): TextEditorContentRow => ({
     type: "doc",
@@ -38,29 +55,82 @@ export async function createTicket(input: {
     requesterEmail: string | null;
     requesterName?: string;
     source: TicketSource;
+    scheduleAi?: boolean;
 }) {
     const { token, tokenHash } = generateTicketToken();
 
-    const [ticket] = await db
-        .insert(tickets)
-        .values({
-            teamId: input.teamId,
-            subject: input.subject,
-            requesterEmail: input.requesterEmail,
-            requesterName: input.requesterName,
-            source: input.source,
-            accessTokenHash: tokenHash,
-        })
-        .returning();
+    const { ticket, firstMessage } = await withDbTransaction(async (tx) => {
+        const [created] = await tx
+            .insert(tickets)
+            .values({
+                teamId: input.teamId,
+                subject: input.subject,
+                requesterEmail: input.requesterEmail,
+                requesterName: input.requesterName,
+                source: input.source,
+                accessTokenHash: tokenHash,
+            })
+            .returning();
 
-    await db.insert(ticketMessages).values({
-        teamId: input.teamId,
-        ticketId: ticket.id,
-        author: "requester",
-        content: textTicketMessage(input.message),
+        const [message] = await tx
+            .insert(ticketMessages)
+            .values({
+                teamId: input.teamId,
+                ticketId: created.id,
+                author: "requester",
+                content: textTicketMessage(input.message),
+            })
+            .returning();
+
+        await tx
+            .update(tickets)
+            .set({
+                aiGeneration: 1,
+                aiTriggerMessageId: message.id,
+                updatedAt: new Date(),
+            })
+            .where(eq(tickets.id, created.id));
+
+        await seedLegacyGrant(input.teamId, created.id, tokenHash, tx);
+        return {
+            ticket: {
+                ...created,
+                aiGeneration: 1,
+                aiTriggerMessageId: message.id,
+            },
+            firstMessage: message,
+        };
     });
 
-    return { ticket, token };
+    if (input.requesterEmail) {
+        await enqueueOutboxJob(input.teamId, "contact_sync", {
+            email: input.requesterEmail,
+            ...(input.requesterName ? { name: input.requesterName } : {}),
+            sourcePath: ticketContactSourcePath(input.source),
+        });
+        await enqueueTicketMail({
+            teamId: input.teamId,
+            ticketDbId: ticket.id,
+            sequence: 1,
+            kind: "receipt",
+            payload: { token },
+        });
+    }
+
+    if (input.scheduleAi !== false) {
+        const channel = ticketsChannelForSource(input.source);
+        if (channel === "tickets") {
+            await enqueueInboxAiRun({
+                teamId: input.teamId,
+                ticketDbId: ticket.id,
+                triggerMessageId: firstMessage.id,
+                channel: "tickets",
+            });
+        }
+    }
+
+    publishInboxUpdate(input.teamId, ticket.ticketId);
+    return { ticket, token, firstMessage };
 }
 
 export async function listTickets(input: {
@@ -138,6 +208,7 @@ export async function addTicketMessage(input: {
     author: "requester" | "agent" | "bot";
     authorAccountId?: string;
     content: TextEditorContentRow;
+    sources?: TicketMessageSource[];
 }) {
     const [message] = await db
         .insert(ticketMessages)
@@ -147,14 +218,51 @@ export async function addTicketMessage(input: {
             author: input.author,
             authorAccountId: input.authorAccountId,
             content: input.content,
+            sources: input.sources ?? [],
         })
         .returning();
 
-    await db
-        .update(tickets)
-        .set({ lastMessageAt: new Date(), updatedAt: new Date() })
-        .where(eq(tickets.id, input.ticketDbId));
+    const existing = await db.query.tickets.findFirst({
+        where: eq(tickets.id, input.ticketDbId),
+    });
 
+    const patch: Record<string, unknown> = {
+        lastMessageAt: new Date(),
+        updatedAt: new Date(),
+    };
+    if (existing && existing.status !== "closed") {
+        if (input.author === "agent") {
+            patch.status = "pending";
+            patch.aiState = "taken_over";
+            patch.aiStopReason = "agent_takeover";
+            patch.aiStoppedAt = new Date();
+            patch.aiGeneration = existing.aiGeneration + 1;
+        } else if (input.author === "requester") {
+            patch.status = "open";
+            patch.aiGeneration = existing.aiGeneration + 1;
+            patch.aiTriggerMessageId = message.id;
+            if (existing.aiState === "waiting") patch.aiState = "idle";
+        }
+    }
+
+    await db.update(tickets).set(patch).where(eq(tickets.id, input.ticketDbId));
+
+    if (
+        existing &&
+        input.author === "requester" &&
+        existing.source !== "chatbot" &&
+        existing.aiState !== "escalated" &&
+        existing.aiState !== "taken_over"
+    ) {
+        await enqueueInboxAiRun({
+            teamId: input.teamId,
+            ticketDbId: existing.id,
+            triggerMessageId: message.id,
+            channel: "tickets",
+        });
+    }
+
+    if (existing) publishInboxUpdate(input.teamId, existing.ticketId);
     return message;
 }
 
@@ -171,31 +279,25 @@ export async function updateTicket(
         .set({ ...patch, updatedAt: new Date() })
         .where(eq(tickets.id, existing.id))
         .returning();
+    if (ticket) publishInboxUpdate(teamId, ticket.ticketId);
     return ticket;
 }
 
-/** Verifies a visitor-supplied magic-link token against the ticket's stored
- * hash (constant-time, architecture.md §13.4). */
-export function verifyTicketAccess(
-    ticket: { accessTokenHash: string },
+/** Verifies a visitor-supplied magic-link token against any unrevoked,
+ * unexpired grant, falling back to the ticket's original hash. */
+export async function verifyTicketAccess(
+    ticket: { id: string; teamId: string; accessTokenHash: string },
     token: string,
-): boolean {
-    return verifyTicketToken(token, ticket.accessTokenHash);
+): Promise<boolean> {
+    return verifyTicketAccessToken(ticket, token);
 }
 
-/** Rotates the ticket's access token — only the hash is ever persisted, so
- * a fresh plaintext token is minted every time we email the requester a
- * link ("every requester email re-sends a fresh link", architecture.md
- * §13.4). Invalidates any previously issued link. */
+/** Mints an additional access grant. Does not revoke earlier grants. */
 export async function reissueTicketAccessToken(
+    teamId: string,
     ticketDbId: string,
 ): Promise<string> {
-    const { token, tokenHash } = generateTicketToken();
-    await db
-        .update(tickets)
-        .set({ accessTokenHash: tokenHash, updatedAt: new Date() })
-        .where(eq(tickets.id, ticketDbId));
-    return token;
+    return mintAccessGrant(teamId, ticketDbId);
 }
 
 export { hashTicketToken };
@@ -215,11 +317,9 @@ export async function getTicketNotificationRecipient(
 
     const [row] = await db
         .select({ email: accounts.email })
-        .from(teamMembers)
-        .innerJoin(accounts, eq(teamMembers.accountId, accounts.id))
-        .where(
-            and(eq(teamMembers.teamId, teamId), eq(teamMembers.role, "owner")),
-        )
+        .from(teams)
+        .innerJoin(accounts, eq(teams.ownerAccountId, accounts.id))
+        .where(eq(teams.id, teamId))
         .limit(1);
     return row?.email ?? null;
 }

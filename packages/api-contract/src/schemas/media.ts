@@ -12,6 +12,7 @@ export const mediaSchema = z.object({
     caption: z.string().nullable().optional(),
     createdAt: z.string().nullable(),
     updatedAt: z.string().nullable(),
+    referenceCount: z.number().int().nonnegative().optional(),
 });
 
 export const mediaUploadSignatureSchema = z.object({
@@ -33,4 +34,21 @@ export const updateMediaBodySchema = z.object({
 export const listMediaQuerySchema = z.object({
     offset: z.coerce.number().int().min(1).optional(),
     itemsPerPage: z.coerce.number().int().min(1).optional(),
+});
+
+export const searchUnsplashQuerySchema = z.object({
+    q: z.string().optional(),
+});
+
+export const unsplashPhotoSchema = z.object({
+    id: z.string(),
+    alt: z.string().optional(),
+    thumbUrl: z.string(),
+    url: z.string(),
+    photographer: z.string().optional(),
+});
+
+export const searchUnsplashResponseSchema = z.object({
+    configured: z.boolean(),
+    items: z.array(unsplashPhotoSchema),
 });

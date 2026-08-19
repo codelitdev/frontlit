@@ -28,6 +28,7 @@ import { ScrollablePage } from "@/components/workspace/scrollable-page";
 import { DeleteConfirm } from "@/components/workspace/delete-confirm";
 import { DocumentStatusBadge } from "@/components/workspace/document-status-badge";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
+import { useWorkspaceAccess } from "@/components/workspace/workspace-access";
 import { Badge } from "@/components/ui/codelit/badge";
 import { Button } from "@/components/ui/codelit/button";
 import {
@@ -77,10 +78,15 @@ function relativeUpdatedAt(value: string | null) {
 
 export default function PagesPage() {
     useSetBreadcrumb([
-        { label: "Website", href: "/website/pages" },
+        { label: "Website", href: "/website?tab=pages" },
         { label: "Pages" },
     ]);
     const router = useRouter();
+    const { currentTeam } = useWorkspaceAccess();
+    const canEdit = Boolean(
+        currentTeam?.isOwner ||
+        currentTeam?.effectivePermissions.includes("pages:write"),
+    );
     const [pages, setPages] = useState<Page[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<PagesFilter>("all");
@@ -199,10 +205,12 @@ export default function PagesPage() {
                                 className="pl-9"
                             />
                         </div>
-                        <Button type="button" onClick={openNewPage}>
-                            <Plus className="size-4" />
-                            New page
-                        </Button>
+                        {canEdit && (
+                            <Button type="button" onClick={openNewPage}>
+                                <Plus className="size-4" />
+                                New page
+                            </Button>
+                        )}
                     </div>
                 </header>
 
@@ -262,7 +270,7 @@ export default function PagesPage() {
                                     ? "Build a page, then publish it when it is ready."
                                     : "Try another status, name, slug, or page type."}
                             </p>
-                            {pages.length === 0 && (
+                            {pages.length === 0 && canEdit && (
                                 <Button
                                     type="button"
                                     size="sm"
@@ -281,44 +289,22 @@ export default function PagesPage() {
                                     key={page.pageId}
                                     className="group flex items-center gap-3 px-4 py-3.5 hover:bg-muted/35 sm:px-5"
                                 >
-                                    <Link
-                                        href={`/editor/pages/${page.pageId}`}
-                                        className="min-w-0 flex-1"
-                                    >
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span className="truncate text-sm font-semibold group-hover:underline">
-                                                {page.name}
-                                            </span>
-                                            {page.status !== "published" && (
-                                                <DocumentStatusBadge
-                                                    status={page.status}
-                                                />
-                                            )}
-                                            {!page.deleteable && (
-                                                <Badge
-                                                    variant="outline"
-                                                    className="px-2 py-0.5"
-                                                >
-                                                    Required
-                                                </Badge>
-                                            )}
+                                    {canEdit ? (
+                                        <Link
+                                            href={`/editor/pages/${page.pageId}`}
+                                            className="min-w-0 flex-1"
+                                        >
+                                            <PageSummary page={page} />
+                                        </Link>
+                                    ) : (
+                                        <div className="min-w-0 flex-1">
+                                            <PageSummary page={page} />
                                         </div>
-                                        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
-                                            <span className="truncate font-mono text-xs text-muted-foreground">
-                                                {pagePath(page)}
-                                            </span>
-                                            <Badge
-                                                variant="neutral"
-                                                className="px-2 py-0.5 text-[0.6875rem] font-medium"
-                                            >
-                                                {PAGE_TYPE_LABELS[page.type]}
-                                            </Badge>
-                                        </div>
-                                    </Link>
+                                    )}
                                     <span className="hidden shrink-0 text-xs text-muted-foreground sm:block">
                                         {relativeUpdatedAt(page.updatedAt)}
                                     </span>
-                                    {page.deleteable && (
+                                    {canEdit && page.deletable && (
                                         <DeleteConfirm
                                             title={`Delete ${page.name}?`}
                                             description="This page and its published version will be permanently deleted."
@@ -424,5 +410,36 @@ export default function PagesPage() {
                 </DialogContent>
             </Dialog>
         </ScrollablePage>
+    );
+}
+
+function PageSummary({ page }: { page: Page }) {
+    return (
+        <>
+            <div className="flex flex-wrap items-center gap-2">
+                <span className="truncate text-sm font-semibold group-hover:underline">
+                    {page.name}
+                </span>
+                {page.status !== "published" && (
+                    <DocumentStatusBadge status={page.status} />
+                )}
+                {!page.deletable && (
+                    <Badge variant="outline" className="px-2 py-0.5">
+                        Required
+                    </Badge>
+                )}
+            </div>
+            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+                <span className="truncate font-mono text-xs text-muted-foreground">
+                    {pagePath(page)}
+                </span>
+                <Badge
+                    variant="neutral"
+                    className="px-2 py-0.5 text-[0.6875rem] font-medium"
+                >
+                    {PAGE_TYPE_LABELS[page.type]}
+                </Badge>
+            </div>
+        </>
     );
 }

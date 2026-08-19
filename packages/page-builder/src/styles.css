@@ -1,6 +1,9 @@
+@import "./fonts.css";
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "./theme.css";
+@import "../../text-editor/src/tokens.css";
+@import "../../text-editor/src/prose.css";
 
 @source "../src";
 @source "../../text-editor/src";

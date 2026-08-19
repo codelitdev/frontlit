@@ -4,9 +4,9 @@ import {
     captureLeadBodySchema,
     chatRequestBodySchema,
     createApiKeyBodySchema,
-    createBlogBodySchema,
-    createDocBodySchema,
-    createDocSectionBodySchema,
+    createArticleBodySchema,
+    createDocumentationBodySchema,
+    createDocumentationSectionBodySchema,
     createMediaBodySchema,
     createPageBodySchema,
     createTeamBodySchema,
@@ -19,7 +19,7 @@ import {
     publicCreateTicketBodySchema,
     renameTeamBodySchema,
     resolveHostQuerySchema,
-    searchDocsQuerySchema,
+    searchDocumentationQuerySchema,
     setTeamSubdomainBodySchema,
     testEspConfigBodySchema,
     textEditorContentSchema,
@@ -27,6 +27,7 @@ import {
     updatePageBodySchema,
     updateTeamSettingsBodySchema,
     updateTicketBodySchema,
+    updateAiConfigBodySchema,
     upsertEspConfigBodySchema,
 } from "@frontlit/api-contract";
 import { openApiDocument } from "./openapi";
@@ -72,14 +73,6 @@ describe("API input validation schemas", () => {
             }).success,
         ).toBe(false);
         expect(
-            createPageBodySchema.safeParse({
-                name: "About",
-                type: "custom",
-                themeId: "learning",
-            }).success,
-        ).toBe(true);
-
-        expect(
             updatePageBodySchema.safeParse({
                 slug: "",
             }).success,
@@ -92,7 +85,8 @@ describe("API input validation schemas", () => {
                     {
                         widgetId: "header-1",
                         name: "header",
-                        deleteable: false,
+                        deletable: false,
+                        moveable: false,
                         shared: true,
                     },
                 ],
@@ -116,15 +110,17 @@ describe("API input validation schemas", () => {
     });
 
     it("validates document bodies, TipTap content, and search queries", () => {
-        expect(createBlogBodySchema.safeParse({ title: "" }).success).toBe(
+        expect(createArticleBodySchema.safeParse({ title: "" }).success).toBe(
             false,
         );
-        expect(createBlogBodySchema.parse({ title: "Hello" })).toMatchObject({
-            title: "Hello",
-            meta: { tags: [] },
-        });
+        expect(createArticleBodySchema.parse({ title: "Hello" })).toMatchObject(
+            {
+                title: "Hello",
+                meta: { tags: [] },
+            },
+        );
         expect(
-            createDocBodySchema.safeParse({
+            createDocumentationBodySchema.safeParse({
                 title: "Install",
                 meta: { order: 1 },
             }).success,
@@ -147,17 +143,23 @@ describe("API input validation schemas", () => {
                 itemsPerPage: "10",
             }),
         ).toEqual({ offset: 1, itemsPerPage: 10 });
-        expect(searchDocsQuerySchema.safeParse({ q: "" }).success).toBe(false);
-        expect(searchDocsQuerySchema.parse({ q: "pricing", k: "5" })).toEqual({
+        expect(
+            searchDocumentationQuerySchema.safeParse({ q: "" }).success,
+        ).toBe(false);
+        expect(
+            searchDocumentationQuerySchema.parse({ q: "pricing", k: "5" }),
+        ).toEqual({
             q: "pricing",
             k: 5,
         });
-        expect(createDocSectionBodySchema.safeParse({ name: "" }).success).toBe(
-            false,
-        );
         expect(
-            createDocSectionBodySchema.safeParse({ name: "Getting started" })
+            createDocumentationSectionBodySchema.safeParse({ name: "" })
                 .success,
+        ).toBe(false);
+        expect(
+            createDocumentationSectionBodySchema.safeParse({
+                name: "Getting started",
+            }).success,
         ).toBe(true);
     });
 
@@ -176,7 +178,7 @@ describe("API input validation schemas", () => {
         ).toBe(false);
         expect(
             attachCustomDomainBodySchema.safeParse({
-                hostname: "docs.example.com",
+                hostname: "content.documentation.example.com",
             }).success,
         ).toBe(true);
 
@@ -197,6 +199,13 @@ describe("API input validation schemas", () => {
             updateTeamSettingsBodySchema.safeParse({
                 title: "Acme",
                 codeInjectionHead: null,
+            }).success,
+        ).toBe(true);
+        expect(
+            updateTeamSettingsBodySchema.safeParse({
+                title: null,
+                subtitle: null,
+                logo: null,
             }).success,
         ).toBe(true);
 
@@ -238,7 +247,19 @@ describe("API input validation schemas", () => {
         expect(
             chatRequestBodySchema.safeParse({
                 message: "How do I start?",
+            }).success,
+        ).toBe(true);
+        expect(
+            chatRequestBodySchema.safeParse({
+                message: "How do I start?",
                 conversationId: "tkt_1",
+            }).success,
+        ).toBe(false);
+        expect(
+            chatRequestBodySchema.safeParse({
+                message: "How do I start?",
+                conversationId: "tkt_1",
+                conversationToken: "tok_1",
             }).success,
         ).toBe(true);
 
@@ -281,7 +302,33 @@ describe("API input validation schemas", () => {
         ).toEqual({ status: "open", offset: 1 });
     });
 
-    it("validates chatbot, ESP, and newsletter-adjacent bodies", () => {
+    it("validates chatbot, ESP, and email-adjacent bodies", () => {
+        expect(
+            updateAiConfigBodySchema.safeParse({
+                provider: "openai",
+                models: {
+                    chatbot: "gpt-4o-mini",
+                    grammar: "gpt-4o-mini",
+                    builder: "gpt-4.1",
+                },
+            }).success,
+        ).toBe(true);
+        expect(
+            updateAiConfigBodySchema.safeParse({
+                provider: "openai",
+                models: { builder: "x".repeat(161) },
+            }).success,
+        ).toBe(false);
+        expect(
+            updateAiConfigBodySchema.safeParse({
+                provider: "azure",
+                endpoint: "https://example.openai.azure.com/openai",
+            }).success,
+        ).toBe(true);
+        expect(
+            updateAiConfigBodySchema.safeParse({ provider: "azure" }).success,
+        ).toBe(false);
+
         expect(
             updateChatbotSettingsBodySchema.safeParse({
                 enabled: true,
@@ -333,7 +380,31 @@ describe("API input validation schemas", () => {
 });
 
 describe("OpenAPI surface for critical contract paths", () => {
-    it("documents public, pages, tickets, and domain operations", () => {
+    it("documents unified Content, public, and platform operations", () => {
+        expect(openApiDocument.paths["/content/articles"]?.post).toBeTruthy();
+        expect(
+            openApiDocument.paths["/content/documentation"]?.post,
+        ).toBeTruthy();
+        expect(
+            openApiDocument.paths["/content/documentation/sections"]?.get,
+        ).toBeTruthy();
+        expect(
+            openApiDocument.paths["/content/product-updates"]?.post,
+        ).toBeTruthy();
+        expect(openApiDocument.paths["/blogs"]).toBeUndefined();
+        expect(openApiDocument.paths["/help-docs"]).toBeUndefined();
+        expect(openApiDocument.paths["/changelogs"]).toBeUndefined();
+        expect(
+            openApiDocument.paths["/public/{teamId}/content/articles"]?.get,
+        ).toBeTruthy();
+        expect(
+            openApiDocument.paths["/public/{teamId}/content/documentation"]
+                ?.get,
+        ).toBeTruthy();
+        expect(
+            openApiDocument.paths["/public/{teamId}/content/product-updates"]
+                ?.get,
+        ).toBeTruthy();
         expect(openApiDocument.paths["/public/resolve-host"]?.get).toBeTruthy();
         expect(
             openApiDocument.paths["/public/{teamId}/leads"]?.post,

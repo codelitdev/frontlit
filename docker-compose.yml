@@ -1,16 +1,199 @@
-# FrontLit Docker Compose Configuration
+# Self-host stack (architecture.md §10.4): one Compose file runs Postgres,
+# SendLit, and FrontLit. `docker compose up --build -d` is the product.
+# For host `pnpm dev:api` / `pnpm dev:web` / `pnpm dev:sites`, use
+# docker-compose.local.yml instead — this file publishes the FrontLit
+# ports those commands also bind.
+name: frontlit
+
+x-postgres-user: &postgres-user ${POSTGRES_USER:-frontlit}
+x-postgres-password: &postgres-password ${POSTGRES_PASSWORD:-frontlit}
+x-postgres-db: &postgres-db ${POSTGRES_DB:-frontlit}
+
 services:
     postgres:
         image: pgvector/pgvector:pg16
         restart: unless-stopped
         environment:
-            POSTGRES_USER: frontlit
-            POSTGRES_PASSWORD: frontlit
-            POSTGRES_DB: frontlit
+            POSTGRES_USER: *postgres-user
+            POSTGRES_PASSWORD: *postgres-password
+            POSTGRES_DB: *postgres-db
+        # Bound to loopback so local pnpm can reach it without publishing
+        # Postgres on the public interface. Override POSTGRES_BIND/PORT
+        # if you must change that.
         ports:
-            - "5432:5432"
+            - "${POSTGRES_BIND:-127.0.0.1}:${POSTGRES_PORT:-5433}:5432"
         volumes:
             - frontlit-postgres-data:/var/lib/postgresql/data
+            - ./docker/postgres-init/01-create-sendlit-db.sh:/docker-entrypoint-initdb.d/01-create-sendlit-db.sh:ro
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+            interval: 5s
+            timeout: 5s
+            retries: 12
+
+    sendlit-redis:
+        image: redis:7-alpine
+        restart: unless-stopped
+        command: redis-server --appendonly yes
+        volumes:
+            - sendlit-redis-data:/data
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 5s
+            retries: 12
+
+    # Fresh volumes get `sendlit` from the init script above. This job also
+    # creates it on an already-initialized FrontLit Postgres volume.
+    sendlit-db-init:
+        image: pgvector/pgvector:pg16
+        restart: "no"
+        depends_on:
+            postgres:
+                condition: service_healthy
+        environment:
+            PGPASSWORD: *postgres-password
+        command:
+            - sh
+            - -ec
+            - >-
+              psql -h postgres -U ${POSTGRES_USER:-frontlit} -d ${POSTGRES_DB:-frontlit} -tAc
+              "SELECT 1 FROM pg_database WHERE datname = 'sendlit'" |
+              grep -q 1 || psql -h postgres -U ${POSTGRES_USER:-frontlit} -d ${POSTGRES_DB:-frontlit}
+              -v ON_ERROR_STOP=1 -c "CREATE DATABASE sendlit OWNER ${POSTGRES_USER:-frontlit}"
+
+    sendlit-api:
+        image: codelit/sendlit-api:k3s
+        restart: unless-stopped
+        depends_on:
+            postgres:
+                condition: service_healthy
+            sendlit-redis:
+                condition: service_healthy
+            sendlit-db-init:
+                condition: service_completed_successfully
+        command:
+            - sh
+            - -ec
+            - |
+              node apps/api/dist/db/migrate.js
+              exec node apps/api/dist/index.js
+        environment:
+            NODE_ENV: "${SENDLIT_NODE_ENV:-development}"
+            PORT: 3001
+            DB_CONNECTION_STRING: postgres://${POSTGRES_USER:-frontlit}:${POSTGRES_PASSWORD:-frontlit}@postgres:5432/sendlit
+            REDIS_HOST: sendlit-redis
+            REDIS_PORT: 6379
+            API_PUBLIC_URL: "${SENDLIT_API_PUBLIC_URL:-http://localhost:3001}"
+            WEB_CLIENT: "${SENDLIT_WEB_CLIENT:-http://localhost:3001}"
+            PROTOCOL: "${SENDLIT_PROTOCOL:-http}"
+            DOMAIN: "${SENDLIT_DOMAIN:-localhost:3001}"
+            BETTER_AUTH_SECRET: "${SENDLIT_BETTER_AUTH_SECRET:?Set SENDLIT_BETTER_AUTH_SECRET to at least 32 bytes}"
+            PIXEL_SIGNING_SECRET: "${SENDLIT_PIXEL_SIGNING_SECRET:?Set SENDLIT_PIXEL_SIGNING_SECRET}"
+            ESP_CREDENTIALS_ENCRYPTION_KEY: "${SENDLIT_ESP_CREDENTIALS_ENCRYPTION_KEY:?Set SENDLIT_ESP_CREDENTIALS_ENCRYPTION_KEY to a 32-byte key}"
+            SUPPRESSION_HASH_KEY: "${SENDLIT_SUPPRESSION_HASH_KEY:?Set SENDLIT_SUPPRESSION_HASH_KEY}"
+            SUPER_ADMIN_EMAIL: "${SENDLIT_SUPER_ADMIN_EMAIL:?Set SENDLIT_SUPER_ADMIN_EMAIL}"
+        ports:
+            - "${SENDLIT_API_PORT:-3001}:3001"
+        healthcheck:
+            test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3001/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+            interval: 10s
+            timeout: 5s
+            retries: 12
+
+    frontlit-api:
+        build:
+            context: .
+            dockerfile: apps/api/Dockerfile
+        restart: unless-stopped
+        env_file: .env
+        environment: &frontlit-api-environment
+            NODE_ENV: ${NODE_ENV:-production}
+            PORT: 4000
+            DB_CONNECTION_STRING: postgres://${POSTGRES_USER:-frontlit}:${POSTGRES_PASSWORD:-frontlit}@postgres:5432/${POSTGRES_DB:-frontlit}
+            MIGRATIONS_FOLDER: /app/apps/api/drizzle
+            BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET to at least 32 bytes}
+            PROVISIONING_SECRET: ${PROVISIONING_SECRET:?Set PROVISIONING_SECRET}
+            SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-}
+            API_PUBLIC_URL: ${API_PUBLIC_URL:-http://localhost:4000}
+            WEB_CLIENT: ${WEB_CLIENT:-http://localhost:3000}
+            WEB_BASE_URL: ${WEB_BASE_URL:-http://localhost:3000}
+            SITES_BASE_URL: ${SITES_BASE_URL:-http://localhost:3002}
+            PLATFORM_SITE_DOMAIN: ${PLATFORM_SITE_DOMAIN:-localhost}
+            CUSTOM_DOMAIN_CNAME_TARGET: ${CUSTOM_DOMAIN_CNAME_TARGET:-}
+            ENABLE_TRUST_PROXY: ${ENABLE_TRUST_PROXY:-false}
+            AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-}
+            SENDLIT_API_URL: ${SENDLIT_API_URL:-http://sendlit-api:3001}
+            SENDLIT_ORGANIZATION_API_KEY: ${SENDLIT_ORGANIZATION_API_KEY:-}
+            MEDIALIT_APIKEY: ${MEDIALIT_APIKEY:-}
+            MEDIALIT_SERVER: ${MEDIALIT_SERVER:-https://api.medialit.cloud}
+            REVALIDATE_WEBHOOK_SECRET: ${REVALIDATE_WEBHOOK_SECRET:-}
+            INTEGRATIONS_ENCRYPTION_KEY: ${INTEGRATIONS_ENCRYPTION_KEY:-}
+            EMAIL_HOST: ${EMAIL_HOST:-}
+            EMAIL_PORT: ${EMAIL_PORT:-}
+            EMAIL_USER: ${EMAIL_USER:-}
+            EMAIL_PASS: ${EMAIL_PASS:-}
+            EMAIL_FROM: ${EMAIL_FROM:-}
+            MAIL_DOMAIN: ${MAIL_DOMAIN:-}
+            GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+            GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+        depends_on:
+            postgres:
+                condition: service_healthy
+            sendlit-api:
+                condition: service_healthy
+        command:
+            - sh
+            - -ec
+            - |
+              node apps/api/dist/db/migrate.js
+              exec node apps/api/dist/index.js
+        ports:
+            - "${API_PORT:-4000}:4000"
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "node",
+                    "-e",
+                    "fetch('http://127.0.0.1:4000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 12
+
+    frontlit-web:
+        build:
+            context: .
+            dockerfile: apps/web/Dockerfile
+        restart: unless-stopped
+        environment:
+            NODE_ENV: production
+            API_URL: http://frontlit-api:4000
+            API_PUBLIC_URL: ${API_PUBLIC_URL:-http://localhost:4000}
+            WEB_CLIENT: ${WEB_CLIENT:-http://localhost:3000}
+        depends_on:
+            frontlit-api:
+                condition: service_healthy
+        ports:
+            - "${WEB_PORT:-3000}:3000"
+
+    frontlit-sites:
+        build:
+            context: .
+            dockerfile: apps/sites/Dockerfile
+        restart: unless-stopped
+        environment:
+            NODE_ENV: production
+            API_URL: http://frontlit-api:4000
+            API_PUBLIC_URL: ${API_PUBLIC_URL:-http://localhost:4000}
+            REVALIDATE_WEBHOOK_SECRET: ${REVALIDATE_WEBHOOK_SECRET:-}
+        depends_on:
+            frontlit-api:
+                condition: service_healthy
+        ports:
+            - "${SITES_PORT:-3002}:3002"
 
 volumes:
     frontlit-postgres-data:
+    sendlit-redis-data:

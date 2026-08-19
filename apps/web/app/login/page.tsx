@@ -4,11 +4,17 @@ import { getWebLoginUrl } from "@/lib/login-url";
 
 export const dynamic = "force-dynamic";
 
-export default function LoginPage() {
+export default async function LoginPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ next?: string }>;
+}) {
+    const { next } = await searchParams;
     redirect(
         getWebLoginUrl({
             apiPublicUrl: API_PUBLIC_URL,
             webClient: WEB_CLIENT,
+            next,
         }),
     );
 }

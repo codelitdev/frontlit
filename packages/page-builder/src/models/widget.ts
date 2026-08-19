@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 import type { Theme } from "./theme";
 import type { ThemeStyle } from "./theme-style";
 import type { SectionBackground } from "./section-background";
@@ -24,7 +24,10 @@ export interface WidgetMetadata {
 export interface WidgetInstance {
     widgetId: string;
     name: string;
-    deleteable: boolean;
+    /** Whether the instance can be removed from its page. */
+    deletable: boolean;
+    /** Whether the instance can be repositioned within its page. */
+    moveable: boolean;
     shared: boolean;
     settings?: Record<string, unknown>;
 }
@@ -55,6 +58,11 @@ export interface WidgetDefaultSettings {
 
 export interface PageData extends Record<string, unknown> {
     pageType: PageType;
+    /** Tenant branding supplied by the host application. Layout blocks use
+     * this on published sites, while the builder can continue to use its
+     * own local block settings. */
+    siteLogoUrl?: string;
+    siteLogoAlt?: string;
     /** The page's team (public id) and slug, plus the base URL of FrontLit's
      * public API — threaded through so blocks that make unauthenticated
      * public calls (e.g. the email-form block's lead capture, architecture.md
@@ -72,8 +80,16 @@ export interface WidgetProps<
     settings: T;
     state: { theme: Theme };
     pageData: PageData;
+    /** Host-resolved data rendered by a generic `data-slot` block. */
+    data?: ReactNode;
     editing?: boolean;
+    /** Resolved palette currently painted (`system` is already applied). */
     nextTheme?: "light" | "dark";
+    /** Visitor or preview preference, including follow-the-OS. */
+    themeMode?: "light" | "dark" | "system";
+    setThemeMode?: (mode: "light" | "dark" | "system") => void;
+    /** Flips the resolved palette. Used by compact header controls. */
+    toggleTheme?: () => void;
 }
 
 export interface WidgetEditorProps<

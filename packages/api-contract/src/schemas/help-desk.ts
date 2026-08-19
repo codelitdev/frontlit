@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { chatSourceSchema } from "./chatbot";
 import { textEditorContentSchema } from "./documents";
 
 export const ticketStatusSchema = z.enum([
@@ -7,14 +8,26 @@ export const ticketStatusSchema = z.enum([
     "resolved",
     "closed",
 ]);
-export const ticketSourceSchema = z.enum(["form", "chatbot", "api"]);
+export const ticketSourceSchema = z.enum(["form", "chatbot", "api", "email"]);
 export const ticketMessageAuthorSchema = z.enum(["requester", "agent", "bot"]);
+
+export const ticketAttachmentSchema = z.object({
+    attachmentId: z.string(),
+    fileName: z.string(),
+    mimeType: z.string(),
+    size: z.number().int(),
+    url: z.string(),
+    thumbnailUrl: z.string().nullable().optional(),
+    createdAt: z.string().nullable(),
+});
 
 export const ticketMessageSchema = z.object({
     messageId: z.string(),
     author: ticketMessageAuthorSchema,
     authorAccountId: z.string().nullable().optional(),
     content: textEditorContentSchema,
+    attachments: z.array(ticketAttachmentSchema).optional(),
+    sources: z.array(chatSourceSchema).optional(),
     createdAt: z.string().nullable(),
 });
 
@@ -28,13 +41,44 @@ export const ticketSchema = z.object({
     requesterName: z.string().nullable().optional(),
     source: ticketSourceSchema,
     assigneeAccountId: z.string().nullable().optional(),
+    /** Present on workspace inbox reads so the list can split escalated vs agent. */
+    aiState: z
+        .enum(["idle", "generating", "waiting", "escalated", "taken_over"])
+        .optional(),
     lastMessageAt: z.string().nullable(),
     createdAt: z.string().nullable(),
     updatedAt: z.string().nullable(),
 });
 
+export const ticketAiRetrievalSchema = z.object({
+    documentId: z.string(),
+    slug: z.string(),
+    title: z.string().nullable(),
+    heading: z.string().nullable().optional(),
+    anchor: z.string().nullable(),
+    similarity: z.number().optional(),
+    kind: z.enum(["blog", "doc", "changelog"]).optional(),
+});
+
+export const ticketAiRunSchema = z.object({
+    triggerMessageId: z.string(),
+    status: z.string(),
+    stopReason: z.string().nullable().optional(),
+    lastError: z.string().nullable().optional(),
+    retrieval: z.array(ticketAiRetrievalSchema),
+    createdAt: z.string().nullable(),
+});
+
+/** Present only on authed inbox reads when the team has AI configured. */
+export const ticketAiOpticsSchema = z.object({
+    state: z.string(),
+    stopReason: z.string().nullable(),
+    runs: z.array(ticketAiRunSchema),
+});
+
 export const ticketWithMessagesSchema = ticketSchema.extend({
     messages: z.array(ticketMessageSchema),
+    ai: ticketAiOpticsSchema.optional(),
 });
 
 // ---- Workspace (authed) -----------------------------------------------------
@@ -57,7 +101,15 @@ export const createTicketBodySchema = z.object({
 });
 
 export const replyToTicketBodySchema = z.object({
-    content: textEditorContentSchema,
+    content: textEditorContentSchema.optional(),
+    attachmentIds: z.array(z.string().min(1)).max(5).optional(),
+});
+
+export const completeTicketAttachmentBodySchema = z.object({
+    mediaLitId: z.string().min(1),
+    fileName: z.string().min(1).max(255).optional(),
+    mimeType: z.string().max(200).optional(),
+    size: z.number().int().nonnegative().optional(),
 });
 
 export const updateTicketBodySchema = z.object({

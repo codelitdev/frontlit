@@ -12,7 +12,10 @@ import {
     SlugConflictError,
     uniqueSlug,
 } from "../utils/slug";
-import { reindexDocument } from "../documentation/queries";
+import { enqueueDocumentIndex } from "../documentation/index-jobs";
+import { isDocIndexable } from "../documentation/index-status";
+import { teamIndexesKind } from "../documentation/index-policy";
+import { deleteChunksForDocument } from "../documentation/queries";
 
 export type DocumentStatus = "draft" | "published" | "published_with_changes";
 
@@ -180,6 +183,19 @@ export async function updateDocument(
         throw new SlugConflictError("That slug is already in use.");
     }
 
+    const nextDraftMeta =
+        meta !== undefined
+            ? {
+                  ...(existing.draftMeta as Record<string, unknown>),
+                  ...meta,
+              }
+            : undefined;
+    const indexableToggled =
+        meta !== undefined &&
+        "indexable" in meta &&
+        Boolean(existing.publishedAt) &&
+        (await teamIndexesKind(teamId, kind));
+
     try {
         const [doc] = await db
             .update(documents)
@@ -191,14 +207,14 @@ export async function updateDocument(
                 ...(featuredImage !== undefined
                     ? { draftFeaturedImage: featuredImage }
                     : {}),
-                ...(meta !== undefined
+                ...(nextDraftMeta !== undefined
+                    ? { draftMeta: nextDraftMeta }
+                    : {}),
+                ...(indexableToggled
                     ? {
-                          draftMeta: {
-                              ...(existing.draftMeta as Record<
-                                  string,
-                                  unknown
-                              >),
-                              ...meta,
+                          meta: {
+                              ...(existing.meta as Record<string, unknown>),
+                              indexable: meta!.indexable,
                           },
                       }
                     : {}),
@@ -206,6 +222,13 @@ export async function updateDocument(
             })
             .where(eq(documents.id, existing.id))
             .returning();
+        if (doc && indexableToggled) {
+            if (isDocIndexable(doc.meta)) {
+                await enqueueDocumentIndex(teamId, doc.id);
+            } else {
+                await deleteChunksForDocument(doc.id);
+            }
+        }
         return doc;
     } catch (error) {
         if (slug !== undefined && isUniqueConstraintViolation(error)) {
@@ -217,8 +240,8 @@ export async function updateDocument(
 
 /** Promotes the draft state to published: copies draft_* -> published
  * columns in one update and stamps `publishedAt`. For the `doc` kind, this
- * also re-indexes the document's pgvector chunks (architecture.md §6.3) —
- * only published content is ever searchable/citable, never draft. */
+ * enqueues a chunk/embed job when that content kind is enabled for
+ * indexing (architecture.md §6.3). Only published content is searchable. */
 export async function publishDocument(
     kind: DocumentKind,
     teamId: string,
@@ -241,12 +264,12 @@ export async function publishDocument(
         .where(eq(documents.id, existing.id))
         .returning();
 
-    if (doc && kind === "doc") {
-        await reindexDocument({
-            teamId,
-            documentId: doc.id,
-            content: doc.content,
-        });
+    if (doc && (await teamIndexesKind(teamId, kind))) {
+        if (isDocIndexable(doc.meta)) {
+            await enqueueDocumentIndex(teamId, doc.id);
+        } else {
+            await deleteChunksForDocument(doc.id);
+        }
     }
 
     return doc;

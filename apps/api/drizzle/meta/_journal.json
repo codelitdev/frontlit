@@ -5,29 +5,15 @@
         {
             "idx": 0,
             "version": "7",
-            "when": 1785312905581,
-            "tag": "0000_nosy_betty_ross",
+            "when": 1786874757729,
+            "tag": "0000_baseline",
             "breakpoints": true
         },
         {
             "idx": 1,
             "version": "7",
-            "when": 1785319015743,
-            "tag": "0001_omniscient_paper_doll",
-            "breakpoints": true
-        },
-        {
-            "idx": 2,
-            "version": "7",
-            "when": 1785333144322,
-            "tag": "0002_jittery_terrax",
-            "breakpoints": true
-        },
-        {
-            "idx": 3,
-            "version": "7",
-            "when": 1785340000000,
-            "tag": "0003_chatbot_widget_style",
+            "when": 1786900000000,
+            "tag": "0001_subdomain_public",
             "breakpoints": true
         }
     ]

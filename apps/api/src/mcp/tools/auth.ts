@@ -1,10 +1,11 @@
-/** MCP tool handlers receive the resolved team id via `extra.authInfo.clientId`
- * (see `mcp/routes.ts`'s `getMcpAuth`, populated by `auth/middleware.ts` +
- * `auth/require-team.ts`). A key always resolves to exactly one team; a
- * OAuth resolves from its verified `team_id` claim (or the account's sole
- * team); otherwise the connection is rejected by `requireTeam`. */
+import type { ServerContext } from "@modelcontextprotocol/server";
+import { getFrontLitMcpAuthInfo } from "../auth-context";
+
+/** A key always resolves to exactly one team. OAuth resolves from its verified
+ * `team_id` claim (or the account's sole team); otherwise `requireTeam`
+ * rejects the connection before SDK dispatch. */
 export function getTeamId(extra: any): string | null {
-    return extra?.authInfo?.clientId || null;
+    return getFrontLitMcpAuthInfo(extra as ServerContext)?.extra.teamId ?? null;
 }
 
 /** The logged-in human, when authenticated via OAuth — `null` for
@@ -14,5 +15,7 @@ export function getTeamId(extra: any): string | null {
 export function getAuthAccount(
     extra: any,
 ): { id: string; email: string } | null {
-    return extra?.authInfo?.account || null;
+    const account = getFrontLitMcpAuthInfo(extra as ServerContext)?.extra
+        .account;
+    return account ? { id: account.id, email: account.email } : null;
 }

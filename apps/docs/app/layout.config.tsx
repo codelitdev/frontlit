@@ -15,4 +15,5 @@ export const baseOptions: BaseLayoutProps = {
             </>
         ),
     },
+    githubUrl: "https://github.com/codelitdev/frontlit",
 };

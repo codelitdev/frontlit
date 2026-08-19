@@ -9,6 +9,8 @@ import {
     DocumentStatusBadge,
     type DocumentStatus,
 } from "@/components/workspace/document-status-badge";
+import { DocumentIndexBadge } from "@/components/workspace/document-index-badge";
+import type { DocumentationIndex } from "@/lib/api";
 import { formatSavedAt } from "@/lib/writing-editor";
 import {
     AlertDialog,
@@ -29,6 +31,7 @@ interface WritingEditorShellProps {
     title: string;
     status: DocumentStatus;
     statusTestId?: string;
+    index?: DocumentationIndex | null;
     updatedAt?: string | null;
     saving: boolean;
     publishing: boolean;
@@ -49,6 +52,7 @@ export function WritingEditorShell({
     title,
     status,
     statusTestId,
+    index,
     updatedAt,
     saving,
     publishing,
@@ -105,6 +109,7 @@ export function WritingEditorShell({
                         status={status}
                         data-testid={statusTestId}
                     />
+                    <DocumentIndexBadge index={index} />
                     <span
                         className="hidden min-w-24 text-right text-xs text-muted-foreground lg:inline"
                         aria-live="polite"

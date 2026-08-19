@@ -5,16 +5,16 @@ import {
     groupDocsBySection,
     type DocsFilter,
 } from "./docs-screen";
-import type { DocSection, HelpDoc } from "./api";
+import type { DocumentationSection, DocumentationPage } from "./api";
 
 function doc(
     documentId: string,
     title: string,
     slug: string,
-    status: HelpDoc["status"],
+    status: DocumentationPage["status"],
     sectionId?: string,
     order = 0,
-): HelpDoc {
+): DocumentationPage {
     return {
         documentId,
         slug,
@@ -28,7 +28,7 @@ function doc(
     };
 }
 
-const sections: DocSection[] = [
+const sections: DocumentationSection[] = [
     {
         sectionId: "guides",
         name: "Guides",

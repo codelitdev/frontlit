@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
 import {
     mediaSchema,
@@ -22,7 +22,7 @@ function toPublicMedia<T extends Record<string, unknown>>(item: T) {
     return serializeDates(omitInternal(item, "teamId"));
 }
 
-export function registerMediaTools(server: McpServer): void {
+export function registerMediaTools(server: McpToolRegistrar): void {
     server.registerTool(
         "get_media_upload_signature",
         {

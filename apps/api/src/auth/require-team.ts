@@ -4,6 +4,7 @@ import {
     getTeamMembership,
     listTeamsForAccount,
 } from "../team/queries";
+import { loadTeamAuthz } from "./authorize";
 
 function getHeaderValue(value: unknown): string | undefined {
     if (Array.isArray(value)) {
@@ -29,7 +30,22 @@ export async function requireTeam(
     next: NextFunction,
 ): Promise<void> {
     const anyReq = req as any;
-    if (anyReq.teamId) return next();
+    if (anyReq.authKind === "oauth") {
+        if (anyReq.oauthTeamInvalid || !anyReq.teamId) {
+            res.status(403).json({
+                error: "not_a_team_member",
+                error_description:
+                    "This OAuth token is not valid for a current team membership.",
+            });
+            return;
+        }
+        await loadTeamAuthz(req, anyReq.teamId);
+        return next();
+    }
+    if (anyReq.teamId) {
+        await loadTeamAuthz(req, anyReq.teamId);
+        return next();
+    }
     if (!anyReq.accountId) {
         res.status(401).json({ error: "unauthorized" });
         return;
@@ -63,12 +79,14 @@ export async function requireTeam(
             return;
         }
         anyReq.teamId = team.id;
+        await loadTeamAuthz(req, team.id);
         return next();
     }
 
     const teams = await listTeamsForAccount(anyReq.accountId);
     if (teams.length === 1) {
         anyReq.teamId = teams[0].id;
+        await loadTeamAuthz(req, teams[0].id);
         return next();
     }
     if (teams.length === 0) {

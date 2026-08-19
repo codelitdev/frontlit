@@ -101,6 +101,13 @@ export function HeaderEditor({
                     value={settings.backdropBlur}
                     onChange={(backdropBlur) => update({ backdropBlur })}
                 />
+                <ToggleField
+                    label="Color mode switcher"
+                    value={settings.showThemeSwitcher !== false}
+                    onChange={(showThemeSwitcher) =>
+                        update({ showThemeSwitcher })
+                    }
+                />
             </FieldGroup>
         </div>
     );

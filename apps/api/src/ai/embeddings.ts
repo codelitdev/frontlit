@@ -1,10 +1,12 @@
 import { embed, embedMany } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { createAzure } from "@ai-sdk/azure";
+import { createOpenAI } from "@ai-sdk/openai";
+import type { ResolvedEmbeddingConfig } from "./queries";
 
 /**
  * Embeddings via Vercel AI SDK Core (`embed` / `embedMany`).
  *
- * - `openai`: `@ai-sdk/openai` text embedding model (needs `OPENAI_API_KEY`).
+ * - `openai` and `azure`: team-selected Vercel AI SDK embedding providers.
  * - `local`: deterministic hash→vector fallback so RAG/indexing stays
  *   exercisable in tests and self-host without a paid key.
  *
@@ -13,37 +15,50 @@ import { openai } from "@ai-sdk/openai";
  */
 export const EMBEDDING_DIMENSIONS = 1536;
 
-export type EmbeddingsProviderName = "openai" | "local";
+export type EmbeddingsProviderName = "openai" | "azure" | "local";
 
-export function resolveEmbeddingsProvider(): EmbeddingsProviderName {
-    const configured = process.env.EMBEDDINGS_PROVIDER?.trim().toLowerCase();
-    if (configured === "openai" || configured === "local") return configured;
-    return process.env.OPENAI_API_KEY ? "openai" : "local";
+export function resolveEmbeddingsProvider(
+    config?: ResolvedEmbeddingConfig | null,
+): EmbeddingsProviderName {
+    return config?.apiKey ? config.provider : "local";
 }
 
-function embeddingModel() {
-    const modelId = process.env.EMBEDDINGS_MODEL || "text-embedding-3-small";
-    return openai.embedding(modelId);
+function embeddingModel(config: ResolvedEmbeddingConfig) {
+    if (config.provider === "azure") {
+        return createAzure({
+            apiKey: config.apiKey!,
+            baseURL: config.endpoint!,
+        }).embedding(config.deployment || "text-embedding-3-small");
+    }
+    return createOpenAI({ apiKey: config.apiKey! }).embedding(
+        "text-embedding-3-small",
+    );
 }
 
-export async function getEmbedding(text: string): Promise<number[]> {
-    if (resolveEmbeddingsProvider() === "local") {
+export async function getEmbedding(
+    text: string,
+    config?: ResolvedEmbeddingConfig | null,
+): Promise<number[]> {
+    if (resolveEmbeddingsProvider(config) === "local") {
         return getLocalEmbedding(text);
     }
     const { embedding } = await embed({
-        model: embeddingModel(),
+        model: embeddingModel(config!),
         value: text,
     });
     return embedding;
 }
 
-export async function getEmbeddings(texts: string[]): Promise<number[][]> {
+export async function getEmbeddings(
+    texts: string[],
+    config?: ResolvedEmbeddingConfig | null,
+): Promise<number[][]> {
     if (texts.length === 0) return [];
-    if (resolveEmbeddingsProvider() === "local") {
+    if (resolveEmbeddingsProvider(config) === "local") {
         return texts.map(getLocalEmbedding);
     }
     const { embeddings } = await embedMany({
-        model: embeddingModel(),
+        model: embeddingModel(config!),
         values: texts,
     });
     return embeddings;

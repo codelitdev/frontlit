@@ -1,12 +1,14 @@
 import { generateText, streamText, type ModelMessage } from "ai";
 import type { SearchResult } from "../documentation/queries";
-import { getChatLanguageModel, resolveChatProvider } from "../ai/provider";
+import { getChatLanguageModel } from "../ai/provider";
+import type { ResolvedAiConfig } from "../ai/queries";
 
 export interface ChatSource {
     documentId: string;
     slug: string;
     title: string | null;
     anchor: string | null;
+    kind?: "blog" | "doc" | "changelog";
 }
 
 export interface ChatAnswer {
@@ -20,23 +22,75 @@ export interface ChatAnswer {
 export interface ChatAnswerOptions {
     /** Optional team/site label used only for tone ("I'm the X assistant"). */
     teamName?: string | null;
+    /** Per-team provider credential, resolved server-side only. */
+    aiConfig?: ResolvedAiConfig | null;
 }
 
-function toSources(chunks: SearchResult[]): ChatSource[] {
+/** Pull 1-based `[n]` markers out of model prose. Used instead of a
+ * structured `citations` field so every supported provider can cite
+ * without JSON-schema / structured-output differences. */
+export function extractCitationIndexes(
+    answer: string,
+    chunkCount: number,
+): number[] {
+    if (chunkCount <= 0) return [];
+    const indexes = [...answer.matchAll(/\[(\d+)\]/g)]
+        .map((match) => Number(match[1]))
+        .filter(
+            (value) =>
+                Number.isInteger(value) && value >= 1 && value <= chunkCount,
+        );
+    return [...new Set(indexes)].slice(0, 8);
+}
+
+export function uniqueSources<T extends { documentId?: string; slug: string }>(
+    sources: T[],
+): T[] {
+    const seen = new Set<string>();
+    const unique: T[] = [];
+    for (const source of sources) {
+        const key = source.documentId || source.slug;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        unique.push(source);
+    }
+    return unique;
+}
+
+export function toSources(chunks: SearchResult[]): ChatSource[] {
     const seen = new Set<string>();
     const sources: ChatSource[] = [];
     for (const chunk of chunks) {
-        const key = `${chunk.documentId}#${chunk.anchor ?? ""}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
+        if (seen.has(chunk.documentId)) continue;
+        seen.add(chunk.documentId);
         sources.push({
             documentId: chunk.documentId,
             slug: chunk.slug,
             title: chunk.title,
             anchor: chunk.anchor,
+            kind: chunk.kind,
         });
     }
     return sources;
+}
+
+/** Map 1-based help-article indexes from the model onto unique sources.
+ * Invalid indexes are ignored. If the model cited nothing, fall back to
+ * the retrieved set so grounded replies still show articles. */
+export function sourcesFromCitations(
+    chunks: SearchResult[],
+    citations: number[],
+): ChatSource[] {
+    const picked: SearchResult[] = [];
+    const seen = new Set<number>();
+    for (const index of citations) {
+        if (!Number.isInteger(index) || seen.has(index)) continue;
+        const chunk = chunks[index - 1];
+        if (!chunk) continue;
+        seen.add(index);
+        picked.push(chunk);
+    }
+    return toSources(picked.length > 0 ? picked : chunks);
 }
 
 /**
@@ -59,7 +113,7 @@ export function buildInstructions(
         "",
         "Scope (strict):",
         "- Only help with this product/site: features, how-to, account/billing/support process, troubleshooting, and clarifying what visitors can find in the help center.",
-        "- If help articles are provided below, ground factual product claims in them and cite article titles you used.",
+        "- If help articles are provided below, ground factual product claims in them. Cite each used article inline with its 1-based index in square brackets, for example [1].",
         "- If no help articles are provided or they do not cover the question: you may still greet, clarify the question, explain what you can help with, suggest contacting support / talk to a human, and answer high-level process questions — but do NOT invent product-specific facts, policies, prices, or steps.",
         "- When you lack grounded detail, say so briefly and offer escalation rather than guessing.",
         "",
@@ -129,17 +183,13 @@ function buildMessages(
     ];
 }
 
-const NO_DOCS_LOCAL =
-    "I don't have any published help articles to search yet, so I can't answer product specifics. " +
-    "Please contact support or publish help docs so I can help next time.";
-
 /**
  * Generates a chat answer using Vercel AI SDK Core on the server.
  *
  * - With retrieved chunks: grounded support answer + citations.
  * - Without chunks: still calls the LLM under a strict support-only policy
  *   (not a free general inference endpoint). `escalate` is true.
- * - `local` provider: extractive top-chunk / fixed no-docs message (no LLM).
+ * - No team model: no generated answer. Inbox AI uses `runInboxAi`.
  */
 export async function getChatAnswer(
     question: string,
@@ -150,12 +200,9 @@ export async function getChatAnswer(
     const sources = toSources(chunks);
     const escalate = chunks.length === 0;
 
-    const model = getChatLanguageModel();
-    if (!model || resolveChatProvider() === "local") {
-        if (chunks.length === 0) {
-            return { answer: NO_DOCS_LOCAL, sources: [], escalate: true };
-        }
-        return { ...getLocalAnswer(chunks), escalate: false };
+    const model = await getChatLanguageModel(options.aiConfig);
+    if (!model) {
+        return { answer: "", sources, escalate };
     }
 
     const { text } = await generateText({
@@ -183,12 +230,9 @@ export async function* streamChatAnswer(
     const sources = toSources(chunks);
     const escalate = chunks.length === 0;
 
-    const model = getChatLanguageModel();
-    if (!model || resolveChatProvider() === "local") {
-        const answer =
-            chunks.length === 0 ? NO_DOCS_LOCAL : getLocalAnswer(chunks).answer;
-        yield { type: "token", text: answer };
-        yield { type: "done", answer, sources, escalate };
+    const model = await getChatLanguageModel(options.aiConfig);
+    if (!model) {
+        yield { type: "done", answer: "", sources, escalate };
         return;
     }
 
@@ -204,10 +248,4 @@ export async function* streamChatAnswer(
         yield { type: "token", text: delta };
     }
     yield { type: "done", answer, sources, escalate };
-}
-
-function getLocalAnswer(chunks: SearchResult[]): Omit<ChatAnswer, "escalate"> {
-    const top = chunks[0];
-    const citation = top.title ? ` (from "${top.title}")` : "";
-    return { answer: `${top.content}${citation}`, sources: toSources(chunks) };
 }

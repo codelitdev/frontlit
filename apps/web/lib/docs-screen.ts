@@ -1,4 +1,4 @@
-import type { DocSection, HelpDoc } from "./api";
+import type { DocumentationSection, DocumentationPage } from "./api";
 
 export type DocsFilter = "all" | "published" | "draft" | "changes";
 
@@ -12,11 +12,11 @@ export interface DocStatusCounts {
 export interface DocGroup {
     id: string | null;
     name: string;
-    section?: DocSection;
-    docs: HelpDoc[];
+    section?: DocumentationSection;
+    docs: DocumentationPage[];
 }
 
-export function getDocStatusCounts(docs: HelpDoc[]): DocStatusCounts {
+export function getDocStatusCounts(docs: DocumentationPage[]): DocStatusCounts {
     return docs.reduce<DocStatusCounts>(
         (counts, doc) => {
             counts.all += 1;
@@ -34,10 +34,10 @@ export function getDocStatusCounts(docs: HelpDoc[]): DocStatusCounts {
 }
 
 export function filterDocs(
-    docs: HelpDoc[],
+    docs: DocumentationPage[],
     filter: DocsFilter,
     query: string,
-): HelpDoc[] {
+): DocumentationPage[] {
     const normalizedQuery = query.trim().toLowerCase();
 
     return docs.filter((doc) => {
@@ -60,8 +60,8 @@ export function filterDocs(
 }
 
 export function groupDocsBySection(
-    docs: HelpDoc[],
-    sections: DocSection[],
+    docs: DocumentationPage[],
+    sections: DocumentationSection[],
 ): DocGroup[] {
     const orderedSections = [...sections].sort(
         (left, right) =>
@@ -70,7 +70,7 @@ export function groupDocsBySection(
     const knownSectionIds = new Set(
         orderedSections.map((section) => section.sectionId),
     );
-    const sortDocs = (items: HelpDoc[]) =>
+    const sortDocs = (items: DocumentationPage[]) =>
         [...items].sort(
             (left, right) =>
                 left.draftMeta.order - right.draftMeta.order ||

@@ -37,7 +37,8 @@ function CardButton({
 
 /**
  * Theme card ported from CourseLit's ThemeCard: theme name and actions on
- * top, a row of palette swatches below. The pencil opens the theme for
+ * top, a row of palette swatches below. Clicking the card previews the
+ * theme on the canvas without applying it. The pencil opens the theme for
  * editing (copying it first when it's a system theme); the check applies
  * the theme to the page.
  */
@@ -45,27 +46,43 @@ export function ThemeCard({
     name,
     palette,
     selected = false,
+    active = false,
+    onPreview,
     onUse,
     onEdit,
     className,
 }: {
     name: string;
     palette: string[];
-    /** Whether this theme is the one currently applied to the page. */
+    /** Whether this theme is currently painted on the canvas (preview). */
     selected?: boolean;
+    /** Whether this theme is the one actually applied to the site. */
+    active?: boolean;
+    onPreview?: () => void;
     onUse?: () => void;
     onEdit?: () => void;
     className?: string;
 }) {
     return (
         <div
+            role="button"
+            tabIndex={0}
+            aria-pressed={selected}
+            aria-label={`Preview ${name}`}
             className={cn(
-                "flex w-full flex-col gap-2 rounded-lg bg-background p-2 transition-colors",
+                "flex w-full cursor-pointer flex-col gap-2 rounded-lg bg-background p-2 text-left transition-colors",
                 selected
                     ? "border-2 border-primary shadow-md"
-                    : "border border-muted shadow-none",
+                    : "border border-muted shadow-none hover:bg-muted",
                 className,
             )}
+            onClick={onPreview}
+            onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onPreview?.();
+                }
+            }}
         >
             <div className="flex min-h-[32px] items-center justify-between gap-2">
                 <span className="truncate text-sm font-semibold text-foreground">
@@ -80,7 +97,7 @@ export function ThemeCard({
                     {onUse && (
                         <CardButton
                             label={`Use ${name}`}
-                            disabled={selected}
+                            disabled={active}
                             onClick={onUse}
                         >
                             <Check className="h-4 w-4" />

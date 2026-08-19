@@ -3,7 +3,9 @@
     "pages": [
         "index",
         "getting-started",
-        "page-builder",
+        "teams",
+        "self-hosting",
+        "components",
         "developers",
         "api-reference"
     ]

@@ -1,12 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { uploadChatFile, type ChatAttachment } from "./upload-chat-file";
+
+export type { ChatAttachment };
 
 export interface ChatSource {
     documentId: string;
     slug: string;
     title: string | null;
     anchor: string | null;
+    kind?: "blog" | "doc" | "changelog";
 }
 
 export interface ChatMessage {
@@ -18,6 +22,8 @@ export interface ChatMessage {
     escalate?: boolean;
     /** Local-only error bubble (not from the server). */
     error?: boolean;
+    notice?: boolean;
+    attachments?: ChatAttachment[];
 }
 
 interface Conversation {
@@ -29,6 +35,8 @@ interface ThreadMessage {
     messageId: string;
     author: "requester" | "agent" | "bot";
     content: unknown;
+    attachments?: ChatAttachment[];
+    sources?: ChatSource[];
 }
 
 function extractText(content: unknown): string {
@@ -75,6 +83,8 @@ export function useVisitorChat({
     const [input, setInput] = useState("");
     const [isSending, setIsSending] = useState(false);
     const [isHydrating, setIsHydrating] = useState(false);
+    const [pendingFiles, setPendingFiles] = useState<ChatAttachment[]>([]);
+    const [attaching, setAttaching] = useState(false);
     const storageKey = useMemo(
         () => `frontlit:chat:${apiBaseUrl}:${teamId}`,
         [apiBaseUrl, teamId],
@@ -88,7 +98,18 @@ export function useVisitorChat({
 
     const scrollToBottom = useCallback(
         (behavior: ScrollBehavior = "smooth") => {
-            bottomRef.current?.scrollIntoView({ behavior, block: "end" });
+            const el = listRef.current;
+            if (!el) return;
+            const top = el.scrollHeight;
+            if (behavior === "smooth") {
+                el.scrollTo({ top, behavior: "smooth" });
+            } else {
+                el.scrollTop = top;
+            }
+            requestAnimationFrame(() => {
+                if (listRef.current)
+                    listRef.current.scrollTop = listRef.current.scrollHeight;
+            });
         },
         [],
     );
@@ -146,6 +167,8 @@ export function useVisitorChat({
                     : "assistant") as "user" | "assistant",
                 author: message.author,
                 content: extractText(message.content),
+                attachments: message.attachments ?? [],
+                sources: message.sources ?? [],
             }));
 
             if (next.length === 0 && greeting) {
@@ -187,7 +210,7 @@ export function useVisitorChat({
         })();
         const poll = window.setInterval(
             () => void loadConversation(conversation),
-            5_000,
+            2_000,
         );
         return () => {
             cancelled = true;
@@ -197,7 +220,8 @@ export function useVisitorChat({
 
     const sendMessage = async () => {
         const question = input.trim();
-        if (!question || isSending) return;
+        if ((!question && pendingFiles.length === 0) || isSending || attaching)
+            return;
 
         const history = messages
             .filter((m) => !m.error)
@@ -225,6 +249,9 @@ export function useVisitorChat({
                 body: JSON.stringify({
                     message: question,
                     history,
+                    attachmentIds: pendingFiles.map(
+                        (file) => file.attachmentId,
+                    ),
                     ...(conversation
                         ? {
                               conversationId: conversation.id,
@@ -235,7 +262,8 @@ export function useVisitorChat({
             });
             if (!res.ok) throw new Error(`Chat failed (${res.status})`);
             const body = (await res.json()) as {
-                answer: string;
+                outcome?: "answered" | "human_only" | "escalated";
+                answer: string | null;
                 sources: ChatSource[];
                 escalate: boolean;
                 conversationId: string;
@@ -247,17 +275,31 @@ export function useVisitorChat({
             };
             localStorage.setItem(storageKey, JSON.stringify(nextConversation));
             setConversation(nextConversation);
-            setMessages((prev) => [
-                ...prev,
-                {
-                    id: newId("bot"),
-                    role: "assistant",
-                    author: "bot",
-                    content: body.answer,
-                    sources: body.sources,
-                    escalate: body.escalate,
-                },
-            ]);
+            setPendingFiles([]);
+            if (body.answer) {
+                setMessages((prev) => [
+                    ...prev,
+                    {
+                        id: newId("bot"),
+                        role: "assistant",
+                        author: "bot",
+                        content: body.answer as string,
+                        sources: body.sources,
+                        escalate: body.outcome === "escalated" || body.escalate,
+                    },
+                ]);
+            } else {
+                setMessages((prev) => [
+                    ...prev,
+                    {
+                        id: newId("notice"),
+                        role: "assistant",
+                        author: "bot",
+                        notice: true,
+                        content: "Message sent — a teammate will reply here",
+                    },
+                ]);
+            }
         } catch {
             setMessages((prev) => [
                 ...prev,
@@ -270,6 +312,17 @@ export function useVisitorChat({
             ]);
         } finally {
             setIsSending(false);
+            const stored = localStorage.getItem(storageKey);
+            if (stored) {
+                try {
+                    const parsed = JSON.parse(stored) as Conversation;
+                    if (parsed.id && parsed.token) {
+                        void loadConversation(parsed);
+                    }
+                } catch {
+                    // Keep the optimistic thread if hydration fails.
+                }
+            }
         }
     };
 
@@ -281,7 +334,40 @@ export function useVisitorChat({
         el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
     };
 
-    const canSend = Boolean(input.trim()) && !isSending;
+    async function attachFiles(list: FileList | null) {
+        if (!list?.length || attaching) return;
+        setAttaching(true);
+        try {
+            let conversationId = conversation?.id;
+            let conversationToken = conversation?.token;
+            const added: ChatAttachment[] = [];
+            for (const file of Array.from(list).slice(0, 5)) {
+                const uploaded = await uploadChatFile({
+                    apiBaseUrl,
+                    teamId,
+                    file,
+                    conversationId,
+                    conversationToken,
+                });
+                conversationId = uploaded.conversationId;
+                conversationToken = uploaded.conversationToken;
+                added.push(uploaded.attachment);
+            }
+            if (conversationId && conversationToken) {
+                const next = { id: conversationId, token: conversationToken };
+                localStorage.setItem(storageKey, JSON.stringify(next));
+                setConversation(next);
+            }
+            setPendingFiles((current) => [...current, ...added].slice(0, 5));
+        } finally {
+            setAttaching(false);
+        }
+    }
+
+    const canSend =
+        (Boolean(input.trim()) || pendingFiles.length > 0) &&
+        !isSending &&
+        !attaching;
 
     /** True once the visitor has more than a greeting (or is mid-reply). */
     const hasThread =
@@ -301,6 +387,13 @@ export function useVisitorChat({
         canSend,
         hasThread,
         conversation,
+        pendingFiles,
+        attaching,
+        attachFiles,
+        removePendingFile: (attachmentId: string) =>
+            setPendingFiles((current) =>
+                current.filter((file) => file.attachmentId !== attachmentId),
+            ),
         listRef,
         bottomRef,
         inputRef,

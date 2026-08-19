@@ -1,18 +1,23 @@
 export { contract, type Contract } from "./contract";
 
 export * from "./schemas/common";
+export * from "./schemas/permissions";
+export * from "./schemas/memberships";
 export * from "./schemas/teams";
 export * from "./schemas/pages";
 export * from "./schemas/themes";
 export * from "./schemas/media";
 export * from "./schemas/documents";
-export * from "./schemas/blogs";
-export * from "./schemas/docs";
-export * from "./schemas/changelogs";
-export * from "./schemas/newsletter";
+export * from "./content-paths";
+export * from "./schemas/articles";
+export * from "./schemas/documentation";
+export * from "./schemas/product-updates";
+export * from "./schemas/email";
 export * from "./schemas/esp";
 export * from "./schemas/public";
 export * from "./schemas/chatbot";
 export * from "./schemas/help-desk";
 export * from "./schemas/domains";
 export * from "./schemas/settings";
+export * from "./schemas/ai";
+export * from "./schemas/inbox-ai";

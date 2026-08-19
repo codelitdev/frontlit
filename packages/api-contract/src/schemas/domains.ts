@@ -16,11 +16,16 @@ export const customDomainSchema = z.object({
 });
 
 /** The DNS records a team must create for their custom domain to verify —
- * only present while a custom domain is attached. */
+ * present while a custom domain is attached (pending and verified). */
 export const domainVerificationRecordsSchema = z.object({
     cnameTarget: z.string(),
     txtName: z.string(),
     txtValue: z.string(),
+    /** Apex hosts use ALIAS/ANAME/CNAME-flattening; others use a CNAME. */
+    kind: z.enum(["cname", "alias"]),
+    /** Null until the team has run a DNS check. */
+    txtSatisfied: z.boolean().nullable(),
+    routingSatisfied: z.boolean().nullable(),
 });
 
 export const domainSettingsSchema = z.object({
@@ -29,6 +34,12 @@ export const domainSettingsSchema = z.object({
     /** Null until the team has claimed a FrontLit subdomain. */
     canonicalHost: z.string().nullable(),
     verificationRecords: domainVerificationRecordsSchema.nullable(),
+    /** True when no subdomain is claimed yet. May be false only while a
+     * custom domain is verified. */
+    subdomainPublic: z.boolean(),
+    /** `PLATFORM_SITE_DOMAIN` — used to render `.{suffix}` before a slug
+     * is claimed. */
+    platformDomain: z.string(),
 });
 
 export const setTeamSubdomainBodySchema = z.object({
@@ -43,6 +54,10 @@ export const setTeamSubdomainBodySchema = z.object({
             /^[a-z0-9]+(-[a-z0-9]+)*$/,
             "Must be lowercase alphanumeric segments separated by single hyphens",
         ),
+});
+
+export const setSubdomainPublicBodySchema = z.object({
+    subdomainPublic: z.boolean(),
 });
 
 export const attachCustomDomainBodySchema = z.object({

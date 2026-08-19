@@ -4,6 +4,49 @@ import { and, eq } from "drizzle-orm";
 import { db } from "../db/client";
 import { teams, type CustomDomainStatus } from "../db/schema";
 
+/** Labels that must never be claimed as a team slug. */
+export const RESERVED_SUBDOMAIN_LABELS = new Set([
+    "www",
+    "api",
+    "app",
+    "sites",
+    "mail",
+    "admin",
+    "status",
+    "static",
+    "assets",
+    "cdn",
+    "localhost",
+    "ftp",
+    "smtp",
+    "imap",
+    "pop",
+    "ns1",
+    "ns2",
+    "help",
+    "support",
+    "blog",
+    "docs",
+    "auth",
+    "login",
+    "oauth",
+    "mcp",
+    "media",
+    "internal",
+    "platform",
+    "frontlit",
+    "staging",
+    "prod",
+    "production",
+    "dev",
+    "test",
+    "beta",
+    "dashboard",
+    "console",
+    "webhook",
+    "webhooks",
+]);
+
 /** The API is the sole authority for classifying public-site hosts. The
  * stored `teams.subdomain` never includes this suffix, so the same database
  * works in local, staging and production. */
@@ -25,6 +68,19 @@ export function getCustomDomainCnameTarget(): string {
         .trim()
         .toLowerCase()
         .replace(/\.$/, "");
+}
+
+/** Optional anycast A set for apex hosts. Empty means "name resolves". */
+export function getCustomDomainARecords(): string[] {
+    return (process.env.CUSTOM_DOMAIN_A_RECORDS || "")
+        .split(/[\s,]+/)
+        .map((value) => value.trim())
+        .filter(Boolean);
+}
+
+/** Two labels (`example.com`) is treated as the zone apex. */
+export function isApexHostname(hostname: string): boolean {
+    return hostname.split(".").filter(Boolean).length === 2;
 }
 
 export function getSubdomainHost(subdomain: string): string {
@@ -68,7 +124,12 @@ export type DomainSettings = {
         cnameTarget: string;
         txtName: string;
         txtValue: string;
+        kind: "cname" | "alias";
+        txtSatisfied: boolean | null;
+        routingSatisfied: boolean | null;
     } | null;
+    subdomainPublic: boolean;
+    platformDomain: string;
 };
 
 /** Returns the one website's domain configuration. A null subdomain means
@@ -101,23 +162,33 @@ export async function getDomainSettings(
         customDomain,
         canonicalHost,
         verificationRecords:
-            customDomain && customDomain.status !== "verified"
+            customDomain && team.customDomainVerificationToken
                 ? {
                       cnameTarget: getCustomDomainCnameTarget(),
                       txtName: `_frontlit-verify.${customDomain.hostname}`,
-                      txtValue: team.customDomainVerificationToken!,
+                      txtValue: team.customDomainVerificationToken,
+                      kind: isApexHostname(customDomain.hostname)
+                          ? "alias"
+                          : "cname",
+                      txtSatisfied: team.customDomainTxtSatisfied,
+                      routingSatisfied: team.customDomainRoutingSatisfied,
                   }
                 : null,
+        subdomainPublic: team.subdomainPublic,
+        platformDomain: getPlatformSiteDomain(),
     };
 }
 
 export type SetTeamSubdomainResult =
-    { ok: true } | { ok: false; reason: "taken" };
+    { ok: true } | { ok: false; reason: "taken" | "reserved" };
 
 export async function setTeamSubdomain(
     teamId: string,
     subdomain: string,
 ): Promise<SetTeamSubdomainResult> {
+    if (RESERVED_SUBDOMAIN_LABELS.has(subdomain.toLowerCase()))
+        return { ok: false, reason: "reserved" };
+
     const existing = await db.query.teams.findFirst({
         where: eq(teams.subdomain, subdomain),
     });
@@ -152,8 +223,9 @@ export type AttachCustomDomainResult =
               "subdomain_required" | "reserved" | "already_attached" | "taken";
       };
 
-/** One website has one optional custom domain. The FrontLit subdomain stays
- * reachable forever; a verified custom domain becomes canonical automatically. */
+/** One website has one optional custom domain. A verified custom domain
+ * becomes canonical automatically; the FrontLit subdomain stays public
+ * until the team hides it. */
 export async function attachCustomDomain(
     teamId: string,
     value: string,
@@ -181,6 +253,9 @@ export async function attachCustomDomain(
             customDomainStatus: "pending",
             customDomainVerificationToken: randomBytes(16).toString("hex"),
             customDomainVerifiedAt: null,
+            customDomainTxtSatisfied: null,
+            customDomainRoutingSatisfied: null,
+            subdomainPublic: true,
             updatedAt: new Date(),
         })
         .where(eq(teams.id, teamId));
@@ -200,10 +275,38 @@ export async function removeCustomDomain(teamId: string): Promise<boolean> {
             customDomainStatus: null,
             customDomainVerificationToken: null,
             customDomainVerifiedAt: null,
+            customDomainTxtSatisfied: null,
+            customDomainRoutingSatisfied: null,
+            subdomainPublic: true,
             updatedAt: new Date(),
         })
         .where(eq(teams.id, teamId));
     return true;
+}
+
+export type SetSubdomainPublicResult =
+    { ok: true } | { ok: false; reason: "custom_domain_required" };
+
+export async function setSubdomainPublic(
+    teamId: string,
+    subdomainPublic: boolean,
+): Promise<SetSubdomainPublicResult> {
+    const team = await db.query.teams.findFirst({
+        where: eq(teams.id, teamId),
+    });
+    if (!team) return { ok: false, reason: "custom_domain_required" };
+    if (
+        !subdomainPublic &&
+        (team.customDomainStatus !== "verified" || !team.customDomain)
+    ) {
+        return { ok: false, reason: "custom_domain_required" };
+    }
+
+    await db
+        .update(teams)
+        .set({ subdomainPublic, updatedAt: new Date() })
+        .where(eq(teams.id, teamId));
+    return { ok: true };
 }
 
 /** Looks up the TXT record a team was asked to create
@@ -220,6 +323,60 @@ export async function verifyDnsTxtRecord(
     }
 }
 
+async function cnameChainIncludes(
+    hostname: string,
+    target: string,
+): Promise<boolean> {
+    const seen = new Set<string>();
+    let current = hostname;
+    while (!seen.has(current)) {
+        seen.add(current);
+        let records: string[];
+        try {
+            records = await dns.resolveCname(current);
+        } catch {
+            return false;
+        }
+        const nexts = records.map((record) =>
+            record.replace(/\.$/, "").toLowerCase(),
+        );
+        if (nexts.includes(target)) return true;
+        if (nexts.length === 0) return false;
+        current = nexts[0]!;
+    }
+    return false;
+}
+
+async function resolveIpv4(hostname: string): Promise<string[]> {
+    try {
+        return (await dns.resolve4(hostname)).slice().sort();
+    } catch {
+        return [];
+    }
+}
+
+/** Routing check: non-apex CNAME chain must include the CNAME target.
+ * Apex: the name must resolve; if `CUSTOM_DOMAIN_A_RECORDS` is set the A
+ * set must match, otherwise CNAME flattening (CNAME or A) is enough. */
+export async function verifyDnsRouting(hostname: string): Promise<boolean> {
+    const target = getCustomDomainCnameTarget();
+    if (!isApexHostname(hostname)) {
+        return cnameChainIncludes(hostname, target);
+    }
+
+    if (await cnameChainIncludes(hostname, target)) return true;
+
+    const addresses = await resolveIpv4(hostname);
+    if (addresses.length === 0) return false;
+
+    const required = getCustomDomainARecords().slice().sort();
+    if (required.length === 0) return true;
+    return (
+        required.length === addresses.length &&
+        required.every((ip, index) => ip === addresses[index])
+    );
+}
+
 export async function verifyCustomDomain(
     teamId: string,
 ): Promise<CustomDomainStatus | null> {
@@ -228,10 +385,12 @@ export async function verifyCustomDomain(
     });
     if (!team?.customDomain || !team.customDomainVerificationToken) return null;
 
-    const verified = await verifyDnsTxtRecord(
+    const txtSatisfied = await verifyDnsTxtRecord(
         team.customDomain,
         team.customDomainVerificationToken,
     );
+    const routingSatisfied = await verifyDnsRouting(team.customDomain);
+    const verified = txtSatisfied && routingSatisfied;
     const status: CustomDomainStatus = verified ? "verified" : "failed";
     await db
         .update(teams)
@@ -240,6 +399,10 @@ export async function verifyCustomDomain(
             customDomainVerifiedAt: verified
                 ? new Date()
                 : team.customDomainVerifiedAt,
+            customDomainTxtSatisfied: txtSatisfied,
+            customDomainRoutingSatisfied: routingSatisfied,
+            // A failed re-check cannot leave the only working host hidden.
+            subdomainPublic: verified ? team.subdomainPublic : true,
             updatedAt: new Date(),
         })
         .where(eq(teams.id, teamId));
@@ -248,9 +411,9 @@ export async function verifyCustomDomain(
 
 export type ResolvedHost = { teamId: string; canonicalHost: string };
 
-/** Resolves an incoming host to exactly one team website. Both the permanent
+/** Resolves an incoming host to exactly one team website. A public
  * subdomain and a verified custom domain serve the site; only the latter
- * changes the canonical host. */
+ * changes the canonical host. A hidden platform subdomain is unknown. */
 export async function resolveHost(
     requestHost: string,
 ): Promise<ResolvedHost | null> {
@@ -269,6 +432,7 @@ export async function resolveHost(
               ),
           });
     if (!team) return null;
+    if (subdomain && !team.subdomainPublic) return null;
 
     return {
         teamId: team.id,

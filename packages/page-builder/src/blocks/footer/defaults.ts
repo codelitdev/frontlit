@@ -4,7 +4,7 @@ import { generateUniqueId } from "../../utils";
 export const footerDefaults: Partial<FooterSettings> = {
     logoText: "FrontLit",
     tagline:
-        "Build your website, blog, help desk, newsletter and changelog — all from one dashboard.",
+        "Build your website, publish content, support users, and grow your audience from one dashboard.",
     columns: [
         {
             id: generateUniqueId(),
@@ -13,9 +13,9 @@ export const footerDefaults: Partial<FooterSettings> = {
                 {
                     id: generateUniqueId(),
                     label: "Features",
-                    href: "#features",
+                    href: "/#features",
                 },
-                { id: generateUniqueId(), label: "Pricing", href: "#pricing" },
+                { id: generateUniqueId(), label: "Pricing", href: "/#pricing" },
                 {
                     id: generateUniqueId(),
                     label: "Changelog",
@@ -34,10 +34,18 @@ export const footerDefaults: Partial<FooterSettings> = {
         },
         {
             id: generateUniqueId(),
-            title: "Company",
+            title: "Legal",
             links: [
-                { id: generateUniqueId(), label: "About", href: "/about" },
-                { id: generateUniqueId(), label: "Contact", href: "/contact" },
+                {
+                    id: generateUniqueId(),
+                    label: "Terms of use",
+                    href: "/terms",
+                },
+                {
+                    id: generateUniqueId(),
+                    label: "Privacy policy",
+                    href: "/privacy",
+                },
             ],
         },
     ],

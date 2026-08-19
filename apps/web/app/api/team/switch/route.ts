@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hasServerSession } from "@/lib/server-session";
+import { safeAppRedirect } from "@/lib/safe-app-redirect";
 import { TEAM_ID_COOKIE } from "@/lib/tokens";
 
 /**
@@ -7,11 +8,15 @@ import { TEAM_ID_COOKIE } from "@/lib/tokens";
  * API re-validates membership on every request via `X-Frontlit-Team-Id`, see
  * `apps/api/src/auth/require-team.ts`). Submitted as a regular form POST so
  * switching works with a plain `<form>`, no client JS required.
+ *
+ * Redirects use `WEB_CLIENT` (via `safeAppRedirect`) rather than `req.url`,
+ * so reverse-proxied deploys don't send the browser to the container bind
+ * address (`0.0.0.0:3000`).
  */
 export async function POST(req: NextRequest) {
     const cookieHeader = req.headers.get("cookie") ?? "";
     if (!(await hasServerSession(cookieHeader))) {
-        return NextResponse.redirect(new URL("/login", req.url), 303);
+        return NextResponse.redirect(safeAppRedirect("/login"), 303);
     }
 
     const form = await req.formData();
@@ -20,7 +25,7 @@ export async function POST(req: NextRequest) {
 
     // A form submission must redirect with GET. The default 307 would replay
     // the POST at the destination, where workspace pages do not accept it.
-    const res = NextResponse.redirect(new URL(redirectTo, req.url), 303);
+    const res = NextResponse.redirect(safeAppRedirect(redirectTo), 303);
     if (teamId) {
         const isProd = process.env.NODE_ENV === "production";
         // Not httpOnly, deliberately: this is just a "which team am I looking

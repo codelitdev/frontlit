@@ -3,12 +3,14 @@ title: Authentication
 description: Authenticating REST and MCP requests against the FrontLit API.
 ---
 
-The API accepts two kinds of authentication, resolved in this order:
+The API recognizes three kinds of authentication, resolved in this order:
 
-1. **Session cookie** — set by signing in through the web app (passwordless email OTP, via
+1. **OAuth bearer token** — issued by FrontLit's OAuth authorization server for
+   a specific resource, client, user, team, and explicit scope set.
+2. **Session cookie** — set by signing in through the web app (passwordless email OTP, via
    [better-auth](https://www.better-auth.com)). Used by the dashboard itself; not applicable to server-to-server
    callers.
-2. **API key** — a team-scoped secret, sent as the `x-frontlit-apikey` header (or `apikey` body field). Create one
+3. **API key** — a team-scoped secret, sent as the `x-frontlit-apikey` header (or `apikey` body field). Create one
    from **Team settings → API keys** in the dashboard, or via `POST /teams/:teamId/keys`. The full secret is only
    returned once, at creation time — store it securely.
 
@@ -23,11 +25,18 @@ Session-authenticated requests resolve which team they act on via the `X-Frontli
 sends this automatically once you've picked a team). If an account belongs to exactly one team, the header can be
 omitted. An API key always authenticates as exactly one, fixed team — no header needed.
 
+For a human member, team permissions and OAuth scopes are separate grants.
+Browser requests require the member's current team permission. OAuth requests
+require both that permission and the token's scope, so a client cannot exceed
+the authority of the person who connected it. See [Team members and
+permissions](/teams/members) for the dashboard workflow.
+
 ## MCP
 
-The MCP server is exposed at `POST /mcp` and authenticates the same way as REST — send the same
-`x-frontlit-apikey` header your MCP client is configured with. Tools mirror the REST API 1:1 (`list_pages`,
-`create_page`, `update_page`, `list_teams`, `create_api_key`, ...).
+The remote MCP endpoint accepts an OAuth bearer token or
+`x-frontlit-apikey`. It intentionally rejects dashboard session cookies. See
+[MCP connections](/developers/mcp) for protocol, client, scope, and
+troubleshooting details.
 
 ## Provisioning
 

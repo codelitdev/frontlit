@@ -1,24 +1,28 @@
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { jwt } from "better-auth/plugins/jwt";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { oauthProviderResourceClient } from "@better-auth/oauth-provider/resource-client";
+import { cimd } from "@better-auth/cimd";
 import { createOAuthProviderOptions } from "@codelitdev/oauth-server-kit/better-auth";
 import type { HostedLoginMethod } from "@codelitdev/oauth-server-kit/express";
-import { createTransport } from "nodemailer";
 import { db } from "../db/client";
 import * as schema from "../db/schema";
 import { logger } from "../services/log";
+import { MailNotConfiguredError, sendMail } from "../utils/mail";
 import { ensureFrontLitAccountForUser } from "../account/queries";
 import {
     createFrontLitOAuthTeamSelectionHooks,
     oauthTeamSelectionAdapter,
 } from "./oauth-team-selection";
+import { MCP_SCOPES_SUPPORTED } from "../mcp/policy";
+import { fetchClientMetadataResource } from "./cimd-fetch";
 
 export const webClientUrl = process.env.WEB_CLIENT || "http://localhost:3000";
 const apiUrl = process.env.API_PUBLIC_URL || process.env.BETTER_AUTH_URL;
-const authBaseUrl = apiUrl || "http://localhost:4000";
+export const authBaseUrl = apiUrl || "http://localhost:4000";
 export const authBasePath = "/api/auth";
 
 /** Parent domain shared by `apps/web` and `apps/api` in production. When
@@ -40,11 +44,21 @@ export const authIssuer = `${authBaseUrl}${authBasePath}`;
  * token scoped to this exact `resource`/`aud` value. */
 export const mcpResourceUrl = `${authBaseUrl}/mcp`;
 
-/** Every `resource`/`aud` value the oauth-provider plugin will accept and
- * therefore every value `resolve-auth.ts` must accept back when verifying —
- * single source of truth shared between `oauthProvider({ validAudiences })`
- * below and `resolve-auth.ts`'s bearer verification. */
+/** Resource audiences accepted during bearer-token verification. */
 export const validOAuthAudiences = [authBaseUrl, mcpResourceUrl];
+export const OAUTH_CLIENT_DEFAULT_SCOPES = [
+    "openid",
+    "profile",
+    "email",
+] as const;
+export const OAUTH_CLIENT_REQUESTABLE_SCOPES = [
+    "offline_access",
+    ...MCP_SCOPES_SUPPORTED,
+] as const;
+const supportedOAuthScopes = [
+    ...OAUTH_CLIENT_DEFAULT_SCOPES,
+    ...OAUTH_CLIENT_REQUESTABLE_SCOPES,
+] as const;
 
 /** Where an MCP client should discover `mcpResourceUrl`'s protected-resource
  * metadata (RFC 9728: `<origin>/.well-known/oauth-protected-resource<path>`).
@@ -59,32 +73,19 @@ const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
 async function sendOtpEmail(email: string, otp: string) {
-    if (process.env.NODE_ENV !== "production") {
-        logger.info({ email, otp }, "[Dev] Better Auth OTP generated");
-        return;
+    try {
+        await sendMail({
+            to: email,
+            subject: "Your FrontLit verification code",
+            text: `Enter this code to sign in to FrontLit: ${otp}`,
+            html: `<p>Enter this code to sign in to FrontLit:</p><h2>${otp}</h2>`,
+        });
+    } catch (error) {
+        // OTP issuance still succeeds locally / without SMTP; Better Auth
+        // would otherwise surface a 500 to the sign-in form.
+        if (error instanceof MailNotConfiguredError) return;
+        throw error;
     }
-
-    if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER) {
-        logger.error(
-            { email },
-            "Cannot send OTP email: SMTP is not configured",
-        );
-        return;
-    }
-
-    const transporter = createTransport({
-        host: process.env.EMAIL_HOST,
-        port: Number(process.env.EMAIL_PORT) || 587,
-        auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-    });
-
-    await transporter.sendMail({
-        from: process.env.EMAIL_FROM,
-        to: email,
-        subject: "Your FrontLit verification code",
-        text: `Enter this code to sign in to FrontLit: ${otp}`,
-        html: `<p>Enter this code to sign in to FrontLit:</p><h2>${otp}</h2>`,
-    });
 }
 
 export { oauthTeamSelectionAdapter };
@@ -112,6 +113,39 @@ export const auth = betterAuth({
         schema,
     }),
     trustedOrigins: [webClientUrl, authBaseUrl],
+    // Better Auth deliberately returns an empty 500 body for unexpected
+    // production errors. Keep a sanitized server-side record: OAuth clients
+    // need the opaque response, while operators need the failure cause to
+    // diagnose a failed token exchange. Do not log the request URL because it
+    // can contain authorization codes and other credentials.
+    onAPIError: {
+        onError(error) {
+            // Expected OAuth rejections (invalid grant, PKCE mismatch, and so
+            // on) are client-visible 4xx responses, not operational errors.
+            if (
+                error instanceof APIError &&
+                error.status !== "INTERNAL_SERVER_ERROR"
+            ) {
+                return;
+            }
+
+            logger.error(
+                {
+                    errorType:
+                        error instanceof Error ? error.name : "UnknownError",
+                    error:
+                        error instanceof APIError
+                            ? (error.body?.error_description ??
+                              error.body?.error ??
+                              error.status)
+                            : error instanceof Error
+                              ? error.message
+                              : String(error),
+                },
+                "Better Auth API request failed",
+            );
+        },
+    },
     advanced: authCookieDomain
         ? {
               crossSubDomainCookies: {
@@ -158,6 +192,23 @@ export const auth = betterAuth({
             },
         },
     },
+    hooks: {
+        before: createAuthMiddleware(async (context) => {
+            if (context.path !== "/oauth2/authorize") return;
+
+            const scope = context.query?.scope;
+            if (typeof scope === "string" && scope.trim().length > 0) return;
+
+            // Better Auth can otherwise substitute a client's complete
+            // capability set when scope is omitted. Require an explicit grant
+            // so registration never becomes full MCP authorization.
+            throw new APIError("BAD_REQUEST", {
+                error: "invalid_scope",
+                error_description:
+                    "OAuth authorization requests must include an explicit scope.",
+            });
+        }),
+    },
     plugins: [
         emailOTP({
             async sendVerificationOTP({ email, otp }) {
@@ -178,29 +229,35 @@ export const auth = betterAuth({
                 consentPage: `${authBaseUrl}/oauth/consent`,
                 allowDynamicClientRegistration: true,
                 allowUnauthenticatedDynamicClientRegistration: true,
-                scopes: [
-                    "openid",
-                    "profile",
-                    "email",
-                    "offline_access",
-                    "pages:read",
-                    "pages:write",
-                    "themes:read",
-                    "themes:write",
-                ],
+                scopes: supportedOAuthScopes,
                 validAudiences: validOAuthAudiences,
-                clientRegistrationDefaultScopes: ["openid", "profile", "email"],
-                clientRegistrationAllowedScopes: [
-                    "offline_access",
-                    "pages:read",
-                    "pages:write",
-                    "themes:read",
-                    "themes:write",
-                ],
+                clientRegistrationDefaultScopes: OAUTH_CLIENT_DEFAULT_SCOPES,
+                clientRegistrationAllowedScopes:
+                    OAUTH_CLIENT_REQUESTABLE_SCOPES,
             }),
+            // The app-level auth test verifies this exact external metadata
+            // endpoint. Suppress the provider's configuration reminder only
+            // after that route is proven to exist.
+            silenceWarnings: {
+                oauthAuthServerConfig: true,
+            },
+            resources: [
+                {
+                    identifier: mcpResourceUrl,
+                    name: "FrontLit MCP",
+                    allowedScopes: [...MCP_SCOPES_SUPPORTED],
+                },
+            ],
+            clientRegistrationDefaultResources: [mcpResourceUrl],
             schema: {
                 oauthClient: {
                     modelName: "authOAuthClient",
+                },
+                oauthResource: {
+                    modelName: "authOAuthResource",
+                },
+                oauthClientResource: {
+                    modelName: "authOAuthClientResource",
                 },
                 oauthAccessToken: {
                     modelName: "authOAuthAccessToken",
@@ -211,11 +268,25 @@ export const auth = betterAuth({
                 oauthConsent: {
                     modelName: "authOAuthConsent",
                 },
+                oauthClientAssertion: {
+                    modelName: "authOAuthClientAssertion",
+                },
             },
             ...createFrontLitOAuthTeamSelectionHooks({
                 page: `${authBaseUrl}/oauth/select-team`,
                 adapter: oauthTeamSelectionAdapter,
             }),
+        }),
+        cimd({
+            fetchClientMetadataResource,
+            metadataProfile: "mcp-2026-07-28",
+            metadataRevalidationInterval: "60m",
+            metadataFetchPolicy: {
+                // VS Code's canonical metadata is no-store and must be
+                // refetched immediately during the token exchange.
+                minimumFetchInterval: 0,
+            },
+            originBoundFields: ["post_logout_redirect_uris", "client_uri"],
         }),
     ],
 });

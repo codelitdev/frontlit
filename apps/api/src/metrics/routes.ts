@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { renderCounters } from "../services/metrics";
-import { getOutboxQueueStats } from "../newsletter/outbox";
+import { getOutboxQueueStats } from "../email/outbox";
 
 /**
  * Prometheus-format metrics (architecture.md §13.6). Deliberately outside

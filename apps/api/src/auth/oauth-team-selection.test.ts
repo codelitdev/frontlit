@@ -16,24 +16,32 @@ function adapter(overrides: Partial<FrontLitOAuthTeamSelectionAdapter> = {}) {
 const input = { user: { id: "user-1" }, session: { id: "session-1" } };
 
 describe("FrontLit-owned OAuth team selection", () => {
-    it("does not interrupt users with zero or one team", async () => {
-        for (const teams of [
-            [],
-            [{ id: "internal-a", publicId: "team_a", name: "A" }],
-        ]) {
-            const hooks = createFrontLitOAuthTeamSelectionHooks({
-                page: "https://frontlit.test/oauth/select-team",
-                adapter: adapter({
-                    listTeamsForUser: vi.fn(async () => teams),
-                }),
-            });
-            await expect(hooks.postLogin.shouldRedirect(input)).resolves.toBe(
-                false,
-            );
-            await expect(
-                hooks.postLogin.consentReferenceId(input),
-            ).resolves.toBeUndefined();
-        }
+    it("redirects zero-team users before consent", async () => {
+        const hooks = createFrontLitOAuthTeamSelectionHooks({
+            page: "https://frontlit.test/oauth/select-team",
+            adapter: adapter(),
+        });
+        await expect(hooks.postLogin.shouldRedirect(input)).resolves.toBe(true);
+        await expect(
+            hooks.postLogin.consentReferenceId(input),
+        ).resolves.toBeUndefined();
+    });
+
+    it("binds the sole team without interrupting the user", async () => {
+        const hooks = createFrontLitOAuthTeamSelectionHooks({
+            page: "https://frontlit.test/oauth/select-team",
+            adapter: adapter({
+                listTeamsForUser: vi.fn(async () => [
+                    { id: "internal-a", publicId: "team_a", name: "A" },
+                ]),
+            }),
+        });
+        await expect(hooks.postLogin.shouldRedirect(input)).resolves.toBe(
+            false,
+        );
+        await expect(hooks.postLogin.consentReferenceId(input)).resolves.toBe(
+            "internal-a",
+        );
     });
 
     it("requires a valid selection for multi-team users", async () => {

@@ -9,10 +9,11 @@ vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 vi.mock("../tickets/notify", () => ({
     notifyTeamOfRequesterMessage: vi.fn().mockResolvedValue(undefined),
     notifyRequesterOfReply: vi.fn().mockResolvedValue(undefined),
+    notifyRequesterOfTicketCreated: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { db as testDb } from "../db/client";
-import { outboxJobs } from "../db/schema";
+import { outboxJobs, teams, ticketMailOutbox } from "../db/schema";
 import { updateChatbotSettings } from "../chatbot/queries";
 import {
     createDocument,
@@ -20,6 +21,8 @@ import {
     updateDocument,
 } from "../documents/queries";
 import { createPage, publishPage } from "../pages/queries";
+import { updateTeamSettings } from "../settings/queries";
+import { createTheme } from "../themes/queries";
 import publicRoutes from "./routes";
 
 const originalEnv = { ...process.env };
@@ -81,6 +84,56 @@ describe("public critical paths", () => {
         });
     });
 
+    it("answers Caddy on-demand TLS asks for verified custom hosts only", async () => {
+        await db
+            .update(teams)
+            .set({
+                customDomain: "frolik.example.com",
+                customDomainStatus: "verified",
+                customDomainVerificationToken: "test-token",
+                customDomainVerifiedAt: new Date(),
+                customDomainTxtSatisfied: true,
+                customDomainRoutingSatisfied: true,
+            })
+            .where(eq(teams.id, teamInternalId));
+
+        await withServer(async (origin) => {
+            const allowed = await fetch(
+                `${origin}/public/tls-ask?domain=${encodeURIComponent("frolik.example.com")}`,
+            );
+            expect(allowed.status).toBe(200);
+            expect(await allowed.text()).toBe("");
+
+            const unknown = await fetch(
+                `${origin}/public/tls-ask?domain=${encodeURIComponent("unknown.example.com")}`,
+            );
+            expect(unknown.status).toBe(404);
+
+            const empty = await fetch(`${origin}/public/tls-ask`);
+            expect(empty.status).toBe(404);
+        });
+    });
+
+    it("serves the single team site theme from public settings", async () => {
+        const theme = await createTheme({
+            teamId: teamInternalId,
+            name: "Brand",
+            style: { colors: { light: { primary: "#123456" } } },
+        });
+        await updateTeamSettings(teamInternalId, { themeId: theme.themeId });
+
+        await withServer(async (origin) => {
+            const response = await fetch(
+                `${origin}/public/${teamPublicId}/settings`,
+            );
+            expect(response.status).toBe(200);
+            expect(await response.json()).toMatchObject({
+                themeId: theme.themeId,
+                theme: theme.style,
+            });
+        });
+    });
+
     it("serves only published pages and docs by slug", async () => {
         const draftPage = await createPage({
             teamId: teamInternalId,
@@ -132,7 +185,7 @@ describe("public critical paths", () => {
             expect(unpublishedPage.status).toBe(404);
 
             const liveDoc = await fetch(
-                `${origin}/public/${teamPublicId}/docs/${encodeURIComponent(publishedDoc.slug)}`,
+                `${origin}/public/${teamPublicId}/content/documentation/${encodeURIComponent(publishedDoc.slug)}`,
             );
             expect(liveDoc.status).toBe(200);
             expect(await liveDoc.json()).toMatchObject({
@@ -142,7 +195,7 @@ describe("public critical paths", () => {
             });
 
             const unpublishedDoc = await fetch(
-                `${origin}/public/${teamPublicId}/docs/${encodeURIComponent(draftDoc.slug)}`,
+                `${origin}/public/${teamPublicId}/content/documentation/${encodeURIComponent(draftDoc.slug)}`,
             );
             expect(unpublishedDoc.status).toBe(404);
         });
@@ -177,15 +230,19 @@ describe("public critical paths", () => {
             );
             expect(enabled.status).toBe(200);
             const body = (await enabled.json()) as {
-                answer: string;
+                outcome: string;
+                answer: string | null;
                 conversationId: string;
                 conversationToken: string;
                 sources: unknown[];
+                escalate: boolean;
             };
-            expect(body.answer).toEqual(expect.any(String));
+            expect(body.outcome).toBe("human_only");
+            expect(body.answer).toBeNull();
+            expect(body.escalate).toBe(false);
             expect(body.conversationId).toMatch(/^tkt_/);
             expect(body.conversationToken).toEqual(expect.any(String));
-            expect(Array.isArray(body.sources)).toBe(true);
+            expect(body.sources).toEqual([]);
         });
     });
 
@@ -266,6 +323,16 @@ describe("public critical paths", () => {
             };
             expect(ticketId).toMatch(/^tkt_/);
             expect(token.length).toBeGreaterThan(10);
+            const mail = await db.query.ticketMailOutbox.findMany({
+                where: eq(ticketMailOutbox.teamId, teamInternalId),
+            });
+            expect(mail).toHaveLength(1);
+            expect(mail[0]).toMatchObject({
+                sequence: 1,
+                kind: "receipt",
+                status: "pending",
+                payload: { token },
+            });
 
             const thread = await fetch(
                 `${origin}/public/${teamPublicId}/tickets/${ticketId}/messages?token=${encodeURIComponent(token)}`,
@@ -285,6 +352,23 @@ describe("public critical paths", () => {
             });
             expect(body.messages).toHaveLength(1);
             expect(body.accessTokenHash).toBeUndefined();
+
+            const jobs = await db.query.outboxJobs.findMany({
+                where: eq(outboxJobs.teamId, teamInternalId),
+            });
+            expect(jobs).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        type: "contact_sync",
+                        status: "pending",
+                        payload: {
+                            email: "customer@example.com",
+                            name: "Casey",
+                            sourcePath: "/help",
+                        },
+                    }),
+                ]),
+            );
 
             const badToken = await fetch(
                 `${origin}/public/${teamPublicId}/tickets/${ticketId}/messages?token=not-the-token`,

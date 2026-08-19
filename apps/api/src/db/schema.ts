@@ -20,9 +20,12 @@ export {
     authVerification,
     jwks,
     authOAuthClient,
+    authOAuthResource,
+    authOAuthClientResource,
     authOAuthRefreshToken,
     authOAuthAccessToken,
     authOAuthConsent,
+    authOAuthClientAssertion,
 } from "./auth-schema";
 import { authSession, authUser } from "./auth-schema";
 
@@ -62,7 +65,7 @@ export const accounts = pgTable("accounts", {
  * setup (not inferred from a person's name or email), and is
  * environment-independent; the full hostname is assembled from
  * `PLATFORM_SITE_DOMAIN` at runtime. A team may additionally attach one
- * verified custom domain. */
+ * verified custom domain and optionally hide the platform subdomain. */
 export const customDomainStatuses = ["pending", "verified", "failed"] as const;
 export type CustomDomainStatus = (typeof customDomainStatuses)[number];
 
@@ -77,15 +80,20 @@ export const teams = pgTable(
         name: text("name").notNull(),
         ownerAccountId: text("owner_account_id")
             .notNull()
-            .references(() => accounts.id, { onDelete: "cascade" }),
+            .references(() => accounts.id, { onDelete: "restrict" }),
         externalId: text("external_id").unique(),
         subdomain: text("subdomain").unique(),
+        subdomainPublic: boolean("subdomain_public").notNull().default(true),
         customDomain: text("custom_domain").unique(),
         customDomainStatus: text("custom_domain_status", {
             enum: customDomainStatuses,
         }),
         customDomainVerificationToken: text("custom_domain_verification_token"),
         customDomainVerifiedAt: timestamp("custom_domain_verified_at"),
+        customDomainTxtSatisfied: boolean("custom_domain_txt_satisfied"),
+        customDomainRoutingSatisfied: boolean(
+            "custom_domain_routing_satisfied",
+        ),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().defaultNow(),
     },
@@ -97,13 +105,19 @@ export const teams = pgTable(
                 ("custom_domain" IS NULL
                     AND "custom_domain_status" IS NULL
                     AND "custom_domain_verification_token" IS NULL
-                    AND "custom_domain_verified_at" IS NULL)
+                    AND "custom_domain_verified_at" IS NULL
+                    AND "custom_domain_txt_satisfied" IS NULL
+                    AND "custom_domain_routing_satisfied" IS NULL)
                 OR
                 ("custom_domain" IS NOT NULL
                     AND "custom_domain_status" IS NOT NULL
                     AND "custom_domain_verification_token" IS NOT NULL
                     AND ("custom_domain_status" <> 'verified' OR "custom_domain_verified_at" IS NOT NULL))
             )`,
+        ),
+        check(
+            "teams_subdomain_public_check",
+            sql`("subdomain_public" = true OR "custom_domain_status" = 'verified')`,
         ),
     ],
 );
@@ -112,6 +126,10 @@ export const teamMembers = pgTable(
     "team_members",
     {
         id: text("id").primaryKey().$defaultFn(genId),
+        memberId: text("member_id")
+            .notNull()
+            .unique()
+            .$defaultFn(() => genPublicId("tmem")),
         teamId: text("team_id")
             .notNull()
             .references(() => teams.id, { onDelete: "cascade" }),
@@ -121,13 +139,116 @@ export const teamMembers = pgTable(
         role: text("role", { enum: ["owner", "member"] })
             .notNull()
             .default("member"),
+        permissions: text("permissions").array().notNull().default([]),
+        version: integer("version").notNull().default(1),
         createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
     },
     (table) => [
         uniqueIndex("team_members_team_account_idx").on(
             table.teamId,
             table.accountId,
         ),
+        publicIdCheck("member_id", "tmem"),
+    ],
+);
+
+export const invitationStatuses = [
+    "pending",
+    "accepted",
+    "rejected",
+    "revoked",
+    "expired",
+] as const;
+export type InvitationStatus = (typeof invitationStatuses)[number];
+
+export const teamInvitations = pgTable(
+    "team_invitations",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        invitationId: text("invitation_id")
+            .notNull()
+            .unique()
+            .$defaultFn(() => genPublicId("tinv")),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        email: text("email").notNull(),
+        permissions: text("permissions").array().notNull().default([]),
+        invitedByAccountId: text("invited_by_account_id").references(
+            () => accounts.id,
+            { onDelete: "set null" },
+        ),
+        tokenHash: text("token_hash").notNull().unique(),
+        status: text("status", { enum: invitationStatuses })
+            .notNull()
+            .default("pending"),
+        expiresAt: timestamp("expires_at").notNull(),
+        acceptedAt: timestamp("accepted_at"),
+        rejectedAt: timestamp("rejected_at"),
+        revokedAt: timestamp("revoked_at"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => [
+        publicIdCheck("invitation_id", "tinv"),
+        uniqueIndex("team_invitations_pending_team_email_idx")
+            .on(table.teamId, table.email)
+            .where(sql`${table.status} = 'pending'`),
+        index("team_invitations_team_created_idx").on(
+            table.teamId,
+            table.createdAt,
+        ),
+        index("team_invitations_team_email_idx").on(table.teamId, table.email),
+        index("team_invitations_expires_idx").on(table.expiresAt),
+    ],
+);
+
+export const authorizationAuditEventTypes = [
+    "invitation.created",
+    "invitation.resent",
+    "invitation.accepted",
+    "invitation.rejected",
+    "invitation.expired",
+    "invitation.revoked",
+    "member.permissions_changed",
+    "member.removed",
+    "member.left",
+    "ownership.transferred",
+    "api_key.created",
+    "api_key.revoked",
+] as const;
+export type AuthorizationAuditEventType =
+    (typeof authorizationAuditEventTypes)[number];
+
+export const authorizationAuditEvents = pgTable(
+    "authorization_audit_events",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        eventType: text("event_type", {
+            enum: authorizationAuditEventTypes,
+        }).notNull(),
+        teamPublicId: text("team_public_id").notNull(),
+        actorAccountId: text("actor_account_id").references(() => accounts.id, {
+            onDelete: "set null",
+        }),
+        targetMemberId: text("target_member_id"),
+        targetEmail: text("target_email"),
+        beforePermissions: text("before_permissions").array(),
+        afterPermissions: text("after_permissions").array(),
+        metadata: jsonb("metadata")
+            .$type<Record<string, unknown>>()
+            .notNull()
+            .default({}),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        expiresAt: timestamp("expires_at").notNull(),
+    },
+    (table) => [
+        index("authorization_audit_team_created_idx").on(
+            table.teamPublicId,
+            table.createdAt,
+        ),
+        index("authorization_audit_expires_idx").on(table.expiresAt),
     ],
 );
 
@@ -194,7 +315,8 @@ export const themes = pgTable(
 export type WidgetInstanceRow = {
     widgetId: string;
     name: string;
-    deleteable: boolean;
+    deletable: boolean;
+    moveable: boolean;
     shared: boolean;
     settings?: Record<string, unknown>;
 };
@@ -211,14 +333,18 @@ export const DEFAULT_SHARED_WIDGETS: SharedWidgetsRow = {
     header: {
         widgetId: "shared-header",
         name: "header",
-        deleteable: false,
+        deletable: false,
+        moveable: false,
         shared: true,
-        settings: {},
+        // Slider value 1 (`py-4`). Without this the header inherits the
+        // theme's content-section padding and renders much taller than a nav.
+        settings: { verticalPadding: "py-4" },
     },
     footer: {
         widgetId: "shared-footer",
         name: "footer",
-        deleteable: false,
+        deletable: false,
+        moveable: false,
         shared: true,
         settings: {},
     },
@@ -365,6 +491,48 @@ export const documentChunks = pgTable(
     ],
 );
 
+export const documentIndexJobStatuses = [
+    "queued",
+    "running",
+    "done",
+    "failed",
+] as const;
+export type DocumentIndexJobStatus = (typeof documentIndexJobStatuses)[number];
+
+/** One durable index job per document. Publish and AI-config changes enqueue
+ * (or re-enqueue) instead of embedding inline on the request. */
+export const documentIndexJobs = pgTable(
+    "document_index_jobs",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        documentId: text("document_id")
+            .notNull()
+            .references(() => documents.id, { onDelete: "cascade" }),
+        status: text("status", { enum: documentIndexJobStatuses })
+            .notNull()
+            .default("queued"),
+        generation: integer("generation").notNull().default(0),
+        attempts: integer("attempts").notNull().default(0),
+        lastError: text("last_error"),
+        leaseExpiresAt: timestamp("lease_expires_at"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+        startedAt: timestamp("started_at"),
+        finishedAt: timestamp("finished_at"),
+    },
+    (table) => [
+        uniqueIndex("document_index_jobs_document_idx").on(table.documentId),
+        index("document_index_jobs_poll_idx").on(
+            table.status,
+            table.leaseExpiresAt,
+            table.createdAt,
+        ),
+    ],
+);
+
 // ---------------------------------------------------------------------------
 // Chatbot (architecture.md §7): per-team RAG chat settings.
 // ---------------------------------------------------------------------------
@@ -401,6 +569,53 @@ export const chatbotSettings = pgTable("chatbot_settings", {
         .$type<ChatbotWidgetStyleRow>()
         .notNull()
         .default({}),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
+// AI provider configuration. Credentials are AES-GCM encrypted before they
+// reach this table and are deliberately never included in API responses.
+// ---------------------------------------------------------------------------
+
+export const aiProviderNames = [
+    "openai",
+    "azure",
+    "anthropic",
+    "openrouter",
+    "bedrock",
+    "opencode",
+] as const;
+export type AiProviderName = (typeof aiProviderNames)[number];
+
+export const aiSettings = pgTable("ai_settings", {
+    id: text("id").primaryKey().$defaultFn(genId),
+    teamId: text("team_id")
+        .notNull()
+        .unique()
+        .references(() => teams.id, { onDelete: "cascade" }),
+    provider: text("provider", { enum: aiProviderNames }).notNull(),
+    /** Deprecated single-model setting retained to migrate existing teams. */
+    model: text("model"),
+    modelSettings: jsonb("model_settings")
+        .$type<{
+            chatbot?: string | null;
+            grammar?: string | null;
+            builder?: string | null;
+        }>()
+        .notNull()
+        .default({}),
+    region: text("region"),
+    azureEndpoint: text("azure_endpoint"),
+    encryptedApiKey: text("encrypted_api_key"),
+    embeddingProvider: text("embedding_provider", {
+        enum: ["openai", "azure"],
+    }),
+    encryptedEmbeddingApiKey: text("encrypted_embedding_api_key"),
+    embeddingDeployment: text("embedding_deployment"),
+    embeddingEndpoint: text("embedding_endpoint"),
+    indexArticles: boolean("index_articles").notNull().default(false),
+    indexChangelog: boolean("index_changelog").notNull().default(false),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -487,6 +702,9 @@ export const teamSettings = pgTable("team_settings", {
     title: text("title"),
     subtitle: text("subtitle"),
     logo: jsonb("logo").$type<Record<string, unknown>>(),
+    /** One theme for the entire public FrontLit site. System themes use their
+     * logical id; custom themes use their public `thm_*` id. */
+    themeId: text("theme_id"),
     codeInjectionHead: text("code_injection_head"),
     codeInjectionBody: text("code_injection_body"),
     /** Published and draft copies follow the same promotion model as page
@@ -518,9 +736,29 @@ export const ticketStatuses = [
 export type TicketStatus = (typeof ticketStatuses)[number];
 
 /** "form" = support-form page-builder block, "chatbot" = RAG escalation
- * (§11.2), "api" = headless MCP/REST submission. */
-export const ticketSources = ["form", "chatbot", "api"] as const;
+ * (§11.2), "api" = headless MCP/REST submission, "email" = inbound
+ * support@ mailbox. */
+export const ticketSources = ["form", "chatbot", "api", "email"] as const;
 export type TicketSource = (typeof ticketSources)[number];
+
+export const ticketAiStates = [
+    "idle",
+    "generating",
+    "waiting",
+    "escalated",
+    "taken_over",
+] as const;
+export type TicketAiState = (typeof ticketAiStates)[number];
+
+export const ticketAiStopReasons = [
+    "visitor_request",
+    "unsure",
+    "empty_retrieval",
+    "topic",
+    "turn_cap",
+    "agent_takeover",
+] as const;
+export type TicketAiStopReason = (typeof ticketAiStopReasons)[number];
 
 export const tickets = pgTable(
     "tickets",
@@ -544,13 +782,25 @@ export const tickets = pgTable(
         source: text("source", { enum: ticketSources })
             .notNull()
             .default("form"),
-        /** SHA-256 hash of the visitor's magic-link token (§13.4); never store
-         * the raw token. */
+        /** SHA-256 hash of the visitor's first magic-link token. Additional
+         * grants live in `ticket_access_grants`; this column stays so older
+         * links remain valid. */
         accessTokenHash: text("access_token_hash").notNull(),
         assigneeAccountId: text("assignee_account_id").references(
             () => accounts.id,
             { onDelete: "set null" },
         ),
+        aiState: text("ai_state", {
+            enum: ticketAiStates,
+        })
+            .notNull()
+            .default("idle"),
+        aiGeneration: integer("ai_generation").notNull().default(0),
+        aiTriggerMessageId: text("ai_trigger_message_id"),
+        aiStopReason: text("ai_stop_reason", {
+            enum: ticketAiStopReasons,
+        }),
+        aiStoppedAt: timestamp("ai_stopped_at"),
         lastMessageAt: timestamp("last_message_at").notNull().defaultNow(),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -567,6 +817,13 @@ export const tickets = pgTable(
 
 export const ticketMessageAuthors = ["requester", "agent", "bot"] as const;
 export type TicketMessageAuthor = (typeof ticketMessageAuthors)[number];
+
+export type TicketMessageSource = {
+    documentId: string;
+    slug: string;
+    title: string | null;
+    anchor: string | null;
+};
 
 export const ticketMessages = pgTable(
     "ticket_messages",
@@ -588,6 +845,10 @@ export const ticketMessages = pgTable(
             { onDelete: "set null" },
         ),
         content: jsonb("content").$type<TextEditorContentRow>().notNull(),
+        sources: jsonb("sources")
+            .$type<TicketMessageSource[]>()
+            .notNull()
+            .default(sql`'[]'::jsonb`),
         createdAt: timestamp("created_at").notNull().defaultNow(),
     },
     (table) => [
@@ -596,8 +857,265 @@ export const ticketMessages = pgTable(
     ],
 );
 
+/** Files shared on a ticket thread. Stored in MediaLit, never the media
+ * library table. Ticket (and message) delete cascades the row. */
+export const ticketAttachments = pgTable(
+    "ticket_attachments",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        attachmentId: text("attachment_id")
+            .notNull()
+            .unique()
+            .$defaultFn(() => genPublicId("att")),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        ticketId: text("ticket_id")
+            .notNull()
+            .references(() => tickets.id, { onDelete: "cascade" }),
+        messageId: text("message_id").references(() => ticketMessages.id, {
+            onDelete: "cascade",
+        }),
+        mediaLitId: text("media_lit_id").notNull(),
+        url: text("url").notNull(),
+        thumbnailUrl: text("thumbnail_url"),
+        fileName: text("file_name").notNull(),
+        mimeType: text("mime_type").notNull(),
+        size: integer("size").notNull(),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => [
+        index("ticket_attachments_ticket_idx").on(table.ticketId),
+        index("ticket_attachments_message_idx").on(table.messageId),
+        publicIdCheck("attachment_id", "att"),
+    ],
+);
+
+export const inboxAiChannels = ["chatbot", "tickets"] as const;
+export type InboxAiChannel = (typeof inboxAiChannels)[number];
+
+export const inboxAiSettings = pgTable(
+    "inbox_ai_settings",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        channel: text("channel", { enum: inboxAiChannels }).notNull(),
+        autoReply: boolean("auto_reply").notNull().default(false),
+        escalateOnVisitorRequest: boolean("escalate_on_visitor_request")
+            .notNull()
+            .default(true),
+        escalateWhenUnsure: boolean("escalate_when_unsure")
+            .notNull()
+            .default(true),
+        escalateTopics: text("escalate_topics")
+            .array()
+            .notNull()
+            .default(sql`'{}'::text[]`),
+        escalateAfterBotTurns: integer("escalate_after_bot_turns"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => [
+        uniqueIndex("inbox_ai_settings_team_channel_idx").on(
+            table.teamId,
+            table.channel,
+        ),
+    ],
+);
+
+export const inboxAiRunStatuses = [
+    "queued",
+    "generating",
+    "succeeded",
+    "skipped",
+    "failed",
+] as const;
+export type InboxAiRunStatus = (typeof inboxAiRunStatuses)[number];
+
+export type InboxAiRetrievalHit = {
+    documentId: string;
+    slug: string;
+    title: string | null;
+    heading: string | null;
+    anchor: string | null;
+    similarity: number;
+    kind?: "blog" | "doc" | "changelog";
+};
+
+export const inboxAiRuns = pgTable(
+    "inbox_ai_runs",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        ticketId: text("ticket_id")
+            .notNull()
+            .references(() => tickets.id, { onDelete: "cascade" }),
+        triggerMessageId: text("trigger_message_id")
+            .notNull()
+            .references(() => ticketMessages.id, { onDelete: "cascade" }),
+        channel: text("channel", { enum: inboxAiChannels }).notNull(),
+        status: text("status", { enum: inboxAiRunStatuses })
+            .notNull()
+            .default("queued"),
+        attempts: integer("attempts").notNull().default(0),
+        skipReason: text("skip_reason"),
+        stopReason: text("stop_reason"),
+        lastError: text("last_error"),
+        retrieval: jsonb("retrieval")
+            .$type<InboxAiRetrievalHit[]>()
+            .notNull()
+            .default(sql`'[]'::jsonb`),
+        leaseExpiresAt: timestamp("lease_expires_at"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+        startedAt: timestamp("started_at"),
+        finishedAt: timestamp("finished_at"),
+    },
+    (table) => [
+        uniqueIndex("inbox_ai_runs_ticket_trigger_idx").on(
+            table.ticketId,
+            table.triggerMessageId,
+        ),
+        index("inbox_ai_runs_poll_idx").on(
+            table.status,
+            table.leaseExpiresAt,
+            table.createdAt,
+        ),
+    ],
+);
+
+export const ticketAccessGrants = pgTable(
+    "ticket_access_grants",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        ticketId: text("ticket_id")
+            .notNull()
+            .references(() => tickets.id, { onDelete: "cascade" }),
+        tokenHash: text("token_hash").notNull().unique(),
+        expiresAt: timestamp("expires_at").notNull(),
+        revokedAt: timestamp("revoked_at"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => [index("ticket_access_grants_ticket_idx").on(table.ticketId)],
+);
+
+export const aiUsageDaily = pgTable(
+    "ai_usage_daily",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        usageDate: text("usage_date").notNull(),
+        reservedTokens: integer("reserved_tokens").notNull().default(0),
+        usedTokens: integer("used_tokens").notNull().default(0),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => [
+        uniqueIndex("ai_usage_daily_team_date_idx").on(
+            table.teamId,
+            table.usageDate,
+        ),
+    ],
+);
+
+export const ticketMailKinds = ["receipt", "reply"] as const;
+export type TicketMailKind = (typeof ticketMailKinds)[number];
+
+export const ticketMailStatuses = [
+    "pending",
+    "sending",
+    "sent",
+    "failed",
+] as const;
+export type TicketMailStatus = (typeof ticketMailStatuses)[number];
+
+export const ticketMailOutbox = pgTable(
+    "ticket_mail_outbox",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        ticketId: text("ticket_id")
+            .notNull()
+            .references(() => tickets.id, { onDelete: "cascade" }),
+        sequence: integer("sequence").notNull(),
+        kind: text("kind", { enum: ticketMailKinds }).notNull(),
+        status: text("status", { enum: ticketMailStatuses })
+            .notNull()
+            .default("pending"),
+        payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+        attempts: integer("attempts").notNull().default(0),
+        lastError: text("last_error"),
+        nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => [
+        uniqueIndex("ticket_mail_outbox_ticket_seq_idx").on(
+            table.ticketId,
+            table.sequence,
+        ),
+        index("ticket_mail_outbox_poll_idx").on(
+            table.status,
+            table.nextAttemptAt,
+        ),
+    ],
+);
+
+export const rateLimitBuckets = pgTable("rate_limit_buckets", {
+    key: text("key").primaryKey(),
+    count: integer("count").notNull().default(0),
+    resetAt: timestamp("reset_at").notNull(),
+});
+
+export const emailReplyTokens = pgTable(
+    "email_reply_tokens",
+    {
+        id: text("id").primaryKey().$defaultFn(genId),
+        token: text("token").notNull().unique(),
+        teamId: text("team_id")
+            .notNull()
+            .references(() => teams.id, { onDelete: "cascade" }),
+        ticketId: text("ticket_id")
+            .notNull()
+            .references(() => tickets.id, { onDelete: "cascade" }),
+        requesterEmail: text("requester_email").notNull(),
+        expiresAt: timestamp("expires_at").notNull(),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => [
+        uniqueIndex("email_reply_tokens_ticket_requester_idx").on(
+            table.teamId,
+            table.ticketId,
+            table.requesterEmail,
+        ),
+    ],
+);
+
+export const inboundEmails = pgTable("inbound_emails", {
+    id: text("id").primaryKey().$defaultFn(genId),
+    messageId: text("message_id").notNull().unique(),
+    teamId: text("team_id")
+        .notNull()
+        .references(() => teams.id, { onDelete: "cascade" }),
+    ticketId: text("ticket_id")
+        .notNull()
+        .references(() => tickets.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // ---------------------------------------------------------------------------
-// Newsletter (architecture.md §10): FrontLit stores no contact data of its
+// Email (architecture.md §10): FrontLit stores no contact data of its
 // own — SendLit is the system of record. This is just the outbox: durable,
 // retryable background jobs (contact sync on lead capture, SendLit team
 // re-provisioning on transient failure) so a public lead-capture request
@@ -654,13 +1172,7 @@ export const pages = pgTable(
             enum: ["site", "blog", "landing", "post", "custom"],
         }).notNull(),
         slug: text("slug").notNull(),
-        deleteable: boolean("deleteable").notNull().default(true),
-        // Logical theme reference: a built-in id such as "learning", or a
-        // saved theme's public `thm_*` id. Public ids keep this boundary
-        // consistent with the pages/themes API and let system themes work
-        // without manufacturing database rows for them.
-        themeId: text("theme_id"),
-
+        deletable: boolean("deletable").notNull().default(true),
         // Published side — read by public rendering. Only ever written by
         // `publish()`, which copies the draft columns below into these.
         layout: jsonb("layout")

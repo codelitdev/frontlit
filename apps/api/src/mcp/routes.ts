@@ -1,11 +1,28 @@
-import { Router } from "express";
+import {
+    Router,
+    type NextFunction,
+    type Request,
+    type Response,
+} from "express";
 import rateLimit from "express-rate-limit";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { createMcpHandler } from "@modelcontextprotocol/server";
+import { toNodeHandler } from "@modelcontextprotocol/node";
 import { createMcpOAuthDiscoveryRoutes } from "@codelitdev/oauth-server-kit/mcp";
 import { mcpAuth } from "../auth/middleware";
 import { requireTeam } from "../auth/require-team";
 import { auth, mcpResourceUrl, oauthResourceClient } from "../auth/better-auth";
-import { createMCPSession } from "./server";
+import { logger } from "../services/log";
+import {
+    createFrontLitMcpAuthInfo,
+    type FrontLitMcpAuthInfo,
+} from "./auth-context";
+import {
+    HIGH_IMPACT_MCP_TOOLS,
+    isAccountOnlyMcpTool,
+    isMcpToolName,
+    MCP_SCOPES_SUPPORTED,
+} from "./policy";
+import { buildMcpServer } from "./server";
 
 const router = Router();
 
@@ -14,121 +31,142 @@ router.use(
         auth,
         resourceUrl: mcpResourceUrl,
         oauthResourceClient,
-        scopesSupported: [
-            "pages:read",
-            "pages:write",
-            "themes:read",
-            "themes:write",
-        ],
+        scopesSupported: [...MCP_SCOPES_SUPPORTED],
         allowedOrigins: "*",
     }),
 );
 
-const mcpLimiter = rateLimit({
+const mcpIpLimiter = rateLimit({
     windowMs: 60_000,
-    max: 60,
+    max: 120,
     standardHeaders: true,
     legacyHeaders: false,
     message: {
         error: "too_many_requests",
-        error_description: "Too many requests.",
+        error_description: "Too many MCP requests from this network.",
     },
 });
 
-const mcpSessions = new Map<string, StreamableHTTPServerTransport>();
+function principalRateLimitKey(req: Request): string {
+    const authInfo = (req as any).auth as FrontLitMcpAuthInfo | undefined;
+    const authKind = authInfo?.extra.authKind ?? "unknown";
+    const client = authInfo?.clientId ?? "unknown";
+    const team = authInfo?.extra.teamId ?? "unknown";
+    return `${authKind}:${client}:${team}`;
+}
 
-const mcpCors = (req: any, res: any, next: any) => {
+const mcpPrincipalLimiter = rateLimit({
+    windowMs: 60_000,
+    max: (req) => {
+        const tool = String(req.headers["mcp-name"] || "");
+        return isMcpToolName(tool) && HIGH_IMPACT_MCP_TOOLS.has(tool) ? 20 : 60;
+    },
+    keyGenerator: principalRateLimitKey,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        error: "too_many_requests",
+        error_description: "Too many MCP requests.",
+    },
+    handler(req, res, _next, options) {
+        logger.warn(
+            {
+                method: req.headers["mcp-method"],
+                tool: req.headers["mcp-name"],
+                authKind: (req as any).authKind,
+            },
+            "MCP rate limit exceeded",
+        );
+        res.status(options.statusCode).json(options.message);
+    },
+});
+
+function mcpCors(req: Request, res: Response, next: NextFunction) {
     const origin = req.headers.origin || "*";
     res.header("Access-Control-Allow-Origin", origin);
-    res.header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+    res.header("Vary", "Origin");
+    res.header("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.header(
         "Access-Control-Allow-Headers",
-        "Content-Type, Accept, Mcp-Session-Id, Mcp-Protocol-Version, x-frontlit-apikey, Authorization",
+        "Content-Type, Accept, MCP-Protocol-Version, Mcp-Method, Mcp-Name, x-frontlit-apikey, Authorization",
     );
-    res.header("Access-Control-Expose-Headers", "Mcp-Session-Id");
     if (req.method === "OPTIONS") {
         res.status(204).end();
         return;
     }
     next();
-};
-
-/** Some MCP clients omit `text/event-stream` or `application/json` from
- * `Accept`, which the SDK's transport requires. */
-function patchMcpAcceptHeaders(req: any) {
-    const accept = req.headers.accept || "";
-    const needsJson = !accept.includes("application/json");
-    const needsSSE = !accept.includes("text/event-stream");
-    if (!needsJson && !needsSSE) return;
-
-    const additions: string[] = [];
-    if (needsJson) additions.push("application/json");
-    if (needsSSE) additions.push("text/event-stream");
-    const newAccept = accept
-        ? `${accept}, ${additions.join(", ")}`
-        : additions.join(", ");
-    req.headers.accept = newAccept;
-
-    const rawHeaders: string[] = req.rawHeaders;
-    let found = false;
-    for (let i = 0; i < rawHeaders.length; i += 2) {
-        if (rawHeaders[i].toLowerCase() === "accept") {
-            rawHeaders[i + 1] = newAccept;
-            found = true;
-            break;
-        }
-    }
-    if (!found) rawHeaders.push("Accept", newAccept);
 }
 
-function getMcpAuth(req: any) {
-    return {
-        token: req.apikey || "",
-        // "clientId" here is the resolved *team* id (see `auth/require-team.ts`) —
-        // every MCP tool operates on team-scoped resources.
-        clientId: String(req.teamId || ""),
-        account: req.account,
-        scopes: (req.scopes as string[] | undefined) || [],
-    };
+function attachMcpAuthInfo(req: Request, res: Response, next: NextFunction) {
+    const authInfo = createFrontLitMcpAuthInfo(req);
+    if (!authInfo) {
+        res.status(401).json({
+            error: "unauthorized",
+            error_description: "MCP authentication context is incomplete.",
+        });
+        return;
+    }
+    (req as any).auth = authInfo;
+    next();
+}
+
+function observeMcpRequest(req: Request, res: Response, next: NextFunction) {
+    const startedAt = performance.now();
+    res.once("finish", () => {
+        logger.info(
+            {
+                method: req.headers["mcp-method"],
+                tool: req.headers["mcp-name"],
+                statusCode: res.statusCode,
+                durationMs: Math.round(performance.now() - startedAt),
+                authKind: (req as any).authKind,
+            },
+            "MCP request completed",
+        );
+    });
+    next();
+}
+
+const mcpHandler = createMcpHandler(() => buildMcpServer(), {
+    // Both protocol eras are stateless. SDK 2 owns the compatibility path;
+    // FrontLit has no SDK 1 server, session map, or SSE endpoint.
+    legacy: "stateless",
+    onerror(error) {
+        logger.error({ errorType: error.name }, "MCP protocol error");
+    },
+});
+
+const nodeMcpHandler = toNodeHandler(mcpHandler, {
+    onerror(error) {
+        logger.error({ errorType: error.name }, "MCP Node adapter error");
+    },
+});
+
+function requireMcpTeam(req: Request, res: Response, next: NextFunction) {
+    const tool = String(req.headers["mcp-name"] || "");
+    if (tool && isAccountOnlyMcpTool(tool)) {
+        next();
+        return;
+    }
+    void requireTeam(req, res, next);
 }
 
 router.post(
     "/mcp",
     mcpCors,
-    mcpLimiter,
+    mcpIpLimiter,
     mcpAuth,
-    requireTeam,
-    async (req: any, res: any) => {
-        patchMcpAcceptHeaders(req);
-
-        const auth = getMcpAuth(req);
-        const sessionId = req.headers["mcp-session-id"] as string | undefined;
-
-        if (sessionId) {
-            const transport = mcpSessions.get(sessionId);
-            if (!transport) {
-                res.status(404).json({
-                    jsonrpc: "2.0",
-                    error: { code: -32001, message: "Session not found" },
-                    id: null,
-                });
-                return;
-            }
-            await transport.handleRequest(
-                Object.assign(req, { auth }),
-                res,
-                req.body,
-            );
-        } else {
-            const transport = createMCPSession(
-                (id) => mcpSessions.set(id, transport),
-                (id) => mcpSessions.delete(id),
-            );
-            await transport.handleRequest(
-                Object.assign(req, { auth }),
-                res,
-                req.body,
-            );
+    requireMcpTeam,
+    attachMcpAuthInfo,
+    mcpPrincipalLimiter,
+    observeMcpRequest,
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            // Mounted before Express body parsing so the official adapter owns
+            // JSON parsing, content-type checks, and MCP protocol errors.
+            await nodeMcpHandler(req as any, res);
+        } catch (error) {
+            next(error);
         }
     },
 );

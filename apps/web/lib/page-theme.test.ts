@@ -5,9 +5,9 @@ describe("resolveEditorTheme", () => {
     it("loads built-in themes without requesting a saved theme", async () => {
         const getSavedTheme = vi.fn();
 
-        const theme = await resolveEditorTheme("learning", getSavedTheme);
+        const theme = await resolveEditorTheme("studio", getSavedTheme);
 
-        expect(theme?.id).toBe("learning");
+        expect(theme?.id).toBe("studio");
         expect(getSavedTheme).not.toHaveBeenCalled();
     });
 
@@ -39,7 +39,7 @@ describe("persistCustomThemes", () => {
     it("creates a newly copied system theme once and records its server id", async () => {
         const create = vi.fn().mockResolvedValue({
             themeId: "thm_saved",
-            name: "Learning - Copy",
+            name: "Studio - Copy",
             style: { colors: {} },
         });
         const update = vi.fn();
@@ -51,7 +51,7 @@ describe("persistCustomThemes", () => {
             [
                 {
                     id: "local-copy",
-                    name: "Learning - Copy",
+                    name: "Studio - Copy",
                     theme: { colors: {} } as any,
                 },
             ],

@@ -3,7 +3,7 @@ import clsx from "clsx";
 import { MenuIcon } from "lucide-react";
 import type { WidgetProps, ThemeStyle } from "../../models";
 import type { HeaderNavLink, HeaderSettings } from "./settings";
-import { Image, NavLink } from "../../components";
+import { Image, NavLink, ThemeModeSwitcher } from "../../components";
 import {
     Button,
     Drawer,
@@ -50,13 +50,16 @@ export function HeaderWidget({
         linkAlignment = "left",
         layout = "fixed",
         backdropBlur = false,
+        showThemeSwitcher = true,
         cssId,
         maxWidth,
         verticalPadding,
         background,
     },
     state: { theme },
+    pageData,
     nextTheme,
+    toggleTheme,
 }: WidgetProps<HeaderSettings>) {
     const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
     overriddenTheme.structure.page.width =
@@ -70,14 +73,19 @@ export function HeaderWidget({
     const isFixed = !isFloating;
     const primaryLinks = links.filter((link) => !link.isButton);
     const buttonLinks = links.filter((link) => link.isButton);
+    // On a published tenant site, branding is owned by the site settings,
+    // not the header instance. Retain the block-local image for standalone
+    // renderer and builder previews where no tenant logo is supplied.
+    const resolvedLogoImage = pageData.siteLogoUrl || logoImage;
+    const resolvedLogoAlt = pageData.siteLogoAlt || logoText || "";
 
     const logo = (
         <NavLink href="/" className="no-underline">
             <div className="flex items-center gap-2">
-                {logoImage && (
+                {resolvedLogoImage && (
                     <Image
-                        src={logoImage}
-                        alt={logoText || ""}
+                        src={resolvedLogoImage}
+                        alt={resolvedLogoAlt}
                         width="w-8"
                         height="h-8"
                         borderRadius={2}
@@ -90,8 +98,20 @@ export function HeaderWidget({
         </NavLink>
     );
 
+    const colorModeControl =
+        showThemeSwitcher && toggleTheme ? (
+            <ThemeModeSwitcher
+                resolved={nextTheme ?? "light"}
+                onToggle={toggleTheme}
+                theme={overriddenTheme}
+                size="sm"
+                variant="outline"
+            />
+        ) : null;
+
     const ctaAndMenu = (
         <div className="flex items-center gap-3">
+            {colorModeControl}
             {buttonLinks.map((link) => (
                 <div className="hidden lg:!block" key={link.id}>
                     <HeaderLink link={link} theme={overriddenTheme} />
@@ -106,44 +126,48 @@ export function HeaderWidget({
                     </NavLink>
                 </div>
             )}
-            <Drawer
-                open={mobileNavOpen}
-                setOpen={setMobileNavOpen}
-                side="right"
-                theme={overriddenTheme}
-                trigger={
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        theme={overriddenTheme}
-                        className="lg:!hidden"
-                    >
-                        <MenuIcon className="h-4 w-4" />
-                        <span className="sr-only">Toggle menu</span>
-                    </Button>
-                }
-            >
-                <div className="mt-6 flex flex-col gap-4">
-                    {links.map((link) => (
-                        <HeaderLink
-                            key={link.id}
-                            link={link}
+            <div className="lg:hidden">
+                <Drawer
+                    open={mobileNavOpen}
+                    setOpen={setMobileNavOpen}
+                    side="right"
+                    theme={overriddenTheme}
+                    trigger={
+                        <Button
+                            variant="outline"
+                            size="sm"
                             theme={overriddenTheme}
-                            onClick={() => setMobileNavOpen(false)}
-                        />
-                    ))}
-                    {ctaLabel && ctaHref && (
-                        <NavLink
-                            href={ctaHref}
-                            onClick={() => setMobileNavOpen(false)}
                         >
-                            <Button theme={overriddenTheme} className="w-full">
-                                {ctaLabel}
-                            </Button>
-                        </NavLink>
-                    )}
-                </div>
-            </Drawer>
+                            <MenuIcon className="h-4 w-4" />
+                            <span className="sr-only">Toggle menu</span>
+                        </Button>
+                    }
+                >
+                    <div className="mt-6 flex flex-col gap-4">
+                        {links.map((link) => (
+                            <HeaderLink
+                                key={link.id}
+                                link={link}
+                                theme={overriddenTheme}
+                                onClick={() => setMobileNavOpen(false)}
+                            />
+                        ))}
+                        {ctaLabel && ctaHref && (
+                            <NavLink
+                                href={ctaHref}
+                                onClick={() => setMobileNavOpen(false)}
+                            >
+                                <Button
+                                    theme={overriddenTheme}
+                                    className="w-full"
+                                >
+                                    {ctaLabel}
+                                </Button>
+                            </NavLink>
+                        )}
+                    </div>
+                </Drawer>
+            </div>
         </div>
     );
 

@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
 import { successMessageSchema, themeSchema } from "@frontlit/api-contract";
 import {
@@ -15,7 +15,7 @@ function toPublicTheme(theme: Record<string, unknown>) {
     return serializeDates(omitInternal(theme, "teamId"));
 }
 
-export function registerThemeTools(server: McpServer): void {
+export function registerThemeTools(server: McpToolRegistrar): void {
     server.registerTool(
         "list_themes",
         {

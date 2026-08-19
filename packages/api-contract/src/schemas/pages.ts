@@ -8,7 +8,8 @@ export const pageTypes = ["site", "blog", "landing", "post", "custom"] as const;
 export const widgetInstanceSchema = z.object({
     widgetId: z.string(),
     name: z.string(),
-    deleteable: z.boolean(),
+    deletable: z.boolean(),
+    moveable: z.boolean(),
     shared: z.boolean(),
     settings: z.record(z.any()).optional(),
 });
@@ -25,19 +26,17 @@ export const pageStatusSchema = z.enum([
     "published",
     "published_with_changes",
 ]);
-const themeReferenceSchema = z.string().min(1).max(128);
 
 export const pageSchema = z.object({
     pageId: z.string(),
     name: z.string(),
     type: z.enum(pageTypes),
     slug: z.string(),
-    deleteable: z.boolean(),
+    deletable: z.boolean(),
     status: pageStatusSchema,
     publishedAt: z.string().nullable().optional(),
     // Published fields — what the public site renders.
     layout: z.array(widgetInstanceSchema),
-    themeId: themeReferenceSchema.nullable().optional(),
     title: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
     socialImage: z.record(z.any()).nullable().optional(),
@@ -55,16 +54,14 @@ export const pageSchema = z.object({
 export const createPageBodySchema = z.object({
     name: z.string().min(1),
     type: z.enum(pageTypes),
-    themeId: themeReferenceSchema.optional(),
 });
 
 /** Page content/SEO fields are written to draft columns and promoted by
- * publish. `themeId` and `slug` apply immediately. */
+ * publish. The slug applies immediately. */
 export const updatePageBodySchema = z.object({
     name: z.string().optional(),
     slug: z.string().min(1).max(200).optional(),
     layout: z.array(widgetInstanceSchema).optional(),
-    themeId: themeReferenceSchema.nullable().optional(),
     title: z.string().optional(),
     description: z.string().optional(),
     socialImage: z.record(z.any()).optional(),

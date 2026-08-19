@@ -110,6 +110,16 @@ describe("FrontLit OAuth pages", () => {
         expect(response.body).not.toContain('class="team-option"');
     });
 
+    it("shows an actionable page instead of completing OAuth without a team", async () => {
+        getSession.mockResolvedValue(session);
+        listTeamsForUser.mockResolvedValue([]);
+        const response = await request("/oauth/select-team?client_id=abc");
+        expect(response.status).toBe(409);
+        expect(response.body).toContain("Create or join a team");
+        expect(response.body).toContain("http://localhost:3000/teams");
+        expect(response.body).not.toContain("/api/auth/oauth2/continue");
+    });
+
     it("renders only public team IDs and escapes team names", async () => {
         getSession.mockResolvedValue(session);
         listTeamsForUser.mockResolvedValue([

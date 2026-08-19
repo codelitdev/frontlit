@@ -3,7 +3,6 @@ import { db } from "../db/client";
 import {
     pages,
     teamSettings,
-    themes,
     type SharedWidgetsRow,
     type WidgetInstanceRow,
 } from "../db/schema";
@@ -25,30 +24,6 @@ type PageType = "site" | "blog" | "landing" | "post" | "custom";
 
 /** Draft/publish status derived from the row, never stored (architecture.md §3). */
 export type PageStatus = "draft" | "published" | "published_with_changes";
-
-const systemThemeIds = new Set([
-    "classic",
-    "learning",
-    "neobrutalism",
-    "editorial",
-    "midnight",
-]);
-
-export class InvalidThemeReferenceError extends Error {}
-
-async function validateThemeReference(
-    teamId: string,
-    themeId: string | null | undefined,
-) {
-    if (!themeId || systemThemeIds.has(themeId)) return;
-
-    const theme = await db.query.themes.findFirst({
-        where: eq(themes.themeId, themeId),
-    });
-    if (!theme || theme.teamId !== teamId) {
-        throw new InvalidThemeReferenceError("Theme not found");
-    }
-}
 
 export function derivePageStatus(page: {
     publishedAt: Date | string | null;
@@ -81,7 +56,11 @@ async function getRawPageByPageId(pageId: string) {
 }
 
 function hydratePage<
-    T extends { layout: WidgetInstanceRow[]; draftLayout: WidgetInstanceRow[] },
+    T extends {
+        slug: string;
+        layout: WidgetInstanceRow[];
+        draftLayout: WidgetInstanceRow[];
+    },
 >(
     page: T,
     sharedWidgets: SharedWidgetsRow,
@@ -89,8 +68,12 @@ function hydratePage<
 ): T {
     return {
         ...page,
-        layout: hydrateSharedWidgets(page.layout, sharedWidgets),
-        draftLayout: hydrateSharedWidgets(page.draftLayout, draftSharedWidgets),
+        layout: hydrateSharedWidgets(page.layout, sharedWidgets, page.slug),
+        draftLayout: hydrateSharedWidgets(
+            page.draftLayout,
+            draftSharedWidgets,
+            page.slug,
+        ),
     };
 }
 
@@ -98,9 +81,7 @@ export async function createPage(input: {
     teamId: string;
     name: string;
     type: PageType;
-    themeId?: string;
 }) {
-    await validateThemeReference(input.teamId, input.themeId);
     const slug = await uniqueSlugForTeam(input.teamId, slugify(input.name));
     const requiredLayout = createRequiredSharedWidgetPlaceholders();
     const [page] = await db
@@ -109,7 +90,6 @@ export async function createPage(input: {
             teamId: input.teamId,
             name: input.name,
             type: input.type,
-            themeId: input.themeId,
             slug,
             layout: requiredLayout,
             draftLayout: requiredLayout,
@@ -178,9 +158,8 @@ export async function getPageByPageId(pageId: string) {
     );
 }
 
-/** Writes builder/SEO fields to draft columns. `themeId` and `slug` are
- * intentionally immediate, so they can change without publishing unrelated
- * draft content. */
+/** Writes builder/SEO fields to draft columns. The slug is intentionally
+ * immediate, so it can change without publishing unrelated draft content. */
 export async function updatePage(
     teamId: string,
     pageId: string,
@@ -188,7 +167,6 @@ export async function updatePage(
         name: string;
         slug: string;
         layout: WidgetInstanceRow[];
-        themeId: string | null;
         title: string;
         description: string;
         socialImage: Record<string, unknown>;
@@ -206,15 +184,13 @@ export async function updatePage(
         description,
         socialImage,
         robotsAllowed,
-        themeId,
     } = patch;
-    if (themeId !== undefined) {
-        await validateThemeReference(teamId, themeId);
-    }
     let slug: string | undefined;
     if (requestedSlug !== undefined) {
-        if (existing.slug === "") {
-            throw new InvalidSlugError("The homepage URL is fixed at /.");
+        if (existing.slug === "" || !existing.deletable) {
+            throw new InvalidSlugError(
+                `The ${existing.name} URL is fixed at /${existing.slug}.`,
+            );
         }
         slug = normalizeEditableSlug(requestedSlug);
         if (await isSlugTakenForTeam(teamId, slug, existing.id)) {
@@ -225,7 +201,11 @@ export async function updatePage(
         layout !== undefined ? await getTeamSettings(teamId) : null;
     const splitLayout =
         layout !== undefined && settings
-            ? splitSubmittedLayout(layout, settings.draftSharedWidgets)
+            ? splitSubmittedLayout(
+                  layout,
+                  settings.draftSharedWidgets,
+                  existing.slug,
+              )
             : null;
 
     try {
@@ -257,7 +237,6 @@ export async function updatePage(
                     ...(robotsAllowed !== undefined
                         ? { draftRobotsAllowed: robotsAllowed }
                         : {}),
-                    ...(themeId !== undefined ? { themeId } : {}),
                     updatedAt: new Date(),
                 })
                 .where(eq(pages.id, existing.id));
@@ -341,7 +320,11 @@ export async function getPublishedPageBySlug(teamId: string, slug: string) {
     const settings = await getTeamSettings(teamId);
     return {
         ...page,
-        layout: hydrateSharedWidgets(page.layout, settings.sharedWidgets),
+        layout: hydrateSharedWidgets(
+            page.layout,
+            settings.sharedWidgets,
+            page.slug,
+        ),
     };
 }
 
@@ -358,8 +341,8 @@ export async function deletePage(teamId: string, pageId: string) {
     const existing = await getRawPageByPageId(pageId);
     if (!existing || existing.teamId !== teamId)
         return { ok: false as const, reason: "not_found" as const };
-    if (!existing.deleteable)
-        return { ok: false as const, reason: "not_deleteable" as const };
+    if (!existing.deletable)
+        return { ok: false as const, reason: "not_deletable" as const };
     await db.delete(pages).where(eq(pages.id, existing.id));
     return { ok: true as const };
 }

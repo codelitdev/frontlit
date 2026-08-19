@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import {
     getChatbotSettings,
-    searchDocs,
+    getInboxAiSettings,
+    searchDocumentation,
     updateChatbotSettings,
     type ChatbotSettings,
     type ChatbotWidgetStyle,
     type ChatbotWidgetVariant,
-    type DocSearchResult,
+    type DocumentationSearchResult,
 } from "@/lib/api";
 import { PageHeader } from "@/components/workspace/page-header";
 import { Loading } from "@/components/workspace/loading";
@@ -20,6 +21,8 @@ import { Switch } from "@/components/ui/codelit/switch";
 import { Button } from "@/components/ui/codelit/button";
 import { cn } from "@/lib/utils";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
+import { InboxAiPolicyForm } from "@/components/workspace/inbox-ai-policy-form";
+import type { InboxAiSettings } from "@/lib/api";
 
 const VARIANTS: {
     id: ChatbotWidgetVariant;
@@ -283,42 +286,55 @@ function PreviewIcon({
 
 export default function ChatbotPage() {
     useSetBreadcrumb([
-        { label: "Website", href: "/website/pages" },
+        { label: "Website", href: "/website?tab=pages" },
         { label: "Chatbot" },
     ]);
     const [settings, setSettings] = useState<ChatbotSettings | null>(null);
+    const [inboxAi, setInboxAi] = useState<InboxAiSettings | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [testMessage, setTestMessage] = useState("");
     const [testAnswer, setTestAnswer] = useState<{
         answer: string;
-        sources: DocSearchResult[];
+        sources: DocumentationSearchResult[];
     } | null>(null);
     const [asking, setAsking] = useState(false);
 
     useEffect(() => {
-        getChatbotSettings()
-            .then(setSettings)
+        Promise.all([getChatbotSettings(), getInboxAiSettings()])
+            .then(([chatbot, ai]) => {
+                setSettings(chatbot);
+                setInboxAi(ai);
+            })
             .finally(() => setLoading(false));
     }, []);
 
-    async function save(patch: Parameters<typeof updateChatbotSettings>[0]) {
+    async function save() {
+        if (!settings) return;
         setSaving(true);
         try {
-            setSettings(await updateChatbotSettings(patch));
+            setSettings(
+                await updateChatbotSettings({
+                    enabled: settings.enabled,
+                    name: settings.name,
+                    greeting: settings.greeting || "",
+                    accentColor: settings.accentColor ?? null,
+                    escalationEnabled: settings.escalationEnabled,
+                    variant: settings.variant,
+                    widgetStyle: settings.widgetStyle,
+                }),
+            );
         } finally {
             setSaving(false);
         }
     }
 
-    async function saveStyle(partial: Partial<ChatbotWidgetStyle>) {
+    function updateStyle(partial: Partial<ChatbotWidgetStyle>) {
         if (!settings) return;
-        // Optimistic local merge so the preview updates immediately.
         setSettings({
             ...settings,
             widgetStyle: { ...settings.widgetStyle, ...partial },
         });
-        await save({ widgetStyle: partial });
     }
 
     async function handleTest(e: React.FormEvent) {
@@ -327,7 +343,7 @@ export default function ChatbotPage() {
         setAsking(true);
         setTestAnswer(null);
         try {
-            const { items } = await searchDocs(testMessage.trim());
+            const { items } = await searchDocumentation(testMessage.trim());
             setTestAnswer({
                 answer: items[0]?.content ?? "No matching docs found.",
                 sources: items,
@@ -363,7 +379,10 @@ export default function ChatbotPage() {
                                 id="chatbot-enabled"
                                 checked={settings.enabled}
                                 onCheckedChange={(checked) =>
-                                    save({ enabled: checked })
+                                    setSettings({
+                                        ...settings,
+                                        enabled: checked,
+                                    })
                                 }
                                 disabled={saving}
                                 data-testid="chatbot-enabled-toggle"
@@ -381,7 +400,6 @@ export default function ChatbotPage() {
                                         name: e.target.value,
                                     })
                                 }
-                                onBlur={(e) => save({ name: e.target.value })}
                             />
                         </div>
 
@@ -395,9 +413,6 @@ export default function ChatbotPage() {
                                         ...settings,
                                         greeting: e.target.value,
                                     })
-                                }
-                                onBlur={(e) =>
-                                    save({ greeting: e.target.value })
                                 }
                             />
                         </div>
@@ -415,11 +430,6 @@ export default function ChatbotPage() {
                                             accentColor: e.target.value,
                                         })
                                     }
-                                    onBlur={(e) =>
-                                        save({
-                                            accentColor: e.target.value || null,
-                                        })
-                                    }
                                     className="h-9 w-12 cursor-pointer rounded border border-border bg-transparent p-1"
                                 />
                                 <Input
@@ -431,44 +441,41 @@ export default function ChatbotPage() {
                                             accentColor: e.target.value || null,
                                         })
                                     }
-                                    onBlur={(e) =>
-                                        save({
-                                            accentColor:
-                                                e.target.value.trim() || null,
-                                        })
-                                    }
                                     className="font-mono text-xs"
                                 />
                             </div>
                             <p className="text-xs text-muted-foreground">
-                                Leave empty to use your homepage theme primary
-                                (same as page buttons).
+                                Leave empty to use your site theme primary (same
+                                as page buttons).
                             </p>
                         </div>
 
-                        <div className="flex items-center justify-between">
-                            <Label
-                                htmlFor="chatbot-escalation"
-                                className="text-sm font-medium"
-                            >
-                                Offer &ldquo;talk to a human&rdquo;
-                            </Label>
-                            <Switch
-                                id="chatbot-escalation"
-                                checked={settings.escalationEnabled}
-                                onCheckedChange={(checked) =>
-                                    save({ escalationEnabled: checked })
-                                }
-                                disabled={saving}
-                                data-testid="chatbot-escalation-toggle"
-                            />
-                        </div>
-                        <p className="-mt-2 text-xs text-muted-foreground">
-                            When the bot can&apos;t answer, it offers to raise a
-                            support ticket with the conversation attached.
-                        </p>
+                        <Button type="button" onClick={save} disabled={saving}>
+                            {saving ? "Saving…" : "Save chatbot"}
+                        </Button>
                     </CardContent>
                 </Card>
+
+                {inboxAi && (
+                    <Card>
+                        <CardContent className="space-y-5">
+                            <div>
+                                <h2 className="text-base font-semibold">
+                                    AI auto-reply
+                                </h2>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Independent of the launcher. Live chat still
+                                    works with auto-reply off.
+                                </p>
+                            </div>
+                            <InboxAiPolicyForm
+                                channel="chatbot"
+                                initial={inboxAi.channels.chatbot}
+                                aiConfigured={inboxAi.aiConfigured}
+                            />
+                        </CardContent>
+                    </Card>
+                )}
 
                 <Card>
                     <CardContent className="space-y-5">
@@ -492,7 +499,6 @@ export default function ChatbotPage() {
                                             ...settings,
                                             variant: variant.id,
                                         });
-                                        void save({ variant: variant.id });
                                     }}
                                     className={cn(
                                         "rounded-lg border p-3 text-left transition-colors",
@@ -524,7 +530,7 @@ export default function ChatbotPage() {
                                     value={settings.widgetStyle.bubbleShape}
                                     options={BUBBLE_SHAPES}
                                     onChange={(bubbleShape) =>
-                                        void saveStyle({ bubbleShape })
+                                        updateStyle({ bubbleShape })
                                     }
                                     disabled={saving}
                                 />
@@ -533,7 +539,7 @@ export default function ChatbotPage() {
                                     value={settings.widgetStyle.bubbleIcon}
                                     options={BUBBLE_ICONS}
                                     onChange={(bubbleIcon) =>
-                                        void saveStyle({ bubbleIcon })
+                                        updateStyle({ bubbleIcon })
                                     }
                                     disabled={saving}
                                 />
@@ -542,7 +548,7 @@ export default function ChatbotPage() {
                                     value={settings.widgetStyle.bubbleSize}
                                     options={BUBBLE_SIZES}
                                     onChange={(bubbleSize) =>
-                                        void saveStyle({ bubbleSize })
+                                        updateStyle({ bubbleSize })
                                     }
                                     disabled={saving}
                                 />
@@ -557,7 +563,7 @@ export default function ChatbotPage() {
                                     value={settings.widgetStyle.inputRadius}
                                     options={INPUT_RADII}
                                     onChange={(inputRadius) =>
-                                        void saveStyle({ inputRadius })
+                                        updateStyle({ inputRadius })
                                     }
                                     disabled={saving}
                                 />
@@ -566,7 +572,7 @@ export default function ChatbotPage() {
                                     value={settings.widgetStyle.inputWidth}
                                     options={INPUT_WIDTHS}
                                     onChange={(inputWidth) =>
-                                        void saveStyle({ inputWidth })
+                                        updateStyle({ inputWidth })
                                     }
                                     disabled={saving}
                                 />
@@ -591,16 +597,13 @@ export default function ChatbotPage() {
                                                 },
                                             })
                                         }
-                                        onBlur={(e) =>
-                                            void saveStyle({
-                                                inputPlaceholder:
-                                                    e.target.value || null,
-                                            })
-                                        }
                                     />
                                 </div>
                             </div>
                         )}
+                        <Button type="button" onClick={save} disabled={saving}>
+                            {saving ? "Saving…" : "Save launcher"}
+                        </Button>
                     </CardContent>
                 </Card>
 
@@ -635,14 +638,13 @@ export default function ChatbotPage() {
                                             .join(", ")}
                                     </p>
                                 )}
-                                {testAnswer.sources.length === 0 &&
-                                    settings.escalationEnabled && (
-                                        <p className="mt-2 text-xs text-warning">
-                                            No grounding found — the live widget
-                                            would offer &ldquo;talk to a
-                                            human&rdquo; here.
-                                        </p>
-                                    )}
+                                {testAnswer.sources.length === 0 && (
+                                    <p className="mt-2 text-xs text-muted-foreground">
+                                        No grounding found. The live bot may
+                                        still answer or ask if the visitor wants
+                                        a teammate.
+                                    </p>
+                                )}
                             </CardContent>
                         </Card>
                     )}

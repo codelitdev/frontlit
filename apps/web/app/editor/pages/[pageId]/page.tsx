@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useRef, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import {
     PageBuilder,
     type PageBuilderState,
@@ -10,10 +10,12 @@ import {
     createTheme,
     discardPageDraft,
     getPage,
+    getTeamSettings,
     getTheme,
     listThemes,
     publishPage,
     updatePage,
+    updateTeamSettings,
     updateTheme,
     type Page,
 } from "@/lib/api";
@@ -25,6 +27,8 @@ import {
 import { EditorToolbar } from "@/components/workspace/editor-toolbar";
 import { FullScreenLoading } from "@/components/workspace/loading";
 import { SlugEditor } from "@/components/workspace/slug-editor";
+import { useEditorAccess } from "@/components/workspace/editor-access-gate";
+import { ApiError } from "@/lib/api-client";
 
 export default function PageEditorPage({
     params,
@@ -32,6 +36,7 @@ export default function PageEditorPage({
     params: Promise<{ pageId: string }>;
 }) {
     const { pageId } = use(params);
+    const { currentTeam } = useEditorAccess();
     const [page, setPage] = useState<Page | null>(null);
     const [initialTheme, setInitialTheme] = useState<BuilderTheme | undefined>(
         undefined,
@@ -45,13 +50,48 @@ export default function PageEditorPage({
     // forcing a remount so the (otherwise uncontrolled) builder re-reads the
     // fresh draft fields instead of showing stale, already-discarded edits.
     const [resetKey, setResetKey] = useState(0);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const themeAliasesRef = useRef(new Map<string, string>());
     const knownThemeIdsRef = useRef(new Set<string>());
     const themeSnapshotsRef = useRef(new Map<string, string>());
+    const appliedSiteThemeIdRef = useRef<string | null>(null);
+    const appliedSiteThemeSnapshotRef = useRef<string | null>(null);
+    const canReadSettings = useMemo(
+        () =>
+            currentTeam.isOwner ||
+            currentTeam.effectivePermissions.includes("settings:read"),
+        [currentTeam],
+    );
+    const canWriteSettings = useMemo(
+        () =>
+            currentTeam.isOwner ||
+            currentTeam.effectivePermissions.includes("settings:write"),
+        [currentTeam],
+    );
+    const canReadThemes = useMemo(
+        () =>
+            currentTeam.isOwner ||
+            currentTeam.effectivePermissions.includes("themes:read"),
+        [currentTeam],
+    );
+    const canWriteThemes = useMemo(
+        () =>
+            currentTeam.isOwner ||
+            currentTeam.effectivePermissions.includes("themes:write"),
+        [currentTeam],
+    );
 
     useEffect(() => {
-        Promise.all([getPage(pageId), listThemes()]).then(
-            async ([loaded, savedThemes]) => {
+        let cancelled = false;
+        Promise.all([
+            getPage(pageId),
+            canReadThemes ? listThemes() : Promise.resolve({ items: [] }),
+            canReadSettings
+                ? getTeamSettings()
+                : Promise.resolve({ themeId: null }),
+        ])
+            .then(async ([loaded, savedThemes, siteSettings]) => {
+                if (cancelled) return;
                 const mappedThemes = savedThemes.items.map(
                     (theme): BuilderTheme => ({
                         id: theme.themeId,
@@ -70,33 +110,58 @@ export default function PageEditorPage({
                         themeSnapshot(theme),
                     ]),
                 );
-                setInitialTheme(
-                    await resolveEditorTheme(
-                        loaded.themeId,
-                        async (themeId) => {
-                            const loadedTheme = savedThemes.items.find(
-                                (theme) => theme.themeId === themeId,
-                            );
-                            return loadedTheme ?? getTheme(themeId);
-                        },
-                    ),
+                const resolvedTheme = await resolveEditorTheme(
+                    canReadSettings && canReadThemes
+                        ? (siteSettings.themeId ?? "classic")
+                        : "classic",
+                    async (themeId) => {
+                        const loadedTheme = savedThemes.items.find(
+                            (theme) => theme.themeId === themeId,
+                        );
+                        if (loadedTheme) return loadedTheme;
+                        if (!canReadThemes) {
+                            throw new Error("Theme is not available");
+                        }
+                        return getTheme(themeId);
+                    },
                 );
+                appliedSiteThemeIdRef.current =
+                    canReadSettings && canReadThemes
+                        ? (siteSettings.themeId ?? "classic")
+                        : "classic";
+                appliedSiteThemeSnapshotRef.current = resolvedTheme
+                    ? themeSnapshot(resolvedTheme)
+                    : null;
+                setInitialTheme(resolvedTheme);
                 setCustomThemes(mappedThemes);
                 setPage(loaded);
-            },
-        );
-    }, [pageId]);
+            })
+            .catch((error) => {
+                if (!cancelled) {
+                    setLoadError(
+                        error instanceof ApiError
+                            ? error.message
+                            : "Could not load this page editor.",
+                    );
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [canReadSettings, canReadThemes, pageId]);
 
     async function handleChange(state: PageBuilderState) {
         setSaving(true);
         try {
-            await persistCustomThemes(state.customThemes, {
-                aliases: themeAliasesRef.current,
-                knownIds: knownThemeIdsRef.current,
-                snapshots: themeSnapshotsRef.current,
-                create: createTheme,
-                update: updateTheme,
-            });
+            if (canWriteThemes) {
+                await persistCustomThemes(state.customThemes, {
+                    aliases: themeAliasesRef.current,
+                    knownIds: knownThemeIdsRef.current,
+                    snapshots: themeSnapshotsRef.current,
+                    create: createTheme,
+                    update: updateTheme,
+                });
+            }
             const updated = await updatePage(pageId, {
                 layout: state.layout,
                 title: state.seo.title,
@@ -104,10 +169,20 @@ export default function PageEditorPage({
                 socialImage: state.seo.socialImage as unknown as
                     Record<string, unknown> | undefined,
                 robotsAllowed: state.seo.robotsAllowed,
-                themeId:
-                    themeAliasesRef.current.get(state.theme.id) ??
-                    state.theme.id,
             });
+            const siteThemeId =
+                themeAliasesRef.current.get(state.theme.id) ?? state.theme.id;
+            const selectedThemeSnapshot = themeSnapshot(state.theme);
+            if (
+                canWriteSettings &&
+                (appliedSiteThemeIdRef.current !== siteThemeId ||
+                    appliedSiteThemeSnapshotRef.current !==
+                        selectedThemeSnapshot)
+            ) {
+                await updateTeamSettings({ themeId: siteThemeId });
+                appliedSiteThemeIdRef.current = siteThemeId;
+                appliedSiteThemeSnapshotRef.current = selectedThemeSnapshot;
+            }
             setPage(updated);
         } finally {
             setSaving(false);
@@ -140,32 +215,47 @@ export default function PageEditorPage({
     }
 
     if (!page || customThemes === null) {
+        if (loadError) {
+            return (
+                <main className="grid min-h-dvh place-items-center p-6 text-center">
+                    <div>
+                        <h1 className="text-xl font-semibold">
+                            Page editor unavailable
+                        </h1>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                            {loadError}
+                        </p>
+                    </div>
+                </main>
+            );
+        }
         return <FullScreenLoading label="Loading page…" />;
     }
 
     return (
         <div className="flex h-dvh min-h-0 w-full min-w-0 flex-col overflow-hidden">
             <EditorToolbar
-                backHref="/website/pages"
+                backHref="/website?tab=pages"
                 backLabel="Pages"
                 status={page.status}
                 statusTestId="page-status-badge"
                 saving={saving}
                 publishing={publishing}
+                leading={
+                    <SlugEditor
+                        slug={page.slug}
+                        prefix="/"
+                        onSave={handleSlugSave}
+                        disabled={!page.deletable}
+                        disabledReason={`The ${page.name} URL is fixed at /${page.slug}.`}
+                        testId="page-slug-input"
+                        compact
+                    />
+                }
                 onPublish={handlePublish}
                 onDiscardDraft={handleDiscardDraft}
                 discardDescription="Discard all unpublished changes on this page? This cannot be undone."
             />
-            <div className="border-b bg-muted/20 px-4 py-3">
-                <SlugEditor
-                    slug={page.slug}
-                    prefix="/"
-                    onSave={handleSlugSave}
-                    disabled={page.slug === ""}
-                    disabledReason="The homepage URL is fixed at /."
-                    testId="page-slug-input"
-                />
-            </div>
             <div className="relative min-h-0 flex-1 overflow-hidden">
                 <PageBuilder
                     key={resetKey}
@@ -173,6 +263,7 @@ export default function PageEditorPage({
                     initialLayout={page.draftLayout}
                     initialTheme={initialTheme}
                     themes={{ custom: customThemes }}
+                    allowThemeEditing={canWriteThemes && canWriteSettings}
                     initialSeo={{
                         title: page.draftTitle ?? undefined,
                         description: page.draftDescription ?? undefined,

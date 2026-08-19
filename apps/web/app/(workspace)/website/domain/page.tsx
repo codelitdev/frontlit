@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Check, Copy } from "lucide-react";
 import {
     attachCustomDomain,
     getDomainSettings,
     removeCustomDomain,
+    setSubdomainPublic,
     setTeamSubdomain,
     verifyCustomDomain,
     type DomainSettings,
@@ -15,7 +17,10 @@ import { ScrollablePage } from "@/components/workspace/scrollable-page";
 import { Banner } from "@/components/workspace/banner";
 import { DeleteConfirm } from "@/components/workspace/delete-confirm";
 import { Button } from "@/components/ui/codelit/button";
+import { IconButton } from "@/components/ui/codelit/icon-button";
 import { Input } from "@/components/ui/codelit/input";
+import { Label } from "@/components/ui/codelit/label";
+import { Switch } from "@/components/ui/codelit/switch";
 import { Badge, type badgeVariants } from "@/components/ui/codelit/badge";
 import {
     Card,
@@ -35,9 +40,45 @@ const STATUS_VARIANT: Record<
     failed: "destructive",
 };
 
+function platformSuffix(settings: DomainSettings): string {
+    if (settings.subdomain?.hostname)
+        return settings.subdomain.hostname.split(".").slice(1).join(".");
+    return settings.platformDomain;
+}
+
+function recordState(value: boolean | null): string {
+    if (value === null) return "not checked";
+    return value ? "satisfied" : "unsatisfied";
+}
+
+function CopyValueButton({ value }: { value: string }) {
+    const [copied, setCopied] = useState(false);
+
+    async function copy() {
+        try {
+            await navigator.clipboard.writeText(value);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1500);
+        } catch {
+            // Clipboard can be unavailable over insecure origins.
+        }
+    }
+
+    return (
+        <IconButton
+            type="button"
+            size="sm"
+            aria-label={copied ? "Copied" : "Copy value"}
+            onClick={() => void copy()}
+        >
+            {copied ? <Check /> : <Copy />}
+        </IconButton>
+    );
+}
+
 export default function DomainPage() {
     useSetBreadcrumb([
-        { label: "Website", href: "/website/pages" },
+        { label: "Website", href: "/website?tab=pages" },
         { label: "Domain" },
     ]);
     const [settings, setSettings] = useState<DomainSettings | null>(null);
@@ -82,10 +123,10 @@ export default function DomainPage() {
 
     return (
         <ScrollablePage>
-            <div className="max-w-2xl space-y-8">
+            <div className="max-w-3xl space-y-8">
                 <PageHeader
                     title="Domain"
-                    description="Choose a FrontLit subdomain to make this website live."
+                    description="Claim a FrontLit subdomain to publish this site, then optionally attach a verified custom domain. The custom host becomes canonical; the subdomain can stay as a fallback or be turned off."
                 />
 
                 {!settings.subdomain && (
@@ -116,14 +157,7 @@ export default function DomainPage() {
                                 className="flex-1"
                             />
                             <span className="text-sm text-muted-foreground">
-                                .
-                                {(
-                                    settings.subdomain?.hostname ??
-                                    `site.${typeof window === "undefined" ? "frontlit.app" : location.hostname.split(":")[0]}`
-                                )
-                                    .split(".")
-                                    .slice(1)
-                                    .join(".")}
+                                .{platformSuffix(settings)}
                             </span>
                             <Button
                                 type="submit"
@@ -167,60 +201,184 @@ export default function DomainPage() {
                                 </p>
 
                                 {settings.verificationRecords && (
-                                    <div className="space-y-2 rounded-md bg-muted p-3 text-xs">
-                                        <p className="font-medium">
+                                    <div className="space-y-2">
+                                        <p className="text-xs font-medium">
                                             Add these DNS records, then verify:
                                         </p>
-                                        <p>
-                                            <code>CNAME</code> →{" "}
-                                            <code>
-                                                {
-                                                    settings.verificationRecords
-                                                        .cnameTarget
-                                                }
-                                            </code>
+                                        <div className="overflow-x-auto rounded-md border">
+                                            <table className="w-full text-xs">
+                                                <thead>
+                                                    <tr className="border-b bg-muted/50 text-left">
+                                                        <th className="px-3 py-2 font-medium">
+                                                            Type
+                                                        </th>
+                                                        <th className="px-3 py-2 font-medium">
+                                                            Name
+                                                        </th>
+                                                        <th className="px-3 py-2 font-medium">
+                                                            Value
+                                                        </th>
+                                                        <th className="px-3 py-2 font-medium">
+                                                            Status
+                                                        </th>
+                                                        <th className="w-10 px-2 py-2">
+                                                            <span className="sr-only">
+                                                                Copy
+                                                            </span>
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr className="border-b last:border-0">
+                                                        <td className="px-3 py-2 align-middle">
+                                                            {settings
+                                                                .verificationRecords
+                                                                .kind ===
+                                                            "alias"
+                                                                ? "ALIAS"
+                                                                : "CNAME"}
+                                                        </td>
+                                                        <td className="max-w-[14rem] break-all px-3 py-2 align-middle font-mono">
+                                                            {
+                                                                settings
+                                                                    .customDomain
+                                                                    .hostname
+                                                            }
+                                                        </td>
+                                                        <td className="max-w-[16rem] break-all px-3 py-2 align-middle font-mono">
+                                                            {
+                                                                settings
+                                                                    .verificationRecords
+                                                                    .cnameTarget
+                                                            }
+                                                        </td>
+                                                        <td className="px-3 py-2 align-middle">
+                                                            <Badge
+                                                                variant={
+                                                                    settings
+                                                                        .verificationRecords
+                                                                        .routingSatisfied
+                                                                        ? "success"
+                                                                        : "warning"
+                                                                }
+                                                            >
+                                                                {recordState(
+                                                                    settings
+                                                                        .verificationRecords
+                                                                        .routingSatisfied,
+                                                                )}
+                                                            </Badge>
+                                                        </td>
+                                                        <td className="px-2 py-2 align-middle">
+                                                            <CopyValueButton
+                                                                value={
+                                                                    settings
+                                                                        .verificationRecords
+                                                                        .cnameTarget
+                                                                }
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="px-3 py-2 align-middle">
+                                                            TXT
+                                                        </td>
+                                                        <td className="max-w-[14rem] break-all px-3 py-2 align-middle font-mono">
+                                                            {
+                                                                settings
+                                                                    .verificationRecords
+                                                                    .txtName
+                                                            }
+                                                        </td>
+                                                        <td className="max-w-[16rem] break-all px-3 py-2 align-middle font-mono">
+                                                            {
+                                                                settings
+                                                                    .verificationRecords
+                                                                    .txtValue
+                                                            }
+                                                        </td>
+                                                        <td className="px-3 py-2 align-middle">
+                                                            <Badge
+                                                                variant={
+                                                                    settings
+                                                                        .verificationRecords
+                                                                        .txtSatisfied
+                                                                        ? "success"
+                                                                        : "warning"
+                                                                }
+                                                            >
+                                                                {recordState(
+                                                                    settings
+                                                                        .verificationRecords
+                                                                        .txtSatisfied,
+                                                                )}
+                                                            </Badge>
+                                                        </td>
+                                                        <td className="px-2 py-2 align-middle">
+                                                            <CopyValueButton
+                                                                value={
+                                                                    settings
+                                                                        .verificationRecords
+                                                                        .txtValue
+                                                                }
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {settings.customDomain.status ===
+                                    "verified" && (
+                                    <div className="space-y-3">
+                                        <p className="text-xs text-muted-foreground">
+                                            This custom domain is canonical. The
+                                            FrontLit subdomain is an optional
+                                            fallback.
                                         </p>
-                                        <p>
-                                            <code>
-                                                TXT{" "}
-                                                {
-                                                    settings.verificationRecords
-                                                        .txtName
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div>
+                                                <Label htmlFor="subdomain-public">
+                                                    Also serve this site on{" "}
+                                                    {settings.subdomain
+                                                        ?.hostname ??
+                                                        `{slug}.${platformSuffix(settings)}`}
+                                                </Label>
+                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                    Off makes the subdomain
+                                                    unavailable. Visitors only
+                                                    reach the custom domain.
+                                                </p>
+                                            </div>
+                                            <Switch
+                                                id="subdomain-public"
+                                                checked={
+                                                    settings.subdomainPublic
                                                 }
-                                            </code>{" "}
-                                            →{" "}
-                                            <code>
-                                                {
-                                                    settings.verificationRecords
-                                                        .txtValue
+                                                disabled={busy}
+                                                onCheckedChange={(checked) =>
+                                                    run(() =>
+                                                        setSubdomainPublic(
+                                                            checked,
+                                                        ),
+                                                    )
                                                 }
-                                            </code>
-                                        </p>
+                                            />
+                                        </div>
                                     </div>
                                 )}
 
                                 <div className="flex gap-2">
-                                    {settings.customDomain.status !==
-                                        "verified" && (
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            disabled={busy}
-                                            onClick={() =>
-                                                run(verifyCustomDomain)
-                                            }
-                                        >
-                                            Check DNS
-                                        </Button>
-                                    )}
-                                    {settings.customDomain.status ===
-                                        "verified" && (
-                                        <p className="text-xs text-muted-foreground">
-                                            This is your site&apos;s canonical
-                                            domain. Your FrontLit subdomain
-                                            remains available.
-                                        </p>
-                                    )}
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        disabled={busy}
+                                        onClick={() => run(verifyCustomDomain)}
+                                    >
+                                        Check DNS
+                                    </Button>
                                     <DeleteConfirm
                                         title="Remove custom domain?"
                                         description={`Remove ${settings.customDomain.hostname} from this team? Visitors will no longer be able to reach your site at this domain.`}

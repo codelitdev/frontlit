@@ -1,4 +1,4 @@
-import { getSettings, listChangelogs } from "@/lib/api";
+import { getSettings, listProductUpdates } from "@/lib/api";
 import { buildRssFeed } from "@/lib/rss";
 import { getCanonicalHost } from "@/lib/request-host";
 
@@ -9,7 +9,7 @@ export async function GET(
     const { teamId } = await params;
     const [settings, { items }, canonicalHost] = await Promise.all([
         getSettings(teamId),
-        listChangelogs(teamId, { itemsPerPage: 50 }),
+        listProductUpdates(teamId, { itemsPerPage: 50 }),
         getCanonicalHost(),
     ]);
 

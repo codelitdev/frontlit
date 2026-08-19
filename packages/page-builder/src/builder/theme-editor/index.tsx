@@ -212,14 +212,18 @@ function copyName(baseName: string, taken: string[]): string {
 }
 
 export interface ThemeEditorProps {
-    /** The theme currently applied to the page. */
+    /** Theme currently painted on the canvas (applied, or a local preview). */
     theme: Theme;
+    /** Id of the theme actually applied to the site. */
+    appliedThemeId: string;
     /** Built-in themes; read-only, editing one creates a custom copy. */
     systemThemes: Theme[];
     /** The user's own themes; edited in place. */
     customThemes: Theme[];
     colorMode: "light" | "dark";
     onColorModeChange: (mode: "light" | "dark") => void;
+    /** Paint a theme on the canvas without applying it. */
+    onPreview: (theme: Theme) => void;
     /** Apply a theme to the page. */
     onApply: (theme: Theme) => void;
     /** Persist a change to the custom themes collection. */
@@ -228,18 +232,21 @@ export interface ThemeEditorProps {
 
 /**
  * Visual theme editor ported from CourseLit's page-editor theme editor.
- * Themes are listed in two groups — system and custom — each card offering
- * "use" (check) and "edit" (pencil) actions. Editing a system theme first
- * copies it into the custom collection ("X - Copy"), so system themes stay
+ * Themes are listed in two groups — system and custom. Clicking a card
+ * previews it on the canvas without applying it. Each card also offers
+ * "use" (check) and "edit" (pencil). Editing a system theme first copies
+ * it into the custom collection ("X - Copy"), so system themes stay
  * pristine; custom themes are edited in place. The host app persists both
  * the applied theme and the custom collection via the builder's `onChange`.
  */
 export function ThemeEditor({
     theme,
+    appliedThemeId,
     systemThemes,
     customThemes,
     colorMode,
     onColorModeChange,
+    onPreview,
     onApply,
     onCustomThemesChange,
 }: ThemeEditorProps) {
@@ -333,6 +340,8 @@ export function ThemeEditor({
                 .map((key) => themeItem.theme.colors.light[key])
                 .filter(Boolean)}
             selected={themeItem.id === theme.id}
+            active={themeItem.id === appliedThemeId}
+            onPreview={() => onPreview(themeItem)}
             onUse={() => onApply(themeItem)}
             onEdit={() => startEditing(themeItem, isSystem)}
         />

@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+/** A built-in theme id or a team's saved `thm_*` public id. */
+export const themeReferenceSchema = z.string().min(1).max(128);
+
 /** Matches `@frontlit/page-builder`'s `ThemeStyle` shape (kept loose —
  * `Record<string, any>` — since the theme's colors/typography/structure
  * settings are a large, evolving nested object owned by the page-builder

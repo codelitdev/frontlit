@@ -1,22 +1,62 @@
 {
     "name": "@frontlit/page-builder",
-    "version": "0.1.0",
-    "description": "Block-based WYSIWYG page builder and renderer for FrontLit",
-    "private": true,
+    "version": "0.1.0-alpha.1",
+    "description": "Block-based WYSIWYG page builder and renderer for React",
+    "author": "FrontLit",
     "license": "MIT",
     "type": "module",
-    "exports": {
-        ".": "./dist/index.js",
-        "./models": "./dist/models/index.js",
-        "./primitives": "./dist/primitives/index.js",
-        "./components": "./dist/components/index.js",
-        "./blocks": "./dist/blocks/index.js",
-        "./renderer": "./dist/renderer/index.js",
-        "./builder": "./dist/builder/index.js",
-        "./styles.css": "./dist/styles.css",
-        "./theme.css": "./src/theme.css"
-    },
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
     "types": "./dist/index.d.ts",
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./models": {
+            "types": "./dist/models/index.d.ts",
+            "import": "./dist/models/index.js",
+            "default": "./dist/models/index.js"
+        },
+        "./primitives": {
+            "types": "./dist/primitives/index.d.ts",
+            "import": "./dist/primitives/index.js",
+            "default": "./dist/primitives/index.js"
+        },
+        "./components": {
+            "types": "./dist/components/index.d.ts",
+            "import": "./dist/components/index.js",
+            "default": "./dist/components/index.js"
+        },
+        "./blocks": {
+            "types": "./dist/blocks/index.d.ts",
+            "import": "./dist/blocks/index.js",
+            "default": "./dist/blocks/index.js"
+        },
+        "./renderer": {
+            "types": "./dist/renderer/index.d.ts",
+            "import": "./dist/renderer/index.js",
+            "default": "./dist/renderer/index.js"
+        },
+        "./builder": {
+            "types": "./dist/builder/index.d.ts",
+            "import": "./dist/builder/index.js",
+            "default": "./dist/builder/index.js"
+        },
+        "./data-slots": {
+            "types": "./dist/data-slots.d.ts",
+            "import": "./dist/data-slots.js",
+            "default": "./dist/data-slots.js"
+        },
+        "./styles.css": "./dist/styles.css",
+        "./theme.css": "./dist/theme.css"
+    },
     "typesVersions": {
         "*": {
             "models": [
@@ -36,17 +76,43 @@
             ],
             "builder": [
                 "dist/builder/index.d.ts"
+            ],
+            "data-slots": [
+                "dist/data-slots.d.ts"
             ]
         }
     },
+    "sideEffects": [
+        "**/*.css"
+    ],
+    "publishConfig": {
+        "access": "public"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/codelitdev/frontlit.git",
+        "directory": "packages/page-builder"
+    },
+    "homepage": "https://github.com/codelitdev/frontlit/tree/main/packages/page-builder",
+    "bugs": {
+        "url": "https://github.com/codelitdev/frontlit/issues"
+    },
+    "keywords": [
+        "react",
+        "page-builder",
+        "wysiwyg",
+        "blocks",
+        "landing-page",
+        "frontlit"
+    ],
     "scripts": {
-        "build": "tsup && node scripts/add-use-client.mjs && tailwindcss -i src/styles.css -o dist/styles.css",
+        "build": "tsup && node scripts/add-use-client.mjs && tailwindcss -i src/styles.css -o dist/styles.css && cp src/theme.css dist/theme.css && rm -rf dist/fonts && cp -a fonts dist/fonts && node scripts/rewrite-font-urls.mjs",
+        "prepublishOnly": "pnpm run build",
         "dev": "tsup --watch",
         "clean": "rimraf dist",
         "check-types": "tsc --noEmit"
     },
     "peerDependencies": {
-        "next": "^15.0.0 || ^16.0.0",
         "react": "^18.0.0 || ^19.0.0",
         "react-dom": "^18.0.0 || ^19.0.0"
     },

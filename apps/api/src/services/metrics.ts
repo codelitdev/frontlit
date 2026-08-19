@@ -3,7 +3,7 @@
  * no client library dependency, since the metric set is small and fixed:
  * rate-limit hits, CAPTCHA failures, webhook signature failures. Queue
  * depth/age are computed live from the database instead (see
- * `newsletter/outbox.ts`'s `getOutboxQueueStats`), not counted here.
+ * `email/outbox.ts`'s `getOutboxQueueStats`), not counted here.
  *
  * Counts reset on process restart — acceptable for a scrape-based exporter
  * (Prometheus itself tracks rate-of-increase across restarts via the

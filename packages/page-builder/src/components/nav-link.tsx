@@ -1,22 +1,58 @@
 "use client";
 
 import * as React from "react";
-import NextLink from "next/link";
-import { useRouter } from "next/navigation";
+
+export interface PageBuilderLinkProps {
+    href: string;
+    children?: React.ReactNode;
+    className?: string;
+    style?: React.CSSProperties;
+    onClick?: React.MouseEventHandler<HTMLAnchorElement>;
+    target?: string;
+    rel?: string;
+}
+
+/**
+ * Optional host-supplied link. Next.js apps can pass `next/link`; Vite / Remix
+ * / plain React hosts can omit it and NavLink will render a native `<a>`.
+ */
+export type PageBuilderLinkComponent =
+    React.ComponentType<PageBuilderLinkProps>;
+
+const PageBuilderLinkContext =
+    React.createContext<PageBuilderLinkComponent | null>(null);
+
+export function PageBuilderLinkProvider({
+    component,
+    children,
+}: {
+    component?: PageBuilderLinkComponent | null;
+    children: React.ReactNode;
+}) {
+    return (
+        <PageBuilderLinkContext.Provider value={component ?? null}>
+            {children}
+        </PageBuilderLinkContext.Provider>
+    );
+}
+
+export function usePageBuilderLinkComponent() {
+    return React.useContext(PageBuilderLinkContext);
+}
 
 interface NavLinkProps {
     href: string;
     children?: React.ReactNode;
     openInSameTab?: boolean;
-    style?: Record<string, string>;
+    style?: React.CSSProperties;
     className?: string;
     onClick?: () => void;
 }
 
 /**
- * A navigation-aware link used inside block widgets. Internal paths use
- * Next.js client-side routing, in-page anchors scroll to the target, and
- * everything else falls back to a plain anchor tag.
+ * A navigation-aware link used inside block widgets. In-page anchors scroll
+ * to the target. Internal paths (`/...`) use the host `linkComponent` when
+ * one is provided (e.g. Next.js `Link`); everything else is a native `<a>`.
  */
 export function NavLink({
     href,
@@ -26,50 +62,38 @@ export function NavLink({
     className = "",
     onClick,
 }: NavLinkProps) {
-    const isInternal = href && href.startsWith("/");
-    const isInPageNavigation = href && href.startsWith("#");
-    const router = useRouter();
+    const LinkComponent = usePageBuilderLinkComponent();
+    const isInternal = Boolean(href && href.startsWith("/"));
+    const isInPageNavigation = Boolean(href && href.startsWith("#"));
+    const target = openInSameTab ? undefined : "_blank";
+    const rel = target === "_blank" ? "noopener noreferrer" : undefined;
+    const handleClick: React.MouseEventHandler<HTMLAnchorElement> = () => {
+        onClick?.();
+    };
 
-    if (isInPageNavigation) {
+    if (!isInPageNavigation && isInternal && LinkComponent) {
         return (
-            <a
+            <LinkComponent
                 href={href}
-                style={{ ...style }}
+                style={style}
                 className={className}
-                onClick={onClick}
+                onClick={handleClick}
+                target={target}
+                rel={rel}
             >
                 {children}
-            </a>
+            </LinkComponent>
         );
     }
 
-    return isInternal ? (
-        <NextLink
-            href={href}
-            style={{ ...style }}
-            onClick={() => {
-                router.push(href.toString());
-                onClick?.();
-            }}
-            className={className}
-        >
-            {children}
-        </NextLink>
-    ) : (
+    return (
         <a
             href={href}
-            style={{ ...style }}
+            style={style}
             className={className}
-            onClick={(e) => {
-                e.preventDefault();
-
-                if (openInSameTab) {
-                    window.location.href = href;
-                } else {
-                    window.open(href, "_blank");
-                }
-                onClick?.();
-            }}
+            target={target}
+            rel={rel}
+            onClick={handleClick}
         >
             {children}
         </a>

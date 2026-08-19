@@ -27,6 +27,7 @@ export function EditorToolbar({
     saving,
     publishing,
     publishingLabel = "Publishing…",
+    leading,
     extra,
     onPublish,
     onDiscardDraft,
@@ -39,6 +40,7 @@ export function EditorToolbar({
     saving?: boolean;
     publishing?: boolean;
     publishingLabel?: string;
+    leading?: React.ReactNode;
     extra?: React.ReactNode;
     onPublish: () => void;
     onDiscardDraft: () => void;
@@ -46,13 +48,16 @@ export function EditorToolbar({
 }) {
     return (
         <div className="flex h-11 shrink-0 items-center justify-between border-b bg-background px-4">
-            <Link
-                href={backHref}
-                className="text-xs text-muted-foreground hover:underline"
-            >
-                ← {backLabel}
-            </Link>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+                <Link
+                    href={backHref}
+                    className="shrink-0 text-xs text-muted-foreground hover:underline"
+                >
+                    ← {backLabel}
+                </Link>
+                {leading}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
                 <DocumentStatusBadge
                     status={status}
                     data-testid={statusTestId}

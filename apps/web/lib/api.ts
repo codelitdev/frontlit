@@ -3,11 +3,27 @@ import { contract, pageTypes } from "@frontlit/api-contract";
 import type { TextEditorContent } from "@frontlit/text-editor";
 import type { WidgetInstance } from "@frontlit/page-builder/models";
 import { ApiError } from "./api-client";
+import { clientLoginPath } from "./login-url";
 import {
     clearTeamIdCookie,
     isStaleTeamSelectionError,
     needsTeamSelection,
 } from "./tokens";
+
+function describeApiError(code: string): string {
+    switch (code) {
+        case "insufficient_permission":
+            return "You don't have permission to do that.";
+        case "owner_required":
+            return "Only the team owner can do that.";
+        case "recent_authentication_required":
+            return "Confirm your identity with a fresh email code to continue.";
+        case "not_a_team_member":
+            return "You are not a member of this team.";
+        default:
+            return code.replace(/_/g, " ");
+    }
+}
 
 /**
  * Typed client generated from `@frontlit/api-contract` — the same contract
@@ -39,12 +55,19 @@ async function unwrap<T>(
     }
 
     if (result.status === 401 && typeof window !== "undefined") {
-        window.location.href = "/login";
+        window.location.href = clientLoginPath(
+            `${window.location.pathname}${window.location.search}`,
+        );
         // Never resolves — the browser is navigating away.
         return new Promise<T>(() => {});
     }
 
-    const errorBody = result.body as { error?: string } | undefined;
+    const errorBody = result.body as
+        | {
+              error?: string;
+              error_description?: string;
+          }
+        | undefined;
     if (typeof window !== "undefined") {
         if (
             needsTeamSelection(result.status, errorBody?.error) &&
@@ -58,9 +81,11 @@ async function unwrap<T>(
         }
     }
 
+    const code = errorBody?.error || `request_failed`;
     throw new ApiError(
         result.status,
-        errorBody?.error || `Request failed (${result.status})`,
+        errorBody?.error_description || describeApiError(code),
+        code,
     );
 }
 
@@ -81,6 +106,11 @@ export interface Team {
     updatedAt?: string | null;
 }
 
+export interface TeamMembership extends Team {
+    isOwner: boolean;
+    effectivePermissions: TeamPermission[];
+}
+
 export interface ApiKey {
     id: string;
     keyPrefix: string;
@@ -95,17 +125,26 @@ export interface CreatedApiKey extends ApiKey {
 export function listTeams() {
     return client.teams.list().then((result) => {
         if (result.status >= 200 && result.status < 300) {
-            return result.body as { items: Team[] };
+            return result.body as { items: TeamMembership[] };
         }
 
         const errorBody = result.body as
-            | { error?: string; teams?: Pick<Team, "teamId" | "name">[] }
+            | {
+                  error?: string;
+                  teams?: Pick<Team, "teamId" | "name">[];
+              }
             | undefined;
         if (result.status === 409 && errorBody?.teams) {
-            return { items: errorBody.teams };
+            return {
+                items: errorBody.teams.map((team) => ({
+                    ...team,
+                    isOwner: false,
+                    effectivePermissions: [],
+                })),
+            };
         }
 
-        return unwrap<{ items: Team[] }>(Promise.resolve(result));
+        return unwrap<{ items: TeamMembership[] }>(Promise.resolve(result));
     });
 }
 
@@ -144,6 +183,138 @@ export function deleteTeamKey(teamId: string, keyId: string) {
     return unwrap<void>(client.teams.removeKey({ params: { teamId, keyId } }));
 }
 
+export type TeamPermission = import("@frontlit/api-contract").TeamPermission;
+
+export interface TeamMember {
+    memberId: string;
+    email: string;
+    name: string | null;
+    isOwner: boolean;
+    permissions: TeamPermission[];
+    effectivePermissions: TeamPermission[];
+    version: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface AcceptedTeamMember extends TeamMember {
+    teamId: string;
+}
+
+export interface TeamInvitation {
+    invitationId: string;
+    email: string;
+    permissions: TeamPermission[];
+    effectivePermissions: TeamPermission[];
+    status: string;
+    invitedByName: string | null;
+    expiresAt: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface InvitationPreview {
+    invitationId: string;
+    teamName: string;
+    inviterName: string | null;
+    expiresAt: string;
+    permissions: TeamPermission[];
+    email: string;
+}
+
+export function listTeamMembers(
+    teamId: string,
+    query: { cursor?: string; limit?: number } = {},
+) {
+    return unwrap<{
+        items: TeamMember[];
+        nextCursor: string | null;
+        viewer: TeamMember;
+    }>(client.teams.listMembers({ params: { teamId }, query }));
+}
+
+export function updateTeamMember(
+    teamId: string,
+    memberId: string,
+    body: { permissions: TeamPermission[]; version: number },
+) {
+    return unwrap<TeamMember>(
+        client.teams.updateMember({ params: { teamId, memberId }, body }),
+    );
+}
+
+export function removeTeamMember(teamId: string, memberId: string) {
+    return unwrap<void>(
+        client.teams.removeMember({ params: { teamId, memberId } }),
+    );
+}
+
+export function leaveTeam(teamId: string) {
+    return unwrap<void>(client.teams.leave({ params: { teamId } } as any));
+}
+
+export function transferTeamOwnership(
+    teamId: string,
+    body: { memberId: string; revokeApiKeys?: boolean },
+) {
+    return unwrap<Team>(
+        client.teams.transferOwnership({ params: { teamId }, body }),
+    );
+}
+
+export function listTeamInvitations(
+    teamId: string,
+    query: { cursor?: string; limit?: number } = {},
+) {
+    return unwrap<{ items: TeamInvitation[]; nextCursor: string | null }>(
+        client.teams.listInvitations({ params: { teamId }, query }),
+    );
+}
+
+export function createTeamInvitation(
+    teamId: string,
+    body: { email: string; permissions: TeamPermission[] },
+) {
+    return unwrap<TeamInvitation>(
+        client.teams.createInvitation({ params: { teamId }, body }),
+    );
+}
+
+export function resendTeamInvitation(teamId: string, invitationId: string) {
+    return unwrap<TeamInvitation>(
+        client.teams.resendInvitation({
+            params: { teamId, invitationId },
+        } as any),
+    );
+}
+
+export function revokeTeamInvitation(teamId: string, invitationId: string) {
+    return unwrap<void>(
+        client.teams.revokeInvitation({ params: { teamId, invitationId } }),
+    );
+}
+
+export function previewTeamInvitation(body: {
+    invitationId: string;
+    token: string;
+}) {
+    return unwrap<InvitationPreview>(client.teamInvitations.preview({ body }));
+}
+
+export function acceptTeamInvitation(body: {
+    invitationId: string;
+    token: string;
+}) {
+    return unwrap<AcceptedTeamMember>(client.teamInvitations.accept({ body }));
+}
+
+export function rejectTeamInvitation(body: {
+    invitationId: string;
+    token: string;
+}) {
+    return unwrap<void>(client.teamInvitations.reject({ body }));
+}
+
 // ---- Pages ------------------------------------------------------------
 
 export type PageType = (typeof pageTypes)[number];
@@ -154,12 +325,11 @@ export interface Page {
     name: string;
     type: PageType;
     slug: string;
-    deleteable: boolean;
+    deletable: boolean;
     status: PageStatus;
     publishedAt?: string | null;
     // Published fields — what the public site renders.
     layout: WidgetInstance[];
-    themeId?: string | null;
     title?: string | null;
     description?: string | null;
     socialImage?: Record<string, unknown> | null;
@@ -185,11 +355,7 @@ export function listPages(
     return unwrap<Paginated<Page>>(client.pages.list({ query: params }));
 }
 
-export function createPage(input: {
-    name: string;
-    type: PageType;
-    themeId?: string;
-}) {
+export function createPage(input: { name: string; type: PageType }) {
     return unwrap<Page>(client.pages.create({ body: input }));
 }
 
@@ -203,7 +369,6 @@ export function updatePage(
         name: string;
         slug: string;
         layout: WidgetInstance[];
-        themeId: string | null;
         title: string;
         description: string;
         socialImage: Record<string, unknown>;
@@ -279,12 +444,27 @@ export interface Media {
     caption?: string | null;
     createdAt: string | null;
     updatedAt: string | null;
+    referenceCount?: number;
 }
 
 export function listMedia(
     params: { offset?: number; itemsPerPage?: number } = {},
 ) {
     return unwrap<Paginated<Media>>(client.media.list({ query: params }));
+}
+
+export interface UnsplashPhoto {
+    id: string;
+    alt?: string;
+    thumbUrl: string;
+    url: string;
+    photographer?: string;
+}
+
+export function searchUnsplash(q?: string) {
+    return unwrap<{ configured: boolean; items: UnsplashPhoto[] }>(
+        client.media.searchUnsplash({ query: { q } }),
+    );
 }
 
 export function registerMedia(input: {
@@ -308,51 +488,57 @@ export function deleteMedia(mediaId: string) {
     return unwrap<void>(client.media.remove({ params: { mediaId } }));
 }
 
-// ---- Blog ---------------------------------------------------------------
+// ---- Content: articles --------------------------------------------------
 
 export type DocumentStatus = "draft" | "published" | "published_with_changes";
 
-export interface BlogMeta {
+export interface ArticleMeta {
     tags: string[];
+    indexable?: boolean;
 }
 
-export interface BlogPost {
+export interface Article {
     documentId: string;
     slug: string;
     status: DocumentStatus;
+    index?: DocumentationIndex | null;
     publishedAt?: string | null;
     title?: string | null;
     content?: TextEditorContent | null;
     excerpt?: string | null;
     featuredImage?: Record<string, unknown> | null;
-    meta: BlogMeta;
+    meta: ArticleMeta;
     draftTitle: string;
     draftContent: TextEditorContent;
     draftExcerpt?: string | null;
     draftFeaturedImage?: Record<string, unknown> | null;
-    draftMeta: BlogMeta;
+    draftMeta: ArticleMeta;
     createdAt: string | null;
     updatedAt: string | null;
 }
 
-export function listBlogPosts(
+export function listArticles(
     params: { q?: string; offset?: number; itemsPerPage?: number } = {},
 ) {
-    return unwrap<Paginated<BlogPost>>(client.blogs.list({ query: params }));
+    return unwrap<Paginated<Article>>(
+        client.content.articles.list({ query: params }),
+    );
 }
 
-export function createBlogPost(input: {
+export function createArticle(input: {
     title: string;
-    meta?: Partial<BlogMeta>;
+    meta?: Partial<ArticleMeta>;
 }) {
-    return unwrap<BlogPost>(client.blogs.create({ body: input }));
+    return unwrap<Article>(client.content.articles.create({ body: input }));
 }
 
-export function getBlogPost(documentId: string) {
-    return unwrap<BlogPost>(client.blogs.get({ params: { documentId } }));
+export function getArticle(documentId: string) {
+    return unwrap<Article>(
+        client.content.articles.get({ params: { documentId } }),
+    );
 }
 
-export function updateBlogPost(
+export function updateArticle(
     documentId: string,
     patch: Partial<{
         slug: string;
@@ -360,72 +546,92 @@ export function updateBlogPost(
         content: TextEditorContent;
         excerpt: string;
         featuredImage: Record<string, unknown>;
-        meta: Partial<BlogMeta>;
+        meta: Partial<ArticleMeta>;
     }>,
 ) {
-    return unwrap<BlogPost>(
-        client.blogs.update({ params: { documentId }, body: patch }),
+    return unwrap<Article>(
+        client.content.articles.update({ params: { documentId }, body: patch }),
     );
 }
 
-export function publishBlogPost(documentId: string) {
-    return unwrap<BlogPost>(client.blogs.publish({ params: { documentId } }));
-}
-
-export function discardBlogPostDraft(documentId: string) {
-    return unwrap<BlogPost>(
-        client.blogs.discardDraft({ params: { documentId } }),
+export function publishArticle(documentId: string) {
+    return unwrap<Article>(
+        client.content.articles.publish({ params: { documentId } }),
     );
 }
 
-export function deleteBlogPost(documentId: string) {
-    return unwrap<void>(client.blogs.remove({ params: { documentId } }));
+export function discardArticleDraft(documentId: string) {
+    return unwrap<Article>(
+        client.content.articles.discardDraft({ params: { documentId } }),
+    );
 }
 
-// ---- Docs (help center) --------------------------------------------------
+export function deleteArticle(documentId: string) {
+    return unwrap<void>(
+        client.content.articles.remove({ params: { documentId } }),
+    );
+}
 
-export interface DocMeta {
+// ---- Content: documentation --------------------------------------------
+
+export interface DocumentationMeta {
     sectionId?: string;
     order: number;
+    indexable?: boolean;
 }
 
-export interface HelpDoc {
+export type DocumentationIndexState =
+    "pending" | "indexed" | "failed" | "excluded";
+
+export interface DocumentationIndex {
+    state: DocumentationIndexState;
+    lastError?: string | null;
+}
+
+export interface DocumentationPage {
     documentId: string;
     slug: string;
     status: DocumentStatus;
+    index?: DocumentationIndex | null;
     publishedAt?: string | null;
     title?: string | null;
     content?: TextEditorContent | null;
     excerpt?: string | null;
     featuredImage?: Record<string, unknown> | null;
-    meta: DocMeta;
+    meta: DocumentationMeta;
     draftTitle: string;
     draftContent: TextEditorContent;
     draftExcerpt?: string | null;
     draftFeaturedImage?: Record<string, unknown> | null;
-    draftMeta: DocMeta;
+    draftMeta: DocumentationMeta;
     createdAt: string | null;
     updatedAt: string | null;
 }
 
-export function listHelpDocs(
+export function listDocumentationPages(
     params: { q?: string; offset?: number; itemsPerPage?: number } = {},
 ) {
-    return unwrap<Paginated<HelpDoc>>(client.docs.list({ query: params }));
+    return unwrap<Paginated<DocumentationPage>>(
+        client.content.documentation.list({ query: params }),
+    );
 }
 
-export function createHelpDoc(input: {
+export function createDocumentationPage(input: {
     title: string;
-    meta?: Partial<DocMeta>;
+    meta?: Partial<DocumentationMeta>;
 }) {
-    return unwrap<HelpDoc>(client.docs.create({ body: input }));
+    return unwrap<DocumentationPage>(
+        client.content.documentation.create({ body: input }),
+    );
 }
 
-export function getHelpDoc(documentId: string) {
-    return unwrap<HelpDoc>(client.docs.get({ params: { documentId } }));
+export function getDocumentationPage(documentId: string) {
+    return unwrap<DocumentationPage>(
+        client.content.documentation.get({ params: { documentId } }),
+    );
 }
 
-export function updateHelpDoc(
+export function updateDocumentationPage(
     documentId: string,
     patch: Partial<{
         slug: string;
@@ -433,29 +639,36 @@ export function updateHelpDoc(
         content: TextEditorContent;
         excerpt: string;
         featuredImage: Record<string, unknown>;
-        meta: Partial<DocMeta>;
+        meta: Partial<DocumentationMeta>;
     }>,
 ) {
-    return unwrap<HelpDoc>(
-        client.docs.update({ params: { documentId }, body: patch }),
+    return unwrap<DocumentationPage>(
+        client.content.documentation.update({
+            params: { documentId },
+            body: patch,
+        }),
     );
 }
 
-export function publishHelpDoc(documentId: string) {
-    return unwrap<HelpDoc>(client.docs.publish({ params: { documentId } }));
-}
-
-export function discardHelpDocDraft(documentId: string) {
-    return unwrap<HelpDoc>(
-        client.docs.discardDraft({ params: { documentId } }),
+export function publishDocumentationPage(documentId: string) {
+    return unwrap<DocumentationPage>(
+        client.content.documentation.publish({ params: { documentId } }),
     );
 }
 
-export function deleteHelpDoc(documentId: string) {
-    return unwrap<void>(client.docs.remove({ params: { documentId } }));
+export function discardDocumentationPageDraft(documentId: string) {
+    return unwrap<DocumentationPage>(
+        client.content.documentation.discardDraft({ params: { documentId } }),
+    );
 }
 
-export interface DocSection {
+export function deleteDocumentationPage(documentId: string) {
+    return unwrap<void>(
+        client.content.documentation.remove({ params: { documentId } }),
+    );
+}
+
+export interface DocumentationSection {
     sectionId: string;
     name: string;
     slug: string;
@@ -464,28 +677,40 @@ export interface DocSection {
     updatedAt: string | null;
 }
 
-export function listDocSections() {
-    return unwrap<{ items: DocSection[] }>(client.docSections.list());
-}
-
-export function createDocSection(input: { name: string; order?: number }) {
-    return unwrap<DocSection>(client.docSections.create({ body: input }));
-}
-
-export function updateDocSection(
-    sectionId: string,
-    patch: Partial<{ name: string; order: number }>,
-) {
-    return unwrap<DocSection>(
-        client.docSections.update({ params: { sectionId }, body: patch }),
+export function listDocumentationSections() {
+    return unwrap<{ items: DocumentationSection[] }>(
+        client.content.documentationSections.list(),
     );
 }
 
-export function deleteDocSection(sectionId: string) {
-    return unwrap<void>(client.docSections.remove({ params: { sectionId } }));
+export function createDocumentationSection(input: {
+    name: string;
+    order?: number;
+}) {
+    return unwrap<DocumentationSection>(
+        client.content.documentationSections.create({ body: input }),
+    );
 }
 
-export interface DocSearchResult {
+export function updateDocumentationSection(
+    sectionId: string,
+    patch: Partial<{ name: string; order: number }>,
+) {
+    return unwrap<DocumentationSection>(
+        client.content.documentationSections.update({
+            params: { sectionId },
+            body: patch,
+        }),
+    );
+}
+
+export function deleteDocumentationSection(sectionId: string) {
+    return unwrap<void>(
+        client.content.documentationSections.remove({ params: { sectionId } }),
+    );
+}
+
+export interface DocumentationSearchResult {
     documentId: string;
     slug: string;
     title: string | null;
@@ -493,62 +718,67 @@ export interface DocSearchResult {
     anchor: string | null;
     content: string;
     similarity: number;
+    kind?: "blog" | "doc" | "changelog";
 }
 
-export function searchDocs(q: string, k?: number) {
-    return unwrap<{ items: DocSearchResult[] }>(
-        client.docSections.search({ query: { q, k } }),
+export function searchDocumentation(q: string, k?: number) {
+    return unwrap<{ items: DocumentationSearchResult[] }>(
+        client.content.documentationSections.search({ query: { q, k } }),
     );
 }
 
-// ---- Changelog -----------------------------------------------------------
+// ---- Content: product updates -------------------------------------------
 
-export interface ChangelogMeta {
+export interface ProductUpdateMeta {
     version?: string;
     labels: string[];
     releaseDate?: string;
     github?: { releaseId: number; releaseUrl: string; tagName: string };
+    indexable?: boolean;
 }
 
-export interface ChangelogEntry {
+export interface ProductUpdate {
     documentId: string;
     slug: string;
     status: DocumentStatus;
+    index?: DocumentationIndex | null;
     publishedAt?: string | null;
     title?: string | null;
     content?: TextEditorContent | null;
     excerpt?: string | null;
     featuredImage?: Record<string, unknown> | null;
-    meta: ChangelogMeta;
+    meta: ProductUpdateMeta;
     draftTitle: string;
     draftContent: TextEditorContent;
     draftExcerpt?: string | null;
     draftFeaturedImage?: Record<string, unknown> | null;
-    draftMeta: ChangelogMeta;
+    draftMeta: ProductUpdateMeta;
     createdAt: string | null;
     updatedAt: string | null;
 }
 
-export function listChangelogEntries(params: { q?: string } = {}) {
-    return unwrap<Paginated<ChangelogEntry>>(
-        client.changelogs.list({ query: params }),
+export function listProductUpdates(params: { q?: string } = {}) {
+    return unwrap<Paginated<ProductUpdate>>(
+        client.content.productUpdates.list({ query: params }),
     );
 }
 
-export function createChangelogEntry(input: {
+export function createProductUpdate(input: {
     title: string;
-    meta?: Partial<ChangelogMeta>;
+    meta?: Partial<ProductUpdateMeta>;
 }) {
-    return unwrap<ChangelogEntry>(client.changelogs.create({ body: input }));
-}
-
-export function getChangelogEntry(documentId: string) {
-    return unwrap<ChangelogEntry>(
-        client.changelogs.get({ params: { documentId } }),
+    return unwrap<ProductUpdate>(
+        client.content.productUpdates.create({ body: input }),
     );
 }
 
-export function updateChangelogEntry(
+export function getProductUpdate(documentId: string) {
+    return unwrap<ProductUpdate>(
+        client.content.productUpdates.get({ params: { documentId } }),
+    );
+}
+
+export function updateProductUpdate(
     documentId: string,
     patch: Partial<{
         slug: string;
@@ -556,28 +786,33 @@ export function updateChangelogEntry(
         content: TextEditorContent;
         excerpt: string;
         featuredImage: Record<string, unknown>;
-        meta: Partial<ChangelogMeta>;
+        meta: Partial<ProductUpdateMeta>;
     }>,
 ) {
-    return unwrap<ChangelogEntry>(
-        client.changelogs.update({ params: { documentId }, body: patch }),
+    return unwrap<ProductUpdate>(
+        client.content.productUpdates.update({
+            params: { documentId },
+            body: patch,
+        }),
     );
 }
 
-export function publishChangelogEntry(documentId: string) {
-    return unwrap<ChangelogEntry>(
-        client.changelogs.publish({ params: { documentId } }),
+export function publishProductUpdate(documentId: string) {
+    return unwrap<ProductUpdate>(
+        client.content.productUpdates.publish({ params: { documentId } }),
     );
 }
 
-export function discardChangelogEntryDraft(documentId: string) {
-    return unwrap<ChangelogEntry>(
-        client.changelogs.discardDraft({ params: { documentId } }),
+export function discardProductUpdateDraft(documentId: string) {
+    return unwrap<ProductUpdate>(
+        client.content.productUpdates.discardDraft({ params: { documentId } }),
     );
 }
 
-export function deleteChangelogEntry(documentId: string) {
-    return unwrap<void>(client.changelogs.remove({ params: { documentId } }));
+export function deleteProductUpdate(documentId: string) {
+    return unwrap<void>(
+        client.content.productUpdates.remove({ params: { documentId } }),
+    );
 }
 
 export interface GithubIntegration {
@@ -586,7 +821,9 @@ export interface GithubIntegration {
 }
 
 export function getGithubIntegration() {
-    return unwrap<GithubIntegration>(client.changelogs.getGithubIntegration());
+    return unwrap<GithubIntegration>(
+        client.content.productUpdates.getGithubIntegration(),
+    );
 }
 
 export function connectGithubIntegration(input: {
@@ -594,21 +831,21 @@ export function connectGithubIntegration(input: {
     repo: string;
 }) {
     return unwrap<GithubIntegration>(
-        client.changelogs.connectGithub({ body: input }),
+        client.content.productUpdates.connectGithub({ body: input }),
     );
 }
 
 export function disconnectGithubIntegration() {
-    return unwrap<void>(client.changelogs.disconnectGithub());
+    return unwrap<void>(client.content.productUpdates.disconnectGithub());
 }
 
 export function importGithubReleases() {
     return unwrap<{ imported: number; skipped: number }>(
-        client.changelogs.importGithubReleases(),
+        client.content.productUpdates.importGithubReleases(),
     );
 }
 
-// ---- Newsletter (SendLit, read-through) ------------------------------------
+// ---- Email (SendLit, read-through) ------------------------------------
 
 export interface Contact {
     contactId: string;
@@ -619,14 +856,40 @@ export interface Contact {
     createdAt?: string;
 }
 
+export function createContact(input: {
+    email: string;
+    name?: string;
+    tags?: string[];
+}) {
+    return unwrap<Contact>(client.contacts.create({ body: input }));
+}
+
 export function listContacts(
-    params: { email?: string; tag?: string; subscribed?: boolean } = {},
+    params: {
+        email?: string;
+        tag?: string;
+        subscribed?: boolean;
+        q?: string;
+        segmentId?: string;
+        filter?: string;
+        offset?: number;
+        itemsPerPage?: number;
+    } = {},
 ) {
     return unwrap<Paginated<Contact>>(client.contacts.list({ query: params }));
 }
 
 export function getContact(contactId: string) {
     return unwrap<Contact>(client.contacts.get({ params: { contactId } }));
+}
+
+export function updateContact(
+    contactId: string,
+    patch: { name?: string; subscribed?: boolean },
+) {
+    return unwrap<Contact>(
+        client.contacts.update({ params: { contactId }, body: patch }),
+    );
 }
 
 export function deleteContact(contactId: string) {
@@ -645,44 +908,54 @@ export function removeContactTag(contactId: string, tag: string) {
     );
 }
 
+export interface ContactFilterCondition {
+    name: string;
+    condition: string;
+    value?: string;
+    key?: string;
+    valueLabel?: string;
+}
+
+export interface ContactFilter {
+    aggregator: "and" | "or";
+    filters: ContactFilterCondition[];
+}
+
 export interface Segment {
     segmentId: string;
     name: string;
-    conditions: Record<string, unknown>[];
+    filter: ContactFilter;
 }
 
 export function listSegments() {
     return unwrap<{ items: Segment[] }>(client.segments.list());
 }
 
-export function createSegment(input: {
-    name: string;
-    conditions?: Record<string, unknown>[];
-}) {
-    return unwrap<Segment>(
-        client.segments.create({
-            body: { name: input.name, conditions: input.conditions ?? [] },
-        }),
-    );
+export function createSegment(input: { name: string; filter: ContactFilter }) {
+    return unwrap<Segment>(client.segments.create({ body: input }));
 }
 
 export function deleteSegment(segmentId: string) {
     return unwrap<void>(client.segments.remove({ params: { segmentId } }));
 }
 
-export interface NewsletterSettings {
+export interface EmailSettings {
     connected: boolean;
     mailingAddress?: string | null;
     updatedAt?: string | null;
 }
 
-export function getNewsletterSettings() {
-    return unwrap<NewsletterSettings>(client.newsletter.getSettings());
+export function getEmailSettings() {
+    return unwrap<EmailSettings>(client.email.getSettings());
 }
 
-export function updateNewsletterSettings(patch: { mailingAddress?: string }) {
-    return unwrap<NewsletterSettings>(
-        client.newsletter.updateSettings({ body: patch }),
+export function updateEmailSettings(patch: { mailingAddress?: string }) {
+    return unwrap<EmailSettings>(client.email.updateSettings({ body: patch }));
+}
+
+export function retryEmailProvision() {
+    return unwrap<EmailSettings & { error?: string }>(
+        client.email.retryProvision(),
     );
 }
 
@@ -742,25 +1015,82 @@ export interface Broadcast {
     name: string;
     status: string;
     subject?: string | null;
+    /** SendLit's structured email document, edited with @sendlit/email-blocks. */
+    body?: Record<string, unknown> | null;
+    filter?: ContactFilter | null;
     createdAt?: string | null;
+    updatedAt?: string | null;
+}
+
+export interface EmailTemplate {
+    templateId: string;
+    title: string;
+    body: Record<string, unknown>;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+}
+
+export interface SystemEmailTemplate {
+    templateId: string;
+    title: string;
+    description?: string;
+    body: Record<string, unknown>;
+}
+
+export function listEmailTemplates() {
+    return unwrap<{ items: EmailTemplate[] }>(client.email.listTemplates());
+}
+
+export function listSystemEmailTemplates() {
+    return unwrap<{ items: SystemEmailTemplate[] }>(
+        client.email.listSystemTemplates(),
+    );
+}
+
+export function createEmailTemplate(input: {
+    title: string;
+    body: Record<string, unknown>;
+}) {
+    return unwrap<EmailTemplate>(client.email.createTemplate({ body: input }));
+}
+
+export function updateEmailTemplate(
+    templateId: string,
+    patch: Partial<{ title: string; body: Record<string, unknown> }>,
+) {
+    return unwrap<EmailTemplate>(
+        client.email.updateTemplate({
+            params: { templateId },
+            body: patch,
+        }),
+    );
 }
 
 export function listBroadcasts() {
-    return unwrap<{ items: Broadcast[] }>(client.newsletter.listBroadcasts());
+    return unwrap<{ items: Broadcast[] }>(client.email.listBroadcasts());
 }
 
-export function createBroadcast(input: { name: string; subject?: string }) {
-    return unwrap<Broadcast>(
-        client.newsletter.createBroadcast({ body: input }),
-    );
+export function createBroadcast(input: {
+    name: string;
+    subject?: string;
+    body?: Record<string, unknown>;
+    templateId?: string;
+    filter?: ContactFilter;
+}) {
+    return unwrap<Broadcast>(client.email.createBroadcast({ body: input }));
 }
 
 export function updateBroadcast(
     broadcastId: string,
-    patch: Partial<{ name: string; subject: string }>,
+    patch: Partial<{
+        name: string;
+        subject: string;
+        body: Record<string, unknown>;
+        filter: ContactFilter | null;
+    }>,
 ) {
     return unwrap<Broadcast>(
-        client.newsletter.updateBroadcast({
+        client.email.updateBroadcast({
             params: { broadcastId },
             body: patch,
         }),
@@ -769,7 +1099,116 @@ export function updateBroadcast(
 
 export function sendBroadcast(broadcastId: string) {
     return unwrap<{ status: string }>(
-        client.newsletter.sendBroadcast({ params: { broadcastId } }),
+        client.email.sendBroadcast({ params: { broadcastId } }),
+    );
+}
+
+export function deleteBroadcast(broadcastId: string) {
+    return unwrap<void>(
+        client.email.removeBroadcast({ params: { broadcastId } }),
+    );
+}
+
+// ---- AI -------------------------------------------------------------------
+
+export type AiProvider =
+    "openai" | "azure" | "anthropic" | "openrouter" | "bedrock" | "opencode";
+export type EmbeddingProvider = "openai" | "azure";
+export interface AiModelSettings {
+    chatbot: string | null;
+    grammar: string | null;
+    builder: string | null;
+}
+
+export interface EmbeddingConfig {
+    provider: EmbeddingProvider;
+    deployment: string | null;
+    endpoint: string | null;
+    hasApiKey: boolean;
+}
+
+export interface AiIndexContent {
+    articles: boolean;
+    changelog: boolean;
+}
+
+export interface AiConfig {
+    provider: AiProvider;
+    models: AiModelSettings;
+    region: string | null;
+    endpoint: string | null;
+    hasApiKey: boolean;
+    embedding: EmbeddingConfig | null;
+    indexContent: AiIndexContent;
+    createdAt: string | null;
+    updatedAt: string | null;
+}
+
+export function getAiConfig() {
+    return unwrap<AiConfig | null>(client.ai.get());
+}
+
+export function updateAiConfig(input: {
+    provider: AiProvider;
+    models?: Partial<AiModelSettings>;
+    region?: string;
+    endpoint?: string;
+    /** Omit to retain the team's currently stored credential. */
+    apiKey?: string;
+    embedding?: {
+        provider: EmbeddingProvider;
+        apiKey?: string;
+        deployment?: string;
+        endpoint?: string;
+    };
+    indexContent?: Partial<AiIndexContent>;
+}) {
+    return unwrap<AiConfig>(client.ai.update({ body: input }));
+}
+
+export function deleteAiConfig() {
+    return unwrap<void>(client.ai.remove());
+}
+
+export type InboxAiChannel = "chatbot" | "tickets";
+
+export interface InboxAiPolicy {
+    channel: InboxAiChannel;
+    autoReply: boolean;
+    escalateOnVisitorRequest: boolean;
+    escalateWhenUnsure: boolean;
+    escalateTopics: string[];
+    escalateAfterBotTurns: number | null;
+    createdAt: string | null;
+    updatedAt: string | null;
+}
+
+export interface InboxAiSettings {
+    aiConfigured: boolean;
+    channels: {
+        chatbot?: InboxAiPolicy;
+        tickets?: InboxAiPolicy;
+    };
+}
+
+export type InboxAiPolicyPatch = Partial<{
+    autoReply: boolean;
+    escalateOnVisitorRequest: boolean;
+    escalateWhenUnsure: boolean;
+    escalateTopics: string[];
+    escalateAfterBotTurns: number | null;
+}>;
+
+export function getInboxAiSettings() {
+    return unwrap<InboxAiSettings>(client.inboxAi.get());
+}
+
+export function updateInboxAiSettings(channels: {
+    chatbot?: InboxAiPolicyPatch;
+    tickets?: InboxAiPolicyPatch;
+}) {
+    return unwrap<InboxAiSettings>(
+        client.inboxAi.update({ body: { channels } }),
     );
 }
 
@@ -819,13 +1258,33 @@ export function updateChatbotSettings(
 // ---- Help desk (support tickets) -------------------------------------------
 
 export type TicketStatus = "open" | "pending" | "resolved" | "closed";
-export type TicketSource = "form" | "chatbot" | "api";
+export type TicketSource = "form" | "chatbot" | "api" | "email";
+
+export interface TicketAttachment {
+    attachmentId: string;
+    fileName: string;
+    mimeType: string;
+    size: number;
+    url: string;
+    thumbnailUrl?: string | null;
+    createdAt: string | null;
+}
+
+export interface TicketMessageSource {
+    documentId: string;
+    slug: string;
+    title: string | null;
+    anchor: string | null;
+    kind?: "blog" | "doc" | "changelog";
+}
 
 export interface TicketMessage {
     messageId: string;
     author: "requester" | "agent" | "bot";
     authorAccountId?: string | null;
     content: TextEditorContent;
+    attachments?: TicketAttachment[];
+    sources?: TicketMessageSource[];
     createdAt: string | null;
 }
 
@@ -837,13 +1296,40 @@ export interface Ticket {
     requesterName?: string | null;
     source: TicketSource;
     assigneeAccountId?: string | null;
+    aiState?: "idle" | "generating" | "waiting" | "escalated" | "taken_over";
     lastMessageAt: string | null;
     createdAt: string | null;
     updatedAt: string | null;
 }
 
+export interface TicketAiRetrieval {
+    documentId: string;
+    slug: string;
+    title: string | null;
+    heading?: string | null;
+    anchor: string | null;
+    similarity?: number;
+    kind?: "blog" | "doc" | "changelog";
+}
+
+export interface TicketAiRun {
+    triggerMessageId: string;
+    status: string;
+    stopReason?: string | null;
+    lastError?: string | null;
+    retrieval: TicketAiRetrieval[];
+    createdAt: string | null;
+}
+
+export interface TicketAiOptics {
+    state: string;
+    stopReason: string | null;
+    runs: TicketAiRun[];
+}
+
 export interface TicketWithMessages extends Ticket {
     messages: TicketMessage[];
+    ai?: TicketAiOptics;
 }
 
 export function listTickets(
@@ -864,11 +1350,37 @@ export function getTicket(ticketId: string) {
     );
 }
 
-export function replyToTicket(ticketId: string, content: TextEditorContent) {
+export function replyToTicket(
+    ticketId: string,
+    content: TextEditorContent,
+    attachmentIds: string[] = [],
+) {
     return unwrap<TicketWithMessages>(
         client.tickets.reply({
             params: { ticketId },
-            body: { content: content as any },
+            body: {
+                content: content as any,
+                ...(attachmentIds.length ? { attachmentIds } : {}),
+            },
+        }),
+    );
+}
+
+export function presignTicketAttachment(ticketId: string) {
+    return unwrap<{ signature: string; endpoint: string }>(
+        client.tickets.presignAttachment({ params: { ticketId } }),
+    );
+}
+
+export function completeTicketAttachment(
+    ticketId: string,
+    mediaLitId: string,
+    meta: { fileName?: string; mimeType?: string; size?: number } = {},
+) {
+    return unwrap<TicketAttachment>(
+        client.tickets.completeAttachment({
+            params: { ticketId },
+            body: { mediaLitId, ...meta },
         }),
     );
 }
@@ -903,7 +1415,12 @@ export interface DomainSettings {
         cnameTarget: string;
         txtName: string;
         txtValue: string;
+        kind: "cname" | "alias";
+        txtSatisfied: boolean | null;
+        routingSatisfied: boolean | null;
     } | null;
+    subdomainPublic: boolean;
+    platformDomain: string;
 }
 
 export function getDomainSettings() {
@@ -930,12 +1447,19 @@ export function removeCustomDomain() {
     return unwrap<DomainSettings>(client.domains.removeCustomDomain());
 }
 
+export function setSubdomainPublic(subdomainPublic: boolean) {
+    return unwrap<DomainSettings>(
+        client.domains.setSubdomainPublic({ body: { subdomainPublic } }),
+    );
+}
+
 // ---- Team settings (branding + code injection) -------------------------------
 
 export interface TeamSettings {
     title: string | null;
     subtitle: string | null;
     logo: Record<string, unknown> | null;
+    themeId: string | null;
     codeInjectionHead: string | null;
     codeInjectionBody: string | null;
     createdAt: string | null;
@@ -951,6 +1475,7 @@ export function updateTeamSettings(
         title: string;
         subtitle: string;
         logo: Record<string, unknown> | null;
+        themeId: string | null;
         codeInjectionHead: string | null;
         codeInjectionBody: string | null;
     }>,

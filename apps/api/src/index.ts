@@ -5,9 +5,12 @@ import { logger } from "./services/log";
 import { checkDatabaseConnection } from "./db/client";
 import { createSuperAdminIfMissing } from "./bootstrap";
 import { createApp } from "./app";
-import { startOutboxWorker } from "./newsletter/worker";
+import { startOutboxWorker } from "./email/worker";
 import { describeChatProvider } from "./ai/provider";
-import { resolveEmbeddingsProvider } from "./ai/embeddings";
+import { startAuthorizationMaintenance } from "./team/maintenance";
+import { attachInboxLive } from "./tickets/live-server";
+import { startInboxAiWorker } from "./inbox-ai/worker";
+import { startDocumentIndexWorker } from "./documentation/worker";
 
 const app = createApp();
 const port = process.env.PORT || 4000;
@@ -16,14 +19,15 @@ checkConfig()
     .then(checkDatabaseConnection)
     .then(createSuperAdminIfMissing)
     .then(() => {
-        app.listen(port, () => {
+        const server = app.listen(port, () => {
             logger.info(`FrontLit API running at ${port}`);
             logger.info(describeChatProvider());
-            logger.info(
-                `embeddings=${resolveEmbeddingsProvider()} (Vercel AI SDK)`,
-            );
         });
+        attachInboxLive(server);
         startOutboxWorker();
+        startInboxAiWorker();
+        startDocumentIndexWorker();
+        startAuthorizationMaintenance();
     })
     .catch((err) => {
         logger.error({ error: err.message }, "Failed to start FrontLit API");

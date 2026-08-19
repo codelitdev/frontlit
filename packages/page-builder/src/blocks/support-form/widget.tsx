@@ -12,20 +12,28 @@ import {
     Subheader1,
     Text2,
 } from "../../primitives";
+import { cn } from "../../primitives/lib/utils";
 
-interface DocSuggestion {
+interface DocumentationSuggestion {
     documentId: string;
     slug: string;
     title: string | null;
+    kind?: "blog" | "doc" | "changelog";
+}
+
+function suggestionHref(item: DocumentationSuggestion) {
+    if (item.kind === "blog") return `/blog/${item.slug}`;
+    if (item.kind === "changelog") return `/changelog`;
+    return `/docs/${item.slug}`;
 }
 
 /** Documentation deflection (architecture.md §6.4/§11.2): searches the
  * team's published docs as the visitor types a subject, before they ever
  * submit a ticket. No-ops in isolated previews with no live team/API. */
-async function searchDocs(
+async function searchDocumentation(
     query: string,
     pageData: PageData,
-): Promise<DocSuggestion[]> {
+): Promise<DocumentationSuggestion[]> {
     if (
         !pageData.teamId ||
         !pageData.publicApiBaseUrl ||
@@ -35,10 +43,12 @@ async function searchDocs(
 
     try {
         const res = await fetch(
-            `${pageData.publicApiBaseUrl}/public/${pageData.teamId}/docs/search?q=${encodeURIComponent(query)}&k=3`,
+            `${pageData.publicApiBaseUrl}/public/${pageData.teamId}/content/documentation/search?q=${encodeURIComponent(query)}&k=3`,
         );
         if (!res.ok) return [];
-        const body = (await res.json()) as { items: DocSuggestion[] };
+        const body = (await res.json()) as {
+            items: DocumentationSuggestion[];
+        };
         const seen = new Set<string>();
         return body.items.filter((item) =>
             seen.has(item.documentId)
@@ -104,7 +114,9 @@ export function SupportFormWidget({
     const [message, setMessage] = useState("");
     const [email, setEmail] = useState("");
     const [name, setName] = useState("");
-    const [suggestions, setSuggestions] = useState<DocSuggestion[]>([]);
+    const [suggestions, setSuggestions] = useState<DocumentationSuggestion[]>(
+        [],
+    );
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -113,7 +125,7 @@ export function SupportFormWidget({
         if (editing) return;
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
-            searchDocs(subject, pageData).then(setSuggestions);
+            searchDocumentation(subject, pageData).then(setSuggestions);
         }, 400);
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -145,6 +157,9 @@ export function SupportFormWidget({
     };
 
     const isCentered = alignment === "center";
+    const inputStyles = overriddenTheme.interactives.input;
+    const inputTypography = overriddenTheme.typography.input;
+    const cardStyles = overriddenTheme.interactives.card;
 
     return (
         <Section
@@ -195,13 +210,21 @@ export function SupportFormWidget({
                     </div>
 
                     {suggestions.length > 0 && (
-                        <div className="rounded-md border border-neutral-200 p-3 text-sm">
+                        <div
+                            className={cn(
+                                "rounded-lg border border-border bg-card p-3 text-sm text-card-foreground shadow-sm",
+                                cardStyles.border?.width,
+                                cardStyles.border?.radius,
+                                cardStyles.border?.style,
+                                cardStyles.shadow,
+                            )}
+                        >
                             <p className="mb-1 font-medium">This might help:</p>
                             <ul className="list-inside list-disc">
                                 {suggestions.map((doc) => (
                                     <li key={doc.documentId}>
                                         <a
-                                            href={`/docs/${doc.slug}`}
+                                            href={suggestionHref(doc)}
                                             target="_blank"
                                             rel="noreferrer"
                                             className="underline"
@@ -225,7 +248,19 @@ export function SupportFormWidget({
                             placeholder="Describe the issue…"
                             required
                             rows={4}
-                            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
+                            className={cn(
+                                "w-full border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                inputTypography.fontFamily,
+                                inputTypography.fontSize,
+                                inputTypography.fontWeight,
+                                inputTypography.lineHeight,
+                                inputTypography.letterSpacing,
+                                inputStyles.border?.width,
+                                inputStyles.border?.style,
+                                inputStyles.border?.radius,
+                                inputStyles.shadow,
+                                inputStyles.custom,
+                            )}
                         />
                     </div>
 

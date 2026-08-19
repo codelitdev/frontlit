@@ -1,6 +1,6 @@
-import type { JSONContent } from "@tiptap/core";
+import type { TextEditorContent } from "./text-editor-content";
 
-const emptyDoc: JSONContent = {
+const emptyDoc: TextEditorContent = {
     type: "doc",
     content: [],
 };

@@ -313,12 +313,12 @@ function BackgroundPreview({ value }: { value: SectionBackground }) {
     const previewStyle: React.CSSProperties = (() => {
         if (value.type === "color") {
             return {
-                backgroundColor: value.backgroundColor || "hsl(var(--muted))",
+                backgroundColor: value.backgroundColor || "var(--muted)",
             };
         }
         if (value.type === "image") {
             return {
-                backgroundColor: "hsl(var(--muted))",
+                backgroundColor: "var(--muted)",
                 backgroundImage: imageUrl ? `url(${imageUrl})` : undefined,
                 backgroundSize: value.backgroundSize || "cover",
                 backgroundPosition: value.backgroundPosition || "center",
@@ -326,7 +326,7 @@ function BackgroundPreview({ value }: { value: SectionBackground }) {
             };
         }
         return {
-            backgroundColor: "hsl(var(--background))",
+            backgroundColor: "var(--background)",
             backgroundImage: value.backgroundImage,
             backgroundSize: value.gradientBackgroundSize || "cover",
             backgroundPosition: value.gradientBackgroundPosition || "center",

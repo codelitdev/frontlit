@@ -62,7 +62,7 @@ const openApiDocument = generateOpenApi(
             {
                 name: "Domains",
                 description:
-                    "A team's default `<slug>.<PLATFORM_SITE_DOMAIN>` subdomain plus an optional attached, DNS-verified custom domain.",
+                    "A team's default `<slug>.<PLATFORM_SITE_DOMAIN>` subdomain plus an optional attached, DNS-verified custom domain. The subdomain can be hidden after the custom host is verified.",
             },
             {
                 name: "Settings",

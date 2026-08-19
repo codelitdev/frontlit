@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import {
     Collapsible,
@@ -18,7 +18,7 @@ import {
     SidebarMenuSubButton,
     SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
-import { isNavItemActive } from "@/lib/nav-active";
+import { isNavHrefActive, isNavItemActive } from "@/lib/nav-active";
 
 export interface NavItem {
     href: string;
@@ -27,10 +27,14 @@ export interface NavItem {
     items?: NavItem[];
 }
 
-function isGroupActive(pathname: string, item: NavItem): boolean {
+function isGroupActive(
+    pathname: string,
+    search: string,
+    item: NavItem,
+): boolean {
     if (item.items?.length) {
         return item.items.some((child) =>
-            isNavItemActive(pathname, child.href),
+            isNavHrefActive(pathname, child.href, search),
         );
     }
     return isNavItemActive(pathname, item.href);
@@ -38,8 +42,9 @@ function isGroupActive(pathname: string, item: NavItem): boolean {
 
 function NavCollapsibleItem({ item }: { item: NavItem }) {
     const pathname = usePathname();
+    const search = useSearchParams().toString();
     const children = item.items ?? [];
-    const active = isGroupActive(pathname, item);
+    const active = isGroupActive(pathname, search, item);
     const [open, setOpen] = useState(active);
 
     // The sidebar persists across client-side navigations, so a plain
@@ -52,6 +57,7 @@ function NavCollapsibleItem({ item }: { item: NavItem }) {
 
     return (
         <Collapsible
+            asChild
             open={open}
             onOpenChange={setOpen}
             className="group/collapsible"
@@ -67,9 +73,10 @@ function NavCollapsibleItem({ item }: { item: NavItem }) {
                 <CollapsibleContent>
                     <SidebarMenuSub>
                         {children.map((child) => {
-                            const itemActive = isNavItemActive(
+                            const itemActive = isNavHrefActive(
                                 pathname,
                                 child.href,
+                                search,
                             );
                             return (
                                 <SidebarMenuSubItem key={child.href}>

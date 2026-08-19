@@ -1,14 +1,15 @@
-import { and, cosineDistance, count, eq, gt, sql } from "drizzle-orm";
+import { and, cosineDistance, count, eq, gt, inArray, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import { documentChunks, documents, docSections } from "../db/schema";
 import { extractChunks } from "./chunking";
 import { getEmbedding, getEmbeddings } from "./embeddings";
+import { getResolvedEmbeddingConfig } from "../ai/queries";
 import { slugify, uniqueSlug } from "../utils/slug";
 
 /** Re-chunks and re-embeds a published `doc`'s content, replacing its old
- * chunks in one transaction (architecture.md §6.3). Called after
- * `publishDocument("doc", ...)`; never on draft saves \u2014 only published
- * content is ever searchable/citable. */
+ * chunks in one transaction (architecture.md §6.3). Called by the
+ * document-index worker after publish or an AI-config backfill — never on
+ * draft saves. Only published content is ever searchable/citable. */
 export async function reindexDocument(input: {
     teamId: string;
     documentId: string;
@@ -16,8 +17,12 @@ export async function reindexDocument(input: {
 }) {
     const chunks = extractChunks(input.content as any);
 
+    const embeddingConfig = await getResolvedEmbeddingConfig(input.teamId);
     const embeddings = chunks.length
-        ? await getEmbeddings(chunks.map((chunk) => chunk.content))
+        ? await getEmbeddings(
+              chunks.map((chunk) => chunk.content),
+              embeddingConfig,
+          )
         : [];
 
     await db.transaction(async (tx) => {
@@ -47,6 +52,23 @@ export async function deleteChunksForDocument(documentId: string) {
         .where(eq(documentChunks.documentId, documentId));
 }
 
+export async function deleteChunksForTeamKind(
+    teamId: string,
+    kind: "blog" | "changelog",
+) {
+    const rows = await db.query.documents.findMany({
+        where: and(eq(documents.teamId, teamId), eq(documents.kind, kind)),
+        columns: { id: true },
+    });
+    if (rows.length === 0) return;
+    await db.delete(documentChunks).where(
+        inArray(
+            documentChunks.documentId,
+            rows.map((row) => row.id),
+        ),
+    );
+}
+
 export interface SearchResult {
     documentId: string;
     slug: string;
@@ -55,6 +77,7 @@ export interface SearchResult {
     anchor: string | null;
     content: string;
     similarity: number;
+    kind: "blog" | "doc" | "changelog";
 }
 
 const SIMILARITY_FLOOR = 0.25;
@@ -68,7 +91,8 @@ export async function searchChunks(
     query: string,
     k = 6,
 ): Promise<SearchResult[]> {
-    const embedding = await getEmbedding(query);
+    const embeddingConfig = await getResolvedEmbeddingConfig(teamId);
+    const embedding = await getEmbedding(query, embeddingConfig);
     const similarity = sql<number>`1 - (${cosineDistance(documentChunks.embedding, embedding)})`;
 
     const rows = await db
@@ -80,6 +104,7 @@ export async function searchChunks(
             anchor: documentChunks.anchor,
             content: documentChunks.content,
             similarity,
+            kind: documents.kind,
         })
         .from(documentChunks)
         .innerJoin(documents, eq(documentChunks.documentId, documents.id))

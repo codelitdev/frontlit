@@ -15,7 +15,7 @@ import * as schema from "../db/schema";
  *
  *   vi.mock("../db/client", async () => {
  *       const { makeTestDb } = await import("../test/db");
- *       return { db: await makeTestDb() };
+ *       return { db: await makeTestDb(), sqlTransactionsEnabled: false };
  *   });
  *
  * Every module that imports `db` from `db/client` (queries, the code under
@@ -28,6 +28,7 @@ export async function makeTestDb() {
     // loaded explicitly — the real dev/prod Postgres has it via the
     // `pgvector/pgvector:pg16` image instead (architecture.md §6.1).
     const client = new PGlite({ extensions: { vector } });
+    await client.exec("CREATE EXTENSION IF NOT EXISTS vector;");
     const db = drizzle(client, { schema });
     await migrate(db, {
         // Resolved from cwd: tests always run via vitest, whose root (and
@@ -41,6 +42,7 @@ export async function makeTestDb() {
  * so tests within a file (which share one PGlite instance) stay independent. */
 export async function truncateAll(db: TestDb) {
     // teams cascades to pages, themes, api_keys, team_members.
+    await db.delete(schema.authorizationAuditEvents);
     await db.delete(schema.teams);
     await db.delete(schema.accounts);
 }

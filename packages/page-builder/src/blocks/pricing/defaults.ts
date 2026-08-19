@@ -10,7 +10,7 @@ export const pricingDefaults: Partial<PricingSettings> = {
             description: "For hobby sites and side projects.",
             features: ["1 website", "FrontLit branding", "Community support"],
             buttonCaption: "Get started",
-            buttonAction: "#",
+            buttonAction: "/help",
         },
         {
             name: "Pro",
@@ -19,11 +19,11 @@ export const pricingDefaults: Partial<PricingSettings> = {
             features: [
                 "5 websites",
                 "Custom domain",
-                "Blog + Newsletter",
+                "Blog + Email",
                 "Priority support",
             ],
-            buttonCaption: "Start free trial",
-            buttonAction: "#",
+            buttonCaption: "Talk to us",
+            buttonAction: "/help",
             highlighted: true,
         },
         {
@@ -37,7 +37,7 @@ export const pricingDefaults: Partial<PricingSettings> = {
                 "Dedicated support",
             ],
             buttonCaption: "Contact sales",
-            buttonAction: "#",
+            buttonAction: "/help",
         },
     ],
 };

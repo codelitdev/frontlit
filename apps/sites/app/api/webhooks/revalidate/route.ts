@@ -1,5 +1,6 @@
 import { revalidateTag } from "next/cache";
 import { verifyWebhookSignature } from "@/lib/webhook-signing";
+import { invalidateCachedHosts } from "@/lib/host";
 
 /**
  * ISR revalidation webhook (architecture.md §12.2) — apps/api pings this
@@ -24,12 +25,16 @@ export async function POST(request: Request) {
         return new Response("Invalid signature", { status: 401 });
     }
 
-    const { teamId } = JSON.parse(rawBody) as { teamId?: string };
+    const { teamId, invalidateHosts } = JSON.parse(rawBody) as {
+        teamId?: string;
+        invalidateHosts?: string[];
+    };
     if (!teamId) return new Response("Missing teamId", { status: 400 });
 
     // A webhook needs the tag to expire immediately, not just go stale
     // (Next.js's `profile="max"` stale-while-revalidate default) — this is
     // exactly the case the docs call out `{ expire: 0 }` for.
     revalidateTag(`team:${teamId}`, { expire: 0 });
+    invalidateCachedHosts(invalidateHosts);
     return Response.json({ revalidated: true });
 }

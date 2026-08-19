@@ -1,10 +1,11 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { notFound } from "next/navigation";
-import { TextRenderer } from "@frontlit/text-editor";
-import { getBlogBySlug, getSettings } from "@/lib/api";
+import { getArticleBySlug, getSettings } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
 import { getCanonicalHost } from "@/lib/request-host";
 import { blogPostingJsonLd, serializeJsonLd } from "@/lib/json-ld";
+import { SiteChrome } from "@/components/site-chrome";
+import { ThemedBlogPost } from "@/components/themed-document";
 
 interface Props {
     params: Promise<{ teamId: string; slug: string }>;
@@ -16,7 +17,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
     const { teamId, slug } = await params;
     const [post, settings, previous] = await Promise.all([
-        getBlogBySlug(teamId, slug),
+        getArticleBySlug(teamId, slug),
         getSettings(teamId),
         parent,
     ]);
@@ -52,14 +53,14 @@ export async function generateMetadata(
 
 export default async function BlogPostPage({ params }: Props) {
     const { teamId, slug } = await params;
-    const post = await getBlogBySlug(teamId, slug);
+    const post = await getArticleBySlug(teamId, slug);
     if (!post) notFound();
 
     const canonicalHost = await getCanonicalHost();
     const url = `https://${canonicalHost}/blog/${slug}`;
 
     return (
-        <main className="mx-auto max-w-3xl px-6 py-16">
+        <SiteChrome teamId={teamId}>
             <script
                 type="application/ld+json"
                 // eslint-disable-next-line react/no-danger
@@ -79,25 +80,11 @@ export default async function BlogPostPage({ params }: Props) {
                     ),
                 }}
             />
-            <article>
-                <h1 className="text-3xl font-bold">{post.title}</h1>
-                {post.publishedAt && (
-                    <time
-                        dateTime={post.publishedAt}
-                        className="mt-2 block text-sm text-neutral-400"
-                    >
-                        {new Date(post.publishedAt).toLocaleDateString(
-                            undefined,
-                            { year: "numeric", month: "long", day: "numeric" },
-                        )}
-                    </time>
-                )}
-                {post.content && (
-                    <div className="prose mt-8 max-w-none">
-                        <TextRenderer json={post.content} />
-                    </div>
-                )}
-            </article>
-        </main>
+            <ThemedBlogPost
+                title={post.title}
+                publishedAt={post.publishedAt}
+                content={post.content}
+            />
+        </SiteChrome>
     );
 }
