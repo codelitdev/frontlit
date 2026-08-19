@@ -247,7 +247,19 @@ describe("API input validation schemas", () => {
         expect(
             chatRequestBodySchema.safeParse({
                 message: "How do I start?",
+            }).success,
+        ).toBe(true);
+        expect(
+            chatRequestBodySchema.safeParse({
+                message: "How do I start?",
                 conversationId: "tkt_1",
+            }).success,
+        ).toBe(false);
+        expect(
+            chatRequestBodySchema.safeParse({
+                message: "How do I start?",
+                conversationId: "tkt_1",
+                conversationToken: "tok_1",
             }).success,
         ).toBe(true);
 

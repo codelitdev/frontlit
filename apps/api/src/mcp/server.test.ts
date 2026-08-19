@@ -1,4 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+const dbMock = vi.hoisted(() => ({
+    select: vi.fn(() => ({
+        from: vi.fn(() => ({
+            where: vi.fn(() => ({ limit: vi.fn(async () => []) })),
+        })),
+    })),
+    insert: vi.fn(() => ({
+        values: vi.fn(() => ({ returning: vi.fn(async () => [{}]) })),
+    })),
+}));
+
+vi.mock("../db/client", () => ({ db: dbMock, pool: {} }));
+
 import {
     Client,
     StreamableHTTPClientTransport,
@@ -17,8 +31,6 @@ import {
     MCP_SCOPES,
 } from "./policy";
 import { jsonResult } from "./tools/responses";
-
-vi.mock("../db/client", () => ({ db: {}, pool: {} }));
 
 const endpoint = new URL("http://frontlit.test/mcp");
 const apiKeyAuth: AuthInfo = {

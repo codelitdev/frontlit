@@ -8,7 +8,7 @@ import { makeTestDb, seedTeam, type TestDb } from "../test/db";
 vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 
 import { db as testDb } from "../db/client";
-import { pages } from "../db/schema";
+import { DEFAULT_SHARED_WIDGETS, pages } from "../db/schema";
 import {
     createPage,
     deletePage,
@@ -277,7 +277,9 @@ describe("pages draft/publish", () => {
         expect(secondDraft?.draftLayout.at(-1)?.settings).toMatchObject({
             copyrightText: "© Acme",
         });
-        expect(secondDraft?.layout[0].settings).toEqual({});
+        expect(secondDraft?.layout[0].settings).toEqual(
+            DEFAULT_SHARED_WIDGETS.header.settings,
+        );
 
         await publishPage(teamId, first.pageId);
         const secondPublished = await getPageByPageId(second.pageId);
