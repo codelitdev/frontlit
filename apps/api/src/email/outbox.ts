@@ -1,4 +1,4 @@
-import { and, asc, count, eq, lte } from "drizzle-orm";
+import { and, asc, count, eq, inArray, lte, ne } from "drizzle-orm";
 import { db } from "../db/client";
 import { outboxJobs, type OutboxJobType } from "../db/schema";
 
@@ -15,6 +15,15 @@ export async function enqueueOutboxJob(
 }
 
 const MAX_ATTEMPTS = 8;
+
+/** Default on: a missing/invalid org key is operator config, not a
+ * permanent team failure. Set `SENDLIT_PROVISION_RETRY_FOREVER=false` to
+ * stop after 8 attempts like other outbox jobs. */
+export function provisionRetryForeverEnabled(): boolean {
+    const raw = process.env.SENDLIT_PROVISION_RETRY_FOREVER;
+    if (raw === undefined || raw === "") return true;
+    return !["0", "false", "no", "off"].includes(raw.trim().toLowerCase());
+}
 
 /** Exponential backoff, capped at ~1h, so a prolonged SendLit outage doesn't
  * hammer it while still catching up quickly once it recovers. */
@@ -78,8 +87,9 @@ export async function markOutboxJobFailed(
     jobId: string,
     attempts: number,
     error: string,
+    options: { retryForever?: boolean } = {},
 ) {
-    const failed = attempts + 1 >= MAX_ATTEMPTS;
+    const failed = !options.retryForever && attempts + 1 >= MAX_ATTEMPTS;
     await db
         .update(outboxJobs)
         .set({
@@ -90,4 +100,62 @@ export async function markOutboxJobFailed(
             updatedAt: new Date(),
         })
         .where(eq(outboxJobs.id, jobId));
+}
+
+/** Teams created while `SENDLIT_ORGANIZATION_API_KEY` was missing or
+ * rejected exhaust 8 attempts and sit in `failed`. The worker never
+ * claims those rows, so ESP stays "provisioning" even after the key is
+ * fixed. Reset them on boot so the next tick retries immediately. */
+export async function requeueFailedProvisionJobs(): Promise<number> {
+    const rows = await db
+        .update(outboxJobs)
+        .set({
+            status: "pending",
+            attempts: 0,
+            nextAttemptAt: new Date(),
+            updatedAt: new Date(),
+        })
+        .where(
+            and(
+                eq(outboxJobs.type, "provision_sendlit"),
+                eq(outboxJobs.status, "failed"),
+            ),
+        )
+        .returning({ id: outboxJobs.id });
+    return rows.length;
+}
+
+/** Reset this team's unfinished `provision_sendlit` job so the worker (or
+ * an immediate retry) can run it now. Inserts a row if none exists. */
+export async function requeueTeamProvisionJob(
+    teamId: string,
+    payload: Record<string, unknown>,
+) {
+    const existing = await db.query.outboxJobs.findMany({
+        where: and(
+            eq(outboxJobs.teamId, teamId),
+            eq(outboxJobs.type, "provision_sendlit"),
+            ne(outboxJobs.status, "done"),
+        ),
+    });
+    if (existing.length === 0) {
+        return enqueueOutboxJob(teamId, "provision_sendlit", payload);
+    }
+    await db
+        .update(outboxJobs)
+        .set({
+            status: "pending",
+            attempts: 0,
+            lastError: null,
+            payload,
+            nextAttemptAt: new Date(),
+            updatedAt: new Date(),
+        })
+        .where(
+            inArray(
+                outboxJobs.id,
+                existing.map((job) => job.id),
+            ),
+        );
+    return existing[0];
 }

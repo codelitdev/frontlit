@@ -1,37 +1,73 @@
 ---
 title: Overview
-description: Run the FrontLit API and web app locally.
+description: Run the FrontLit API, dashboard, and public sites locally.
 ---
 
-FrontLit is a pnpm monorepo with three apps and two packages:
+FrontLit is a pnpm monorepo with four apps and several packages:
 
 - `apps/api` — the REST/OpenAPI/MCP API (Express, ts-rest, better-auth, Drizzle/Postgres).
 - `apps/web` — the dashboard (Next.js), authenticated against `apps/api`.
+- `apps/sites` — public tenant sites (Next.js).
 - `apps/docs` — this documentation site (fumadocs).
-- `packages/api-contract` — the shared ts-rest contract (Zod schemas + routes) consumed by all three.
-- `packages/page-builder` — the block-based page builder and renderer.
+- `packages/api-contract` — the shared ts-rest contract (Zod schemas + routes).
+- `packages/page-builder` / `packages/text-editor` — the page builder and rich text editor.
 
-## Run the API
+## Start local dependencies
+
+`docker-compose.yml` is the self-host product stack. For development, start
+only Postgres, Redis, and SendLit:
 
 ```bash
-docker compose up -d postgres
+docker compose -f docker-compose.local.yml up
+```
+
+Postgres is on `127.0.0.1:5433`. SendLit is on `http://localhost:3001`.
+Redis is on `127.0.0.1:6379` (used by SendLit inside Compose). The
+`frontlit-migrate` job applies FrontLit schema to Postgres — wait for
+`FrontLit migrations applied.` before starting the API.
+
+Do not run this at the same time as `docker compose up` (the self-host
+stack) — both publish those ports. See [Self hosting](/self-hosting) for
+the in-Docker product.
+
+On first SendLit boot, copy the one-time organization key into
+`apps/api/.env` as `SENDLIT_ORGANIZATION_API_KEY`:
+
+```bash
+docker compose -f docker-compose.local.yml logs sendlit-api
+```
+
+## Run FrontLit on the host
+
+```bash
 cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+cp apps/sites/.env.example apps/sites/.env
+# Point DB_CONNECTION_STRING at localhost:5433 (Compose publishes Postgres there).
 pnpm --filter @frontlit/api-contract build
-pnpm --filter @frontlit/api db:push
-pnpm --filter @frontlit/api dev
 ```
 
-The API listens on `http://localhost:4000` by default. `GET /health` confirms it's up,
-`GET /docs/` serves the interactive Swagger UI, and `GET /openapi.json`
-serves the raw OpenAPI document. This matches SendLit; private content
-authoring uses typed resources below `/content`.
-
-## Run the web app
+Then start the apps in **separate terminals** (`&&` waits for each process
+to exit):
 
 ```bash
-cp apps/web/.env.example apps/web/.env
-pnpm --filter @frontlit/web dev
+pnpm dev:api
+pnpm dev:web
+pnpm dev:sites
 ```
 
-The dashboard listens on `http://localhost:3000`. Signing in sends a one-time code to your email (logged to the
-API's console in development instead of actually emailed).
+Or run all three together:
+
+```bash
+pnpm dev
+```
+
+The API listens on `http://localhost:4000`. `GET /health` confirms it's up,
+`GET /docs/` serves the interactive Swagger UI, and `GET /openapi.json`
+serves the raw OpenAPI document. Private content authoring uses typed
+resources below `/content`.
+
+The dashboard listens on `http://localhost:3000`. Signing in sends a
+one-time code to your email (logged to the API's console in development
+instead of actually emailed). Public sites listen on
+`http://localhost:3002`.

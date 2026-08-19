@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { API_URL } from "@/lib/config";
+import { API_URL, WEB_CLIENT } from "@/lib/config";
 
 async function proxyAuth(req: NextRequest, path: string[]) {
     const upstreamUrl = new URL(
@@ -35,10 +35,7 @@ async function proxyAuth(req: NextRequest, path: string[]) {
     const responseHeaders = new Headers(upstream.headers);
     const location = responseHeaders.get("location");
     if (location?.startsWith(API_URL)) {
-        responseHeaders.set(
-            "location",
-            location.replace(API_URL, req.nextUrl.origin),
-        );
+        responseHeaders.set("location", location.replace(API_URL, WEB_CLIENT));
     }
 
     return new NextResponse(upstream.body, {

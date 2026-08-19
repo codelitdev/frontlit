@@ -6,6 +6,10 @@ import { getWidget, LAYOUT_BLOCK_NAMES } from "../registry";
 import { EditableBlock } from "./editable-block";
 import { generateThemeStyles } from "./generate-theme-styles";
 import { cn } from "../primitives/lib/utils";
+import {
+    PageBuilderLinkProvider,
+    type PageBuilderLinkComponent,
+} from "../components/nav-link";
 
 export interface PageRendererProps {
     layout: WidgetInstance[];
@@ -32,6 +36,12 @@ export interface PageRendererProps {
     onAddWidgetBelow?: (widgetId: string) => void;
     /** Injects the theme's generated CSS custom properties as a `<style>` tag. Disable if the host app renders it elsewhere. */
     injectThemeStyles?: boolean;
+    /**
+     * Optional host link (e.g. Next.js `Link`) used for internal `/...` paths
+     * inside block widgets. Omit it to render native `<a>` tags — no
+     * framework dependency.
+     */
+    linkComponent?: PageBuilderLinkComponent;
     className?: string;
 }
 
@@ -58,6 +68,7 @@ export function PageRenderer({
     onDeleteWidget,
     onAddWidgetBelow,
     injectThemeStyles = true,
+    linkComponent,
     className,
 }: PageRendererProps) {
     // Refs to each block's wrapper, keyed by widget id. Refs (unlike DOM
@@ -168,46 +179,48 @@ export function PageRenderer({
     }
 
     return (
-        <div
-            data-pb-theme={themeScope}
-            className={cn(
-                "pb-theme flex min-h-full flex-col bg-background text-foreground",
-                nextTheme === "dark" && "dark",
-                className,
-            )}
-        >
-            {header &&
-                renderInstance(header, {
-                    allowUp: false,
-                    allowDown: false,
-                    locked: true,
-                    allowAddBelow: true,
-                })}
-            <div className="flex flex-1 flex-col">
-                {children !== undefined &&
-                !body.some((instance) => instance.name === "data-slot")
-                    ? children
-                    : body.map((instance, index) =>
-                          renderInstance(instance, {
-                              allowUp: instance.moveable && index !== 0,
-                              allowDown:
-                                  instance.moveable &&
-                                  index !== body.length - 1,
-                              locked: !instance.deletable,
-                              allowAddBelow: true,
-                          }),
-                      )}
+        <PageBuilderLinkProvider component={linkComponent}>
+            <div
+                data-pb-theme={themeScope}
+                className={cn(
+                    "pb-theme flex min-h-full flex-col bg-background text-foreground",
+                    nextTheme === "dark" && "dark",
+                    className,
+                )}
+            >
+                {header &&
+                    renderInstance(header, {
+                        allowUp: false,
+                        allowDown: false,
+                        locked: true,
+                        allowAddBelow: true,
+                    })}
+                <div className="flex flex-1 flex-col">
+                    {children !== undefined &&
+                    !body.some((instance) => instance.name === "data-slot")
+                        ? children
+                        : body.map((instance, index) =>
+                              renderInstance(instance, {
+                                  allowUp: instance.moveable && index !== 0,
+                                  allowDown:
+                                      instance.moveable &&
+                                      index !== body.length - 1,
+                                  locked: !instance.deletable,
+                                  allowAddBelow: true,
+                              }),
+                          )}
+                </div>
+                {footer &&
+                    renderInstance(footer, {
+                        allowUp: false,
+                        allowDown: false,
+                        locked: true,
+                        allowAddBelow: false,
+                    })}
+                {injectThemeStyles && (
+                    <style>{generateThemeStyles(theme, themeSelector)}</style>
+                )}
             </div>
-            {footer &&
-                renderInstance(footer, {
-                    allowUp: false,
-                    allowDown: false,
-                    locked: true,
-                    allowAddBelow: false,
-                })}
-            {injectThemeStyles && (
-                <style>{generateThemeStyles(theme, themeSelector)}</style>
-            )}
-        </div>
+        </PageBuilderLinkProvider>
     );
 }

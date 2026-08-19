@@ -7,6 +7,7 @@ import {
     deleteEspConfig,
     getEspConfig,
     getEmailSettings,
+    retryEmailProvision,
     testEspConfig,
     updateEspConfig,
     updateEmailSettings,
@@ -98,6 +99,7 @@ export default function EspSettingsPage() {
     const [saving, setSaving] = useState(false);
     const [testing, setTesting] = useState(false);
     const [notConnected, setNotConnected] = useState(false);
+    const [retrying, setRetrying] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -184,6 +186,37 @@ export default function EspSettingsPage() {
         }
     }
 
+    async function handleRetryProvision() {
+        setRetrying(true);
+        try {
+            const result = await retryEmailProvision();
+            if (result.connected) {
+                setNotConnected(false);
+                const [general, config] = await Promise.all([
+                    getEmailSettings(),
+                    getEspConfig(),
+                ]);
+                setSettings(general);
+                setEsp(config);
+                setForm(config ? formFromConfig(config) : EMPTY_FORM);
+                toast.success("SendLit connection is ready.");
+            } else {
+                toast.error(
+                    result.error ||
+                        "SendLit is still not connected. Try again after checking the organization key.",
+                );
+            }
+        } catch (err) {
+            toast.error(
+                err instanceof ApiError
+                    ? err.message
+                    : "Failed to retry SendLit provisioning.",
+            );
+        } finally {
+            setRetrying(false);
+        }
+    }
+
     async function handleRemove() {
         try {
             await deleteEspConfig();
@@ -216,8 +249,21 @@ export default function EspSettingsPage() {
 
                 {notConnected && (
                     <Banner variant="warning">
-                        It&rsquo;s provisioned automatically in the background —
-                        check back shortly, or contact support if this persists.
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p>
+                                It&rsquo;s provisioned automatically in the
+                                background — check back shortly, or retry now if
+                                this persists.
+                            </p>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={retrying}
+                                onClick={() => void handleRetryProvision()}
+                            >
+                                {retrying ? "Retrying…" : "Retry now"}
+                            </Button>
+                        </div>
                     </Banner>
                 )}
 

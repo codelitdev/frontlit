@@ -29,12 +29,14 @@ export class MailNotConfiguredError extends MailDeliveryError {
 
 function smtpConfig() {
     const host = process.env.EMAIL_HOST;
+    // Host is required; user/pass are optional so auth-less sinks
+    // (Mailpit, smtp4dev) work without dummy credentials.
+    if (!host) return null;
     const user = process.env.EMAIL_USER;
-    if (!host || !user) return null;
     return {
         host,
         port: Number(process.env.EMAIL_PORT) || 587,
-        auth: { user, pass: process.env.EMAIL_PASS },
+        auth: user ? { user, pass: process.env.EMAIL_PASS } : undefined,
         from: process.env.EMAIL_FROM,
     };
 }
@@ -61,7 +63,7 @@ export async function sendMail(message: MailMessage): Promise<void> {
         const transporter = createTransport({
             host: config.host,
             port: config.port,
-            auth: config.auth,
+            ...(config.auth ? { auth: config.auth } : {}),
         });
         await transporter.sendMail({
             from: message.from ?? config.from,

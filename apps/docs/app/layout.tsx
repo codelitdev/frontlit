@@ -18,7 +18,7 @@ export const metadata: Metadata = {
         template: "%s | FrontLit Docs",
     },
     description:
-        "Documentation for FrontLit's page builder, APIs, and page-builder components.",
+        "Documentation for FrontLit's components, APIs, and self-hosting.",
     icons: {
         icon: "/icon.svg",
     },

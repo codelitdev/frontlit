@@ -53,6 +53,22 @@ describe("sendMail", () => {
         expect(createTransportMock).not.toHaveBeenCalled();
     });
 
+    it("sends without auth when only EMAIL_HOST is set", async () => {
+        vi.stubEnv("NODE_ENV", "production");
+        vi.stubEnv("EMAIL_HOST", "mailpit.qa.svc.cluster.local");
+        vi.stubEnv("EMAIL_PORT", "1025");
+        vi.stubEnv("EMAIL_USER", "");
+        vi.stubEnv("EMAIL_FROM", "FrontLit QA <noreply@example.com>");
+
+        await sendMail(message);
+
+        expect(createTransportMock).toHaveBeenCalledWith({
+            host: "mailpit.qa.svc.cluster.local",
+            port: 1025,
+        });
+        expect(sendMailMock).toHaveBeenCalled();
+    });
+
     it("sends through nodemailer when SMTP is configured", async () => {
         vi.stubEnv("NODE_ENV", "test");
         vi.stubEnv("EMAIL_HOST", "smtp.example.com");

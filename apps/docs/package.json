@@ -14,6 +14,7 @@
         "@codelitdev/design-system": "0.1.0-alpha.6",
         "@frontlit/api-contract": "workspace:*",
         "@frontlit/page-builder": "workspace:*",
+        "@frontlit/text-editor": "workspace:*",
         "@ts-rest/open-api": "^3.52.1",
         "fumadocs-core": "16.7.1",
         "fumadocs-mdx": "14.2.10",

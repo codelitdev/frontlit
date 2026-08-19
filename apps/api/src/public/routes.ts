@@ -883,4 +883,17 @@ const impl = s.router(contract.public, {
 
 createExpressEndpoints(contract.public, impl, router);
 
+/** Caddy on-demand TLS `ask` adapter. Caddy sends `GET ?domain=` and
+ * issues a certificate only when this returns 200. Same host authority as
+ * `GET /public/resolve-host`. */
+router.get("/public/tls-ask", publicReadLimiter, async (req, res) => {
+    const domain = String(req.query.domain ?? req.query.host ?? "");
+    const resolved = await resolveHost(domain);
+    if (!resolved) {
+        res.status(404).end();
+        return;
+    }
+    res.status(200).end();
+});
+
 export default router;

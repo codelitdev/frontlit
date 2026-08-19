@@ -5,6 +5,57 @@ import { createPortal } from "react-dom";
 
 const COPIED_ATTR = "data-pb-preview-style";
 
+const THEME_FONT_VARS = [
+    "--font-sans",
+    "--font-mono",
+    "--font-inter",
+    "--font-open-sans",
+    "--font-source-sans-3",
+    "--font-noto-sans",
+    "--font-roboto",
+    "--font-mulish",
+    "--font-nunito",
+    "--font-work-sans",
+    "--font-merriweather",
+    "--font-alegreya",
+    "--font-playfair-display",
+    "--font-roboto-slab",
+    "--font-source-serif-4",
+    "--font-montserrat",
+    "--font-poppins",
+    "--font-raleway",
+    "--font-rubik",
+    "--font-oswald",
+    "--font-bebas-neue",
+    "--font-lato",
+    "--font-pt-sans",
+    "--font-quicksand",
+];
+
+function readCssVar(sourceDoc: Document, name: string): string {
+    const view = sourceDoc.defaultView;
+    if (!view) return "";
+    const html = view
+        .getComputedStyle(sourceDoc.documentElement)
+        .getPropertyValue(name)
+        .trim();
+    if (html) return html;
+    return view.getComputedStyle(sourceDoc.body).getPropertyValue(name).trim();
+}
+
+/**
+ * next/font sets --font-* on the host layout, not inside the iframe. Copy
+ * those variables so `font-inter` etc. resolve to the same faces as the host.
+ */
+function syncFontVariables(sourceDoc: Document, targetDoc: Document) {
+    const root = targetDoc.documentElement;
+    for (const name of THEME_FONT_VARS) {
+        const value = readCssVar(sourceDoc, name);
+        if (value) root.style.setProperty(name, value);
+        else root.style.removeProperty(name);
+    }
+}
+
 /**
  * Mirrors the parent document's stylesheets into the iframe so Tailwind
  * utilities (and next/font @font-face rules) apply to the portaled canvas.
@@ -20,6 +71,7 @@ function syncStyles(sourceDoc: Document, targetDoc: Document) {
             clone.setAttribute(COPIED_ATTR, "");
             targetDoc.head.appendChild(clone);
         });
+    syncFontVariables(sourceDoc, targetDoc);
 }
 
 /**

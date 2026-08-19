@@ -1,0 +1,401 @@
+/* Editing surface (Editor / ProseMirror) */
+
+.tiptap-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    border-color: var(--border);
+}
+
+.tiptap-editor .ProseMirror:not([class*="min-h-"]) {
+    min-height: 12.5rem;
+}
+
+.tiptap-editor .ProseMirror {
+    padding: 1rem;
+    border-radius: 0.5rem;
+    outline: none;
+    word-break: break-word;
+}
+
+.tiptap-editor .ProseMirror.writing-editor-content {
+    min-height: 26rem;
+    padding: 0 2.5rem 8rem;
+    font-size: 1.0625rem;
+    line-height: 1.75;
+}
+
+.tiptap-editor .ProseMirror.writing-editor-content p {
+    margin: 0 0 1.35rem;
+}
+
+@media (max-width: 640px) {
+    .tiptap-editor .ProseMirror.writing-editor-content {
+        padding-right: 1.5rem;
+        padding-left: 1.5rem;
+    }
+}
+
+.tiptap-editor .ProseMirror p.is-editor-empty:first-child::before {
+    color: var(--muted-foreground);
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+}
+
+.tiptap-editor .ProseMirror a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-decoration-thickness: 0.1em;
+    text-decoration-color: var(--primary);
+}
+
+.tiptap-editor .ProseMirror ul,
+.tiptap-editor .ProseMirror ol {
+    padding-left: 1.5rem;
+    margin: 0.75rem 0;
+}
+
+.tiptap-editor .ProseMirror ul li {
+    list-style: disc;
+}
+
+.tiptap-editor .ProseMirror ol li {
+    list-style: decimal;
+}
+
+.tiptap-editor .ProseMirror blockquote {
+    border-left: 3px solid var(--border);
+    margin: 0.75rem 0;
+    padding-left: 1rem;
+    color: var(--muted-foreground);
+    font-style: italic;
+}
+
+.tiptap-editor .ProseMirror h1,
+.tiptap-editor .ProseMirror h2,
+.tiptap-editor .ProseMirror h3,
+.tiptap-editor .ProseMirror h4,
+.tiptap-editor .ProseMirror h5,
+.tiptap-editor .ProseMirror h6 {
+    font-weight: 600;
+    line-height: 1.25;
+    margin: 1.5rem 0 0.75rem;
+}
+
+.tiptap-editor .ProseMirror h1 {
+    font-size: clamp(2rem, 3vw, 2.5rem);
+}
+
+.tiptap-editor .ProseMirror h2 {
+    font-size: clamp(1.75rem, 2.5vw, 2rem);
+}
+
+.tiptap-editor .ProseMirror h3 {
+    font-size: clamp(1.5rem, 2vw, 1.75rem);
+}
+
+.tiptap-editor .ProseMirror pre {
+    background-color: var(--muted, hsl(210 40% 96.1%));
+    border: 1px solid var(--border, hsl(214.3 31.8% 91.4%));
+    border-radius: 0.5rem;
+    color: var(--foreground, hsl(222.2 84% 4.9%));
+    font-family:
+        ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+        "Liberation Mono", monospace;
+    font-size: 0.875rem;
+    margin: 0.75rem 0;
+    padding: 1rem;
+    overflow-x: auto;
+}
+
+.tiptap-editor .ProseMirror pre code {
+    background: none;
+    color: inherit;
+    padding: 0;
+}
+
+.tiptap-editor .ProseMirror code {
+    background-color: var(--muted, hsl(210 40% 96.1%));
+    border-radius: 0.375rem;
+    padding: 0.125rem 0.375rem;
+    font-size: 0.875em;
+    font-family:
+        ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+        "Liberation Mono", monospace;
+}
+
+.tiptap-editor .ProseMirror hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.5rem 0;
+}
+
+.tiptap-editor .ProseMirror table {
+    border-collapse: collapse;
+    border: 1px solid var(--border);
+    margin: 1rem 0;
+    width: 100%;
+    table-layout: fixed;
+}
+
+.tiptap-editor .ProseMirror table th,
+.tiptap-editor .ProseMirror table td {
+    border: 1px solid var(--border);
+    padding: 0.5rem;
+    vertical-align: top;
+}
+
+.tiptap-editor .ProseMirror table th {
+    background-color: var(--muted);
+    font-weight: 600;
+    text-align: left;
+}
+
+.tiptap-editor .ProseMirror img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    margin: 1rem auto;
+}
+
+.tiptap-editor .ProseMirror iframe {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: 0;
+    border-radius: 0.75rem;
+    background-color: #000;
+    margin: 1.5rem 0;
+}
+
+/* Not nested under `.tiptap-editor` — TipTap portals this to <body>. */
+.bubble-menu {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border, hsl(214.3 31.8% 91.4%));
+    background-color: var(--popover, hsl(0 0% 100%));
+    color: var(--popover-foreground, hsl(222.2 84% 4.9%));
+    box-shadow: var(--shadow-popover, 0 10px 15px -3px rgba(15, 23, 42, 0.12));
+    z-index: 50;
+}
+
+.te-popover {
+    background-color: var(--popover, hsl(0 0% 100%));
+    color: var(--popover-foreground, hsl(222.2 84% 4.9%));
+    border: 1px solid var(--border, hsl(214.3 31.8% 91.4%));
+}
+
+.tiptap-editor .ProseMirror pre .hljs-comment,
+.tiptap-editor .ProseMirror pre .hljs-quote,
+.tiptap-renderer pre .hljs-comment,
+.tiptap-renderer pre .hljs-quote {
+    color: #64748b;
+}
+
+.tiptap-editor .ProseMirror pre .hljs-keyword,
+.tiptap-editor .ProseMirror pre .hljs-selector-tag,
+.tiptap-renderer pre .hljs-keyword,
+.tiptap-renderer pre .hljs-selector-tag {
+    color: #6d28d9;
+}
+
+.tiptap-editor .ProseMirror pre .hljs-string,
+.tiptap-editor .ProseMirror pre .hljs-attr,
+.tiptap-renderer pre .hljs-string,
+.tiptap-renderer pre .hljs-attr {
+    color: #047857;
+}
+
+.tiptap-editor .ProseMirror pre .hljs-number,
+.tiptap-editor .ProseMirror pre .hljs-literal,
+.tiptap-renderer pre .hljs-number,
+.tiptap-renderer pre .hljs-literal {
+    color: #c2410c;
+}
+
+.tiptap-editor .ProseMirror pre .hljs-title,
+.tiptap-editor .ProseMirror pre .hljs-function,
+.tiptap-renderer pre .hljs-title,
+.tiptap-renderer pre .hljs-function {
+    color: #1d4ed8;
+}
+
+.tiptap-editor .ProseMirror pre .hljs-built_in,
+.tiptap-editor .ProseMirror pre .hljs-type,
+.tiptap-renderer pre .hljs-built_in,
+.tiptap-renderer pre .hljs-type {
+    color: #a16207;
+}
+
+.tiptap-editor .ProseMirror pre .hljs-variable,
+.tiptap-editor .ProseMirror pre .hljs-template-variable,
+.tiptap-renderer pre .hljs-variable,
+.tiptap-renderer pre .hljs-template-variable {
+    color: #be185d;
+}
+
+/* Static rendering surface (TextRenderer) */
+
+.tiptap-renderer {
+    line-height: 1.7;
+    color: inherit;
+}
+
+.tiptap-renderer p {
+    margin: 0.75rem 0;
+}
+
+.tiptap-renderer h1,
+.tiptap-renderer h2,
+.tiptap-renderer h3,
+.tiptap-renderer h4,
+.tiptap-renderer h5,
+.tiptap-renderer h6 {
+    line-height: 1.25;
+    margin: 1.5rem 0 0.75rem;
+}
+
+.tiptap-renderer h1:not([class*="text-"]) {
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    font-weight: 700;
+}
+
+.tiptap-renderer h2:not([class*="text-"]) {
+    font-size: clamp(1.35rem, 2.4vw, 1.75rem);
+    font-weight: 650;
+}
+
+.tiptap-renderer h3:not([class*="text-"]) {
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.tiptap-renderer ul,
+.tiptap-renderer ol {
+    padding-left: 1.5rem;
+    margin: 0.75rem 0;
+}
+
+.tiptap-renderer ul li {
+    list-style: disc;
+}
+
+.tiptap-renderer ol li {
+    list-style: decimal;
+}
+
+.tiptap-renderer blockquote {
+    border-left: 3px solid var(--border, hsl(214.3 31.8% 91.4%));
+    margin: 0.75rem 0;
+    padding-left: 1rem;
+    color: var(--muted-foreground, hsl(215.4 16.3% 46.9%));
+    font-style: italic;
+}
+
+.tiptap-renderer .te-code-block {
+    position: relative;
+    margin: 0.75rem 0;
+}
+
+.tiptap-renderer pre {
+    background-color: var(--muted, hsl(210 40% 96.1%));
+    border: 1px solid var(--border, hsl(214.3 31.8% 91.4%));
+    border-radius: 0.5rem;
+    color: var(--foreground, hsl(222.2 84% 4.9%));
+    font-family:
+        ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+        "Liberation Mono", monospace;
+    font-size: 0.875rem;
+    margin: 0.75rem 0;
+    padding: 1rem;
+    overflow-x: auto;
+}
+
+.tiptap-renderer .te-code-block pre {
+    margin: 0;
+    padding-right: 2.75rem;
+}
+
+.tiptap-renderer .te-code-copy {
+    appearance: none;
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: 1px solid var(--border, hsl(214.3 31.8% 91.4%));
+    border-radius: 0.375rem;
+    background: var(--background, hsl(0 0% 100%));
+    color: var(--muted-foreground, hsl(215.4 16.3% 46.9%));
+    cursor: pointer;
+}
+
+.tiptap-renderer .te-code-copy:hover {
+    color: var(--foreground, hsl(222.2 84% 4.9%));
+    background: var(--card, hsl(0 0% 100%));
+}
+
+.tiptap-renderer .te-code-copy__icon {
+    width: 0.875rem;
+    height: 0.875rem;
+}
+
+.tiptap-renderer pre code {
+    background: none;
+    color: inherit;
+    padding: 0;
+}
+
+.tiptap-renderer code {
+    background-color: var(--muted, hsl(210 40% 96.1%));
+    border-radius: 0.375rem;
+    padding: 0.125rem 0.375rem;
+    font-size: 0.875em;
+    font-family:
+        ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+        "Liberation Mono", monospace;
+}
+
+.tiptap-renderer hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.5rem 0;
+}
+
+.tiptap-renderer table {
+    border-collapse: collapse;
+    border: 1px solid var(--border);
+    margin: 1rem 0;
+    width: 100%;
+    table-layout: fixed;
+}
+
+.tiptap-renderer table th,
+.tiptap-renderer table td {
+    border: 1px solid var(--border);
+    padding: 0.5rem;
+}
+
+.tiptap-renderer table th {
+    background-color: var(--muted);
+    font-weight: 600;
+    text-align: left;
+}
+
+.tiptap-renderer img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    margin: 1rem auto;
+}

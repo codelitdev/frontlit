@@ -1,6 +1,9 @@
+import { eq } from "drizzle-orm";
+import { db } from "../db/client";
+import { accounts, teams } from "../db/schema";
 import { logger } from "../services/log";
-import { storeSendlitApiKey } from "../integrations/queries";
-import { enqueueOutboxJob } from "./outbox";
+import { getSendlitApiKey, storeSendlitApiKey } from "../integrations/queries";
+import { enqueueOutboxJob, requeueTeamProvisionJob } from "./outbox";
 import {
     createSendlitTeamKey,
     provisionSendlitTeam,
@@ -60,6 +63,47 @@ export async function retryProvisionSendlitForTeam(
     ownerEmail: string,
 ): Promise<void> {
     await provisionAndStoreSendlitKey(team);
+}
+
+/** Team-admin manual retry: requeue the outbox row and run provision now
+ * so `/settings/esp` can recover without waiting for the next worker tick. */
+export async function retryProvisionSendlitNow(teamId: string): Promise<{
+    connected: boolean;
+    error?: string;
+}> {
+    if (await getSendlitApiKey(teamId)) {
+        return { connected: true };
+    }
+    if (!process.env.SENDLIT_API_URL) {
+        return {
+            connected: false,
+            error: "SENDLIT_API_URL is not configured",
+        };
+    }
+
+    const team = await db.query.teams.findFirst({
+        where: eq(teams.id, teamId),
+    });
+    if (!team) {
+        return { connected: false, error: "team_not_found" };
+    }
+    const owner = await db.query.accounts.findFirst({
+        where: eq(accounts.id, team.ownerAccountId),
+    });
+    const ownerEmail = owner?.email ?? "";
+    await requeueTeamProvisionJob(team.id, { ownerEmail });
+
+    try {
+        await provisionAndStoreSendlitKey(team);
+        return { connected: true };
+    } catch (err) {
+        const error = err instanceof Error ? err.message : String(err);
+        logger.warn(
+            { teamId: team.teamId, error },
+            "Manual SendLit provision retry failed",
+        );
+        return { connected: false, error };
+    }
 }
 
 export { SendlitApiError };

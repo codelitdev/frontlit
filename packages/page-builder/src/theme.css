@@ -134,86 +134,86 @@
     --shadow-2xl: var(--shadow-2xl);
 
     --font-open-sans:
-        var(--font-open-sans), ui-sans-serif, system-ui, sans-serif,
-        "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+        var(--font-open-sans, "Open Sans"), ui-sans-serif, system-ui,
+        sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
     --font-montserrat:
-        var(--font-montserrat), ui-sans-serif, system-ui, sans-serif,
-        "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+        var(--font-montserrat, Montserrat), ui-sans-serif, system-ui,
+        sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
     --font-lato:
-        var(--font-lato), ui-sans-serif, system-ui, sans-serif,
+        var(--font-lato, Lato), ui-sans-serif, system-ui, sans-serif,
         "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
     --font-poppins:
-        var(--font-poppins), ui-sans-serif, system-ui, sans-serif,
+        var(--font-poppins, Poppins), ui-sans-serif, system-ui, sans-serif,
         "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
     --font-source-sans-3:
-        var(--font-source-sans-3), ui-sans-serif, system-ui, sans-serif,
-        "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+        var(--font-source-sans-3, "Source Sans 3"), ui-sans-serif, system-ui,
+        sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
     --font-raleway:
-        var(--font-raleway), ui-sans-serif, system-ui, sans-serif,
+        var(--font-raleway, Raleway), ui-sans-serif, system-ui, sans-serif,
         "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
     --font-noto-sans:
-        var(--font-noto-sans), ui-sans-serif, system-ui, sans-serif,
-        "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+        var(--font-noto-sans, "Noto Sans"), ui-sans-serif, system-ui,
+        sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
     --font-merriweather:
-        var(--font-merriweather), ui-serif, Georgia, Cambria, "Times New Roman",
-        Times, serif;
+        var(--font-merriweather, Merriweather), ui-serif, Georgia, Cambria,
+        "Times New Roman", Times, serif;
     --font-inter:
-        var(--font-inter), ui-sans-serif, system-ui, sans-serif,
+        var(--font-inter, Inter), ui-sans-serif, system-ui, sans-serif,
         "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
     --font-alegreya:
-        var(--font-alegreya), ui-serif, Georgia, Cambria, "Times New Roman",
-        Times, serif;
+        var(--font-alegreya, Alegreya), ui-serif, Georgia, Cambria,
+        "Times New Roman", Times, serif;
     --font-roboto:
-        var(--font-roboto), ui-sans-serif, system-ui, sans-serif,
+        var(--font-roboto, Roboto), ui-sans-serif, system-ui, sans-serif,
         "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
     --font-mulish:
-        var(--font-mulish), ui-sans-serif, system-ui, sans-serif,
+        var(--font-mulish, Mulish), ui-sans-serif, system-ui, sans-serif,
         "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
     --font-nunito:
-        var(--font-nunito), ui-sans-serif, system-ui, sans-serif,
+        var(--font-nunito, Nunito), ui-sans-serif, system-ui, sans-serif,
         "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
     --font-rubik:
-        var(--font-rubik), ui-sans-serif, system-ui, sans-serif,
+        var(--font-rubik, Rubik), ui-sans-serif, system-ui, sans-serif,
         "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
     --font-playfair-display:
-        var(--font-playfair-display), ui-serif, Georgia, Cambria,
-        "Times New Roman", Times, serif;
+        var(--font-playfair-display, "Playfair Display"), ui-serif, Georgia,
+        Cambria, "Times New Roman", Times, serif;
     --font-oswald:
-        var(--font-oswald), ui-sans-serif, system-ui, sans-serif,
+        var(--font-oswald, Oswald), ui-sans-serif, system-ui, sans-serif,
         "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
     --font-pt-sans:
-        var(--font-pt-sans), ui-sans-serif, system-ui, sans-serif,
+        var(--font-pt-sans, "PT Sans"), ui-sans-serif, system-ui, sans-serif,
         "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
     --font-work-sans:
-        var(--font-work-sans), ui-sans-serif, system-ui, sans-serif,
-        "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+        var(--font-work-sans, "Work Sans"), ui-sans-serif, system-ui,
+        sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
     --font-roboto-slab:
-        var(--font-roboto-slab), ui-serif, Georgia, Cambria, "Times New Roman",
-        Times, serif;
-    --font-source-serif-4:
-        var(--font-source-serif-4), ui-serif, Georgia, Cambria,
+        var(--font-roboto-slab, "Roboto Slab"), ui-serif, Georgia, Cambria,
         "Times New Roman", Times, serif;
+    --font-source-serif-4:
+        var(--font-source-serif-4, "Source Serif 4"), ui-serif, Georgia,
+        Cambria, "Times New Roman", Times, serif;
     --font-bebas-neue:
-        var(--font-bebas-neue), ui-sans-serif, system-ui, sans-serif,
-        "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+        var(--font-bebas-neue, "Bebas Neue"), ui-sans-serif, system-ui,
+        sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
     --font-quicksand:
-        var(--font-quicksand), ui-sans-serif, system-ui, sans-serif,
+        var(--font-quicksand, Quicksand), ui-sans-serif, system-ui, sans-serif,
         "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
 }

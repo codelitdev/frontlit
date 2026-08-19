@@ -5,6 +5,10 @@
     "description": "Better Auth protected REST API for building and serving pages — the FrontLit backend",
     "license": "MIT",
     "main": "dist/index.js",
+    "files": [
+        "dist",
+        "drizzle"
+    ],
     "scripts": {
         "build": "tsc",
         "dev": "nodemon --exec 'node --env-file=.env --import tsx' src/index.ts",

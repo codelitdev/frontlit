@@ -953,6 +953,12 @@ export function updateEmailSettings(patch: { mailingAddress?: string }) {
     return unwrap<EmailSettings>(client.email.updateSettings({ body: patch }));
 }
 
+export function retryEmailProvision() {
+    return unwrap<EmailSettings & { error?: string }>(
+        client.email.retryProvision(),
+    );
+}
+
 export type EspProvider =
     "smtp" | "sendgrid" | "mailgun" | "postmark" | "ses" | "resend" | "custom";
 

@@ -7,6 +7,7 @@ import { createId } from "./create-id";
 import type { TextEditorContent } from "./text-editor-content";
 import type { TextRendererTheme } from "./renderer-theme";
 import { cn } from "./lib/cn";
+import { RenderedCodeBlock } from "./components/rendered-code-block";
 
 interface TextRendererProps {
     json: TextEditorContent;
@@ -125,10 +126,18 @@ export function TextRenderer({ json, className, theme }: TextRendererProps) {
                         </h3>
                     );
                 },
-                codeMirror: ({ children }) => (
-                    <pre>
-                        <code>{children}</code>
-                    </pre>
+                codeBlock: ({ node, children }) => (
+                    <RenderedCodeBlock
+                        node={node}
+                        language={node?.attrs?.language}
+                    >
+                        {children}
+                    </RenderedCodeBlock>
+                ),
+                codeMirror: ({ node, children }) => (
+                    <RenderedCodeBlock node={node}>
+                        {children}
+                    </RenderedCodeBlock>
                 ),
             },
             markMapping: {

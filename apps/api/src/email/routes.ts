@@ -5,6 +5,7 @@ import { requireAuth } from "../auth/middleware";
 import { requireTeam } from "../auth/require-team";
 import { authorizeHandlers } from "../auth/authorize";
 import { getSendlitApiKey } from "../integrations/queries";
+import { retryProvisionSendlitNow } from "./provisioning";
 import {
     addContactTag,
     createBroadcast,
@@ -176,6 +177,12 @@ const emailImpl = s.router(
                     connected: true,
                     ...(await updateGeneralSettings(apiKey, body)),
                 })) as any,
+            retryProvision: async ({ req }) => {
+                const result = await retryProvisionSendlitNow(
+                    (req as any).teamId,
+                );
+                return { status: 200 as const, body: result };
+            },
             listTemplates: async ({ req }: any) =>
                 withSendlitKey((req as any).teamId, (apiKey) =>
                     listEmailTemplates(apiKey),
@@ -262,6 +269,7 @@ const emailImpl = s.router(
         {
             getSettings: "email.getSettings",
             updateSettings: "email.updateSettings",
+            retryProvision: "email.retryProvision",
             listTemplates: "email.listTemplates",
             listSystemTemplates: "email.listSystemTemplates",
             createTemplate: "email.createTemplate",

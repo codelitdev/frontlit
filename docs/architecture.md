@@ -973,8 +973,10 @@ Per §2: contacts, segments and email endpoints get MCP twins —
 FrontLit's SaaS uses the hosted SendLit instance; self-hosters get the
 same architecture by running their own SendLit next to FrontLit. The
 integration contract is identical either way — REST via `SENDLIT_API_URL`
-— only the URL changes. `frontlit/docker-compose.yml` grows from today's
-lone postgres service into a full two-product stack:
+— only the URL changes. `docker-compose.yml` is that two-product stack.
+`docker-compose.local.yml` is the host-dev counterpart: Postgres, Redis,
+and SendLit only, so `pnpm dev:api` / `pnpm dev:web` / `pnpm dev:sites`
+run on the machine.
 
 | service          | image / build                 | notes                                                                                                                                         |
 | ---------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |

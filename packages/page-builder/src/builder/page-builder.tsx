@@ -14,6 +14,7 @@ import {
 import { debounce, resolveColorMode, type ColorMode } from "../utils";
 import { themes } from "../primitives";
 import { cn } from "../primitives/lib/utils";
+import type { PageBuilderLinkComponent } from "../components/nav-link";
 import { BuilderTopBar, type PreviewDevice } from "./top-bar";
 import { PreviewFrame } from "./preview-frame";
 import { BlockPicker } from "./block-picker";
@@ -46,6 +47,11 @@ export interface PageBuilderProps {
     onChange?: (state: PageBuilderState) => void;
     /** Whether the editor may alter team-wide theme data. */
     allowThemeEditing?: boolean;
+    /**
+     * Optional host link (e.g. Next.js `Link`) forwarded to the live
+     * preview's `PageRenderer`. Omit it to render native `<a>` tags.
+     */
+    linkComponent?: PageBuilderLinkComponent;
     className?: string;
 }
 
@@ -74,6 +80,7 @@ export function PageBuilder({
     pageData,
     onChange,
     allowThemeEditing = true,
+    linkComponent,
     className,
 }: PageBuilderProps) {
     const [layout, setLayout] = useState<WidgetInstance[]>(() =>
@@ -248,7 +255,14 @@ export function PageBuilder({
 
     return (
         <div
-            className={`flex h-full w-full flex-col overflow-hidden ${className ?? ""}`}
+            className={cn(
+                // Same token scope as PageRenderer. Builder chrome (top bar,
+                // add-block overlay, device-frame pattern) lives outside the
+                // canvas but still uses bg-background / --muted-foreground.
+                "pb-theme flex h-full w-full flex-col overflow-hidden bg-background text-foreground",
+                resolvedMode === "dark" && "dark",
+                className,
+            )}
         >
             <BuilderTopBar
                 resolvedMode={resolvedMode}
@@ -263,10 +277,14 @@ export function PageBuilder({
             <div className="flex min-h-0 w-full min-w-0 flex-1 gap-4 overflow-hidden bg-muted/10 p-4">
                 <div
                     className={cn(
-                        "flex min-h-0 min-w-0 justify-center overflow-hidden rounded-xl border bg-background/98 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-sm",
-                        "bg-[radial-gradient(color-mix(in_srgb,var(--muted-foreground)_25%,transparent)_1px,transparent_1px)] [background-size:14px_14px]",
+                        "flex min-h-0 min-w-0 justify-center overflow-hidden rounded-xl border bg-background/98 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80",
                         panelOpen ? "flex-1" : "w-full",
                     )}
+                    style={{
+                        backgroundImage:
+                            "radial-gradient(color-mix(in srgb, var(--muted-foreground) 25%, transparent) 1px, transparent 1px)",
+                        backgroundSize: "14px 14px",
+                    }}
                 >
                     <PreviewFrame
                         className={cn(
@@ -292,6 +310,7 @@ export function PageBuilder({
                             onMoveWidgetDown={(id) => moveWidget(id, 1)}
                             onDeleteWidget={deleteWidget}
                             onAddWidgetBelow={(id) => setInsertAfter(id)}
+                            linkComponent={linkComponent}
                         />
                     </PreviewFrame>
                 </div>

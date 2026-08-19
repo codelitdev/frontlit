@@ -1,0 +1,132 @@
+# Local development dependencies only. FrontLit itself runs on the host:
+#
+#   docker compose -f docker-compose.local.yml up
+#   pnpm dev:api
+#   pnpm dev:web
+#   pnpm dev:sites
+#
+# This file also applies FrontLit Drizzle migrations onto Postgres (the
+# `frontlit-migrate` job). Wait for "FrontLit migrations applied." before
+# `pnpm dev:api`.
+#
+# Do not run this file at the same time as the self-host stack
+# (`docker-compose.yml`) — both publish Postgres on 5433 and SendLit on 3001.
+# For the full in-Docker product, see docker-compose.yml.
+name: frontlit-local
+
+x-postgres-user: &postgres-user ${POSTGRES_USER:-frontlit}
+x-postgres-password: &postgres-password ${POSTGRES_PASSWORD:-frontlit}
+x-postgres-db: &postgres-db ${POSTGRES_DB:-frontlit}
+
+services:
+    postgres:
+        image: pgvector/pgvector:pg16
+        restart: unless-stopped
+        environment:
+            POSTGRES_USER: *postgres-user
+            POSTGRES_PASSWORD: *postgres-password
+            POSTGRES_DB: *postgres-db
+        ports:
+            - "${POSTGRES_BIND:-127.0.0.1}:${POSTGRES_PORT:-5433}:5432"
+        volumes:
+            - frontlit-local-postgres-data:/var/lib/postgresql/data
+            - ./docker/postgres-init/01-create-sendlit-db.sh:/docker-entrypoint-initdb.d/01-create-sendlit-db.sh:ro
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+            interval: 5s
+            timeout: 5s
+            retries: 12
+
+    sendlit-redis:
+        image: redis:7-alpine
+        restart: unless-stopped
+        command: redis-server --appendonly yes
+        ports:
+            - "${REDIS_BIND:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
+        volumes:
+            - sendlit-local-redis-data:/data
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 5s
+            retries: 12
+
+    # Applies apps/api/drizzle onto the `frontlit` database. Restart: "no"
+    # so `docker compose up` does not loop; re-run with
+    # `docker compose -f docker-compose.local.yml up frontlit-migrate`.
+    frontlit-migrate:
+        image: pgvector/pgvector:pg16
+        restart: "no"
+        depends_on:
+            postgres:
+                condition: service_healthy
+        environment:
+            PGHOST: postgres
+            PGUSER: *postgres-user
+            PGPASSWORD: *postgres-password
+            PGDATABASE: *postgres-db
+            MIGRATIONS_FOLDER: /migrations
+        volumes:
+            - ./apps/api/drizzle:/migrations:ro
+            - ./docker/frontlit-migrate.sh:/frontlit-migrate.sh:ro
+        command: ["sh", "/frontlit-migrate.sh"]
+
+    sendlit-db-init:
+        image: pgvector/pgvector:pg16
+        restart: "no"
+        depends_on:
+            postgres:
+                condition: service_healthy
+        environment:
+            PGPASSWORD: *postgres-password
+        command:
+            - sh
+            - -ec
+            - >-
+              psql -h postgres -U ${POSTGRES_USER:-frontlit} -d ${POSTGRES_DB:-frontlit} -tAc
+              "SELECT 1 FROM pg_database WHERE datname = 'sendlit'" |
+              grep -q 1 || psql -h postgres -U ${POSTGRES_USER:-frontlit} -d ${POSTGRES_DB:-frontlit}
+              -v ON_ERROR_STOP=1 -c "CREATE DATABASE sendlit OWNER ${POSTGRES_USER:-frontlit}"
+
+    sendlit-api:
+        image: codelit/sendlit-api:k3s
+        restart: unless-stopped
+        depends_on:
+            postgres:
+                condition: service_healthy
+            sendlit-redis:
+                condition: service_healthy
+            sendlit-db-init:
+                condition: service_completed_successfully
+        command:
+            - sh
+            - -ec
+            - |
+              node apps/api/dist/db/migrate.js
+              exec node apps/api/dist/index.js
+        environment:
+            NODE_ENV: "${SENDLIT_NODE_ENV:-development}"
+            PORT: 3001
+            DB_CONNECTION_STRING: postgres://${POSTGRES_USER:-frontlit}:${POSTGRES_PASSWORD:-frontlit}@postgres:5432/sendlit
+            REDIS_HOST: sendlit-redis
+            REDIS_PORT: 6379
+            API_PUBLIC_URL: "${SENDLIT_API_PUBLIC_URL:-http://localhost:3001}"
+            WEB_CLIENT: "${SENDLIT_WEB_CLIENT:-http://localhost:3001}"
+            PROTOCOL: "${SENDLIT_PROTOCOL:-http}"
+            DOMAIN: "${SENDLIT_DOMAIN:-localhost:3001}"
+            BETTER_AUTH_SECRET: "${SENDLIT_BETTER_AUTH_SECRET:-frontlit-local-sendlit-better-auth-secret}"
+            PIXEL_SIGNING_SECRET: "${SENDLIT_PIXEL_SIGNING_SECRET:-frontlit-local-sendlit-pixel-signing}"
+            ESP_CREDENTIALS_ENCRYPTION_KEY: "${SENDLIT_ESP_CREDENTIALS_ENCRYPTION_KEY:-frontlit-local-sendlit-esp-key-32b}"
+            SUPPRESSION_HASH_KEY: "${SENDLIT_SUPPRESSION_HASH_KEY:-frontlit-local-sendlit-suppression}"
+            SUPER_ADMIN_EMAIL: "${SENDLIT_SUPER_ADMIN_EMAIL:-admin@example.com}"
+        ports:
+            - "${SENDLIT_API_PORT:-3001}:3001"
+        healthcheck:
+            test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3001/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+            interval: 10s
+            timeout: 5s
+            retries: 12
+
+volumes:
+    frontlit-local-postgres-data:
+    sendlit-local-redis-data:

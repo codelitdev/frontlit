@@ -1,11 +1,15 @@
 @import "@codelitdev/design-system/styles.css";
-@import "@frontlit/page-builder/styles.css";
+/* Source stylesheets — package dist CSS is gitignored and tsup clean
+   deletes it, which makes the package styles.css entry fail under Turbopack. */
+@import "../../../packages/page-builder/src/styles.css";
+@import "../../../packages/text-editor/src/styles.css";
 @import "tailwindcss";
 @import "fumadocs-ui/css/lib/default-colors.css";
 @import "fumadocs-ui/css/preset.css";
 @import "fumadocs-openapi/css/preset.css";
 
 @source "../../../packages/page-builder/src/**/*.{ts,tsx}";
+@source "../../../packages/text-editor/src/**/*.{ts,tsx}";
 /* Fumadocs applies this class from its packaged runtime. Tailwind does not
    scan that runtime by default, so ensure the mobile subnav's desktop hide
    utility is present in FrontLit's compiled stylesheet. */

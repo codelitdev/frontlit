@@ -412,7 +412,8 @@ pnpm dev:api
 ```
 
 If the API crashes with `relation "auth_oauth_resource" does not exist`, the
-application was started before `0000_baseline` was applied. If token exchange
+application was started before `0000_baseline` was applied. Local Compose
+applies this via `frontlit-migrate` (`docker compose -f docker-compose.local.yml up`). If token exchange
 reports that `alg` does not exist in the JWKS Drizzle schema, reset the
 database and re-apply the baseline so the deployed application and schema
 match.

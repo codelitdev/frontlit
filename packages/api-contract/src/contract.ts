@@ -102,6 +102,7 @@ import {
     createSegmentBodySchema,
     listContactsQuerySchema,
     emailSettingsSchema,
+    retryEmailProvisionResponseSchema,
     emailTemplateSchema,
     systemEmailTemplateSchema,
     segmentSchema,
@@ -1375,6 +1376,16 @@ const emailContract = c.router(
             body: updateEmailSettingsBodySchema,
             responses: { 200: emailSettingsSchema, 409: errorSchema },
             summary: "Update the team's SendLit compliance settings",
+        },
+        retryProvision: {
+            method: "POST",
+            path: "/email/provision",
+            body: c.noBody(),
+            responses: {
+                200: retryEmailProvisionResponseSchema,
+                409: errorSchema,
+            },
+            summary: "Retry SendLit team provisioning for this FrontLit team",
         },
         listTemplates: {
             method: "GET",

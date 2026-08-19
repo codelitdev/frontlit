@@ -5,9 +5,11 @@
     "private": true,
     "workspaces": [
         "packages/*",
-        "apps/*"
+        "apps/*",
+        "examples/*"
     ],
     "scripts": {
+        "dev": "pnpm --parallel --filter @frontlit/api --filter @frontlit/web --filter @frontlit/sites run dev",
         "dev:api": "pnpm --filter @frontlit/api dev",
         "dev:web": "pnpm --filter @frontlit/web dev",
         "dev:docs": "pnpm --filter @frontlit/docs dev",

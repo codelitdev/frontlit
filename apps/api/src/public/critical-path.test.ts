@@ -13,7 +13,7 @@ vi.mock("../tickets/notify", () => ({
 }));
 
 import { db as testDb } from "../db/client";
-import { outboxJobs, ticketMailOutbox } from "../db/schema";
+import { outboxJobs, teams, ticketMailOutbox } from "../db/schema";
 import { updateChatbotSettings } from "../chatbot/queries";
 import {
     createDocument,
@@ -81,6 +81,36 @@ describe("public critical paths", () => {
                 `${origin}/public/resolve-host?host=${encodeURIComponent("unknown.example.com")}`,
             );
             expect(missing.status).toBe(404);
+        });
+    });
+
+    it("answers Caddy on-demand TLS asks for verified custom hosts only", async () => {
+        await db
+            .update(teams)
+            .set({
+                customDomain: "frolik.example.com",
+                customDomainStatus: "verified",
+                customDomainVerificationToken: "test-token",
+                customDomainVerifiedAt: new Date(),
+                customDomainTxtSatisfied: true,
+                customDomainRoutingSatisfied: true,
+            })
+            .where(eq(teams.id, teamInternalId));
+
+        await withServer(async (origin) => {
+            const allowed = await fetch(
+                `${origin}/public/tls-ask?domain=${encodeURIComponent("frolik.example.com")}`,
+            );
+            expect(allowed.status).toBe(200);
+            expect(await allowed.text()).toBe("");
+
+            const unknown = await fetch(
+                `${origin}/public/tls-ask?domain=${encodeURIComponent("unknown.example.com")}`,
+            );
+            expect(unknown.status).toBe(404);
+
+            const empty = await fetch(`${origin}/public/tls-ask`);
+            expect(empty.status).toBe(404);
         });
     });
 

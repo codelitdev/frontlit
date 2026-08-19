@@ -97,6 +97,10 @@ export const updateEmailSettingsBodySchema = z.object({
     mailingAddress: z.string().optional(),
 });
 
+export const retryEmailProvisionResponseSchema = emailSettingsSchema.extend({
+    error: z.string().optional(),
+});
+
 export const broadcastSchema = z.object({
     broadcastId: z.string(),
     name: z.string(),

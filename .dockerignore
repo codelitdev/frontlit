@@ -1,0 +1,40 @@
+# VCS
+.git
+.gitignore
+
+# Dependencies
+node_modules
+**/node_modules
+.pnpm-store
+
+# Local environment and secrets
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Build outputs and caches
+dist
+**/dist
+.next
+**/.next
+out
+**/out
+coverage
+**/coverage
+.turbo
+**/.turbo
+.eslintcache
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Apps and packages not needed to build api / web / sites
+apps/docs
+
+# Editor and OS noise
+.DS_Store
+*.log
+.idea
+.vscode

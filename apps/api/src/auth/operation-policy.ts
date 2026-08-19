@@ -311,6 +311,10 @@ export const REST_OPERATION_POLICIES = {
         "settings:write",
         MCP_SCOPES.settingsWrite,
     ),
+    "email.retryProvision": teamPermission(
+        "settings:write",
+        MCP_SCOPES.settingsWrite,
+    ),
     "email.listTemplates": teamPermission(
         "broadcasts:read",
         MCP_SCOPES.broadcastsRead,

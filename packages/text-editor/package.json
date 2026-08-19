@@ -1,17 +1,54 @@
 {
     "name": "@frontlit/text-editor",
-    "version": "0.1.0",
-    "description": "A TipTap-based rich text editor and renderer for FrontLit",
-    "private": true,
+    "version": "0.1.0-alpha.1",
+    "description": "A TipTap-based rich text editor and static renderer for React",
+    "author": "FrontLit",
     "license": "MIT",
     "type": "module",
-    "exports": {
-        ".": "./dist/index.js",
-        "./styles.css": "./dist/styles.css"
-    },
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
     "types": "./dist/index.d.ts",
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./styles.css": "./dist/styles.css",
+        "./prose.css": "./dist/prose.css",
+        "./tokens.css": "./dist/tokens.css"
+    },
+    "sideEffects": [
+        "**/*.css"
+    ],
+    "publishConfig": {
+        "access": "public"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/codelitdev/frontlit.git",
+        "directory": "packages/text-editor"
+    },
+    "homepage": "https://github.com/codelitdev/frontlit/tree/main/packages/text-editor",
+    "bugs": {
+        "url": "https://github.com/codelitdev/frontlit/issues"
+    },
+    "keywords": [
+        "react",
+        "tiptap",
+        "wysiwyg",
+        "rich-text",
+        "editor",
+        "frontlit"
+    ],
     "scripts": {
-        "build": "tsup && node scripts/add-use-client.mjs && tailwindcss -i src/styles.css -o dist/styles.css",
+        "build": "tsup && node scripts/add-use-client.mjs && tailwindcss -i src/styles.css -o dist/styles.css && cp src/prose.css dist/prose.css && cp src/tokens.css dist/tokens.css",
+        "prepublishOnly": "pnpm run build",
         "dev": "tsup --watch",
         "clean": "rimraf dist",
         "check-types": "tsc --noEmit"

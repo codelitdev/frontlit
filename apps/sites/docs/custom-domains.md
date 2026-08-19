@@ -31,16 +31,24 @@ Do not put a raw CNAME at the zone apex unless the DNS host flattens it. Status 
 
 ## TLS ask
 
-Edge TLS (Caddy on-demand, Vercel domains, or similar) should ask the same endpoint `apps/sites` uses:
+Custom hostnames are unbounded (any domain a team verifies), so the edge
+cannot pre-list certificates. Caddy uses on-demand TLS and asks FrontLit
+before Let's Encrypt issues a cert:
 
 ```
-GET /public/resolve-host?host=<hostname>
+GET /public/tls-ask?domain=<hostname>
 ```
 
-- **200** — issue or serve a certificate. The host is a public claimed subdomain or a verified custom host.
-- **404** — refuse. Unknown host, unverified custom domain, or a hidden platform subdomain.
+Caddy's `ask` protocol always sends `domain`. The handler is the same host
+authority as `GET /public/resolve-host?host=`:
 
-`apps/sites` does not terminate TLS and does not configure Caddy/Vercel itself.
+- **200** — issue or serve a certificate. Public claimed subdomain or
+  verified custom host.
+- **404** — refuse. Unknown host, unverified custom domain, or a hidden
+  platform subdomain.
+
+`apps/sites` does not terminate TLS. The cluster Caddyfile catch-all
+`https://` site obtains the cert and reverse-proxies to `frontlit-sites`.
 
 ## Environment (`apps/api`)
 

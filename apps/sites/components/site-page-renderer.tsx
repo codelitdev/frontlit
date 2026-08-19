@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import NextLink from "next/link";
 import { PageRenderer } from "@frontlit/page-builder/renderer";
+import type { PageBuilderLinkProps } from "@frontlit/page-builder/renderer";
 import type { PageData, WidgetInstance } from "@frontlit/page-builder/models";
 import { resolveSiteTheme } from "@/lib/site-theme";
 import { SiteThemeProvider } from "@/lib/site-theme-context";
 import { useColorMode } from "@/components/color-mode-provider";
+
+function SiteLink(props: PageBuilderLinkProps) {
+    return <NextLink {...props} />;
+}
 
 /**
  * Thin client wrapper around `PageRenderer`. Theme resolution lives in
@@ -58,6 +64,7 @@ export function SitePageRenderer({
                 nextTheme={nextTheme}
                 themeMode={themeMode}
                 onThemeModeChange={setMode}
+                linkComponent={SiteLink}
             >
                 {children}
             </PageRenderer>

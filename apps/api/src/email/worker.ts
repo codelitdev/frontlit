@@ -6,6 +6,8 @@ import {
     claimNextOutboxJob,
     markOutboxJobDone,
     markOutboxJobFailed,
+    provisionRetryForeverEnabled,
+    requeueFailedProvisionJobs,
 } from "./outbox";
 import { addContactTag, upsertContact } from "./sendlit-client";
 import { getSendlitApiKey } from "../integrations/queries";
@@ -73,7 +75,11 @@ async function processOneJob(): Promise<boolean> {
             },
             "Outbox job failed, will retry",
         );
-        await markOutboxJobFailed(job.id, job.attempts, message);
+        await markOutboxJobFailed(job.id, job.attempts, message, {
+            retryForever:
+                job.type === "provision_sendlit" &&
+                provisionRetryForeverEnabled(),
+        });
     }
     return true;
 }
@@ -83,6 +89,22 @@ async function processOneJob(): Promise<boolean> {
  * (processing back-to-back while jobs are ready) then sleeps. */
 export function startOutboxWorker(intervalMs = 5000): () => void {
     let stopped = false;
+
+    void requeueFailedProvisionJobs()
+        .then((count) => {
+            if (count > 0) {
+                logger.info(
+                    { count },
+                    "Requeued failed SendLit provision jobs",
+                );
+            }
+        })
+        .catch((err) => {
+            logger.error(
+                { error: err instanceof Error ? err.message : String(err) },
+                "Failed to requeue SendLit provision jobs",
+            );
+        });
 
     async function tick() {
         if (stopped) return;
