@@ -1,10 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { logger } from "../services/log";
 import {
     createSendlitTeamKey,
     createBroadcast,
     deleteBroadcast,
+    getSendlitSendingOptions,
+    listBroadcasts,
+    listEmailTemplates,
+    listSendlitEmailTemplates,
     listSystemEmailTemplates,
     provisionSendlitTeam,
+    sendEmail,
+    SendlitApiError,
     testEspConfig,
     toBroadcast,
     updateBroadcast,
@@ -425,5 +432,133 @@ describe("SendLit ESP adapter", () => {
                 }),
             }),
         );
+    });
+});
+
+describe("SendLit platform client", () => {
+    it("lists templates without a default purpose and preserves purpose on the raw DTO", async () => {
+        vi.stubEnv("SENDLIT_API_URL", apiUrl);
+        const rows = [
+            {
+                templateId: "tpl_1",
+                title: "FrontLit: Sign-in code",
+                purpose: "transactional",
+                content: { content: [] },
+            },
+            {
+                templateId: "tpl_2",
+                title: "Welcome",
+                purpose: "marketing",
+                content: { content: [] },
+            },
+        ];
+        const fetchMock = vi.fn().mockResolvedValue(jsonResponse(rows));
+        vi.stubGlobal("fetch", fetchMock);
+
+        await expect(listSendlitEmailTemplates("team-key")).resolves.toEqual(
+            rows,
+        );
+        expect(fetchMock).toHaveBeenCalledWith(
+            `${apiUrl}/templates`,
+            expect.objectContaining({
+                method: "GET",
+                headers: expect.objectContaining({
+                    "x-sendlit-apikey": "team-key",
+                }),
+            }),
+        );
+        expect(fetchMock.mock.calls[0][1].signal).toBeUndefined();
+
+        fetchMock.mockResolvedValueOnce(
+            jsonResponse(rows.filter((row) => row.purpose === "marketing")),
+        );
+        const marketing = await listEmailTemplates("team-key");
+        expect(marketing[0]).not.toHaveProperty("purpose");
+        expect(fetchMock).toHaveBeenLastCalledWith(
+            `${apiUrl}/templates?purpose=marketing`,
+            expect.anything(),
+        );
+    });
+
+    it("parses JSON error codes and Retry-After without logging secrets", async () => {
+        vi.stubEnv("SENDLIT_API_URL", apiUrl);
+        const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+        const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+        const fetchMock = vi.fn().mockResolvedValue(
+            new Response(JSON.stringify({ error: "too_many_requests" }), {
+                status: 429,
+                headers: {
+                    "content-type": "application/json",
+                    "retry-after": "12",
+                },
+            }),
+        );
+        vi.stubGlobal("fetch", fetchMock);
+        await expect(
+            sendEmail(
+                "sl_live_secret",
+                {
+                    to: "ada@example.com",
+                    subject: "Hi",
+                    templateId: "tpl_1",
+                    variables: { otp: "999999" },
+                    idempotencyKey: "k",
+                },
+                { timeoutMs: 5000 },
+            ),
+        ).rejects.toMatchObject({
+            name: "SendlitApiError",
+            status: 429,
+            errorCode: "too_many_requests",
+            retryAfter: "12",
+        });
+        const logged = JSON.stringify([
+            ...errorSpy.mock.calls,
+            ...warnSpy.mock.calls,
+        ]);
+        expect(logged).not.toContain("sl_live_secret");
+        expect(logged).not.toContain("999999");
+        expect(fetchMock.mock.calls[0][1].signal).toBeDefined();
+        errorSpy.mockRestore();
+        warnSpy.mockRestore();
+    });
+
+    it("sanitizes non-JSON errors and maps timeouts", async () => {
+        vi.stubEnv("SENDLIT_API_URL", apiUrl);
+        const fetchMock = vi.fn().mockResolvedValue(
+            new Response("<html>upstream</html>", {
+                status: 502,
+                headers: { "content-type": "text/html" },
+            }),
+        );
+        vi.stubGlobal("fetch", fetchMock);
+        await expect(getSendlitSendingOptions("team-key")).rejects.toEqual(
+            expect.objectContaining({
+                status: 502,
+                errorCode: undefined,
+            }),
+        );
+
+        const timeout = Object.assign(new Error("aborted"), {
+            name: "TimeoutError",
+        });
+        fetchMock.mockRejectedValueOnce(timeout);
+        await expect(
+            getSendlitSendingOptions("team-key", { timeoutMs: 5 }),
+        ).rejects.toSatisfy(
+            (error: unknown) =>
+                error instanceof SendlitApiError &&
+                error.message.includes("timed out"),
+        );
+    });
+
+    it("does not add an implicit timeout to tenant-facing requests", async () => {
+        vi.stubEnv("SENDLIT_API_URL", apiUrl);
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValue(jsonResponse({ items: [] }));
+        vi.stubGlobal("fetch", fetchMock);
+        await listBroadcasts("team-key");
+        expect(fetchMock.mock.calls[0][1].signal).toBeUndefined();
     });
 });

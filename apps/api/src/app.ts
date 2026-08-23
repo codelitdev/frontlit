@@ -27,6 +27,7 @@ import publicRoutes from "./public/routes";
 import inboundMailRoutes from "./mail/routes";
 import metricsRoutes from "./metrics/routes";
 import { openApiDocument } from "./openapi";
+import { getPlatformMailReadiness } from "./email/platform-mail";
 
 /** Builds the Express app with no side effects (no `listen()`, no DB/env
  * checks) so routing and middleware composition can be exercised directly
@@ -55,6 +56,15 @@ export function createApp() {
 
     app.get("/health", (_req, res) => {
         res.status(200).json({ status: "ok", uptime: process.uptime() });
+    });
+
+    app.get("/ready", (_req, res) => {
+        const readiness = getPlatformMailReadiness();
+        if (readiness.state === "ready") {
+            res.status(200).json({ status: "ready" });
+            return;
+        }
+        res.status(503).json({ status: readiness.state });
     });
 
     app.use(metricsRoutes);
@@ -114,7 +124,7 @@ export function createApp() {
             _next: express.NextFunction,
         ) => {
             logger.error(
-                { error: err.message, path: req.path, method: req.method },
+                { err, path: req.path, method: req.method },
                 "Unhandled express error",
             );
             res.status(500).json({ error: "server_error" });

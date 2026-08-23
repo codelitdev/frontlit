@@ -785,6 +785,8 @@ export async function createOrResendInvitation(
             inviterName,
             expiresAt,
             acceptUrl: `${(webClientUrl || "http://localhost:3000").replace(/\/$/, "")}/team-invitations/${invitation.row.invitationId}#token=${raw}`,
+            invitationId: invitation.row.invitationId,
+            tokenHash: invitation.row.tokenHash,
         });
     } catch (error) {
         if (error instanceof InvitationDeliveryError) {

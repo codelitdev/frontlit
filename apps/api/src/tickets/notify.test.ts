@@ -1,14 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ticketIdempotencyKey } from "../email/platform-mail-keys";
 
-const { sendMail, getDomainSettings, findTeamById, mintReplyToken } =
+const { sendPlatformEmail, getDomainSettings, findTeamById, mintReplyToken } =
     vi.hoisted(() => ({
-        sendMail: vi.fn().mockResolvedValue(undefined),
+        sendPlatformEmail: vi.fn().mockResolvedValue(undefined),
         getDomainSettings: vi.fn(),
         findTeamById: vi.fn(),
         mintReplyToken: vi.fn(),
     }));
 
-vi.mock("../utils/mail", () => ({ sendMail }));
+vi.mock("../email/platform-mail", async (importOriginal) => {
+    const actual =
+        await importOriginal<typeof import("../email/platform-mail")>();
+    return { ...actual, sendPlatformEmail };
+});
 vi.mock("../domains/queries", async (importOriginal) => {
     const actual = await importOriginal<typeof import("../domains/queries")>();
     return { ...actual, getDomainSettings };
@@ -24,7 +29,7 @@ import {
 
 describe("ticket notification emails", () => {
     beforeEach(() => {
-        sendMail.mockClear();
+        sendPlatformEmail.mockClear();
         getDomainSettings.mockResolvedValue({
             canonicalHost: "acme.localhost",
         });
@@ -51,19 +56,31 @@ describe("ticket notification emails", () => {
             token: "secret-token",
             requesterEmail: "tester1@frontlit.app",
             subject: "Billing question",
+            eventId: "tmsg_created",
         });
 
-        expect(sendMail).toHaveBeenCalledWith(
+        expect(sendPlatformEmail).toHaveBeenCalledWith(
+            "ticket-created",
+            expect.objectContaining({
+                subject: "Billing question",
+                ticketUrl:
+                    "http://acme.localhost:3002/help/tickets/tkt_1?token=secret-token",
+            }),
             expect.objectContaining({
                 to: "tester1@frontlit.app",
                 subject: "We received your request: Billing question",
-                from: "Acme Support <support@acme.localhost>",
-                replyTo: "Acme Support <support@acme.localhost>",
-                text: expect.stringContaining(
-                    "http://acme.localhost:3002/help/tickets/tkt_1?token=secret-token",
+                idempotencyKey: ticketIdempotencyKey(
+                    "created",
+                    "tmsg_created",
+                    "tester1@frontlit.app",
                 ),
             }),
         );
+        const meta = sendPlatformEmail.mock.calls[0][2] as {
+            headers?: Record<string, string>;
+        };
+        expect(meta.headers).not.toHaveProperty("Message-ID");
+        expect(meta.headers).not.toHaveProperty("message-id");
     });
 
     it("emails the requester when an agent replies", async () => {
@@ -75,21 +92,33 @@ describe("ticket notification emails", () => {
             subject: "Billing question",
             replyText:
                 "Your refund is on the way.\n\nIt should land in 3 days.",
+            eventId: "tmsg_reply",
         });
 
-        expect(sendMail).toHaveBeenCalledWith(
+        const [, variables, meta] = sendPlatformEmail.mock.calls[0];
+        expect(sendPlatformEmail).toHaveBeenCalledWith(
+            "ticket-reply",
+            expect.anything(),
             expect.objectContaining({
                 to: "tester1@frontlit.app",
                 subject: "Re: Billing question",
-                from: "Acme Support <support@acme.localhost>",
-                text: expect.stringContaining("Your refund is on the way."),
-                html: expect.stringContaining("Your refund is on the way."),
+                idempotencyKey: ticketIdempotencyKey(
+                    "reply",
+                    "tmsg_reply",
+                    "tester1@frontlit.app",
+                ),
             }),
         );
-        expect(sendMail.mock.calls[0][0].text).toContain("fresh-token");
-        expect(sendMail.mock.calls[0][0].html).toContain(
+        expect((variables as { replyText: string }).replyText).toContain(
+            "Your refund is on the way.",
+        );
+        expect((variables as { replyText: string }).replyText).toContain(
             "It should land in 3 days.",
         );
+        expect((variables as { ticketUrl: string }).ticketUrl).toContain(
+            "fresh-token",
+        );
+        expect(meta).not.toHaveProperty("messageId");
     });
 
     it("dedupes the same article in the source list", async () => {
@@ -105,19 +134,22 @@ describe("ticket notification emails", () => {
                 { slug: "rest-api", title: "REST API", anchor: "b" },
                 { slug: "rest-api", title: "REST API", anchor: "c" },
             ],
+            eventId: "tmsg_dedupe",
         });
-        const html = sendMail.mock.calls[0][0].html as string;
-        expect(html.match(/REST API/g)?.length).toBe(1);
+        const sourcesText = (
+            sendPlatformEmail.mock.calls[0][1] as { sourcesText: string }
+        ).sourcesText;
+        expect(sourcesText.match(/REST API/g)?.length).toBe(1);
     });
 
-    it("turns citation markers and the source list into doc links", async () => {
+    it("passes reply prose and deduplicated source URLs as template variables", async () => {
         await notifyRequesterOfReply({
             teamId: "team_1",
             ticketId: "tkt_1",
             token: "fresh-token",
             requesterEmail: "tester1@frontlit.app",
             subject: "API question",
-            replyText: "Use the product API. [1]",
+            replyText: 'Use the product API. [1] <script>alert("x")</script>',
             sources: [
                 {
                     slug: "rest-api",
@@ -125,16 +157,15 @@ describe("ticket notification emails", () => {
                     anchor: "overview",
                 },
             ],
+            eventId: "tmsg_cite",
         });
-        const html = sendMail.mock.calls[0][0].html as string;
-        const text = sendMail.mock.calls[0][0].text as string;
-        expect(html).toContain(
-            'href="http://acme.localhost:3002/docs/rest-api#overview"',
-        );
-        expect(html).toContain(">[1]</a>");
-        expect(html).toContain("Sources");
-        expect(text).toContain(
-            "http://acme.localhost:3002/docs/rest-api#overview",
+        const variables = sendPlatformEmail.mock.calls[0][1] as {
+            replyText: string;
+            sourcesText: string;
+        };
+        expect(variables.replyText).toContain('<script>alert("x")</script>');
+        expect(variables.sourcesText).toBe(
+            "1. REST API For Product and Customer Management: http://acme.localhost:3002/docs/rest-api#overview",
         );
     });
 
@@ -147,35 +178,53 @@ describe("ticket notification emails", () => {
             requesterEmail: "tester1@frontlit.app",
             subject: "Billing question",
             replyText: "Working on it.",
+            eventId: "tmsg_replyto",
         });
         expect(mintReplyToken).toHaveBeenCalledWith({
             teamId: "team_1",
             ticketPublicId: "tkt_1",
             requesterEmail: "tester1@frontlit.app",
         });
-        expect(sendMail).toHaveBeenCalledWith(
+        expect(sendPlatformEmail).toHaveBeenCalledWith(
+            "ticket-reply",
+            expect.anything(),
             expect.objectContaining({
-                from: "Acme Support <support@acme.localhost>",
                 replyTo: "reply+abcdefghijklmnopqrstuvwx@replies.localhost",
+                headers: {
+                    "In-Reply-To": "<tkt_1@acme.localhost>",
+                    References: "<tkt_1@acme.localhost>",
+                },
             }),
         );
+        const meta = sendPlatformEmail.mock.calls[0][2] as Record<
+            string,
+            unknown
+        >;
+        expect(meta).not.toHaveProperty("messageId");
+        expect(JSON.stringify(meta)).not.toMatch(/Message-ID/i);
     });
 
-    it("emails the team a link into the inbox", async () => {
+    it("emails the team a link into the inbox with an event-derived key", async () => {
         await notifyTeamOfRequesterMessage({
             teamId: "team_1",
             ticketId: "tkt_1",
             recipientEmail: "owner@example.com",
             subject: "Billing question",
+            eventId: "tmsg_team",
         });
 
-        expect(sendMail).toHaveBeenCalledWith(
+        expect(sendPlatformEmail).toHaveBeenCalledWith(
+            "ticket-requester-message",
+            expect.objectContaining({
+                inboxUrl: "http://localhost:3000/?ticket=tkt_1",
+            }),
             expect.objectContaining({
                 to: "owner@example.com",
                 subject: "New message on ticket: Billing question",
-                from: "Acme Support <support@acme.localhost>",
-                text: expect.stringContaining(
-                    "http://localhost:3000/?ticket=tkt_1",
+                idempotencyKey: ticketIdempotencyKey(
+                    "requester-message",
+                    "tmsg_team",
+                    "owner@example.com",
                 ),
             }),
         );

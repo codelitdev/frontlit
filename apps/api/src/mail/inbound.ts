@@ -96,7 +96,12 @@ export async function processInboundMail(
         source: "email",
     });
     await recordInbound(mail.messageId, team.id, created.ticket.id);
-    await notifyTeam(team.id, created.ticket.ticketId, created.ticket.subject);
+    await notifyTeam(
+        team.id,
+        created.ticket.ticketId,
+        created.ticket.subject,
+        created.firstMessage.messageId,
+    );
     return { status: "created", ticketId: created.ticket.ticketId };
 }
 
@@ -148,14 +153,19 @@ async function appendToTicket(input: {
         return { status: "ignored", reason: "sender_mismatch" };
     }
 
-    await addTicketMessage({
+    const message = await addTicketMessage({
         teamId: ticket.teamId,
         ticketDbId: ticket.id,
         author: "requester",
         content: textTicketMessage(input.body),
     });
     await recordInbound(input.mail.messageId, ticket.teamId, ticket.id);
-    await notifyTeam(ticket.teamId, ticket.ticketId, ticket.subject);
+    await notifyTeam(
+        ticket.teamId,
+        ticket.ticketId,
+        ticket.subject,
+        message.messageId,
+    );
     return { status: "replied", ticketId: ticket.ticketId };
 }
 
@@ -188,7 +198,12 @@ async function recordInbound(
         .onConflictDoNothing();
 }
 
-async function notifyTeam(teamId: string, ticketId: string, subject: string) {
+async function notifyTeam(
+    teamId: string,
+    ticketId: string,
+    subject: string,
+    eventId: string,
+) {
     const recipient = await getTicketNotificationRecipient(teamId, null);
     if (!recipient) return;
     notifyTeamOfRequesterMessage({
@@ -196,5 +211,6 @@ async function notifyTeam(teamId: string, ticketId: string, subject: string) {
         ticketId,
         recipientEmail: recipient,
         subject,
+        eventId,
     }).catch(() => {});
 }

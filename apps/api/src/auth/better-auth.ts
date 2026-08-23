@@ -11,7 +11,11 @@ import type { HostedLoginMethod } from "@codelitdev/oauth-server-kit/express";
 import { db } from "../db/client";
 import * as schema from "../db/schema";
 import { logger } from "../services/log";
-import { MailNotConfiguredError, sendMail } from "../utils/mail";
+import {
+    MailNotConfiguredError,
+    newOtpIdempotencyKey,
+    sendPlatformEmail,
+} from "../email/platform-mail";
 import { ensureFrontLitAccountForUser } from "../account/queries";
 import {
     createFrontLitOAuthTeamSelectionHooks,
@@ -72,20 +76,38 @@ export const mcpProtectedResourceMetadataUrl = `${authBaseUrl}/.well-known/oauth
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
-async function sendOtpEmail(email: string, otp: string) {
+async function sendOtpEmail(
+    email: string,
+    otp: string,
+    idempotencyKey: string,
+) {
     try {
-        await sendMail({
-            to: email,
-            subject: "Your FrontLit verification code",
-            text: `Enter this code to sign in to FrontLit: ${otp}`,
-            html: `<p>Enter this code to sign in to FrontLit:</p><h2>${otp}</h2>`,
-        });
+        await sendPlatformEmail(
+            "otp",
+            { otp },
+            {
+                to: email,
+                subject: "Your FrontLit verification code",
+                idempotencyKey,
+            },
+        );
     } catch (error) {
-        // OTP issuance still succeeds locally / without SMTP; Better Auth
-        // would otherwise surface a 500 to the sign-in form.
+        // OTP issuance still succeeds locally without mail configured;
+        // Better Auth would otherwise surface a 500 to the sign-in form.
         if (error instanceof MailNotConfiguredError) return;
         throw error;
     }
+}
+
+export async function sendVerificationOTP({
+    email,
+    otp,
+}: {
+    email: string;
+    otp: string;
+}) {
+    const idempotencyKey = newOtpIdempotencyKey();
+    await sendOtpEmail(email, otp, idempotencyKey);
 }
 
 export { oauthTeamSelectionAdapter };
@@ -211,9 +233,7 @@ export const auth = betterAuth({
     },
     plugins: [
         emailOTP({
-            async sendVerificationOTP({ email, otp }) {
-                await sendOtpEmail(email, otp);
-            },
+            sendVerificationOTP,
             storeOTP: "hashed",
             expiresIn: 5 * 60,
             allowedAttempts: 5,

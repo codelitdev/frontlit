@@ -11,6 +11,8 @@ import { startAuthorizationMaintenance } from "./team/maintenance";
 import { attachInboxLive } from "./tickets/live-server";
 import { startInboxAiWorker } from "./inbox-ai/worker";
 import { startDocumentIndexWorker } from "./documentation/worker";
+import { assertPlatformMailConfig } from "./email/platform-mail-config";
+import { startPlatformMailBackgroundInit } from "./email/platform-mail";
 
 const app = createApp();
 const port = process.env.PORT || 4000;
@@ -22,6 +24,7 @@ checkConfig()
         const server = app.listen(port, () => {
             logger.info(`FrontLit API running at ${port}`);
             logger.info(describeChatProvider());
+            startPlatformMailBackgroundInit();
         });
         attachInboxLive(server);
         startOutboxWorker();
@@ -34,7 +37,7 @@ checkConfig()
         process.exit(1);
     });
 
-async function checkConfig() {
+export async function checkConfig() {
     if (!process.env.DB_CONNECTION_STRING) {
         throw new Error("DB_CONNECTION_STRING is not set");
     }
@@ -48,4 +51,5 @@ async function checkConfig() {
     if (!process.env.PROVISIONING_SECRET) {
         throw new Error("PROVISIONING_SECRET is not set");
     }
+    assertPlatformMailConfig();
 }

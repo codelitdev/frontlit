@@ -1,4 +1,8 @@
-import { MailDeliveryError, sendMail } from "../utils/mail";
+import {
+    invitationIdempotencyKey,
+    MailDeliveryError,
+    sendPlatformEmail,
+} from "../email/platform-mail";
 
 export type InvitationEmailInput = {
     to: string;
@@ -6,6 +10,8 @@ export type InvitationEmailInput = {
     inviterName: string | null;
     expiresAt: Date;
     acceptUrl: string;
+    invitationId: string;
+    tokenHash: string;
 };
 
 export class InvitationDeliveryError extends Error {
@@ -17,32 +23,26 @@ export class InvitationDeliveryError extends Error {
 
 export type InvitationMailer = (input: InvitationEmailInput) => Promise<void>;
 
-function describeAccess(): string {
-    return "You've been invited to collaborate on this team.";
-}
-
 export const sendInvitationEmail: InvitationMailer = async (input) => {
-    const inviter = input.inviterName
-        ? `${input.inviterName} invited you`
-        : "You've been invited";
-    const expiry = input.expiresAt.toUTCString();
-    const text = [
-        `${inviter} to join ${input.teamName} on FrontLit.`,
-        describeAccess(),
-        `This invitation expires on ${expiry}.`,
-        `Sign in with ${input.to} and open: ${input.acceptUrl}`,
-    ].join("\n\n");
-
     try {
-        await sendMail({
-            to: input.to,
-            subject: `Join ${input.teamName} on FrontLit`,
-            text,
-            html: `<p>${inviter} to join <strong>${input.teamName}</strong> on FrontLit.</p>
-<p>${describeAccess()}</p>
-<p>This invitation expires on ${expiry}.</p>
-<p>Sign in with ${input.to}, then <a href="${input.acceptUrl}">accept the invitation</a>.</p>`,
-        });
+        await sendPlatformEmail(
+            "invitation",
+            {
+                teamName: input.teamName,
+                inviterName: input.inviterName ?? undefined,
+                expiresAt: input.expiresAt.toUTCString(),
+                acceptUrl: input.acceptUrl,
+                inviteeEmail: input.to,
+            },
+            {
+                to: input.to,
+                subject: `Join ${input.teamName} on FrontLit`,
+                idempotencyKey: invitationIdempotencyKey(
+                    input.invitationId,
+                    input.tokenHash,
+                ),
+            },
+        );
     } catch (error) {
         if (error instanceof MailDeliveryError) {
             throw new InvitationDeliveryError();

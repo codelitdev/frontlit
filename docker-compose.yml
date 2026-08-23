@@ -26,7 +26,8 @@ services:
             - frontlit-postgres-data:/var/lib/postgresql/data
             - ./docker/postgres-init/01-create-sendlit-db.sh:/docker-entrypoint-initdb.d/01-create-sendlit-db.sh:ro
         healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+            test:
+                ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
             interval: 5s
             timeout: 5s
             retries: 12
@@ -57,10 +58,10 @@ services:
             - sh
             - -ec
             - >-
-              psql -h postgres -U ${POSTGRES_USER:-frontlit} -d ${POSTGRES_DB:-frontlit} -tAc
-              "SELECT 1 FROM pg_database WHERE datname = 'sendlit'" |
-              grep -q 1 || psql -h postgres -U ${POSTGRES_USER:-frontlit} -d ${POSTGRES_DB:-frontlit}
-              -v ON_ERROR_STOP=1 -c "CREATE DATABASE sendlit OWNER ${POSTGRES_USER:-frontlit}"
+                psql -h postgres -U ${POSTGRES_USER:-frontlit} -d ${POSTGRES_DB:-frontlit} -tAc
+                "SELECT 1 FROM pg_database WHERE datname = 'sendlit'" |
+                grep -q 1 || psql -h postgres -U ${POSTGRES_USER:-frontlit} -d ${POSTGRES_DB:-frontlit}
+                -v ON_ERROR_STOP=1 -c "CREATE DATABASE sendlit OWNER ${POSTGRES_USER:-frontlit}"
 
     sendlit-api:
         image: codelit/sendlit-api:k3s
@@ -76,8 +77,8 @@ services:
             - sh
             - -ec
             - |
-              node apps/api/dist/db/migrate.js
-              exec node apps/api/dist/index.js
+                node apps/api/dist/db/migrate.js
+                exec node apps/api/dist/index.js
         environment:
             NODE_ENV: "${SENDLIT_NODE_ENV:-development}"
             PORT: 3001
@@ -96,7 +97,11 @@ services:
         ports:
             - "${SENDLIT_API_PORT:-3001}:3001"
         healthcheck:
-            test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3001/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+            test:
+                [
+                    "CMD-SHELL",
+                    'node -e "fetch(''http://127.0.0.1:3001/health'').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"',
+                ]
             interval: 10s
             timeout: 5s
             retries: 12
@@ -129,11 +134,8 @@ services:
             MEDIALIT_SERVER: ${MEDIALIT_SERVER:-https://api.medialit.cloud}
             REVALIDATE_WEBHOOK_SECRET: ${REVALIDATE_WEBHOOK_SECRET:-}
             INTEGRATIONS_ENCRYPTION_KEY: ${INTEGRATIONS_ENCRYPTION_KEY:-}
-            EMAIL_HOST: ${EMAIL_HOST:-}
-            EMAIL_PORT: ${EMAIL_PORT:-}
-            EMAIL_USER: ${EMAIL_USER:-}
-            EMAIL_PASS: ${EMAIL_PASS:-}
-            EMAIL_FROM: ${EMAIL_FROM:-}
+            SENDLIT_PLATFORM_TEAM_API_KEY: ${SENDLIT_PLATFORM_TEAM_API_KEY:-}
+            SENDLIT_PLATFORM_REQUEST_TIMEOUT_MS: ${SENDLIT_PLATFORM_REQUEST_TIMEOUT_MS:-5000}
             MAIL_DOMAIN: ${MAIL_DOMAIN:-}
             GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
             GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
@@ -146,8 +148,8 @@ services:
             - sh
             - -ec
             - |
-              node apps/api/dist/db/migrate.js
-              exec node apps/api/dist/index.js
+                node apps/api/dist/db/migrate.js
+                exec node apps/api/dist/index.js
         ports:
             - "${API_PORT:-4000}:4000"
         healthcheck:

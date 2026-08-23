@@ -52,19 +52,15 @@ SENDLIT_SUPER_ADMIN_EMAIL=admin@example.com
 `SENDLIT_SUPER_ADMIN_EMAIL` creates the initial SendLit administrator and
 organization.
 
-Start everything and confirm health:
+Start SendLit first, then the rest of the product. Compose's FrontLit API
+uses a dedicated, preconfigured SendLit team for platform mail when
+`SENDLIT_PLATFORM_TEAM_API_KEY` is set. Without that key, platform emails are
+written to the FrontLit API log.
 
 ```bash
-docker compose up --build -d
-curl http://localhost:4000/health
+docker compose up -d postgres sendlit-redis sendlit-db-init sendlit-api
 curl http://localhost:3001/health
 ```
-
-The expected responses are JSON containing `"status":"ok"`. The first startup
-creates both databases and runs migrations. These actions are idempotent, so
-later `docker compose up -d` commands are safe.
-
-## Connect FrontLit to SendLit
 
 On its first boot, SendLit logs a one-time, scoped organization API key:
 
@@ -78,18 +74,28 @@ only shown when created. Set it in the root `.env`:
 ```bash
 SENDLIT_API_URL=http://sendlit-api:3001
 SENDLIT_ORGANIZATION_API_KEY=sl_org_live_...
+SENDLIT_PLATFORM_TEAM_API_KEY=sl_live_...
 ```
 
-Then recreate the FrontLit API so it reads the new value:
+Sign in to SendLit, connect an organization shared ESP, and make it the
+delivery policy default. Create the dedicated platform team, grant it that
+shared ESP, mint its team API key, and set the key above **before** starting
+FrontLit. Then start the full product:
 
 ```bash
-docker compose up -d frontlit-api
+docker compose up --build -d
+curl http://localhost:4000/health
+docker compose exec frontlit-api node -e "fetch('http://127.0.0.1:4000/ready').then(async r => { if (!r.ok) { console.error(await r.text()); process.exit(1); } }).catch(e => { console.error(e); process.exit(1); })"
 ```
 
-New FrontLit teams will then be provisioned in the SendLit organization
-automatically. The organization key is used only to provision and manage
-those teams; FrontLit stores the separate, team-scoped SendLit key returned
-for each provisioned team.
+`/health` is liveness. When a platform-team key is configured, `/ready` stays
+`503` until the organization delivery option, mailing address, and templates
+have been validated. Without the key, console delivery is immediately ready.
+
+New FrontLit teams are provisioned in the SendLit organization automatically.
+That existing tenant provisioning path is separate from platform mail and is
+unchanged. FrontLit reads the platform-team key only from the environment and
+does not create, store, or rotate it.
 
 `SUPER_ADMIN_EMAIL` likewise prints a FrontLit team API key once:
 

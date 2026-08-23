@@ -766,7 +766,7 @@ const impl = s.router(contract.public, {
             const message = body.transcript
                 ? `${body.transcript}\n\n---\n${body.message}`
                 : body.message;
-            const { ticket, token } = await createTicket({
+            const { ticket, token, firstMessage } = await createTicket({
                 teamId: team.id,
                 subject: body.subject,
                 message,
@@ -785,6 +785,7 @@ const impl = s.router(contract.public, {
                     ticketId: ticket.ticketId,
                     recipientEmail: recipient,
                     subject: ticket.subject,
+                    eventId: firstMessage.messageId,
                 }).catch(() => {});
             }
 
@@ -836,7 +837,7 @@ const impl = s.router(contract.public, {
                     body: { error: "Captcha verification failed" },
                 };
 
-            await addTicketMessage({
+            const message = await addTicketMessage({
                 teamId: team.id,
                 ticketDbId: ticket.id,
                 author: "requester",
@@ -861,6 +862,7 @@ const impl = s.router(contract.public, {
                     ticketId: ticket.ticketId,
                     recipientEmail: recipient,
                     subject: ticket.subject,
+                    eventId: message.messageId,
                 }).catch(() => {});
             }
 

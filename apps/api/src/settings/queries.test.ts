@@ -49,6 +49,15 @@ describe("team settings", () => {
         expect(second.id).toBe(first.id);
     });
 
+    it("returns the winning row when first reads race", async () => {
+        const [first, second] = await Promise.all([
+            getTeamSettings(teamId),
+            getTeamSettings(teamId),
+        ]);
+
+        expect(second.id).toBe(first.id);
+    });
+
     it("updates branding and code-injection fields", async () => {
         const updated = await updateTeamSettings(teamId, {
             title: "Acme",

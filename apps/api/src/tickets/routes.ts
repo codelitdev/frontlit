@@ -172,6 +172,7 @@ const impl = s.router(
                         requesterEmail: ticket.requesterEmail,
                         subject: ticket.subject,
                         replyText: ticketMessageText(content),
+                        eventId: message.messageId,
                     }).catch(() => {});
                 }
 

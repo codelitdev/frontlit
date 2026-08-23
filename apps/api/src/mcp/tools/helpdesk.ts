@@ -162,7 +162,7 @@ export function registerHelpdeskTools(server: McpToolRegistrar): void {
                 if (!ticket) return NOT_FOUND;
 
                 const account = getAuthAccount(extra);
-                await addTicketMessage({
+                const message = await addTicketMessage({
                     teamId,
                     ticketDbId: ticket.id,
                     author: "agent",
@@ -182,6 +182,7 @@ export function registerHelpdeskTools(server: McpToolRegistrar): void {
                         requesterEmail: ticket.requesterEmail,
                         subject: ticket.subject,
                         replyText: ticketMessageText(args.content),
+                        eventId: message.messageId,
                     }).catch(() => {});
                 }
 

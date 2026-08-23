@@ -29,7 +29,9 @@ pnpm dev:sites
 ```
 
 Wait for `FrontLit migrations applied.` in the Compose logs before
-`pnpm dev:api`. Schema lives in Compose, not in the API process.
+`pnpm dev:api`. Schema lives in Compose, not in the API process. Host
+development defaults to console platform mail (OTP and invitation text
+logged in the API process).
 
 Do not use `pnpm dev:api && pnpm dev:web && pnpm dev:sites` — `&&` waits
 for each process to exit. Use separate terminals or `pnpm dev`.
@@ -51,19 +53,35 @@ ports.
 
 The root Compose file is the product: PostgreSQL (FrontLit + SendLit
 databases), Redis, SendLit, and FrontLit's API, dashboard, and public sites.
+Platform mail (login OTPs, invitations, ticket notifications) is sent as
+SendLit transactional templates from a dedicated `frontlit-platform` team
+when `SENDLIT_PLATFORM_TEAM_API_KEY` is configured. Without the key, FrontLit
+writes platform emails to the API log.
 
 ```sh
 cp .env.example .env
 # Set the required secrets (commands are included as comments there).
-docker compose up --build -d
-docker compose logs frontlit-api
-docker compose logs sendlit-api
 ```
 
-Set `SUPER_ADMIN_EMAIL` and `SENDLIT_SUPER_ADMIN_EMAIL` before the first
-start. Each process logs a one-time API key; save those. After SendLit prints
-`organizationApiKey`, put it in `.env` as `SENDLIT_ORGANIZATION_API_KEY` and
-run `docker compose up -d frontlit-api`.
+1. Start SendLit first:
+
+    ```sh
+    docker compose up -d postgres sendlit-redis sendlit-db-init sendlit-api
+    ```
+
+2. Read the one-time `organizationApiKey` from `docker compose logs sendlit-api`
+   and store it as `SENDLIT_ORGANIZATION_API_KEY`. FrontLit never scrapes the log.
+3. Sign in to SendLit, connect an organization shared ESP, and make it the
+   delivery policy default. This must happen before the platform team is created.
+4. Create the dedicated SendLit platform team, grant it the shared ESP, mint a
+   team API key, and set it as `SENDLIT_PLATFORM_TEAM_API_KEY` in `.env`.
+5. Start the full product: `docker compose up --build -d`.
+6. Wait for application readiness (Compose healthchecks use `/health` for
+   liveness only):
+
+    ```sh
+    docker compose exec frontlit-api node -e "fetch('http://127.0.0.1:4000/ready').then(async r => { if (!r.ok) { console.error(await r.text()); process.exit(1); } }).catch(e => { console.error(e); process.exit(1); })"
+    ```
 
 Open the dashboard at `WEB_CLIENT` (`http://localhost:3000` by default), the
 API at `API_PUBLIC_URL` (`http://localhost:4000`), public sites at

@@ -14,11 +14,24 @@
  */
 
 export class SendlitApiError extends Error {
+    public body?: unknown;
+    public errorCode?: string;
+    public retryAfter?: string | null;
+
     constructor(
         message: string,
         public status?: number,
+        extras?: {
+            body?: unknown;
+            errorCode?: string;
+            retryAfter?: string | null;
+        },
     ) {
         super(message);
+        this.name = "SendlitApiError";
+        this.body = extras?.body;
+        this.errorCode = extras?.errorCode;
+        this.retryAfter = extras?.retryAfter;
     }
 }
 
@@ -28,6 +41,12 @@ function baseUrl(): string {
     return url.replace(/\/$/, "");
 }
 
+function isTimeoutError(error: unknown): boolean {
+    if (!error || typeof error !== "object") return false;
+    const name = "name" in error ? String(error.name) : "";
+    return name === "TimeoutError" || name === "AbortError";
+}
+
 async function request<T>(
     path: string,
     options: {
@@ -35,26 +54,61 @@ async function request<T>(
         apiKey?: string;
         body?: unknown;
         headers?: Record<string, string>;
+        timeoutMs?: number;
     } = {},
 ): Promise<T> {
-    const res = await fetch(baseUrl() + path, {
-        method: options.method ?? "GET",
-        headers: {
-            "content-type": "application/json",
-            ...(options.apiKey ? { "x-sendlit-apikey": options.apiKey } : {}),
-            ...options.headers,
-        },
-        body:
-            options.body !== undefined
-                ? JSON.stringify(options.body)
-                : undefined,
-    });
+    let res: Response;
+    try {
+        res = await fetch(baseUrl() + path, {
+            method: options.method ?? "GET",
+            headers: {
+                "content-type": "application/json",
+                ...(options.apiKey
+                    ? { "x-sendlit-apikey": options.apiKey }
+                    : {}),
+                ...options.headers,
+            },
+            body:
+                options.body !== undefined
+                    ? JSON.stringify(options.body)
+                    : undefined,
+            ...(options.timeoutMs !== undefined
+                ? { signal: AbortSignal.timeout(options.timeoutMs) }
+                : {}),
+        });
+    } catch (error) {
+        if (options.timeoutMs === undefined) throw error;
+        if (isTimeoutError(error)) {
+            throw new SendlitApiError("SendLit request timed out");
+        }
+        throw new SendlitApiError("SendLit network error");
+    }
 
     if (!res.ok) {
         const text = await res.text().catch(() => "");
+        let parsed: unknown;
+        try {
+            parsed = text ? JSON.parse(text) : undefined;
+        } catch {
+            parsed = undefined;
+        }
+        const errorCode =
+            parsed &&
+            typeof parsed === "object" &&
+            "error" in parsed &&
+            typeof (parsed as { error: unknown }).error === "string"
+                ? (parsed as { error: string }).error
+                : undefined;
+        const retryAfter = res.headers.get("retry-after");
+        const detail = errorCode ?? (parsed ? undefined : text.slice(0, 200));
         throw new SendlitApiError(
-            `SendLit API error ${res.status}: ${text.slice(0, 300)}`,
+            options.timeoutMs === undefined
+                ? `SendLit API error ${res.status}: ${text.slice(0, 300)}`
+                : detail
+                  ? `SendLit API error ${res.status}: ${detail}`
+                  : `SendLit API error ${res.status}`,
             res.status,
+            { body: parsed, errorCode, retryAfter },
         );
     }
 
@@ -289,8 +343,14 @@ export type SendlitGeneralSettings = {
     updatedAt?: string | null;
 };
 
-export async function getGeneralSettings(apiKey: string) {
-    return request<SendlitGeneralSettings>("/settings/general", { apiKey });
+export async function getGeneralSettings(
+    apiKey: string,
+    options: { timeoutMs?: number } = {},
+) {
+    return request<SendlitGeneralSettings>("/settings/general", {
+        apiKey,
+        timeoutMs: options.timeoutMs,
+    });
 }
 
 export async function updateGeneralSettings(
@@ -477,10 +537,14 @@ export type FrontlitEmailTemplate = {
     updatedAt?: string | null;
 };
 
-type SendlitEmailTemplate = {
+export type SendlitTemplatePurpose = "marketing" | "transactional";
+
+export type SendlitEmailTemplate = {
     templateId: string;
     title: string;
     content: Record<string, unknown>;
+    purpose: SendlitTemplatePurpose;
+    requiredVariables?: string[];
     createdAt?: string | null;
     updatedAt?: string | null;
 };
@@ -740,13 +804,111 @@ export type SendlitTransactionalEmail = { txeId: string; status: string };
 /** `POST /emails` — single API-triggered send, used for help-desk ticket
  * notifications (agent replies to the requester, new requester messages to
  * the team). Fire-and-forget from the caller's perspective (202 = queued). */
+export type SendlitDeliverySource =
+    { type: "organization" } | { type: "team"; espId?: string };
+
+export type SendEmailInput = {
+    to: string;
+    subject: string;
+    html?: string;
+    templateId?: string;
+    variables?: Record<string, unknown>;
+    replyTo?: string;
+    headers?: Record<string, string>;
+    idempotencyKey?: string;
+    deliverySource?: SendlitDeliverySource;
+};
+
 export async function sendEmail(
     apiKey: string,
-    input: { to: string; subject: string; html: string; replyTo?: string },
+    input: SendEmailInput,
+    options: { timeoutMs?: number } = {},
 ) {
     return request<SendlitTransactionalEmail>("/emails", {
         method: "POST",
         apiKey,
         body: input,
+        timeoutMs: options.timeoutMs,
+    });
+}
+
+function templatesPath(purpose?: SendlitTemplatePurpose): string {
+    if (purpose === undefined) return "/templates";
+    return `/templates?purpose=${purpose}`;
+}
+
+export async function listSendlitEmailTemplates(
+    apiKey: string,
+    options: { purpose?: SendlitTemplatePurpose; timeoutMs?: number } = {},
+) {
+    return request<SendlitEmailTemplate[]>(templatesPath(options.purpose), {
+        apiKey,
+        timeoutMs: options.timeoutMs,
+    });
+}
+
+export async function createSendlitEmailTemplate(
+    apiKey: string,
+    input: {
+        title: string;
+        purpose: SendlitTemplatePurpose;
+        content: Record<string, unknown>;
+    },
+    options: { timeoutMs?: number } = {},
+) {
+    return request<SendlitEmailTemplate>("/templates", {
+        method: "POST",
+        apiKey,
+        body: input,
+        timeoutMs: options.timeoutMs,
+    });
+}
+
+export async function updateSendlitEmailTemplate(
+    apiKey: string,
+    templateId: string,
+    patch: Partial<{ title: string; content: Record<string, unknown> }>,
+    options: { timeoutMs?: number } = {},
+) {
+    return request<SendlitEmailTemplate>(
+        `/templates/${encodeURIComponent(templateId)}`,
+        {
+            method: "PATCH",
+            apiKey,
+            body: patch,
+            timeoutMs: options.timeoutMs,
+        },
+    );
+}
+
+export type SendlitSendingOption =
+    | {
+          type: "organization";
+          name: string;
+          fromName: string | null;
+          fromEmail: string | null;
+          replyTo: string | null;
+          isDefault: boolean;
+          available: boolean;
+          countsAgainstQuota: true;
+      }
+    | {
+          type: "team";
+          espId: string;
+          name: string;
+          fromName: string | null;
+          fromEmail: string | null;
+          isDefault: boolean;
+          available: boolean;
+          countsAgainstQuota: false;
+      };
+
+export async function getSendlitSendingOptions(
+    apiKey: string,
+    options: { timeoutMs?: number } = {},
+) {
+    return request<{ items: SendlitSendingOption[] }>("/sending-options", {
+        apiKey,
+        timeoutMs: options.timeoutMs,
     });
 }

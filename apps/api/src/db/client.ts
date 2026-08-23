@@ -1,10 +1,14 @@
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
+import { logger } from "../services/log";
 import * as schema from "./schema";
 
 const dbConnectionString = process.env.DB_CONNECTION_STRING || "";
 
 export const pool = new Pool({ connectionString: dbConnectionString });
+pool.on("error", (err) => {
+    logger.error({ err }, "Unexpected Postgres pool error");
+});
 export const db = drizzle(pool, { schema });
 
 /** PGlite (used by Vitest) hangs on `db.transaction` / `FOR UPDATE`.

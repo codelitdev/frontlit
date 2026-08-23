@@ -46,7 +46,7 @@ function notifyTeamsChanged() {
 }
 
 async function unwrap<T>(
-    promise: Promise<{ status: number; body: unknown }>,
+    promise: Promise<{ status: number; body: unknown; headers: Headers }>,
 ): Promise<T> {
     const result = await promise;
 
@@ -54,7 +54,15 @@ async function unwrap<T>(
         return result.body as T;
     }
 
-    if (result.status === 401 && typeof window !== "undefined") {
+    // A 401 from an upstream integration (for example, a stale tenant
+    // SendLit key) is not proof that the browser session expired. The Next
+    // proxy is the sole authority for that and marks only its own failed
+    // session check with this header.
+    if (
+        result.status === 401 &&
+        result.headers.get("X-Auth-Error") === "session_expired" &&
+        typeof window !== "undefined"
+    ) {
         window.location.href = clientLoginPath(
             `${window.location.pathname}${window.location.search}`,
         );

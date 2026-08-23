@@ -41,8 +41,22 @@ export async function getTeamSettings(teamId: string) {
             sharedWidgets: DEFAULT_SHARED_WIDGETS,
             draftSharedWidgets: DEFAULT_SHARED_WIDGETS,
         })
+        // Public-site rendering can request page and settings data in
+        // parallel for a new team. Only one settings row is allowed, so let
+        // the losing request read the row created by the winner below.
+        .onConflictDoNothing({ target: teamSettings.teamId })
         .returning();
-    return created;
+    if (created) return created;
+
+    const concurrent = await db.query.teamSettings.findFirst({
+        where: eq(teamSettings.teamId, teamId),
+    });
+    if (concurrent) return concurrent;
+
+    // Postgres waits for a conflicting insert to finish, so a subsequent
+    // read must find its row. Keep an explicit failure if that invariant is
+    // ever broken rather than returning an undefined settings object.
+    throw new Error("Team settings were not created");
 }
 
 export async function updateTeamSettings(

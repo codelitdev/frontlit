@@ -1,13 +1,15 @@
-import { randomBytes } from "node:crypto";
 import { logger } from "../services/log";
-import { sendMail, type MailMessage } from "../utils/mail";
+import {
+    sendPlatformEmail,
+    ticketIdempotencyKey,
+    type PlatformTemplateVariables,
+} from "../email/platform-mail";
 import { getDomainSettings, getPlatformSiteDomain } from "../domains/queries";
 import { findTeamById } from "../team/queries";
 import {
     conversationMessageId,
-    outboundMessageId,
     replyToAddress,
-    supportFromHeader,
+    supportAddress,
 } from "../mail/address";
 import { inboundEmailDomain } from "../mail/config";
 import { mintReplyToken } from "../mail/reply-token";
@@ -74,63 +76,66 @@ async function mailboxHeaders(
     teamId: string,
     ticketId: string,
     requesterEmail?: string,
-): Promise<
-    Pick<
-        MailMessage,
-        "from" | "replyTo" | "messageId" | "inReplyTo" | "references"
-    >
-> {
+): Promise<{ replyTo?: string; headers?: Record<string, string> }> {
     const team = await findTeamById(teamId);
     if (!team?.subdomain) return {};
-    const from = supportFromHeader(team.name, team.subdomain);
     const conversation = conversationMessageId(ticketId, team.subdomain);
-    let replyTo = from;
+    let replyTo = supportAddress(team.subdomain);
     if (requesterEmail && inboundEmailDomain()) {
         const token = await mintReplyToken({
             teamId,
             ticketPublicId: ticketId,
             requesterEmail,
         });
-        replyTo = (token && replyToAddress(token)) || from;
+        replyTo = (token && replyToAddress(token)) || replyTo;
     }
     return {
-        from,
         replyTo,
-        messageId: outboundMessageId(
-            ticketId,
-            team.subdomain,
-            randomBytes(6).toString("hex"),
-        ),
-        inReplyTo: conversation,
-        references: [conversation],
+        headers: {
+            "In-Reply-To": conversation,
+            References: conversation,
+        },
     };
 }
 
-/** Platform SMTP so local Mailpit works; From is the team's support@ mailbox. */
-async function notify(
-    teamId: string,
-    ticketId: string,
-    to: string,
-    subject: string,
-    text: string,
-    html: string,
-    mintReplyTo?: boolean,
-): Promise<void> {
+async function notify(input: {
+    templateKey: "ticket-created" | "ticket-reply" | "ticket-requester-message";
+    variables:
+        | PlatformTemplateVariables["ticket-created"]
+        | PlatformTemplateVariables["ticket-reply"]
+        | PlatformTemplateVariables["ticket-requester-message"];
+    kind: string;
+    eventId: string;
+    teamId: string;
+    ticketId: string;
+    to: string;
+    subject: string;
+    mintReplyTo?: boolean;
+}): Promise<void> {
     try {
-        await sendMail({
-            to,
-            subject,
-            text,
-            html,
-            ...(await mailboxHeaders(
-                teamId,
-                ticketId,
-                mintReplyTo ? to : undefined,
-            )),
-        });
+        await sendPlatformEmail(
+            input.templateKey,
+            input.variables as PlatformTemplateVariables[typeof input.templateKey],
+            {
+                to: input.to,
+                subject: input.subject,
+                idempotencyKey: ticketIdempotencyKey(
+                    input.kind,
+                    input.eventId,
+                    input.to,
+                ),
+                ...(await mailboxHeaders(
+                    input.teamId,
+                    input.ticketId,
+                    input.mintReplyTo ? input.to : undefined,
+                )),
+            },
+        );
     } catch (err) {
         logger.warn(
-            { to, error: err instanceof Error ? err.message : String(err) },
+            {
+                errorType: err instanceof Error ? err.name : typeof err,
+            },
             "Ticket notification email failed",
         );
     }
@@ -142,23 +147,20 @@ export async function notifyRequesterOfTicketCreated(input: {
     token: string;
     requesterEmail: string;
     subject: string;
+    eventId: string;
 }) {
     const url = await threadUrl(input.teamId, input.ticketId, input.token);
-    await notify(
-        input.teamId,
-        input.ticketId,
-        input.requesterEmail,
-        `We received your request: ${input.subject}`,
-        [
-            "Thanks — we received your support request. Reply to this email to continue the conversation.",
-            `Subject: ${input.subject}`,
-            `Or view the ticket: ${url}`,
-        ].join("\n\n"),
-        `<p>Thanks — we received your support request. Reply to this email to continue the conversation.</p>
-<p>Subject: ${escapeHtml(input.subject)}</p>
-<p><a href="${url}">View the ticket</a></p>`,
-        true,
-    );
+    await notify({
+        templateKey: "ticket-created",
+        variables: { subject: input.subject, ticketUrl: url },
+        kind: "created",
+        eventId: input.eventId,
+        teamId: input.teamId,
+        ticketId: input.ticketId,
+        to: input.requesterEmail,
+        subject: `We received your request: ${input.subject}`,
+        mintReplyTo: true,
+    });
 }
 
 export async function notifyRequesterOfReply(input: {
@@ -169,25 +171,29 @@ export async function notifyRequesterOfReply(input: {
     subject: string;
     replyText: string;
     sources?: TicketMailSource[];
+    eventId: string;
 }) {
     const url = await threadUrl(input.teamId, input.ticketId, input.token);
     const origin = await siteOriginForTeam(input.teamId);
-    const reply = input.replyText.trim();
+    const reply =
+        input.replyText.trim() ||
+        "You have a new reply on your support ticket.";
     const sources = uniqueMailSources(input.sources ?? []);
-    await notify(
-        input.teamId,
-        input.ticketId,
-        input.requesterEmail,
-        `Re: ${input.subject}`,
-        [
-            replyWithSourceUrls(reply, sources, origin) ||
-                "You have a new reply on your support ticket.",
-            `Reply to this email, or view the ticket: ${url}`,
-        ].join("\n\n"),
-        `${replyHtml(reply, sources, origin)}
-<p>Reply to this email, or <a href="${url}">view the ticket</a>.</p>`,
-        true,
-    );
+    await notify({
+        templateKey: "ticket-reply",
+        variables: {
+            replyText: reply,
+            ticketUrl: url,
+            sourcesText: sourcesText(sources, origin),
+        },
+        kind: "reply",
+        eventId: input.eventId,
+        teamId: input.teamId,
+        ticketId: input.ticketId,
+        to: input.requesterEmail,
+        subject: `Re: ${input.subject}`,
+        mintReplyTo: true,
+    });
 }
 
 export async function notifyTeamOfRequesterMessage(input: {
@@ -195,82 +201,26 @@ export async function notifyTeamOfRequesterMessage(input: {
     ticketId: string;
     recipientEmail: string;
     subject: string;
+    eventId: string;
 }) {
     const url = inboxUrl(input.ticketId);
-    await notify(
-        input.teamId,
-        input.ticketId,
-        input.recipientEmail,
-        `New message on ticket: ${input.subject}`,
-        [
-            "A new message was received on a support ticket.",
-            `View in the inbox: ${url}`,
-        ].join("\n\n"),
-        `<p>A new message was received on a support ticket.</p>
-<p><a href="${url}">View in the inbox</a></p>`,
-    );
-}
-
-function linkCitationMarkers(
-    escaped: string,
-    sources: TicketMailSource[],
-    origin: string,
-): string {
-    return escaped.replace(/\[(\d+)\]/g, (match, raw) => {
-        const index = Number(raw);
-        const source = sources[index - 1];
-        if (!source) return match;
-        return `<a href="${escapeHtml(publicDocUrl(origin, source))}">[${index}]</a>`;
+    await notify({
+        templateKey: "ticket-requester-message",
+        variables: { inboxUrl: url },
+        kind: "requester-message",
+        eventId: input.eventId,
+        teamId: input.teamId,
+        ticketId: input.ticketId,
+        to: input.recipientEmail,
+        subject: `New message on ticket: ${input.subject}`,
     });
 }
 
-function replyWithSourceUrls(
-    reply: string,
-    sources: TicketMailSource[],
-    origin: string,
-): string {
-    if (sources.length === 0) return reply;
-    const lines = sources.map((source, index) => {
-        const label = source.title ?? source.slug;
-        return `[${index + 1}] ${label}\n${publicDocUrl(origin, source)}`;
-    });
-    return `${reply}\n\nSources:\n${lines.join("\n")}`;
-}
-
-function sourcesHtml(sources: TicketMailSource[], origin: string): string {
-    if (sources.length === 0) return "";
-    const items = sources
-        .map((source, index) => {
-            const href = escapeHtml(publicDocUrl(origin, source));
-            const label = escapeHtml(source.title ?? source.slug);
-            return `<li><a href="${href}">[${index + 1}] ${label}</a></li>`;
-        })
-        .join("");
-    return `<p><strong>Sources</strong></p><ol>${items}</ol>`;
-}
-
-function replyHtml(
-    reply: string,
-    sources: TicketMailSource[] = [],
-    origin = "",
-): string {
-    if (!reply) {
-        return "<p>You have a new reply on your support ticket.</p>";
-    }
-    const body = reply
-        .split(/\n{2,}/)
-        .map((paragraph) => {
-            const escaped = escapeHtml(paragraph).replaceAll("\n", "<br>");
-            return `<p>${origin ? linkCitationMarkers(escaped, sources, origin) : escaped}</p>`;
-        })
-        .join("");
-    return `${body}${origin ? sourcesHtml(sources, origin) : ""}`;
-}
-
-function escapeHtml(value: string): string {
-    return value
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;");
+function sourcesText(sources: TicketMailSource[], origin: string): string {
+    return sources
+        .map(
+            (source, index) =>
+                `${index + 1}. ${source.title ?? source.slug}: ${publicDocUrl(origin, source)}`,
+        )
+        .join("\n");
 }

@@ -38,6 +38,7 @@ describe("prompt containment", () => {
                     title: "Billing",
                     heading: null,
                     anchor: null,
+                    kind: "doc",
                     content: "Plans start at $10.",
                     similarity: 0.9,
                 },

@@ -65,9 +65,6 @@ async function forward(
               },
     });
 
-    if (upstream.status === 401) {
-        res.headers.set("X-Auth-Error", "session_expired");
-    }
     return res;
 }
 

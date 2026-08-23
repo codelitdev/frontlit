@@ -97,6 +97,7 @@ export async function processTicketMailJob(
             token,
             requesterEmail: ticket.requesterEmail,
             subject: ticket.subject,
+            eventId: job.id,
         });
     } else {
         await notifyRequesterOfReply({
@@ -113,6 +114,7 @@ export async function processTicketMailJob(
                       anchor?: string | null;
                   }[])
                 : [],
+            eventId: job.id,
         });
     }
 
