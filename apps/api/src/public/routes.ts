@@ -136,10 +136,36 @@ const router = Router();
 
 const s = initServer();
 
-function toPublicDocumentProjection<T extends Record<string, unknown>>(
+type PublicDocumentFields =
+  | "documentId"
+  | "slug"
+  | "title"
+  | "content"
+  | "excerpt"
+  | "featuredImage"
+  | "meta"
+  | "createdAt"
+  | "publishedAt"
+  | "updatedAt";
+type PublicDocumentSource<T extends Record<PublicDocumentFields, unknown>> = Pick<
+  T,
+  PublicDocumentFields
+>;
+type PublicDocumentProjection<T extends Record<PublicDocumentFields, unknown>> =
+  ReturnType<typeof serializeDates<PublicDocumentSource<T>>>;
+type PublicArticleAuthor = { name: string; imageUrl: string | null };
+
+function toPublicDocumentProjection<T extends Record<PublicDocumentFields, unknown>>(
   doc: T,
-  author?: { name: string; imageUrl: string | null } | null,
-) {
+): PublicDocumentProjection<T>;
+function toPublicDocumentProjection<T extends Record<PublicDocumentFields, unknown>>(
+  doc: T,
+  author: PublicArticleAuthor | null,
+): PublicDocumentProjection<T> & { author: PublicArticleAuthor | null };
+function toPublicDocumentProjection<T extends Record<PublicDocumentFields, unknown>>(
+  doc: T,
+  author?: PublicArticleAuthor | null,
+): PublicDocumentProjection<T> & { author?: PublicArticleAuthor | null } {
   const {
     documentId,
     slug,
@@ -151,7 +177,7 @@ function toPublicDocumentProjection<T extends Record<string, unknown>>(
     createdAt,
     publishedAt,
     updatedAt,
-  } = doc as any;
+  } = doc;
   return serializeDates({
     documentId,
     slug,
@@ -164,7 +190,9 @@ function toPublicDocumentProjection<T extends Record<string, unknown>>(
     publishedAt,
     updatedAt,
     ...(author !== undefined ? { author } : {}),
-  });
+  }) as PublicDocumentProjection<T> & {
+    author?: PublicArticleAuthor | null;
+  };
 }
 
 async function publicAuthorsForDocuments(
