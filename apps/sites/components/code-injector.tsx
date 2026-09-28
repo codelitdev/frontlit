@@ -12,46 +12,42 @@ type InjectionSection = "head" | "body";
  * (architecture.md §12.5).
  */
 export function CodeInjector({
-    head,
-    body,
+  head,
+  body,
 }: {
-    head?: string | null;
-    body?: string | null;
+  head?: string | null;
+  body?: string | null;
 }) {
-    useEffect(() => {
-        const sections: [InjectionSection, string | null | undefined][] = [
-            ["head", head],
-            ["body", body],
-        ];
+  useEffect(() => {
+    const sections: [InjectionSection, string | null | undefined][] = [
+      ["head", head],
+      ["body", body],
+    ];
 
-        const injected: Element[] = [];
-        for (const [target, html] of sections) {
-            if (!html) continue;
-            const container = document.createElement("div");
-            container.innerHTML = html;
-            for (const child of Array.from(container.children)) {
-                let node: Element = child;
-                if (child.nodeName === "SCRIPT") {
-                    const script = document.createElement("script");
-                    script.innerHTML = child.innerHTML;
-                    for (const attr of Array.from(child.attributes)) {
-                        script.setAttribute(
-                            attr.nodeName,
-                            attr.nodeValue ?? "",
-                        );
-                    }
-                    node = script;
-                }
-                document[target].appendChild(node);
-                injected.push(node);
-            }
+    const injected: Element[] = [];
+    for (const [target, html] of sections) {
+      if (!html) continue;
+      const container = document.createElement("div");
+      container.innerHTML = html;
+      for (const child of Array.from(container.children)) {
+        let node: Element = child;
+        if (child.nodeName === "SCRIPT") {
+          const script = document.createElement("script");
+          script.innerHTML = child.innerHTML;
+          for (const attr of Array.from(child.attributes)) {
+            script.setAttribute(attr.nodeName, attr.nodeValue ?? "");
+          }
+          node = script;
         }
+        document[target].appendChild(node);
+        injected.push(node);
+      }
+    }
 
-        return () => {
-            for (const node of injected) node.remove();
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [head, body]);
+    return () => {
+      for (const node of injected) node.remove();
+    };
+  }, [head, body]);
 
-    return null;
+  return null;
 }

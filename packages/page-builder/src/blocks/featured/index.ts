@@ -8,14 +8,14 @@ import type { FeaturedSettings } from "./settings";
 export * from "./settings";
 
 export const Featured: Widget<FeaturedSettings> = {
-    metadata: featuredMetadata,
-    widget: FeaturedWidget,
-    editor: FeaturedEditor,
-    getDefaultSettings: () => featuredDefaults,
-    layouts: [
-        { id: "grid", name: "Grid" },
-        { id: "list", name: "List" },
-        { id: "compact", name: "Compact" },
-        { id: "numbered", name: "Numbered" },
-    ],
+  metadata: featuredMetadata,
+  widget: FeaturedWidget,
+  editor: FeaturedEditor,
+  getDefaultSettings: () => featuredDefaults,
+  layouts: [
+    { id: "grid", name: "Grid" },
+    { id: "list", name: "List" },
+    { id: "compact", name: "Compact" },
+    { id: "numbered", name: "Numbered" },
+  ],
 };

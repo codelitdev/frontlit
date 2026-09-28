@@ -124,9 +124,9 @@ Better Auth rejects HTTP login URLs in production mode. Keep the root `.env`
 out of version control and use unique, high-entropy secrets for every
 deployment.
 
-## Local `pnpm` development
+## Local Bun development
 
-Do not run `pnpm dev:api`, `pnpm dev:web`, or `pnpm dev:sites` against
+Do not run `bun run dev:api`, `bun run dev:web`, or `bun run dev:sites` against
 this file — `frontlit-api` / `frontlit-web` / `frontlit-sites` bind the
 same ports. Use the local dependency stack instead:
 

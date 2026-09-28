@@ -8,39 +8,39 @@ import { signWebhookPayload } from "./webhook-signing";
  * covers the gap if the webhook itself is unreachable.
  */
 export async function revalidateTeam(
-    teamPublicId: string,
-    options?: { invalidateHosts?: string[] },
+  teamPublicId: string,
+  options?: { invalidateHosts?: string[] },
 ): Promise<void> {
-    const secret = process.env.REVALIDATE_WEBHOOK_SECRET;
-    const base = process.env.SITES_BASE_URL || "http://localhost:3002";
-    if (!secret) return;
+  const secret = process.env.REVALIDATE_WEBHOOK_SECRET;
+  const base = process.env.SITES_BASE_URL || "http://localhost:3002";
+  if (!secret) return;
 
-    const payload: { teamId: string; invalidateHosts?: string[] } = {
+  const payload: { teamId: string; invalidateHosts?: string[] } = {
+    teamId: teamPublicId,
+  };
+  if (options?.invalidateHosts?.length)
+    payload.invalidateHosts = options.invalidateHosts;
+  const body = JSON.stringify(payload);
+  const timestamp = Date.now();
+  const signature = signWebhookPayload(secret, body, timestamp);
+
+  try {
+    await fetch(`${base}/api/webhooks/revalidate`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-frontlit-timestamp": String(timestamp),
+        "x-frontlit-signature": signature,
+      },
+      body,
+    });
+  } catch (err) {
+    logger.warn(
+      {
         teamId: teamPublicId,
-    };
-    if (options?.invalidateHosts?.length)
-        payload.invalidateHosts = options.invalidateHosts;
-    const body = JSON.stringify(payload);
-    const timestamp = Date.now();
-    const signature = signWebhookPayload(secret, body, timestamp);
-
-    try {
-        await fetch(`${base}/api/webhooks/revalidate`, {
-            method: "POST",
-            headers: {
-                "content-type": "application/json",
-                "x-frontlit-timestamp": String(timestamp),
-                "x-frontlit-signature": signature,
-            },
-            body,
-        });
-    } catch (err) {
-        logger.warn(
-            {
-                teamId: teamPublicId,
-                error: err instanceof Error ? err.message : String(err),
-            },
-            "ISR revalidation webhook failed",
-        );
-    }
+        error: err instanceof Error ? err.message : String(err),
+      },
+      "ISR revalidation webhook failed",
+    );
+  }
 }

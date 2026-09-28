@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function LegacyBlogPage() {
-    redirect("/content?type=articles");
+  redirect("/content?type=articles");
 }

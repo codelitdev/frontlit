@@ -8,14 +8,14 @@ import type { HeroSettings } from "./settings";
 export * from "./settings";
 
 export const Hero: Widget<HeroSettings> = {
-    metadata: heroMetadata,
-    widget: HeroWidget,
-    editor: HeroEditor,
-    getDefaultSettings: () => heroDefaults,
-    layouts: [
-        { id: "normal", name: "Standard" },
-        { id: "card", name: "Card" },
-        { id: "centered", name: "Centered" },
-        { id: "media-below", name: "Media below" },
-    ],
+  metadata: heroMetadata,
+  widget: HeroWidget,
+  editor: HeroEditor,
+  getDefaultSettings: () => heroDefaults,
+  layouts: [
+    { id: "normal", name: "Standard" },
+    { id: "card", name: "Card" },
+    { id: "centered", name: "Centered" },
+    { id: "media-below", name: "Media below" },
+  ],
 };

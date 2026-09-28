@@ -7,6 +7,6 @@ import { headers } from "next/headers";
  * canonical host without another API lookup.
  */
 export async function getCanonicalHost(): Promise<string> {
-    const h = await headers();
-    return h.get("x-frontlit-canonical-host") ?? h.get("host") ?? "localhost";
+  const h = await headers();
+  return h.get("x-frontlit-canonical-host") ?? h.get("host") ?? "localhost";
 }

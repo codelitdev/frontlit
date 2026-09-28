@@ -1,54 +1,59 @@
 import { z } from "zod";
 
 export const mediaSchema = z.object({
-    mediaId: z.string(),
-    mediaLitId: z.string(),
-    url: z.string(),
-    thumbnailUrl: z.string().nullable().optional(),
-    fileName: z.string().nullable().optional(),
-    mimeType: z.string().nullable().optional(),
-    size: z.number().nullable().optional(),
-    alt: z.string().nullable().optional(),
-    caption: z.string().nullable().optional(),
-    createdAt: z.string().nullable(),
-    updatedAt: z.string().nullable(),
-    referenceCount: z.number().int().nonnegative().optional(),
+  mediaId: z.string(),
+  mediaLitId: z.string(),
+  url: z.string(),
+  thumbnailUrl: z.string().nullable().optional(),
+  fileName: z.string().nullable().optional(),
+  mimeType: z.string().nullable().optional(),
+  size: z.number().nullable().optional(),
+  alt: z.string().nullable().optional(),
+  caption: z.string().nullable().optional(),
+  createdAt: z.string().nullable(),
+  updatedAt: z.string().nullable(),
+  referenceCount: z.number().int().nonnegative().optional(),
 });
 
 export const mediaUploadSignatureSchema = z.object({
-    signature: z.string(),
-    endpoint: z.string(),
+  signature: z.string(),
+  endpoint: z.string(),
 });
 
 export const createMediaBodySchema = z.object({
-    mediaLitId: z.string().min(1),
-    alt: z.string().optional(),
-    caption: z.string().optional(),
+  mediaLitId: z.string().min(1),
+  url: z.string().url().optional(),
+  thumbnailUrl: z.string().url().optional(),
+  fileName: z.string().optional(),
+  mimeType: z.string().optional(),
+  size: z.number().int().nonnegative().optional(),
+  alt: z.string().optional(),
+  caption: z.string().optional(),
 });
 
 export const updateMediaBodySchema = z.object({
-    alt: z.string().optional(),
-    caption: z.string().optional(),
+  alt: z.string().optional(),
+  caption: z.string().optional(),
 });
 
 export const listMediaQuerySchema = z.object({
-    offset: z.coerce.number().int().min(1).optional(),
-    itemsPerPage: z.coerce.number().int().min(1).optional(),
+  offset: z.coerce.number().int().min(1).optional(),
+  itemsPerPage: z.coerce.number().int().min(1).optional(),
 });
 
 export const searchUnsplashQuerySchema = z.object({
-    q: z.string().optional(),
+  q: z.string().optional(),
 });
 
 export const unsplashPhotoSchema = z.object({
-    id: z.string(),
-    alt: z.string().optional(),
-    thumbUrl: z.string(),
-    url: z.string(),
-    photographer: z.string().optional(),
+  id: z.string(),
+  alt: z.string().optional(),
+  thumbUrl: z.string(),
+  url: z.string(),
+  photographer: z.string().optional(),
 });
 
 export const searchUnsplashResponseSchema = z.object({
-    configured: z.boolean(),
-    items: z.array(unsplashPhotoSchema),
+  configured: z.boolean(),
+  items: z.array(unsplashPhotoSchema),
 });

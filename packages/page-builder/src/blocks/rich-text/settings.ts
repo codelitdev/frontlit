@@ -1,10 +1,10 @@
 import type {
-    HorizontalAlignment,
-    TextEditorContent,
-    WidgetDefaultSettings,
+  HorizontalAlignment,
+  TextEditorContent,
+  WidgetDefaultSettings,
 } from "../../models";
 
 export interface RichTextSettings extends WidgetDefaultSettings {
-    text?: TextEditorContent;
-    alignment?: HorizontalAlignment;
+  text?: TextEditorContent;
+  alignment?: HorizontalAlignment;
 }

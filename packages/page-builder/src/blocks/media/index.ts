@@ -8,8 +8,8 @@ import type { MediaSettings } from "./settings";
 export * from "./settings";
 
 export const MediaBlock: Widget<MediaSettings> = {
-    metadata: mediaMetadata,
-    widget: MediaWidget,
-    editor: MediaEditor,
-    getDefaultSettings: () => mediaDefaults,
+  metadata: mediaMetadata,
+  widget: MediaWidget,
+  editor: MediaEditor,
+  getDefaultSettings: () => mediaDefaults,
 };

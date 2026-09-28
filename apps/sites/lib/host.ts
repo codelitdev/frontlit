@@ -1,7 +1,8 @@
 import type { ResolvedHost } from "./api";
 
 export type HostDecision =
-    { action: "unknown" } | { action: "rewrite"; teamId: string };
+  | { action: "unknown" }
+  | { action: "rewrite"; teamId: string };
 
 /**
  * Pure decision logic for the tenant-resolution middleware (architecture.md
@@ -14,23 +15,23 @@ export type HostDecision =
  * `NextResponse`, no `fetch`) so it's unit-testable without a request.
  */
 export function decideHost(
-    resolved: ResolvedHost | null,
-    _requestUrl: { pathname: string; search: string; protocol: string },
+  resolved: ResolvedHost | null,
+  _requestUrl: { pathname: string; search: string; protocol: string },
 ): HostDecision {
-    if (!resolved) return { action: "unknown" };
-    return { action: "rewrite", teamId: resolved.teamId };
+  if (!resolved) return { action: "unknown" };
+  return { action: "rewrite", teamId: resolved.teamId };
 }
 
 /** Normalize a browser/edge Host header before using it as a cache key or
  * calling the API. In local development it is usually `slug.localhost:3002`. */
 export function normalizeHost(value: string): string {
-    const host = value.split(",")[0]?.trim().toLowerCase() || "";
-    if (!host) return "";
-    try {
-        return new URL(`http://${host}`).hostname.replace(/\.$/, "");
-    } catch {
-        return host.replace(/:\d+$/, "").replace(/\.$/, "");
-    }
+  const host = value.split(",")[0]?.trim().toLowerCase() || "";
+  if (!host) return "";
+  try {
+    return new URL(`http://${host}`).hostname.replace(/\.$/, "");
+  } catch {
+    return host.replace(/:\d+$/, "").replace(/\.$/, "");
+  }
 }
 
 type CacheEntry = { value: ResolvedHost | null; expiresAt: number };
@@ -43,20 +44,20 @@ type CacheEntry = { value: ResolvedHost | null; expiresAt: number };
  * if the webhook is missed.
  */
 export function createHostCache(ttlMs = 60_000) {
-    const cache = new Map<string, CacheEntry>();
-    return {
-        get(host: string): ResolvedHost | null | undefined {
-            const entry = cache.get(host);
-            if (!entry || entry.expiresAt < Date.now()) return undefined;
-            return entry.value;
-        },
-        set(host: string, value: ResolvedHost | null): void {
-            cache.set(host, { value, expiresAt: Date.now() + ttlMs });
-        },
-        delete(host: string): void {
-            cache.delete(host);
-        },
-    };
+  const cache = new Map<string, CacheEntry>();
+  return {
+    get(host: string): ResolvedHost | null | undefined {
+      const entry = cache.get(host);
+      if (!entry || entry.expiresAt < Date.now()) return undefined;
+      return entry.value;
+    },
+    set(host: string, value: ResolvedHost | null): void {
+      cache.set(host, { value, expiresAt: Date.now() + ttlMs });
+    },
+    delete(host: string): void {
+      cache.delete(host);
+    },
+  };
 }
 
 /** Process-wide cache used by `proxy.ts`. Domain mutations delete keys via
@@ -64,9 +65,9 @@ export function createHostCache(ttlMs = 60_000) {
 export const hostCache = createHostCache();
 
 export function invalidateCachedHosts(hosts: string[] | undefined): void {
-    if (!hosts) return;
-    for (const raw of hosts) {
-        const host = normalizeHost(raw);
-        if (host) hostCache.delete(host);
-    }
+  if (!hosts) return;
+  for (const raw of hosts) {
+    const host = normalizeHost(raw);
+    if (host) hostCache.delete(host);
+  }
 }

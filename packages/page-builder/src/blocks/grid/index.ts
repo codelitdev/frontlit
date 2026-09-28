@@ -8,8 +8,8 @@ import type { GridSettings } from "./settings";
 export * from "./settings";
 
 export const Grid: Widget<GridSettings> = {
-    metadata: gridMetadata,
-    widget: GridWidget,
-    editor: GridEditor,
-    getDefaultSettings: () => gridDefaults,
+  metadata: gridMetadata,
+  widget: GridWidget,
+  editor: GridEditor,
+  getDefaultSettings: () => gridDefaults,
 };

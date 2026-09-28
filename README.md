@@ -16,23 +16,23 @@ Start Postgres, Redis, and SendLit. Run FrontLit on the host:
 docker compose -f docker-compose.local.yml up
 ```
 
-In other terminals (or `pnpm dev` to run all three together):
+In other terminals (or `bun run dev` to run all three together):
 
 ```sh
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
 cp apps/sites/.env.example apps/sites/.env
-pnpm --filter @frontlit/api-contract build
-pnpm dev:api
-pnpm dev:web
-pnpm dev:sites
+bun run --filter @frontlit/api-contract build
+bun run dev:api
+bun run dev:web
+bun run dev:sites
 ```
 
 Wait for `FrontLit migrations applied.` in the Compose logs before
-`pnpm dev:api`. Schema lives in Compose, not in the API process.
+`bun run dev:api`. Schema lives in Compose, not in the API process.
 
-Do not use `pnpm dev:api && pnpm dev:web && pnpm dev:sites` — `&&` waits
-for each process to exit. Use separate terminals or `pnpm dev`.
+Do not use `bun run dev:api && bun run dev:web && bun run dev:sites` — `&&`
+waits for each process to exit. Use separate terminals or `bun run dev`.
 
 On first SendLit boot, copy the one-time `organizationApiKey` into
 `apps/api/.env` as `SENDLIT_ORGANIZATION_API_KEY`:

@@ -15,6 +15,20 @@
             "when": 1786900000000,
             "tag": "0001_subdomain_public",
             "breakpoints": true
+        },
+        {
+            "idx": 2,
+            "version": "7",
+            "when": 1788716700000,
+            "tag": "0002_drop_page_type",
+            "breakpoints": true
+        },
+        {
+            "idx": 3,
+            "version": "7",
+            "when": 1790467200000,
+            "tag": "0003_team_custom_domain_dns_profile",
+            "breakpoints": true
         }
     ]
 }

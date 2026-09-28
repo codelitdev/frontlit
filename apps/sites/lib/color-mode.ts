@@ -3,7 +3,7 @@ export const COLOR_MODE_STORAGE_KEY = "frontlit-color-mode";
 export type ColorMode = "light" | "dark" | "system";
 
 export function isColorMode(value: unknown): value is ColorMode {
-    return value === "light" || value === "dark" || value === "system";
+  return value === "light" || value === "dark" || value === "system";
 }
 
 /** Inline script for the server root layout. Applies `dark` on <html> before paint. */

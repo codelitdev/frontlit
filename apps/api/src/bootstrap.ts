@@ -1,8 +1,5 @@
 import { logger } from "./services/log";
-import {
-    createAccountWithDefaultTeam,
-    findAccountByEmail,
-} from "./account/queries";
+import { createAccountWithDefaultTeam, findAccountByEmail } from "./account/queries";
 
 /**
  * If `SUPER_ADMIN_EMAIL` is set and no account exists for it yet, create one
@@ -15,33 +12,31 @@ import {
  * provision teams. See `provisioning/routes.ts` for that.
  */
 export async function createSuperAdminIfMissing(): Promise<void> {
-    const email = process.env.SUPER_ADMIN_EMAIL;
-    if (!email) return;
+  const email = process.env.SUPER_ADMIN_EMAIL;
+  if (!email) return;
 
-    try {
-        const existing = await findAccountByEmail(email.toLowerCase());
-        if (existing) return;
+  try {
+    const existing = await findAccountByEmail(email.toLowerCase());
+    if (existing) return;
 
-        const account = await createAccountWithDefaultTeam(
-            email.toLowerCase(),
-            undefined,
-            { withDefaultApiKey: true },
-        );
+    const account = await createAccountWithDefaultTeam(email.toLowerCase(), undefined, {
+      withDefaultApiKey: true,
+    });
 
-        // Keys are stored hashed, so this log line is the only place the
-        // secret ever appears.
-        logger.info(
-            {
-                accountId: account.id,
-                teamId: account.defaultTeamId,
-                apiKey: account.defaultApiKeySecret,
-            },
-            "Super admin account created",
-        );
-    } catch (err) {
-        logger.error(
-            { error: (err as Error).message },
-            "Failed to create super admin account",
-        );
-    }
+    // Keys are stored hashed, so this log line is the only place the
+    // secret ever appears.
+    logger.info(
+      {
+        accountId: account.id,
+        teamId: account.defaultTeamId,
+        apiKey: account.defaultApiKeySecret,
+      },
+      "Super admin account created",
+    );
+  } catch (err) {
+    logger.error(
+      { error: (err as Error).message },
+      "Failed to create super admin account",
+    );
+  }
 }

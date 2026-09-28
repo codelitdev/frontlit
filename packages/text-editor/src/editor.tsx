@@ -1,13 +1,13 @@
 "use client";
 
 import React, {
-    FC,
-    PropsWithChildren,
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
+  FC,
+  PropsWithChildren,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from "react";
 import type { JSONContent } from "@tiptap/core";
 import { generateText } from "@tiptap/core";
@@ -21,283 +21,263 @@ import { cn } from "./lib/cn";
 import { useImagePicker } from "./image-picker";
 
 export interface EditorProps {
-    onChange: (json: JSONContent) => void;
-    showToolbar?: boolean;
-    editable?: boolean;
-    refresh?: number;
-    url?: string;
-    initialContent?: ReactEditorProps["initialContent"];
-    placeholder?: string;
-    autoFocus?: boolean;
-    imageSizeLimit?: number;
-    onError?: (...args: any[]) => void;
-    className?: string;
-    editorClassName?: string;
-    contentClassName?: string;
-    beforeContent?: React.ReactNode;
+  onChange: (json: JSONContent) => void;
+  showToolbar?: boolean;
+  editable?: boolean;
+  refresh?: number;
+  url?: string;
+  initialContent?: ReactEditorProps["initialContent"];
+  placeholder?: string;
+  autoFocus?: boolean;
+  imageSizeLimit?: number;
+  onError?: (...args: any[]) => void;
+  className?: string;
+  editorClassName?: string;
+  contentClassName?: string;
+  beforeContent?: React.ReactNode;
 }
 
 interface EditorType extends FC<PropsWithChildren<EditorProps>> {
-    getPlainText: (doc: JSONContent) => string;
-    emptyDoc: JSONContent;
+  getPlainText: (doc: JSONContent) => string;
+  emptyDoc: JSONContent;
 }
 
 const Editor: EditorType = Object.assign(
-    ({
-        initialContent,
-        onChange,
-        placeholder,
-        children,
-        showToolbar = true,
-        editable = true,
-        refresh,
-        url,
-        autoFocus,
-        imageSizeLimit,
-        onError,
-        className,
-        editorClassName,
-        contentClassName,
-        beforeContent,
-    }) => {
-        const [isUploading, setIsUploading] = useState(false);
-        const fileInputRef = useRef<HTMLInputElement | null>(null);
-        const pickImage = useImagePicker();
-        const hasInteractedRef = useRef(false);
-        const lastSerializedContentRef = useRef(
-            JSON.stringify(initialContent ?? emptyDoc),
-        );
-        const refreshRef = useRef<EditorProps["refresh"]>(refresh);
+  ({
+    initialContent,
+    onChange,
+    placeholder,
+    children,
+    showToolbar = true,
+    editable = true,
+    refresh,
+    url,
+    autoFocus,
+    imageSizeLimit,
+    onError,
+    className,
+    editorClassName,
+    contentClassName,
+    beforeContent,
+  }) => {
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const pickImage = useImagePicker();
+    const hasInteractedRef = useRef(false);
+    const lastSerializedContentRef = useRef(JSON.stringify(initialContent ?? emptyDoc));
+    const refreshRef = useRef<EditorProps["refresh"]>(refresh);
 
-        const extensions = useMemo(
-            () => createExtensions({ placeholder }),
-            [placeholder],
-        );
+    const extensions = useMemo(() => createExtensions({ placeholder }), [placeholder]);
 
-        const changeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-            null,
-        );
+    const changeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-        const editor = useEditor(
-            {
-                immediatelyRender: false,
-                extensions,
-                content: initialContent ?? emptyDoc,
-                autofocus: autoFocus ? "end" : false,
-                editable,
-                editorProps: {
-                    attributes: {
-                        class: `tiptap-content ${editorClassName ?? ""}`,
-                        "data-placeholder": placeholder ?? "",
-                    },
-                },
-                onUpdate: ({ editor: instance }) => {
-                    // TipTap may normalize loaded JSON during initialization
-                    // (notably `{ type: "doc", content: [] }` to
-                    // `{ type: "doc" }`). Do not turn that internal mount work
-                    // into a user-visible autosave.
-                    if (!hasInteractedRef.current) {
-                        return;
-                    }
-                    if (changeTimeoutRef.current) {
-                        clearTimeout(changeTimeoutRef.current);
-                    }
+    const editor = useEditor(
+      {
+        immediatelyRender: false,
+        extensions,
+        content: initialContent ?? emptyDoc,
+        autofocus: autoFocus ? "end" : false,
+        editable,
+        editorProps: {
+          attributes: {
+            class: `tiptap-content ${editorClassName ?? ""}`,
+            "data-placeholder": placeholder ?? "",
+          },
+        },
+        onUpdate: ({ editor: instance }) => {
+          // TipTap may normalize loaded JSON during initialization
+          // (notably `{ type: "doc", content: [] }` to
+          // `{ type: "doc" }`). Do not turn that internal mount work
+          // into a user-visible autosave.
+          if (!hasInteractedRef.current) {
+            return;
+          }
+          if (changeTimeoutRef.current) {
+            clearTimeout(changeTimeoutRef.current);
+          }
 
-                    changeTimeoutRef.current = setTimeout(() => {
-                        onChange(instance.getJSON());
-                        changeTimeoutRef.current = null;
-                    }, 1000);
-                },
-                onSelectionUpdate: ({ editor: instance }) => {
-                    hasInteractedRef.current = true;
-                },
-            },
-            [extensions],
-        );
-        useEffect(() => {
-            return () => {
-                if (changeTimeoutRef.current) {
-                    clearTimeout(changeTimeoutRef.current);
-                }
-            };
-        }, []);
+          changeTimeoutRef.current = setTimeout(() => {
+            onChange(instance.getJSON());
+            changeTimeoutRef.current = null;
+          }, 1000);
+        },
+        onSelectionUpdate: ({ editor: instance }) => {
+          hasInteractedRef.current = true;
+        },
+      },
+      [extensions],
+    );
+    useEffect(() => {
+      return () => {
+        if (changeTimeoutRef.current) {
+          clearTimeout(changeTimeoutRef.current);
+        }
+      };
+    }, []);
 
-        useEffect(() => {
-            if (!editor) {
-                return;
-            }
+    useEffect(() => {
+      if (!editor) {
+        return;
+      }
 
-            editor.setEditable(editable);
-        }, [editor, editable]);
+      editor.setEditable(editable);
+    }, [editor, editable]);
 
-        useEffect(() => {
-            if (!editor) {
-                return;
-            }
+    useEffect(() => {
+      if (!editor) {
+        return;
+      }
 
-            const nextContent = initialContent ?? emptyDoc;
-            const nextSerialized = JSON.stringify(nextContent);
-            const refreshChanged = refreshRef.current !== refresh;
+      const nextContent = initialContent ?? emptyDoc;
+      const nextSerialized = JSON.stringify(nextContent);
+      const refreshChanged = refreshRef.current !== refresh;
 
-            if (refreshChanged) {
-                refreshRef.current = refresh;
-                hasInteractedRef.current = false;
-                lastSerializedContentRef.current = nextSerialized;
-                editor.commands.setContent(nextContent, {
-                    emitUpdate: false,
-                });
-                return;
-            }
+      if (refreshChanged) {
+        refreshRef.current = refresh;
+        hasInteractedRef.current = false;
+        lastSerializedContentRef.current = nextSerialized;
+        editor.commands.setContent(nextContent, {
+          emitUpdate: false,
+        });
+        return;
+      }
 
-            if (!hasInteractedRef.current) {
-                if (lastSerializedContentRef.current !== nextSerialized) {
-                    lastSerializedContentRef.current = nextSerialized;
-                    editor.commands.setContent(nextContent, {
-                        emitUpdate: false,
-                    });
-                }
-                return;
-            }
+      if (!hasInteractedRef.current) {
+        if (lastSerializedContentRef.current !== nextSerialized) {
+          lastSerializedContentRef.current = nextSerialized;
+          editor.commands.setContent(nextContent, {
+            emitUpdate: false,
+          });
+        }
+        return;
+      }
 
-            lastSerializedContentRef.current = nextSerialized;
-        }, [editor, initialContent, refresh]);
+      lastSerializedContentRef.current = nextSerialized;
+    }, [editor, initialContent, refresh]);
 
-        const handleImageUpload = useCallback(
-            async (file: File) => {
-                const sizeLimit = imageSizeLimit ?? 2097152; // 2 MB
-                if (file.size > sizeLimit) {
-                    onError?.("File is larger than the allowed size");
-                    return;
-                }
-
-                try {
-                    setIsUploading(true);
-                    // First-draft implementation: embed the image as a data URL so
-                    // the editor works without a media/upload backend.
-                    const dataUrl = await new Promise<string>(
-                        (resolve, reject) => {
-                            const reader = new FileReader();
-                            reader.onload = () =>
-                                resolve(reader.result as string);
-                            reader.onerror = reject;
-                            reader.readAsDataURL(file);
-                        },
-                    );
-                    editor
-                        ?.chain()
-                        .focus()
-                        .setImage({
-                            src: dataUrl,
-                            alt: file.name,
-                            title: file.name,
-                        })
-                        .run();
-                } catch (error) {
-                    console.error("Image upload failed", error);
-                } finally {
-                    setIsUploading(false);
-                }
-            },
-            [editor],
-        );
-
-        const handleSelectFile = useCallback(
-            (event: React.ChangeEvent<HTMLInputElement>) => {
-                const files = event.target.files;
-                if (!files || files.length === 0) {
-                    return;
-                }
-
-                const file = files[0];
-                void handleImageUpload(file);
-                event.target.value = "";
-            },
-            [handleImageUpload],
-        );
-
-        const insertPickedImage = useCallback(
-            (image: { src: string; alt?: string }) => {
-                editor
-                    ?.chain()
-                    .focus()
-                    .setImage({
-                        src: image.src,
-                        alt: image.alt,
-                        title: image.alt,
-                    })
-                    .run();
-            },
-            [editor],
-        );
-
-        const openFileDialog = useCallback(() => {
-            if (pickImage) {
-                void pickImage().then((image) => {
-                    if (image) insertPickedImage(image);
-                });
-                return;
-            }
-            fileInputRef.current?.click();
-        }, [insertPickedImage, pickImage]);
-
-        if (typeof window === "undefined") {
-            return <></>;
+    const handleImageUpload = useCallback(
+      async (file: File) => {
+        const sizeLimit = imageSizeLimit ?? 2097152; // 2 MB
+        if (file.size > sizeLimit) {
+          onError?.("File is larger than the allowed size");
+          return;
         }
 
-        return (
-            <div
-                className={cn(
-                    "tiptap-editor flex flex-col gap-4 border",
-                    className,
-                )}
-            >
-                {editable && showToolbar && (
-                    <div
-                        className="sticky top-0 bg-background"
-                        style={{
-                            zIndex: 1,
-                        }}
-                    >
-                        <Toolbar
-                            editor={editor}
-                            onRequestImageUpload={openFileDialog}
-                            isUploadingImage={isUploading}
-                        />
-                    </div>
-                )}
-                <div className="flex w-full justify-center">
-                    <div
-                        className={cn(
-                            "flex w-full max-w-3xl flex-col",
-                            contentClassName,
-                        )}
-                    >
-                        {beforeContent}
-                        <EditorContent
-                            editor={editor}
-                            className={`${editorClassName ?? ""} ${editorClassName?.includes("min-h-") ? "" : "min-h-[200px]"}`}
-                        />
-                        {pickImage ? null : (
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={handleSelectFile}
-                            />
-                        )}
-                        {children}
-                        {editor && <BubbleMenu editor={editor} />}
-                    </div>
-                </div>
-            </div>
-        );
-    },
-    {
-        getPlainText: (doc: JSONContent) =>
-            generateText(doc || emptyDoc, createExtensions()),
-        emptyDoc,
-    },
+        try {
+          setIsUploading(true);
+          // First-draft implementation: embed the image as a data URL so
+          // the editor works without a media/upload backend.
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          editor
+            ?.chain()
+            .focus()
+            .setImage({
+              src: dataUrl,
+              alt: file.name,
+              title: file.name,
+            })
+            .run();
+        } catch (error) {
+          console.error("Image upload failed", error);
+        } finally {
+          setIsUploading(false);
+        }
+      },
+      [editor],
+    );
+
+    const handleSelectFile = useCallback(
+      (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = event.target.files;
+        if (!files || files.length === 0) {
+          return;
+        }
+
+        const file = files[0];
+        void handleImageUpload(file);
+        event.target.value = "";
+      },
+      [handleImageUpload],
+    );
+
+    const insertPickedImage = useCallback(
+      (image: { src: string; alt?: string }) => {
+        editor
+          ?.chain()
+          .focus()
+          .setImage({
+            src: image.src,
+            alt: image.alt,
+            title: image.alt,
+          })
+          .run();
+      },
+      [editor],
+    );
+
+    const openFileDialog = useCallback(() => {
+      if (pickImage) {
+        void pickImage().then((image) => {
+          if (image) insertPickedImage(image);
+        });
+        return;
+      }
+      fileInputRef.current?.click();
+    }, [insertPickedImage, pickImage]);
+
+    if (typeof window === "undefined") {
+      return <></>;
+    }
+
+    return (
+      <div className={cn("tiptap-editor flex flex-col gap-4 border", className)}>
+        {editable && showToolbar && (
+          <div
+            className="sticky top-0 bg-background"
+            style={{
+              zIndex: 1,
+            }}
+          >
+            <Toolbar
+              editor={editor}
+              onRequestImageUpload={openFileDialog}
+              isUploadingImage={isUploading}
+            />
+          </div>
+        )}
+        <div className="flex w-full justify-center">
+          <div className={cn("flex w-full max-w-3xl flex-col", contentClassName)}>
+            {beforeContent}
+            <EditorContent
+              editor={editor}
+              className={`${editorClassName ?? ""} ${editorClassName?.includes("min-h-") ? "" : "min-h-[200px]"}`}
+            />
+            {pickImage ? null : (
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleSelectFile}
+              />
+            )}
+            {children}
+            {editor && <BubbleMenu editor={editor} />}
+          </div>
+        </div>
+      </div>
+    );
+  },
+  {
+    getPlainText: (doc: JSONContent) =>
+      generateText(doc || emptyDoc, createExtensions()),
+    emptyDoc,
+  },
 ) as EditorType;
 
 export default Editor;

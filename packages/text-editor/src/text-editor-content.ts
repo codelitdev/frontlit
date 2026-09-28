@@ -1,4 +1,4 @@
 export interface TextEditorContent {
-    type: "doc";
-    content: Record<string, unknown>[];
+  type: "doc";
+  content: Record<string, unknown>[];
 }

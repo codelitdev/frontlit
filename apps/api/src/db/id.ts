@@ -6,10 +6,10 @@ const nanoid = customAlphabet(alphabet, 24);
 
 /** Internal, time-ordered surrogate primary key — never exposed to API/MCP consumers. */
 export function genId(): string {
-    return uuidv7();
+  return uuidv7();
 }
 
 /** Public-facing id, e.g. `team_a1b2c3...`. The only id ever exposed outside the DB layer. */
 export function genPublicId(prefix: string): string {
-    return `${prefix}_${nanoid()}`;
+  return `${prefix}_${nanoid()}`;
 }

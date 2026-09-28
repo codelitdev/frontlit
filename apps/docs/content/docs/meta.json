@@ -1,12 +1,12 @@
 {
-    "title": "FrontLit",
-    "pages": [
-        "index",
-        "getting-started",
-        "teams",
-        "self-hosting",
-        "components",
-        "developers",
-        "api-reference"
-    ]
+  "title": "FrontLit",
+  "pages": [
+    "index",
+    "getting-started",
+    "teams",
+    "self-hosting",
+    "components",
+    "developers",
+    "api-reference"
+  ]
 }

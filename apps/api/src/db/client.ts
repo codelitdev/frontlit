@@ -13,5 +13,5 @@ export const db = drizzle(pool, { schema });
 export const sqlTransactionsEnabled = true;
 
 export async function checkDatabaseConnection() {
-    await pool.query("select 1");
+  await pool.query("select 1");
 }

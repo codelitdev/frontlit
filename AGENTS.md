@@ -3,6 +3,9 @@
 ## Development Tips
 
 - The platform is in early stages of development. We don't even have a production deployment yet. So, feel free to scratch migrations and write those from scratch as many times as you need, reset database etc.. No need to worry about being backwards compatible.
+- Prefer simpler data structures, schemas and logic over complicated implementation.
+- Don't over-engineer or pre-optimize, just to tackle edge cases which have very slim chances of occuring.
+- There should be no shared user identity between admin and learner apps.
 
 ## Public site UI
 

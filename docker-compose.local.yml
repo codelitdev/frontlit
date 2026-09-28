@@ -1,13 +1,13 @@
 # Local development dependencies only. FrontLit itself runs on the host:
 #
 #   docker compose -f docker-compose.local.yml up
-#   pnpm dev:api
-#   pnpm dev:web
-#   pnpm dev:sites
+#   bun run dev:api
+#   bun run dev:web
+#   bun run dev:sites
 #
 # This file also applies FrontLit Drizzle migrations onto Postgres (the
 # `frontlit-migrate` job). Wait for "FrontLit migrations applied." before
-# `pnpm dev:api`.
+# `bun run dev:api`.
 #
 # Do not run this file at the same time as the self-host stack
 # (`docker-compose.yml`) — both publish Postgres on 5433 and SendLit on 3001.
@@ -20,7 +20,7 @@ x-postgres-db: &postgres-db ${POSTGRES_DB:-frontlit}
 
 services:
     postgres:
-        image: pgvector/pgvector:pg16
+        image: pgvector/pgvector:pg17
         restart: unless-stopped
         environment:
             POSTGRES_USER: *postgres-user
@@ -55,7 +55,7 @@ services:
     # so `docker compose up` does not loop; re-run with
     # `docker compose -f docker-compose.local.yml up frontlit-migrate`.
     frontlit-migrate:
-        image: pgvector/pgvector:pg16
+        image: pgvector/pgvector:pg17
         restart: "no"
         depends_on:
             postgres:
@@ -72,7 +72,7 @@ services:
         command: ["sh", "/frontlit-migrate.sh"]
 
     sendlit-db-init:
-        image: pgvector/pgvector:pg16
+        image: pgvector/pgvector:pg17
         restart: "no"
         depends_on:
             postgres:
@@ -89,7 +89,7 @@ services:
               -v ON_ERROR_STOP=1 -c "CREATE DATABASE sendlit OWNER ${POSTGRES_USER:-frontlit}"
 
     sendlit-api:
-        image: codelit/sendlit-api:k3s
+        image: codelit/sendlit-api:latest
         restart: unless-stopped
         depends_on:
             postgres:
@@ -105,6 +105,7 @@ services:
               node apps/api/dist/db/migrate.js
               exec node apps/api/dist/index.js
         environment:
+            SENDLIT_DEPLOYMENT_MODE: "${SENDLIT_DEPLOYMENT_MODE:-oss}"
             NODE_ENV: "${SENDLIT_NODE_ENV:-development}"
             PORT: 3001
             DB_CONNECTION_STRING: postgres://${POSTGRES_USER:-frontlit}:${POSTGRES_PASSWORD:-frontlit}@postgres:5432/sendlit
@@ -126,6 +127,13 @@ services:
             interval: 10s
             timeout: 5s
             retries: 12
+
+    mailpit:
+        image: axllent/mailpit:latest
+        restart: unless-stopped
+        ports:
+            - "${MAILPIT_SMTP_PORT:-1025}:1025"
+            - "${MAILPIT_HTTP_PORT:-8025}:8025"
 
 volumes:
     frontlit-local-postgres-data:

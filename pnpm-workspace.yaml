@@ -1,8 +1,0 @@
-packages:
-  - packages/*
-  - apps/*
-  - examples/*
-
-onlyBuiltDependencies:
-  - esbuild
-  - sharp

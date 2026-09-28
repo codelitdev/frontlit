@@ -428,7 +428,6 @@ CREATE TABLE IF NOT EXISTS "pages" (
 	"page_id" text NOT NULL,
 	"team_id" text NOT NULL,
 	"name" text NOT NULL,
-	"type" text NOT NULL,
 	"slug" text NOT NULL,
 	"deletable" boolean DEFAULT true NOT NULL,
 	"layout" jsonb DEFAULT '[]'::jsonb NOT NULL,

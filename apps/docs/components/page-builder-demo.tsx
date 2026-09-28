@@ -2,33 +2,30 @@
 
 import { useState } from "react";
 import {
-    PageBuilder,
-    createDefaultLayout,
-    getDefaultTheme,
-    type WidgetInstance,
+  PageBuilder,
+  createDefaultLayout,
+  getDefaultTheme,
+  type WidgetInstance,
 } from "@frontlit/page-builder";
 
 export function PageBuilderDemo() {
-    const [layout] = useState<WidgetInstance[]>(() => createDefaultLayout());
-    const [theme] = useState(() => getDefaultTheme());
+  const [layout] = useState<WidgetInstance[]>(() => createDefaultLayout());
+  const [theme] = useState(() => getDefaultTheme());
 
-    return (
-        <div className="page-builder-demo">
-            <div className="page-builder-demo__header">
-                <h3>PageBuilder</h3>
-                <p>
-                    The full WYSIWYG editor — add, remove, reorder and edit
-                    blocks.
-                </p>
-            </div>
-            <div className="page-builder-demo__body page-builder-demo__tall">
-                <PageBuilder
-                    pageData={{ pageType: "landing" }}
-                    initialLayout={layout}
-                    initialTheme={theme}
-                    className="h-full"
-                />
-            </div>
-        </div>
-    );
+  return (
+    <div className="page-builder-demo">
+      <div className="page-builder-demo__header">
+        <h3>PageBuilder</h3>
+        <p>The full WYSIWYG editor — add, remove, reorder and edit blocks.</p>
+      </div>
+      <div className="page-builder-demo__body page-builder-demo__tall">
+        <PageBuilder
+          pageData={{ pageType: "landing" }}
+          initialLayout={layout}
+          initialTheme={theme}
+          className="h-full"
+        />
+      </div>
+    </div>
+  );
 }
