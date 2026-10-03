@@ -23,7 +23,7 @@
     "dependencies": {
         "@ai-sdk/amazon-bedrock": "^5.0.54",
         "@ai-sdk/anthropic": "^4.0.23",
-        "@ai-sdk/azure": "^3.0.99",
+        "@ai-sdk/azure": "^3.0.133",
         "@ai-sdk/openai": "^4.0.23",
         "@aws-sdk/client-s3": "^3.1111.0",
         "@better-auth/cimd": "1.7.0-rc.4",
