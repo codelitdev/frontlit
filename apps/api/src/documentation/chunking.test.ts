@@ -91,4 +91,62 @@ describe("extractChunks", () => {
     expect(chunks).toHaveLength(1);
     expect(chunks[0].content).toBe("Real content.");
   });
+
+  it("DM-CONVERT/V29: duplicate and marked headings have renderer-compatible citation anchors", () => {
+    const content: TextEditorContentRow = {
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          content: [
+            { type: "text", text: "Set" },
+            { type: "text", text: "up!" },
+          ],
+        },
+        paragraph("First section."),
+        heading("Setup!"),
+        paragraph("Second section."),
+        heading("Setup-2"),
+        paragraph("Third section."),
+      ],
+    };
+    expect(extractChunks(content).map((chunk) => chunk.anchor)).toEqual([
+      "setup",
+      "setup-2",
+      "setup-2-2",
+    ]);
+    expect(extractChunks(content, "blog")[1].anchor).toBe("setup");
+  });
+
+  it("DM-CONVERT/V29: nested headings and split inline spans use the same order and text as rendering", () => {
+    const content: TextEditorContentRow = {
+      type: "doc",
+      content: [
+        heading("Setup"),
+        paragraph("First section."),
+        {
+          type: "blockquote",
+          content: [
+            heading("Setup"),
+            {
+              type: "paragraph",
+              content: [
+                { type: "text", text: "Set" },
+                { type: "text", text: "up works." },
+              ],
+            },
+          ],
+        },
+        heading("Setup"),
+        paragraph("Last section."),
+      ],
+    };
+    const chunks = extractChunks(content);
+    expect(chunks.map((chunk) => chunk.anchor)).toEqual([
+      "setup",
+      "setup-2",
+      "setup-3",
+    ]);
+    expect(chunks[1].content).toBe("Setup works.");
+  });
 });

@@ -9,8 +9,8 @@ vi.mock("./better-auth", () => ({
 }));
 
 import { getRestOperationPolicy, listRestOperations } from "./operation-policy";
-import { authorizeRestOperation } from "./authorize";
-import { listMcpToolPolicies } from "../mcp/policy";
+import { authorizeRestOperation, evaluatePolicy, type AuthzContext } from "./authorize";
+import { listMcpToolPolicies, authorizeMcpTool } from "../mcp/policy";
 
 function collectContractOperations(node: unknown, prefix = ""): string[] {
   if (!node || typeof node !== "object") return [];
@@ -29,6 +29,65 @@ function collectContractOperations(node: unknown, prefix = ""): string[] {
 const OUTSIDE_REGISTRY = new Set(["public", "provisioning"]);
 
 describe("fail-closed operation policy coverage", () => {
+  it("DM-AUTH/V24: an OAuth docs writer can save but cannot publish through REST or MCP", () => {
+    const context: AuthzContext = {
+      authKind: "oauth",
+      teamId: "team_test",
+      accountId: "author",
+      membershipId: "member",
+      isOwner: false,
+      permissions: ["documentation:read", "documentation:write"],
+      scopes: ["documentation:write"],
+      audiences: [],
+    };
+    expect(
+      evaluatePolicy(getRestOperationPolicy("content.documentation.update")!, context),
+    ).toBeNull();
+    expect(
+      evaluatePolicy(getRestOperationPolicy("content.documentation.publish")!, context),
+    ).toMatchObject({ status: 403, body: { scope: "documentation:publish" } });
+    const mcpContext = {
+      http: {
+        authInfo: {
+          scopes: context.scopes,
+          extra: {
+            authKind: "oauth",
+            teamId: context.teamId,
+            account: { id: context.accountId },
+            permissions: context.permissions,
+            isOwner: false,
+          },
+        },
+      },
+    } as any;
+    expect(authorizeMcpTool("update_documentation_page", mcpContext)).toBeNull();
+    expect(authorizeMcpTool("publish_documentation_page", mcpContext)).toMatchObject({
+      isError: true,
+    });
+    expect(
+      evaluatePolicy(
+        getRestOperationPolicy("content.documentationGithub.submitProposal")!,
+        context,
+      ),
+    ).toMatchObject({ status: 403, body: { scope: "documentation:publish" } });
+    expect(
+      authorizeMcpTool("submit_documentation_github_proposal", mcpContext),
+    ).toMatchObject({ isError: true });
+    // Scope alone cannot replace current human permission.
+    expect(
+      evaluatePolicy(getRestOperationPolicy("content.documentation.publish")!, {
+        ...context,
+        scopes: ["documentation:publish"],
+      }),
+    ).toMatchObject({ status: 403, body: { permission: "documentation:publish" } });
+    expect(
+      evaluatePolicy(getRestOperationPolicy("content.documentation.publish")!, {
+        ...context,
+        scopes: ["documentation:publish"],
+        permissions: ["documentation:read", "documentation:publish"],
+      }),
+    ).toBeNull();
+  });
   it("registers every protected REST contract operation", () => {
     const protectedOps = collectContractOperations(contract).filter(
       (key) => !OUTSIDE_REGISTRY.has(key.split(".")[0] ?? ""),
@@ -57,7 +116,7 @@ describe("fail-closed operation policy coverage", () => {
 
   it("registers every MCP tool with an explicit policy", () => {
     const policies = listMcpToolPolicies();
-    expect(Object.keys(policies).length).toBe(94);
+    expect(Object.keys(policies).length).toBe(137);
     for (const policy of Object.values(policies)) {
       expect(policy.oauthScope || policy.scope).toBeTruthy();
       expect(["allow", "deny"]).toContain(policy.apiKeyAccess);

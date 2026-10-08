@@ -3,6 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeTestDb, seedTeam, type TestDb } from "../test/db";
 
 vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
+vi.mock("../media/service", async (original) => ({
+  ...(await original<typeof import("../media/service")>()),
+  mediaLitBindsSignedGroups: async () => false,
+}));
 
 import { db as testDb } from "../db/client";
 import { pages } from "../db/schema";
@@ -183,9 +187,9 @@ describe("seedStandardPages", () => {
     expect(bySlug.get("guide")?.deletable).toBe(false);
   });
 
-  it("seeds requested pages with socialImage and syncs to media library", async () => {
+  it("seeds page social images without registering unverified external URLs in the media library", async () => {
     const customTeam = await seedTeam(db);
-    const { listMedia } = await import("../media/queries");
+    const { listMedia } = await import("../media/queries.js");
 
     await seedStandardPages(customTeam.team.id, [
       {
@@ -217,7 +221,7 @@ describe("seedStandardPages", () => {
 
     const media = await listMedia({ teamId: customTeam.team.id });
     expect(media.some((m) => m.url === "https://cdn.example.com/about-og.png")).toBe(
-      true,
+      false,
     );
   });
 });

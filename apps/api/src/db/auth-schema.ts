@@ -260,6 +260,7 @@ export const authOAuthAccessToken = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     scopes: text("scopes").array().notNull(),
+    revoked: timestamp("revoked", { withTimezone: true }),
     confirmation: jsonb("confirmation"),
   },
   (table) => [

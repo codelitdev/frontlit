@@ -9,6 +9,8 @@ const externalDeps = [
 export default defineConfig({
   entry: {
     index: "src/index.ts",
+    docs: "src/docs.ts",
+    headings: "src/docs/headings.ts",
   },
   format: ["esm"],
   dts: true,
@@ -16,7 +18,8 @@ export default defineConfig({
   // Don't wipe dist/ on watch: the CSS is emitted by a later tailwind
   // step, and apps that import `./styles.css` crash if it's missing.
   clean: !process.argv.includes("--watch"),
-  splitting: true,
+  // Independent entries keep the server profile out of client-marked chunks.
+  splitting: false,
   treeshake: true,
   external: externalDeps,
   injectStyle: false,

@@ -78,7 +78,8 @@ const LinkEditorPopover = ({
       >
         <input
           ref={inputRef}
-          type="url"
+          type="text"
+          inputMode="url"
           placeholder="https://example.com"
           value={linkValue}
           onChange={(event) => setLinkValue(event.target.value)}
@@ -122,7 +123,8 @@ const LinkEditorPopover = ({
         <label className="text-xs font-medium text-muted-foreground">Link URL</label>
         <input
           ref={inputRef}
-          type="url"
+          type="text"
+          inputMode="url"
           placeholder="https://example.com"
           value={linkValue}
           onChange={(event) => setLinkValue(event.target.value)}

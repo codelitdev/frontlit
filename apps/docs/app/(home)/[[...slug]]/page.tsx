@@ -33,7 +33,7 @@ export default async function Page(props: { params: Promise<{ slug?: string[] }>
 
   const MDXContent = page.data.body;
   const markdownPath = page.url === "/" ? "index" : page.url.replace(/^\//, "");
-  const markdownUrl = `/llms.mdx/${markdownPath}`;
+  const markdownUrl = `/llms.mdx/${markdownPath}.md`;
   const githubBaseUrl =
     process.env.NEXT_PUBLIC_DOCS_GITHUB_BASE_URL ||
     "https://github.com/codelitdev/frontlit/blob/main/apps/docs/content/docs";

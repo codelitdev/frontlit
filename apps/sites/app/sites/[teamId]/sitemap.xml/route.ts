@@ -13,6 +13,9 @@ export async function GET(
   ]);
 
   return new Response(buildSitemapXml(canonicalHost, entries), {
-    headers: { "content-type": "application/xml; charset=utf-8" },
+    headers: {
+      "content-type": "application/xml; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
   });
 }

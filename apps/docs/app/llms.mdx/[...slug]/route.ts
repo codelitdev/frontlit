@@ -8,7 +8,10 @@ export async function GET(
   { params }: { params: Promise<{ slug: string[] }> },
 ) {
   const { slug } = await params;
-  const normalizedSlug = slug.length === 1 && slug[0] === "index" ? undefined : slug;
+  const pageSlug = [...slug];
+  pageSlug[pageSlug.length - 1] = pageSlug[pageSlug.length - 1].replace(/\.md$/, "");
+  const normalizedSlug =
+    pageSlug.length === 1 && pageSlug[0] === "index" ? undefined : pageSlug;
   const page = source.getPage(normalizedSlug);
 
   if (!page) return new Response("Not Found", { status: 404 });
@@ -19,7 +22,11 @@ export async function GET(
 }
 
 export function generateStaticParams() {
-  return source.generateParams().map((item: { slug?: string[] }) => ({
-    slug: item.slug?.length ? item.slug : ["index"],
-  }));
+  // A flat extensionless export such as self-hosting would collide with the
+  // directory needed for self-hosting/github-app. Export text as .md files.
+  return source.generateParams().map((item: { slug?: string[] }) => {
+    const slug = item.slug?.length ? [...item.slug] : ["index"];
+    slug[slug.length - 1] += ".md";
+    return { slug };
+  });
 }

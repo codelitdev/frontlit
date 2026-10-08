@@ -1,3 +1,4 @@
+import { getDocsSettings } from "./authoring";
 import { eq } from "drizzle-orm";
 import { db } from "../db/client";
 import { aiSettings, type DocumentKind } from "../db/schema";
@@ -6,7 +7,7 @@ export async function teamIndexesKind(
   teamId: string,
   kind: DocumentKind,
 ): Promise<boolean> {
-  if (kind === "doc") return true;
+  if (kind === "doc") return (await getDocsSettings(teamId)).indexing.enabled;
   const row = await db.query.aiSettings.findFirst({
     where: eq(aiSettings.teamId, teamId),
     columns: { indexArticles: true, indexChangelog: true },

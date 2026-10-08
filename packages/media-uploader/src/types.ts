@@ -57,6 +57,7 @@ export type ListMediaFn<TMedia extends LibraryMedia = LibraryMedia> = (
 export type SearchUnsplashFn = (query?: string) => Promise<UnsplashSearchResult>;
 
 export type MediaUploaderAdapters<TMedia extends LibraryMedia = LibraryMedia> = {
+  uploadNotice?: string;
   uploadMedia?: UploadMediaFn<TMedia>;
   listMedia?: ListMediaFn<TMedia>;
   searchUnsplash?: SearchUnsplashFn;

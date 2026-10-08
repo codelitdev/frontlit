@@ -23,11 +23,11 @@ import * as schema from "../db/schema";
  */
 export type TestDb = Awaited<ReturnType<typeof makeTestDb>>;
 
-export async function makeTestDb() {
+export async function makeTestDb(loadDataDir?: Blob) {
   // The `vector` extension (pgvector) ships with PGlite and needs to be
   // loaded explicitly — the real dev/prod Postgres has it via the
   // `pgvector/pgvector:pg16` image instead (architecture.md §6.1).
-  const client = new PGlite({ extensions: { vector } });
+  const client = new PGlite({ extensions: { vector }, loadDataDir });
   await client.exec("CREATE EXTENSION IF NOT EXISTS vector;");
   const db = drizzle(client, { schema });
   await migrate(db, {

@@ -1,0 +1,212 @@
+---
+title: Set up the documentation GitHub App
+description: Configure your own GitHub App, connect a documentation repository, and verify PRs and publication.
+---
+
+Self-hosted FrontLit uses your own GitHub App to read documentation, open
+setup and edit pull requests, and report validation and publication checks.
+Create one App per deployment. Workspace administrators then connect their
+repositories through **Settings → Content → Source**.
+
+You can use FrontLit's built-in documentation editor without GitHub. This
+App is separate from the personal-token GitHub Releases integration.
+
+## 1. Choose your public URLs
+
+Use an HTTPS API origin reachable by GitHub and the administrator's browser.
+For example:
+
+| Setting | Example |
+| --- | --- |
+| FrontLit dashboard | `https://app.example.com` |
+| FrontLit API | `https://api.example.com` |
+| Authorization callback URL | `https://api.example.com/integrations/github/callback` |
+| Webhook URL | `https://api.example.com/integrations/github/webhook` |
+
+Both GitHub endpoints belong to the **API**, not the dashboard or public
+sites service. Keep the callback URL identical in GitHub and FrontLit.
+
+For local development, use an HTTPS tunnel to the API's actual port. The
+default API port is **4000**:
+
+```bash
+curl http://localhost:4000/health
+tailscale funnel 4000
+tailscale funnel status
+```
+
+Use the tunnel's HTTPS origin for the callback and webhook. Keep
+`GITHUB_DOCS_WEB_ORIGIN=http://localhost:3000` for the local dashboard.
+A tunnel forwarding to an unused port, such as 5000, produces a `502` before
+FrontLit can process the callback. These commands are for local development;
+a deployed reverse proxy should forward the same paths to the API.
+
+## 2. Register the App
+
+In the GitHub account or organization that will own the App, open
+**Settings → Developer settings → GitHub Apps → New GitHub App**.
+
+1. Give the App a unique deployment-specific name and your FrontLit homepage.
+2. Enter the authorization callback URL from step 1.
+3. Enable **Request user authorization (OAuth) during installation**. Leave
+   expiring user access tokens enabled. Use the callback flow; leave the
+   separate Setup URL blank.
+4. Activate webhooks, enter the webhook URL, enable SSL verification, and
+   set a randomly generated webhook secret.
+5. Choose visibility that permits your intended repository owners to install
+   it. A private App is limited to its owning account; choose public when
+   other accounts need to install it. A public App can still be installed
+   on selected private repositories.
+6. Configure permissions and events below, create the App, generate a client
+   secret, and generate/download a private key.
+
+See GitHub's [registration guide](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/registering-a-github-app).
+
+## 3. Set permissions **and** event subscriptions
+
+Under the App registration's **Permissions & events**, set these repository
+permissions:
+
+| Repository permission | Access | FrontLit use |
+| --- | --- | --- |
+| Contents | Read and write | Read docs; create setup/edit branches and commits |
+| Pull requests | Read and write | Open and track documentation PRs |
+| Checks | Read and write | Report validation and publication outcomes |
+| Metadata | Read-only | Identify the selected repository |
+
+Under **Subscribe to events**, select all three and save:
+
+| GitHub event label | Event name | FrontLit use |
+| --- | --- | --- |
+| Push | `push` | Reconcile the publishing branch after changes or merges |
+| Pull request | `pull_request` | Validate new/updated PRs and track close/merge outcomes |
+| Check run | `check_run` | Handle requested check reruns |
+
+**Permissions and subscriptions are separate.** Granting Pull requests write
+does not enable Pull request events. With only Push selected, a new PR can
+show no FrontLit check until independent PR discovery runs, normally on a
+fifteen-minute schedule. That fallback does not prove webhook delivery.
+Configure subscriptions on the developer-owned **App registration**, not
+just the installation's repository-selection page.
+
+Do not grant Actions, Workflows, organization administration or branch-rule
+bypass for this workflow. Permissions cover the selected repository;
+FrontLit enforces the configured documentation directory within it.
+
+When you add repository permissions to an existing App, its installations
+must approve the upgrade before those permissions take effect. Then review
+the workspace's Git write permissions in FrontLit. See GitHub's
+[App modification guide](https://docs.github.com/en/apps/maintaining-github-apps/modifying-a-github-app-registration).
+
+## 4. Configure FrontLit
+
+For Docker Compose, put these in the **root `.env`**. The API service's
+`env_file` passes them to the container. For local Bun development, use
+**`apps/api/.env`** instead.
+
+```dotenv
+GITHUB_DOCS_APP_ID=your_numeric_app_id
+GITHUB_DOCS_APP_SLUG=your-app-url-slug
+GITHUB_DOCS_CLIENT_ID=your_app_client_id
+GITHUB_DOCS_CLIENT_SECRET=your_generated_client_secret
+GITHUB_DOCS_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nYOUR_KEY_CONTENT\n-----END RSA PRIVATE KEY-----\n"
+GITHUB_DOCS_WEBHOOK_SECRET=your_webhook_secret
+GITHUB_DOCS_CALLBACK_URL=https://api.example.com/integrations/github/callback
+GITHUB_DOCS_WEB_ORIGIN=https://app.example.com
+```
+
+Copy the complete generated PEM key; the placeholder above is not a key.
+Literal `\n` escapes in the environment value are supported. The App ID,
+slug, client credentials and private key must all belong to the same App.
+The webhook secret must match GitHub exactly.
+
+Keep these secrets on the API only, outside version control. Do not use
+`NEXT_PUBLIC_*` variables. Set a dedicated `INTEGRATIONS_ENCRYPTION_KEY`
+before storing setup credentials and retain it across restarts. Changing
+that key later requires deliberate credential recovery.
+
+Recreate the API after changing Compose environment values:
+
+```bash
+docker compose up -d frontlit-api
+curl http://localhost:4000/health
+```
+
+For local development, restart your API process. Changing `.env` does not
+update a running process automatically.
+
+## 5. Install and connect a repository
+
+Install the App on the repository-owning GitHub account. Prefer **Only
+select repositories**, select the documentation repository, and save.
+Existing installations also need to approve any pending permission upgrade.
+
+In FrontLit, select the intended workspace and open
+**Settings → Content → Source → Authorize GitHub**. Sign in as a GitHub
+repository administrator, authorize the App, and select its installation,
+repository, publishing branch and documentation directory.
+
+Installation and user authorization are separate: having installed the App
+does not by itself connect a FrontLit workspace. Setup authorization expires
+after ten minutes. Use **Reconnect GitHub** if it expires; an already-created
+setup PR remains available.
+
+For existing repository docs, review the proposed connection. For CMS
+adoption or a new documentation site, review the captured files and choose
+**Create setup PR**. FrontLit opens the PR; there is no manual export or
+commit step. A genuinely empty repository needs an initial placeholder
+commit, disclosed during review, before FrontLit can open its setup PR.
+A missing branch in a nonempty repository must be corrected or replaced
+with an existing branch.
+
+Review any unpublished-draft transfer disclosure: repository readers can
+see draft text exported in the setup PR, including in a private repository.
+
+Merge the setup PR in GitHub. FrontLit tracks its outcome, verifies the
+captured content, and presents **Finish setup** with the source/publication
+approvals. If verification reports a mismatch, correct the files in GitHub
+and use **Check files again**. Current public docs stay live until activation.
+
+## 6. Verify the complete workflow
+
+Use a disposable repository for the first smoke test:
+
+1. Complete source setup and confirm the live docs in the public site.
+2. Save a doc edit in FrontLit, review the selected files, and submit a PR.
+   Confirm the PR was opened by your App and the public page is unchanged.
+3. Confirm **FrontLit / docs validation** appears in GitHub and inspect
+   FrontLit's private **Git checks** report.
+4. Merge the valid PR. Confirm a Push delivery succeeds in the App's
+   **Advanced → Recent Deliveries**, Source's live commit advances, and
+   **FrontLit / docs publication** reports the actual publication outcome.
+5. Confirm the public page reflects the merged text.
+
+An edit is a local draft until submitted. A PR opens a review; it does not
+publish. A merge triggers import and validation, then successful activation
+publishes. A merged commit can fail documentation validation and leave the
+last good publication live. FrontLit does not automatically merge PRs.
+
+For edited-document PRs, independent PR discovery runs on a fifteen-minute
+schedule. Setup-PR outcome tracking normally polls about once a minute.
+Webhooks provide the prompt path; missed-event reconciliation is a fallback.
+App Contents write permission does not enable direct commits in a workspace;
+that requires a separate explicit grant.
+
+## Troubleshooting
+
+| Symptom | What to check |
+| --- | --- |
+| Callback shows HTTP 502 | Confirm the API is healthy and the tunnel/proxy forwards to its actual port, default 4000. |
+| Installation unavailable or authorization lists no repositories | Check App visibility, the signed-in GitHub account, organization approval, installation repository selection and suspension. |
+| Setup expired or Authorize GitHub returns after a reload | Restart/reconnect the temporary setup authorization in the same FrontLit workspace; installing the App is not a permanent workspace setup credential. |
+| PR creation cannot write code | Grant Contents write and Pull requests write on the App, approve the installation upgrade, then review FrontLit's Git write grant. |
+| New PR has no validation check | Confirm Pull request subscription, Checks write, successful webhook deliveries and a healthy API worker. Push alone is insufficient. |
+| GitHub rerun does nothing | Confirm the Check run subscription and inspect its webhook delivery. |
+| Merge appears in GitHub but public docs are unchanged | Inspect Source's observed/validated/live commits and Git checks; an import may be pending or rejected. Refresh the setup PR status during initial setup. |
+| `DUPLICATE_ROUTE` | Give published docs unique routes. The report identifies conflicting files; correct Git and let the next push reconcile. Last good docs remain live. |
+| `UNSUPPORTED_NODE` on `.mdx` | Use safe Markdown. MDX components are not executed or silently imported. |
+
+Inspect delivery responses in the App's **Recent Deliveries** and redeliver
+failed events after fixing connectivity or secrets. A successful API health
+response alone does not prove callback, webhook or repository permissions.
+

@@ -11,14 +11,15 @@ import { ThemedDocArticle } from "@/components/themed-docs";
 import { collectionHref, loadDocsTree } from "@/lib/docs-tree";
 
 interface Props {
-  params: Promise<{ teamId: string; slug: string }>;
+  params: Promise<{ teamId: string; slug: string[] }>;
 }
 
 export async function generateMetadata(
   { params }: Props,
   parent: ResolvingMetadata,
 ): Promise<Metadata> {
-  const { teamId, slug } = await params;
+  const { teamId, slug: segments } = await params;
+  const slug = segments.join("/");
   const [doc, settings, previous] = await Promise.all([
     getDocumentationBySlug(teamId, slug),
     getSettings(teamId),
@@ -52,7 +53,8 @@ export async function generateMetadata(
 }
 
 export default async function DocPage({ params }: Props) {
-  const { teamId, slug } = await params;
+  const { teamId, slug: segments } = await params;
+  const slug = segments.join("/");
   const [doc, collections] = await Promise.all([
     getDocumentationBySlug(teamId, slug),
     loadDocsTree(teamId),

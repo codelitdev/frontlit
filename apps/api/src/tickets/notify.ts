@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { logger } from "../services/log";
 import { sendMail, type MailMessage } from "../utils/mail";
-import { getDomainSettings, getPlatformSiteDomain } from "../domains/queries";
+import { siteOriginForTeam, sitesOrigin } from "../utils/site-url";
+import { getDomainSettings } from "../domains/queries";
 import { findTeamById } from "../team/queries";
 import {
   conversationMessageId,
@@ -12,18 +13,6 @@ import {
 import { inboundEmailDomain } from "../mail/config";
 import { mintReplyToken } from "../mail/reply-token";
 import { publicContentPath } from "@frontlit/api-contract";
-
-function sitesOrigin(canonicalHost: string | null): string {
-  if (!canonicalHost) {
-    return process.env.SITES_BASE_URL ?? "http://localhost:3002";
-  }
-  const platform = getPlatformSiteDomain();
-  const local =
-    platform === "localhost" ||
-    canonicalHost === "localhost" ||
-    canonicalHost.endsWith(".localhost");
-  return `${local ? "http" : "https"}://${canonicalHost}${local ? ":3002" : ""}`;
-}
 
 export type TicketMailSource = {
   slug: string;
@@ -45,11 +34,6 @@ function uniqueMailSources(sources: TicketMailSource[]): TicketMailSource[] {
 
 function publicDocUrl(origin: string, source: TicketMailSource): string {
   return `${origin}${publicContentPath(source.kind, source.slug, source.anchor)}`;
-}
-
-async function siteOriginForTeam(teamId: string): Promise<string> {
-  const settings = await getDomainSettings(teamId);
-  return sitesOrigin(settings?.canonicalHost ?? null);
 }
 
 async function threadUrl(

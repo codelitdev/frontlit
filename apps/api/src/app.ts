@@ -17,6 +17,8 @@ import docsRoutes from "./documents/docs-routes";
 import changelogsRoutes from "./documents/changelogs-routes";
 import emailRoutes from "./email/routes";
 import docSectionsRoutes from "./documentation/routes";
+import docsGitHubRoutes from "./documentation/github/routes";
+import docsGitHubWebhooks from "./documentation/github/webhooks";
 import chatbotRoutes from "./chatbot/routes";
 import ticketsRoutes from "./tickets/routes";
 import domainsRoutes from "./domains/routes";
@@ -64,6 +66,17 @@ export function createApp() {
   app.all("/api/auth/*", toNodeHandler(auth));
   app.use(oauthPagesRoutes);
   app.use(inboundMailRoutes);
+  app.use(docsGitHubWebhooks);
+  app.use("/content/documentation", express.json({ limit: "3mb" }));
+  app.use("/content/documentation", (error: any, _req: any, res: any, next: any) => {
+    if (error?.type === "entity.too.large")
+      return res.status(413).json({
+        error: "Documentation request exceeds 3 MiB.",
+        code: "REQUEST_TOO_LARGE",
+        limitBytes: 3145728,
+      });
+    next(error);
+  });
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
 
@@ -118,6 +131,7 @@ export function createApp() {
   // Literal documentation section/search paths precede the document-id
   // wildcard because Express matches routes in registration order.
   app.use(docSectionsRoutes);
+  app.use(docsGitHubRoutes);
   app.use(docsRoutes);
   app.use(changelogsRoutes);
   app.use(emailRoutes);

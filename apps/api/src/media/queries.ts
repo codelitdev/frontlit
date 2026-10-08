@@ -1,11 +1,17 @@
-import { and, count, desc, eq, or } from "drizzle-orm";
+import { lockSettings } from "../documentation/authoring";
+import { withDbTransaction } from "../db/transaction";
+import { registerVerifiedMedia, MediaProvenanceError } from "./provenance";
+import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "../db/client";
-import { documents, media, pages, teamSettings } from "../db/schema";
 import {
-  deleteMedia as deleteFromMediaLit,
-  sealMedia,
-  type MediaLitMedia,
-} from "./service";
+  documents,
+  media,
+  pages,
+  teamSettings,
+  documentationRevisions,
+  documentationDeliveryOutbox,
+} from "../db/schema";
+import { deleteMedia as deleteFromMediaLit } from "./service";
 
 export function isUnsplashUrl(url?: string | null): boolean {
   if (!url) return false;
@@ -25,6 +31,7 @@ export function isUnsplashUrl(url?: string | null): boolean {
 export async function registerMedia(input: {
   teamId: string;
   mediaLitId: string;
+  intentId?: string;
   url?: string;
   thumbnailUrl?: string | null;
   fileName?: string | null;
@@ -33,79 +40,7 @@ export async function registerMedia(input: {
   alt?: string | null;
   caption?: string | null;
 }) {
-  if (
-    !input.mediaLitId ||
-    input.mediaLitId.startsWith("ext_") ||
-    input.mediaLitId.startsWith("http://") ||
-    input.mediaLitId.startsWith("https://") ||
-    isUnsplashUrl(input.url) ||
-    isUnsplashUrl(input.mediaLitId)
-  ) {
-    throw new Error(
-      "Media library is exclusive to uploads performed on the team and backed by MediaLit integration",
-    );
-  }
-
-  if (input.url) {
-    const existing = await db.query.media.findFirst({
-      where: and(
-        eq(media.teamId, input.teamId),
-        or(eq(media.url, input.url), eq(media.mediaLitId, input.mediaLitId)),
-      ),
-    });
-
-    if (existing) {
-      if (input.alt !== undefined || input.caption !== undefined) {
-        return updateMedia(input.teamId, existing.mediaId, {
-          alt: input.alt ?? undefined,
-          caption: input.caption ?? undefined,
-        });
-      }
-      return existing;
-    }
-
-    const [row] = await db
-      .insert(media)
-      .values({
-        teamId: input.teamId,
-        mediaLitId: input.mediaLitId,
-        url: input.url,
-        thumbnailUrl: input.thumbnailUrl || null,
-        fileName: input.fileName || null,
-        mimeType: input.mimeType || null,
-        size: input.size || null,
-        alt: input.alt || null,
-        caption: input.caption || null,
-      })
-      .onConflictDoNothing({ target: [media.teamId, media.mediaLitId] })
-      .returning();
-
-    if (row) return row;
-    return getMediaByMediaLitId(input.teamId, input.mediaLitId);
-  }
-
-  const sealed: MediaLitMedia = await sealMedia(input.mediaLitId);
-
-  const [row] = await db
-    .insert(media)
-    .values({
-      teamId: input.teamId,
-      mediaLitId: sealed.mediaId,
-      url: sealed.file,
-      thumbnailUrl: sealed.thumbnail || null,
-      fileName: sealed.originalFileName,
-      mimeType: sealed.mimeType,
-      size: sealed.size,
-      alt: input.alt,
-      caption: input.caption ?? sealed.caption,
-    })
-    .onConflictDoNothing({ target: [media.teamId, media.mediaLitId] })
-    .returning();
-
-  // Re-registering the same MediaLit id for a team (e.g. a retried
-  // request) is idempotent: return the existing row instead of erroring.
-  if (row) return row;
-  return getMediaByMediaLitId(input.teamId, sealed.mediaId);
+  return registerVerifiedMedia(input);
 }
 
 export async function listMedia(input: {
@@ -129,8 +64,12 @@ function placeContainsMedia(
   item: { mediaId: string; url: string },
 ): boolean {
   if (place == null) return false;
-  const text = JSON.stringify(place);
-  return text.includes(item.mediaId) || text.includes(item.url);
+  if (typeof place === "string") return place === item.mediaId || place === item.url;
+  if (Array.isArray(place))
+    return place.some((value) => placeContainsMedia(value, item));
+  if (typeof place === "object")
+    return Object.values(place).some((value) => placeContainsMedia(value, item));
+  return false;
 }
 
 /** How many saved FrontLit surfaces (branding, pages, documents) mention
@@ -145,15 +84,19 @@ export async function countMediaReferences(teamId: string) {
   );
   if (items.length === 0) return counts;
 
-  const [settings, teamPages, teamDocuments] = await Promise.all([
+  const [settings, teamPages, teamDocuments, retainedRevisions] = await Promise.all([
     db.query.teamSettings.findFirst({
       where: eq(teamSettings.teamId, teamId),
     }),
     db.query.pages.findMany({ where: eq(pages.teamId, teamId) }),
     db.query.documents.findMany({ where: eq(documents.teamId, teamId) }),
+    db.query.documentationRevisions.findMany({
+      where: eq(documentationRevisions.teamId, teamId),
+    }),
   ]);
 
   const places: unknown[] = [
+    ...retainedRevisions.map((revision) => revision.snapshot),
     settings?.logo,
     settings?.sharedWidgets,
     settings?.draftSharedWidgets,
@@ -222,9 +165,30 @@ export async function deleteMediaRecord(teamId: string, mediaId: string) {
   const existing = await getMediaByMediaId(teamId, mediaId);
   if (!existing) return { ok: false as const, reason: "not_found" as const };
 
-  await deleteFromMediaLit(existing.mediaLitId);
-  await db.delete(media).where(eq(media.id, existing.id));
-  return { ok: true as const };
+  return withDbTransaction(async (tx) => {
+    const settings = await lockSettings(tx, teamId);
+    const counts = await countMediaReferences(teamId);
+    if (counts[mediaId])
+      throw new MediaProvenanceError(
+        "MEDIA_IN_USE",
+        "Remove this asset from saved content before deleting it.",
+        409,
+      );
+    // Commit deleting state and durable work before provider I/O. New docs
+    // references reject this state under the same authoring/publication lock.
+    await tx
+      .update(media)
+      .set({ access: "deleting", updatedAt: new Date() })
+      .where(eq(media.id, existing.id));
+    await tx.insert(documentationDeliveryOutbox).values({
+      teamId,
+      publicationId: settings.activePublicationId,
+      policyEpoch: settings.policyEpoch,
+      type: "media_delete",
+      payload: { mediaId: existing.mediaId, mediaLitId: existing.mediaLitId },
+    });
+    return { ok: true as const };
+  });
 }
 
 /** Remove externally stored MediaLit objects before the owning team row

@@ -32,6 +32,7 @@ export interface TextRendererTheme {
     header1?: RendererTypography;
     header2?: RendererTypography;
     header3?: RendererTypography;
+    header4?: RendererTypography;
     text1?: RendererTypography;
     link?: RendererTypography;
   };

@@ -90,8 +90,9 @@ function toPublic(row: AiSettingsRow): PublicAiConfig {
 
 export async function getResolvedEmbeddingConfig(
   teamId: string,
+  executor: typeof db = db,
 ): Promise<ResolvedEmbeddingConfig | null> {
-  const row = await db.query.aiSettings.findFirst({
+  const row = await executor.query.aiSettings.findFirst({
     where: eq(aiSettings.teamId, teamId),
   });
   if (!row) return null;
@@ -230,6 +231,17 @@ export async function upsertAiConfig(
       await deleteChunksForTeamKind(teamId, "changelog");
     }
     await enqueuePublishedDocsForTeam(teamId);
+    if (
+      input.embedding ||
+      input.apiKey ||
+      input.endpoint ||
+      existing.provider !== input.provider
+    ) {
+      const { rebuildDocumentationRetrieval } = await import(
+        "../documentation/publications.js"
+      );
+      await rebuildDocumentationRetrieval(teamId);
+    }
     return toPublic(updated);
   }
 
@@ -252,6 +264,10 @@ export async function upsertAiConfig(
     })
     .returning();
   await enqueuePublishedDocsForTeam(teamId);
+  const { rebuildDocumentationRetrieval } = await import(
+    "../documentation/publications.js"
+  );
+  await rebuildDocumentationRetrieval(teamId);
   return toPublic(created);
 }
 
@@ -260,4 +276,8 @@ export async function deleteAiConfig(teamId: string) {
   await deleteChunksForTeamKind(teamId, "changelog");
   await db.delete(aiSettings).where(eq(aiSettings.teamId, teamId));
   await enqueuePublishedDocsForTeam(teamId);
+  const { rebuildDocumentationRetrieval } = await import(
+    "../documentation/publications.js"
+  );
+  await rebuildDocumentationRetrieval(teamId);
 }

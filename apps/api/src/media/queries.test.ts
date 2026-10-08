@@ -8,6 +8,7 @@ vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 // Here we mock the service seam so the queries layer (idempotency,
 // team-scoping, DB shape) is tested in isolation, per architecture.md §14.1.
 vi.mock("./service", () => ({
+  mediaLitBindsSignedGroups: vi.fn(async () => true),
   sealMedia: vi.fn(async (mediaLitId: string) => ({
     mediaId: mediaLitId,
     originalFileName: "photo.png",
@@ -23,8 +24,10 @@ vi.mock("./service", () => ({
   getMediaUploadSignature: vi.fn(),
 }));
 
+import { deliverDocumentationEvent } from "../documentation/publications";
+import { saveDocumentation } from "../documentation/authoring";
 import { db as testDb } from "../db/client";
-import { sealMedia, deleteMedia } from "./service";
+import { sealMedia, deleteMedia, getMedia } from "./service";
 import {
   countMedia,
   deleteMediaRecord,
@@ -42,16 +45,26 @@ describe("media library", () => {
     vi.clearAllMocks();
     const seeded = await seedTeam(db);
     teamId = seeded.team.id;
+    vi.mocked(getMedia).mockImplementation(async (mediaLitId: string) => ({
+      mediaId: mediaLitId,
+      originalFileName: "photo.png",
+      mimeType: "image/png",
+      size: 1234,
+      access: "public",
+      file: `https://cdn.medialit.example/${mediaLitId}/main.png`,
+      thumbnail: `https://cdn.medialit.example/${mediaLitId}/thumb.webp`,
+      group: teamId,
+    }));
   });
 
-  it("registers media by sealing it and storing the sealed URL/metadata", async () => {
+  it("adopts a provider-verified public legacy asset without sealing", async () => {
     const item = await registerMedia({
       teamId,
       mediaLitId: "ml_abc123",
       alt: "A photo",
     });
 
-    expect(sealMedia).toHaveBeenCalledWith("ml_abc123");
+    expect(sealMedia).not.toHaveBeenCalled();
     expect(item?.mediaId).toMatch(/^med_/);
     expect(item?.mediaLitId).toBe("ml_abc123");
     expect(item?.url).toBe("https://cdn.medialit.example/ml_abc123/main.png");
@@ -67,33 +80,23 @@ describe("media library", () => {
     const first = await registerMedia({ teamId, mediaLitId: "ml_dupe" });
     const second = await registerMedia({ teamId, mediaLitId: "ml_dupe" });
 
-    expect(sealMedia).toHaveBeenCalledTimes(2);
+    expect(sealMedia).not.toHaveBeenCalled();
     expect(second?.mediaId).toBe(first?.mediaId);
 
     expect(await countMedia({ teamId })).toBe(1);
     expect(await listMedia({ teamId })).toHaveLength(1);
   });
 
-  it("registers provisioned media with a direct URL and mediaLitId without calling sealMedia", async () => {
-    const item = await registerMedia({
-      teamId,
-      mediaLitId: "ml_provisioned_1",
-      url: "https://external-storage.example/hero.jpg",
-      thumbnailUrl: "https://external-storage.example/hero-thumb.jpg",
-      alt: "External Hero",
-    });
-
+  it("rejects a supplied URL that differs from provider metadata", async () => {
+    await expect(
+      registerMedia({
+        teamId,
+        mediaLitId: "ml_provisioned_1",
+        url: "https://external-storage.example/hero.jpg",
+      }),
+    ).rejects.toThrow();
     expect(sealMedia).not.toHaveBeenCalled();
-    expect(item?.mediaId).toMatch(/^med_/);
-    expect(item?.url).toBe("https://external-storage.example/hero.jpg");
-    expect(item?.thumbnailUrl).toBe("https://external-storage.example/hero-thumb.jpg");
-    expect(item?.alt).toBe("External Hero");
-    expect(item?.mediaLitId).toBe("ml_provisioned_1");
-
-    const listed = await listMedia({ teamId });
-    expect(
-      listed.some((m) => m.url === "https://external-storage.example/hero.jpg"),
-    ).toBe(true);
+    expect(await countMedia({ teamId })).toBe(0);
   });
 
   it("rejects unsplash URLs or missing/invalid mediaLitId", async () => {
@@ -103,7 +106,7 @@ describe("media library", () => {
         mediaLitId: "https://images.unsplash.com/photo-1",
         url: "https://images.unsplash.com/photo-1",
       } as any),
-    ).rejects.toThrow(/Media library is exclusive to uploads/);
+    ).rejects.toThrow();
 
     await expect(
       registerMedia({
@@ -111,13 +114,22 @@ describe("media library", () => {
         mediaLitId: "ext_123",
         url: "https://example.com/photo-1.jpg",
       } as any),
-    ).rejects.toThrow(/Media library is exclusive to uploads/);
+    ).rejects.toThrow();
   });
 
   it("lists media newest-first, scoped to the team", async () => {
     await registerMedia({ teamId, mediaLitId: "ml_1" });
     await registerMedia({ teamId, mediaLitId: "ml_2" });
     const { team: otherTeam } = await seedTeam(db, { name: "Other" });
+    vi.mocked(getMedia).mockResolvedValueOnce({
+      mediaId: "ml_other",
+      originalFileName: "other.png",
+      mimeType: "image/png",
+      size: 1,
+      access: "public",
+      file: "https://cdn.medialit.example/ml_other/main.png",
+      group: otherTeam.id,
+    });
     await registerMedia({ teamId: otherTeam.id, mediaLitId: "ml_other" });
 
     const items = await listMedia({ teamId });
@@ -152,7 +164,7 @@ describe("media library", () => {
     ).toBeNull();
   });
 
-  it("deletes from MediaLit and the local library together", async () => {
+  it("commits deleting state before durable provider deletion", async () => {
     const created = await registerMedia({
       teamId,
       mediaLitId: "ml_delete",
@@ -160,6 +172,11 @@ describe("media library", () => {
     const result = await deleteMediaRecord(teamId, created!.mediaId);
 
     expect(result.ok).toBe(true);
+    expect(deleteMedia).not.toHaveBeenCalled();
+    expect((await getMediaByMediaId(teamId, created!.mediaId))?.access).toBe(
+      "deleting",
+    );
+    while (await deliverDocumentationEvent()) {}
     expect(deleteMedia).toHaveBeenCalledWith("ml_delete");
     expect(await getMediaByMediaId(teamId, created!.mediaId)).toBeUndefined();
   });
@@ -168,6 +185,20 @@ describe("media library", () => {
     const result = await deleteMediaRecord(teamId, "med_doesnotexist");
 
     expect(result.ok).toBe(false);
+    expect(deleteMedia).not.toHaveBeenCalled();
+  });
+
+  it("returns MEDIA_IN_USE with 409 for a saved documentation reference", async () => {
+    const item = await registerMedia({ teamId, mediaLitId: "ml_referenced" });
+    await saveDocumentation(teamId, null, {
+      title: "Referenced image",
+      markdown: `![Library image](${item!.url})`,
+    });
+    await expect(deleteMediaRecord(teamId, item!.mediaId)).rejects.toMatchObject({
+      code: "MEDIA_IN_USE",
+      status: 409,
+    });
+    expect((await getMediaByMediaId(teamId, item!.mediaId))?.access).toBe("public");
     expect(deleteMedia).not.toHaveBeenCalled();
   });
 });

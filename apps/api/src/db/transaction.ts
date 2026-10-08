@@ -31,7 +31,9 @@ export function supportsRowLocks(executor: DbExecutor = db): boolean {
 
 export async function withDbTransaction<T>(
   fn: (tx: DbExecutor) => Promise<T>,
+  executor?: DbExecutor,
 ): Promise<T> {
+  if (executor) return fn(executor);
   if (!supportsSqlTransactions(db)) return fn(db);
   return db.transaction(async (tx) => fn(tx as unknown as DbExecutor));
 }

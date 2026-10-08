@@ -6,6 +6,9 @@ vi.mock("../db/client", async () => ({
   sqlTransactionsEnabled: false,
 }));
 
+vi.mock("../documentation/publications", () => ({
+  documentationEvidenceAllowed: vi.fn(async () => true),
+}));
 vi.mock("../documentation/queries", () => ({
   searchChunks: vi.fn(async () => []),
 }));
@@ -84,6 +87,7 @@ describe("runInboxAi", () => {
       result: { answer: "", citations: [] },
       usedTokens: 8,
       chunks: [],
+      groundingMissing: false,
       handoff: { reason: "visitor_request" },
     });
     await upsertInboxAiPolicy(teamId, "chatbot", { autoReply: true });
@@ -127,6 +131,7 @@ describe("runInboxAi", () => {
       },
       usedTokens: 12,
       chunks: [],
+      groundingMissing: false,
       handoff: null,
     });
     await upsertInboxAiPolicy(teamId, "chatbot", {
@@ -168,6 +173,7 @@ describe("runInboxAi", () => {
       },
       usedTokens: 12,
       chunks: [],
+      groundingMissing: false,
       handoff: null,
     });
     await upsertInboxAiPolicy(teamId, "chatbot", { autoReply: true });
@@ -203,6 +209,7 @@ describe("runInboxAi", () => {
       result: { answer: "", citations: [] },
       usedTokens: 10,
       chunks: [],
+      groundingMissing: false,
       handoff: { reason: "topic", topic: "refund" },
     });
     await upsertInboxAiPolicy(teamId, "chatbot", {
@@ -268,6 +275,7 @@ describe("runInboxAi", () => {
         citations: [2],
       },
       usedTokens: 40,
+      groundingMissing: false,
       handoff: null,
       chunks: [
         {

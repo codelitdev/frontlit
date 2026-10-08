@@ -1,5 +1,6 @@
 import type { TextEditorContentRow } from "../db/schema";
 import { slugify } from "../utils/slug";
+import { createHeadingIdGenerator, docsNodeText } from "@frontlit/text-editor/headings";
 
 export interface DocChunk {
   heading: string | null;
@@ -20,6 +21,31 @@ function extractText(node: TipTapNode): string {
   return node.content.map(extractText).join(" ").replace(/\s+/g, " ").trim();
 }
 
+function extractDocsText(node: TipTapNode): string {
+  if (node.text) return node.text;
+  if (node.type === "hardBreak") return "\n";
+  return (node.content ?? [])
+    .map(extractDocsText)
+    .join(node.type === "paragraph" || node.type === "heading" ? "" : "\n");
+}
+
+function docsBlocks(nodes: TipTapNode[]): TipTapNode[] {
+  return nodes.flatMap((node) =>
+    [
+      "blockquote",
+      "bulletList",
+      "orderedList",
+      "listItem",
+      "table",
+      "tableRow",
+      "tableHeader",
+      "tableCell",
+    ].includes(node.type ?? "")
+      ? docsBlocks(node.content ?? [])
+      : [node],
+  );
+}
+
 function wordCount(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
 }
@@ -33,6 +59,7 @@ function wordCount(text: string): number {
  */
 export function extractChunks(
   content: TextEditorContentRow | null | undefined,
+  kind: "doc" | "blog" | "changelog" = "doc",
 ): DocChunk[] {
   if (!content?.content?.length) return [];
 
@@ -40,6 +67,7 @@ export function extractChunks(
   let heading: string | null = null;
   let anchor: string | null = null;
   let buffer: string[] = [];
+  const nextHeadingId = createHeadingIdGenerator();
 
   function flush() {
     const text = buffer.join("\n\n").trim();
@@ -48,16 +76,26 @@ export function extractChunks(
     chunks.push({ heading, anchor, content: text });
   }
 
-  for (const node of content.content as TipTapNode[]) {
-    const text = extractText(node);
-    if (!text) continue;
+  const nodes =
+    kind === "doc"
+      ? docsBlocks(content.content as TipTapNode[])
+      : (content.content as TipTapNode[]);
+  for (const node of nodes) {
+    const text =
+      node.type === "heading" && kind === "doc"
+        ? docsNodeText(node)
+        : kind === "doc"
+          ? extractDocsText(node)
+          : extractText(node);
 
     if (node.type === "heading") {
       flush();
       heading = text;
-      anchor = slugify(text);
+      anchor = kind === "doc" ? nextHeadingId(text) : slugify(text);
       continue;
     }
+
+    if (!text) continue;
 
     buffer.push(text);
     if (wordCount(buffer.join(" ")) >= CHUNK_TARGET_WORDS) flush();
@@ -70,7 +108,8 @@ export function extractChunks(
     const last = chunks[chunks.length - 1];
     if (
       wordCount(last.content) < MIN_CHUNK_WORDS &&
-      last.heading === chunks[chunks.length - 2].heading
+      last.heading === chunks[chunks.length - 2].heading &&
+      last.anchor === chunks[chunks.length - 2].anchor
     ) {
       chunks[chunks.length - 2].content += `\n\n${last.content}`;
       chunks.pop();

@@ -20,6 +20,8 @@ export const TEAM_PERMISSIONS = [
   "articles:write",
   "documentation:read",
   "documentation:write",
+  "documentation:publish",
+  "documentation:manage",
   "product-updates:read",
   "product-updates:write",
   "contacts:read",
@@ -62,6 +64,9 @@ export const PERMISSION_IMPLICATIONS: Readonly<
   "media:write": ["media:read"],
   "articles:write": ["articles:read"],
   "documentation:write": ["documentation:read"],
+  // DM-AUTH: source management and publication are independent capabilities.
+  "documentation:publish": ["documentation:read"],
+  "documentation:manage": ["documentation:read"],
   "product-updates:write": ["product-updates:read"],
   "contacts:write": ["contacts:read"],
   "segments:write": ["segments:read"],
@@ -257,6 +262,7 @@ export const PERMISSION_PRESETS: Record<
     "articles:write",
     "documentation:read",
     "documentation:write",
+    "documentation:publish",
     "product-updates:read",
     "product-updates:write",
   ],
@@ -273,6 +279,8 @@ export const PERMISSION_PRESETS: Record<
 };
 
 export const HIGH_IMPACT_PERMISSIONS = [
+  "documentation:publish",
+  "documentation:manage",
   "members:manage",
   "domains:write",
   "ai:write",
@@ -327,6 +335,8 @@ export const PERMISSION_GROUPS: ReadonlyArray<{
       "articles:write",
       "documentation:read",
       "documentation:write",
+      "documentation:publish",
+      "documentation:manage",
       "product-updates:read",
       "product-updates:write",
     ],

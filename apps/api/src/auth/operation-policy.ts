@@ -76,6 +76,68 @@ function accountOp(oauthScope: OAuthScope): AccountOperationPolicy {
  * stay outside this map.
  */
 export const REST_OPERATION_POLICIES = {
+  "content.documentationSections.listImprovements": teamPermission(
+    "documentation:read",
+    MCP_SCOPES.documentationRead,
+  ),
+  "content.documentationSections.getImprovement": teamPermission(
+    "documentation:read",
+    MCP_SCOPES.documentationRead,
+  ),
+  "content.documentationSections.reviewImprovement": teamPermission(
+    "documentation:write",
+    MCP_SCOPES.documentationWrite,
+    "deny",
+  ),
+  "content.documentationSections.createImprovementDraft": teamPermission(
+    "documentation:write",
+    MCP_SCOPES.documentationWrite,
+  ),
+  "tickets.documentationFeedback": teamPermission(
+    "helpdesk:write",
+    MCP_SCOPES.helpdeskWrite,
+  ),
+  "content.documentationSections.listPublications": teamPermission(
+    "documentation:read",
+    MCP_SCOPES.documentationRead,
+  ),
+  "content.documentationSections.preview": teamPermission(
+    "documentation:read",
+    MCP_SCOPES.documentationRead,
+  ),
+  "content.documentationSections.listRevisions": teamPermission(
+    "documentation:read",
+    MCP_SCOPES.documentationRead,
+  ),
+  "content.documentationSections.getRevision": teamPermission(
+    "documentation:read",
+    MCP_SCOPES.documentationRead,
+  ),
+  "content.documentationSections.unpublish": teamPermission(
+    "documentation:publish",
+    MCP_SCOPES.documentationPublish,
+  ),
+  "content.documentationSections.retryPublication": teamPermission(
+    "documentation:publish",
+    MCP_SCOPES.documentationPublish,
+  ),
+  "content.documentationSections.queuePublication": teamPermission(
+    "documentation:publish",
+    MCP_SCOPES.documentationPublish,
+  ),
+  "content.documentationSections.getPublication": teamPermission(
+    "documentation:read",
+    MCP_SCOPES.documentationRead,
+  ),
+  "content.documentationSections.preflightPurge": teamOwner(
+    MCP_SCOPES.documentationManage,
+    "deny",
+  ),
+  "content.documentationSections.commitPurge": teamOwner("unsupported", "deny"),
+  "content.documentationSections.getPurge": teamOwner(
+    MCP_SCOPES.documentationManage,
+    "deny",
+  ),
   "teams.list": accountOp(MCP_SCOPES.teamsRead),
   "teams.create": accountOp(MCP_SCOPES.teamsWrite),
   "teams.rename": teamPermission("team:update", MCP_SCOPES.teamsWrite),
@@ -149,8 +211,8 @@ export const REST_OPERATION_POLICIES = {
     MCP_SCOPES.documentationWrite,
   ),
   "content.documentation.publish": teamPermission(
-    "documentation:write",
-    MCP_SCOPES.documentationWrite,
+    "documentation:publish",
+    MCP_SCOPES.documentationPublish,
   ),
   "content.documentation.discardDraft": teamPermission(
     "documentation:write",
@@ -206,6 +268,117 @@ export const REST_OPERATION_POLICIES = {
     MCP_SCOPES.productUpdatesWrite,
   ),
 
+  "content.documentationSections.validate": teamPermission(
+    "documentation:read",
+    MCP_SCOPES.documentationRead,
+  ),
+  "content.documentationSections.getSettings": teamPermission(
+    "documentation:read",
+    MCP_SCOPES.documentationRead,
+  ),
+  "content.documentationSections.updateSettings": teamPermission(
+    "documentation:manage",
+    MCP_SCOPES.documentationManage,
+  ),
+  "content.documentationGithub.setup": teamPermission(
+    "documentation:manage",
+    MCP_SCOPES.documentationManage,
+    "deny",
+  ),
+  "content.documentationGithub.capabilities": teamPermission(
+    "documentation:manage",
+    "unsupported",
+    "deny",
+  ),
+  "content.documentationGithub.submitProposal": teamPermission(
+    "documentation:publish",
+    MCP_SCOPES.documentationPublish,
+  ),
+  "content.documentationGithub.getProposal": teamPermission(
+    "documentation:read",
+    MCP_SCOPES.documentationRead,
+  ),
+  "content.documentationGithub.getCheck": teamPermission(
+    "documentation:read",
+    MCP_SCOPES.documentationRead,
+  ),
+  "content.documentationGithub.listChecks": teamPermission(
+    "documentation:read",
+    MCP_SCOPES.documentationRead,
+  ),
+  "content.documentationGithub.listProposals": teamPermission(
+    "documentation:read",
+    MCP_SCOPES.documentationRead,
+  ),
+  "content.documentationGithub.repositories": teamPermission(
+    "documentation:manage",
+    MCP_SCOPES.documentationManage,
+    "deny",
+  ),
+  "content.documentationGithub.preflight": teamPermission(
+    "documentation:manage",
+    MCP_SCOPES.documentationManage,
+    "deny",
+  ),
+  "content.documentationGithub.connect": teamPermission(
+    "documentation:manage",
+    "unsupported",
+    "deny",
+  ),
+  "content.documentationGithub.get": teamPermission(
+    "documentation:read",
+    MCP_SCOPES.documentationRead,
+  ),
+  "content.documentationGithub.sync": teamPermission(
+    "documentation:manage",
+    MCP_SCOPES.documentationManage,
+    "deny",
+  ),
+  "content.documentationGithub.pause": teamPermission(
+    "documentation:manage",
+    MCP_SCOPES.documentationManage,
+    "deny",
+  ),
+  "content.documentationGithub.resume": teamPermission(
+    "documentation:manage",
+    MCP_SCOPES.documentationManage,
+    "deny",
+  ),
+  "content.documentationGithub.disconnect": teamPermission(
+    "documentation:manage",
+    MCP_SCOPES.documentationManage,
+    "deny",
+  ),
+  "content.documentationGithub.planMigration": teamPermission(
+    "documentation:manage",
+    MCP_SCOPES.documentationManage,
+    "deny",
+  ),
+  "content.documentationGithub.createMigrationPr": teamPermission(
+    "documentation:manage",
+    MCP_SCOPES.documentationManage,
+    "deny",
+  ),
+  "content.documentationGithub.getMigration": teamPermission(
+    "documentation:manage",
+    MCP_SCOPES.documentationManage,
+    "deny",
+  ),
+  "content.documentationGithub.verifyMigration": teamPermission(
+    "documentation:manage",
+    MCP_SCOPES.documentationManage,
+    "deny",
+  ),
+  "content.documentationGithub.activateMigration": teamPermission(
+    "documentation:manage",
+    "unsupported",
+    "deny",
+  ),
+  "content.documentationGithub.cancelMigration": teamPermission(
+    "documentation:manage",
+    MCP_SCOPES.documentationManage,
+    "deny",
+  ),
   "content.documentationSections.create": teamPermission(
     "documentation:write",
     MCP_SCOPES.documentationWrite,

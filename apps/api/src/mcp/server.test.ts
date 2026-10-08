@@ -74,15 +74,19 @@ describe("FrontLit MCP server", () => {
 
     const result = await client.listTools();
     const policyNames = Object.keys(listMcpToolPolicies()).sort();
-    expect(result.tools).toHaveLength(94);
+    expect(result.tools).toHaveLength(137);
     expect(result.tools.map((tool) => tool.name).sort()).toEqual(policyNames);
-    expect(new Set(result.tools.map((tool) => tool.name)).size).toBe(94);
+    expect(new Set(result.tools.map((tool) => tool.name)).size).toBe(137);
     expect(result.tools.map((tool) => tool.name)).toEqual(
       expect.arrayContaining([
         "list_articles",
         "create_article",
         "list_documentation_pages",
         "create_documentation_section",
+        "list_documentation_improvements",
+        "get_documentation_improvement",
+        "review_documentation_improvement",
+        "create_documentation_improvement_draft",
         "list_product_updates",
         "connect_github_product_updates",
         "get_inbox_ai_settings",

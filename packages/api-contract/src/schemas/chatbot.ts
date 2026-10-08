@@ -59,6 +59,11 @@ export const updateChatbotSettingsBodySchema = z.object({
 });
 
 export const chatSourceSchema = z.object({
+  revisionId: z.string().optional(),
+  publicationId: z.string().nullable().optional(),
+  policyEpoch: z.number().optional(),
+  evidenceId: z.string().optional(),
+  url: z.string().optional(),
   documentId: z.string(),
   slug: z.string(),
   title: z.string().nullable(),

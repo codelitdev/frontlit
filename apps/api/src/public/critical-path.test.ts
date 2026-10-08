@@ -146,6 +146,7 @@ describe("public critical paths", () => {
       title: "Live Guide",
     });
     await updateDocument("doc", teamInternalId, publishedDoc.documentId, {
+      expectedDraftVersion: 1,
       content: {
         type: "doc",
         content: [
@@ -156,7 +157,7 @@ describe("public critical paths", () => {
         ],
       },
     });
-    await publishDocument("doc", teamInternalId, publishedDoc.documentId);
+    await publishDocument("doc", teamInternalId, publishedDoc.documentId, 2);
 
     await withServer(async (origin) => {
       const livePage = await fetch(

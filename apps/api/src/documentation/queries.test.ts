@@ -6,7 +6,7 @@ vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 import { eq } from "drizzle-orm";
 import { db as testDb } from "../db/client";
 import { documents } from "../db/schema";
-import { createDocument, publishDocument } from "../documents/queries";
+import { createDocument, publishDocument, updateDocument } from "../documents/queries";
 import {
   countDocSections,
   createDocSection,
@@ -42,7 +42,7 @@ describe("documentation: reindexing on publish", () => {
       teamId,
       title: "Empty doc",
     });
-    await publishDocument("doc", teamId, created.documentId);
+    await publishDocument("doc", teamId, created.documentId, 1);
 
     const chunks: any[] = await db.query.documentChunks.findMany({
       where: (row: any, { eq }: any) => eq(row.documentId, created.id),
@@ -60,6 +60,7 @@ describe("documentation: reindexing on publish", () => {
       content: [
         {
           type: "heading",
+          attrs: { level: 2 },
           content: [{ type: "text", text: "Installation" }],
         },
         {
@@ -194,19 +195,19 @@ describe("searchChunks", () => {
     teamId = seeded.team.id;
   });
 
-  it("finds a chunk by querying with its own exact text (perfect self-similarity)", async () => {
+  it("searches captured published chunks and ignores draft/index-worker content", async () => {
     const created = await createDocument("doc", {
       teamId,
       title: "Refunds",
     });
-    await reindexDocument({
-      teamId,
-      documentId: created.id,
+    await updateDocument("doc", teamId, created.documentId, {
+      expectedDraftVersion: 1,
       content: {
         type: "doc",
         content: [
           {
             type: "heading",
+            attrs: { level: 2 },
             content: [{ type: "text", text: "Refund policy" }],
           },
           {
@@ -222,6 +223,7 @@ describe("searchChunks", () => {
       },
     });
 
+    await publishDocument("doc", teamId, created.documentId, 2);
     const results = await searchChunks(
       teamId,
       "We offer a full refund within 30 days of purchase, no questions asked.",
@@ -231,7 +233,7 @@ describe("searchChunks", () => {
     expect(results[0].documentId).toBe(created.documentId);
     expect(results[0].heading).toBe("Refund policy");
     expect(results[0].anchor).toBe("refund-policy");
-    // Querying with the exact chunk text is cosine distance 0 → similarity 1.
+    // Exact lexical query matches every token without an embedding dependency.
     expect(results[0].similarity).toBeCloseTo(1, 5);
   });
 
@@ -266,6 +268,7 @@ describe("searchChunks", () => {
     const created = await createDocument("doc", { teamId, title: "Doc" });
     const paragraphs = Array.from({ length: 5 }, (_, i) => ({
       type: "heading",
+      attrs: { level: 2 },
       content: [{ type: "text", text: `Section ${i}` }],
     }));
     const content = {
@@ -302,6 +305,7 @@ describe("doc sections", () => {
   it("creates a section with a slug and default order", async () => {
     const section = await createDocSection({
       teamId,
+      expectedDocsDraftVersion: 1,
       name: "Getting Started",
     });
     expect(section.slug).toBe("getting-started");
@@ -309,9 +313,24 @@ describe("doc sections", () => {
   });
 
   it("lists sections ordered by `order`", async () => {
-    await createDocSection({ teamId, name: "Third", order: 3 });
-    await createDocSection({ teamId, name: "First", order: 1 });
-    await createDocSection({ teamId, name: "Second", order: 2 });
+    await createDocSection({
+      teamId,
+      name: "Third",
+      order: 3,
+      expectedDocsDraftVersion: 1,
+    });
+    await createDocSection({
+      teamId,
+      name: "First",
+      order: 1,
+      expectedDocsDraftVersion: 2,
+    });
+    await createDocSection({
+      teamId,
+      name: "Second",
+      order: 2,
+      expectedDocsDraftVersion: 3,
+    });
 
     const sections = await listDocSections(teamId);
     expect(sections.map((s) => s.name)).toEqual(["First", "Second", "Third"]);
@@ -319,28 +338,38 @@ describe("doc sections", () => {
   });
 
   it("updates and deletes a section", async () => {
-    const section = await createDocSection({ teamId, name: "Guides" });
+    const section = await createDocSection({
+      teamId,
+      name: "Guides",
+      expectedDocsDraftVersion: 1,
+    });
     const updated = await updateDocSection(teamId, section.sectionId, {
+      expectedDocsDraftVersion: 2,
       name: "User Guides",
       order: 5,
     });
     expect(updated?.name).toBe("User Guides");
     expect(updated?.order).toBe(5);
 
-    const result = await deleteDocSection(teamId, section.sectionId);
+    const result = await deleteDocSection(teamId, section.sectionId, 3);
     expect(result.ok).toBe(true);
     expect(await getDocSectionBySectionId(teamId, section.sectionId)).toBeUndefined();
   });
 
   it("update/delete are team-scoped", async () => {
-    const section = await createDocSection({ teamId, name: "Guides" });
+    const section = await createDocSection({
+      teamId,
+      name: "Guides",
+      expectedDocsDraftVersion: 1,
+    });
     const { team: otherTeam } = await seedTeam(db, { name: "Other" });
 
     expect(
       await updateDocSection(otherTeam.id, section.sectionId, {
+        expectedDocsDraftVersion: 1,
         name: "hijacked",
       }),
     ).toBeNull();
-    expect((await deleteDocSection(otherTeam.id, section.sectionId)).ok).toBe(false);
+    expect((await deleteDocSection(otherTeam.id, section.sectionId, 1)).ok).toBe(false);
   });
 });

@@ -45,6 +45,10 @@ describe("isNavItemActive", () => {
 
   it("uses effective team permissions to gate workspace routes", () => {
     const readOnlyDocs = team(["documentation:read"]);
+    expect(canAccessWorkspacePath("/settings/content", readOnlyDocs)).toBe(true);
+    expect(canAccessWorkspacePath("/settings/content", team(["articles:read"]))).toBe(
+      false,
+    );
     expect(canAccessWorkspacePath("/", readOnlyDocs)).toBe(false);
     expect(canAccessWorkspacePath("/content", readOnlyDocs)).toBe(true);
     expect(canAccessWorkspacePath("/website/pages", readOnlyDocs)).toBe(false);

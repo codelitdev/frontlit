@@ -1,6 +1,7 @@
 import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
 import {
+  createMediaBodySchema,
   mediaSchema,
   mediaUploadSignatureSchema,
   successMessageSchema,
@@ -13,7 +14,10 @@ import {
   registerMedia,
   updateMedia,
 } from "../../media/queries";
-import { getMediaUploadSignature } from "../../media/service";
+import {
+  createLibraryUploadIntent,
+  MediaProvenanceError,
+} from "../../media/provenance";
 import { AUTH_ERROR, INTERNAL_ERROR, NOT_FOUND, jsonResult } from "./responses";
 import { getTeamId } from "./auth";
 import { omitInternal, serializeDates } from "../../utils/public";
@@ -29,7 +33,10 @@ export function registerMediaTools(server: McpToolRegistrar): void {
       description:
         "Returns a short-lived MediaLit upload signature and endpoint for the current team. Upload the file directly to `${endpoint}/media/create/resumable` (TUS resumable upload) with the signature in the `x-medialit-signature` header, then call register_media with the returned mediaId.",
       inputSchema: {},
-      outputSchema: mediaUploadSignatureSchema,
+      outputSchema: z.union([
+        mediaUploadSignatureSchema,
+        z.object({ error: z.string(), code: z.string() }),
+      ]),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -40,9 +47,14 @@ export function registerMediaTools(server: McpToolRegistrar): void {
       const teamId = getTeamId(extra);
       if (!teamId) return AUTH_ERROR;
       try {
-        const result = await getMediaUploadSignature(teamId);
+        const result = await createLibraryUploadIntent(teamId);
         return jsonResult(result);
-      } catch {
+      } catch (error) {
+        if (error instanceof MediaProvenanceError)
+          return {
+            ...jsonResult({ error: error.message, code: error.code }),
+            isError: true,
+          };
         return INTERNAL_ERROR;
       }
     },
@@ -53,12 +65,11 @@ export function registerMediaTools(server: McpToolRegistrar): void {
     {
       description:
         "Seals a freshly-uploaded MediaLit file (temp \u2192 permanent) and adds it to the team's media library.",
-      inputSchema: {
-        mediaLitId: z.string().min(1),
-        alt: z.string().optional(),
-        caption: z.string().optional(),
-      },
-      outputSchema: mediaSchema,
+      inputSchema: createMediaBodySchema.shape,
+      outputSchema: z.union([
+        mediaSchema,
+        z.object({ error: z.string(), code: z.string() }),
+      ]),
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -72,7 +83,12 @@ export function registerMediaTools(server: McpToolRegistrar): void {
         const item = await registerMedia({ teamId, ...args });
         if (!item) return INTERNAL_ERROR;
         return jsonResult(toPublicMedia(item));
-      } catch {
+      } catch (error) {
+        if (error instanceof MediaProvenanceError)
+          return {
+            ...jsonResult({ error: error.message, code: error.code }),
+            isError: true,
+          };
         return INTERNAL_ERROR;
       }
     },
@@ -102,7 +118,12 @@ export function registerMediaTools(server: McpToolRegistrar): void {
           countMedia({ teamId }),
         ]);
         return jsonResult({ items: items.map(toPublicMedia), total });
-      } catch {
+      } catch (error) {
+        if (error instanceof MediaProvenanceError)
+          return {
+            ...jsonResult({ error: error.message, code: error.code }),
+            isError: true,
+          };
         return INTERNAL_ERROR;
       }
     },
@@ -127,7 +148,12 @@ export function registerMediaTools(server: McpToolRegistrar): void {
         const item = await getMediaByMediaId(teamId, args.mediaId);
         if (!item) return NOT_FOUND;
         return jsonResult(toPublicMedia(item));
-      } catch {
+      } catch (error) {
+        if (error instanceof MediaProvenanceError)
+          return {
+            ...jsonResult({ error: error.message, code: error.code }),
+            isError: true,
+          };
         return INTERNAL_ERROR;
       }
     },
@@ -157,7 +183,12 @@ export function registerMediaTools(server: McpToolRegistrar): void {
         const item = await updateMedia(teamId, mediaId, patch);
         if (!item) return NOT_FOUND;
         return jsonResult(toPublicMedia(item));
-      } catch {
+      } catch (error) {
+        if (error instanceof MediaProvenanceError)
+          return {
+            ...jsonResult({ error: error.message, code: error.code }),
+            isError: true,
+          };
         return INTERNAL_ERROR;
       }
     },
@@ -182,7 +213,12 @@ export function registerMediaTools(server: McpToolRegistrar): void {
         const result = await deleteMediaRecord(teamId, args.mediaId);
         if (!result.ok) return NOT_FOUND;
         return jsonResult({ message: "Media deleted." });
-      } catch {
+      } catch (error) {
+        if (error instanceof MediaProvenanceError)
+          return {
+            ...jsonResult({ error: error.message, code: error.code }),
+            isError: true,
+          };
         return INTERNAL_ERROR;
       }
     },

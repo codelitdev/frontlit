@@ -26,6 +26,21 @@ describe("team permission catalog", () => {
     expect(hasEffectivePermission(["pages:write"], "broadcasts:send")).toBe(false);
   });
 
+  it("DM-AUTH/V24: documentation write, publish, and manage do not imply each other", () => {
+    expect(computeEffectivePermissions(["documentation:write"])).toEqual([
+      "documentation:read",
+      "documentation:write",
+    ]);
+    expect(computeEffectivePermissions(["documentation:publish"])).toEqual([
+      "documentation:read",
+      "documentation:publish",
+    ]);
+    expect(computeEffectivePermissions(["documentation:manage"])).toEqual([
+      "documentation:read",
+      "documentation:manage",
+    ]);
+  });
+
   it("closes send and member administration implications", () => {
     expect(computeEffectivePermissions(["broadcasts:send"])).toEqual([
       "broadcasts:read",

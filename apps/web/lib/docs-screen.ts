@@ -50,7 +50,7 @@ export function filterDocs(
 
     return (
       doc.draftTitle.toLowerCase().includes(normalizedQuery) ||
-      doc.slug.toLowerCase().includes(normalizedQuery)
+      (doc.draftSlug ?? doc.slug).toLowerCase().includes(normalizedQuery)
     );
   });
 }

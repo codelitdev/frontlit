@@ -1,3 +1,6 @@
+import { readDocumentation } from "../documentation/publications";
+import { DocsContentError } from "@frontlit/text-editor/docs";
+import { documentationErrorBody } from "../documentation/content-validation";
 import { Router } from "express";
 import { createExpressEndpoints, initServer } from "@ts-rest/express";
 import { eq, inArray } from "drizzle-orm";
@@ -9,7 +12,7 @@ import {
   getPublishedDocumentBySlug,
   listPublishedDocuments,
 } from "../documents/queries";
-import { listDocSections, searchChunks } from "../documentation/queries";
+import { searchChunks } from "../documentation/queries";
 import { getChatbotSettings } from "../chatbot/queries";
 import { findTeamById, findTeamByPublicId } from "../team/queries";
 import { runInboxAi } from "../inbox-ai/generate";
@@ -133,6 +136,11 @@ const ticketThreadLimiter = postgresPublicLimit({
  * are ever selected by the queries this delegates to, so there's no
  * draft-leak risk even without an explicit field-level strip. */
 const router = Router();
+router.use((req, res, next) => {
+  if (req.path.includes("/content/documentation") || req.path.endsWith("/sitemap"))
+    res.setHeader("Cache-Control", "no-store");
+  next();
+});
 
 const s = initServer();
 
@@ -189,9 +197,27 @@ function toPublicDocumentProjection<T extends Record<PublicDocumentFields, unkno
     createdAt,
     publishedAt,
     updatedAt,
+    ...("publicationId" in doc
+      ? {
+          publicationId: doc.publicationId,
+          policyEpoch: (doc as any).policyEpoch,
+          revisionId: (doc as any).revisionId,
+          revisionHash: (doc as any).revisionHash,
+        }
+      : {}),
     ...(author !== undefined ? { author } : {}),
   }) as PublicDocumentProjection<T> & {
     author?: PublicArticleAuthor | null;
+  };
+}
+
+function toPublicDocumentationProjection(doc: any) {
+  return {
+    ...toPublicDocumentProjection(doc),
+    publicationId: doc.publicationId as string | null,
+    policyEpoch: doc.policyEpoch as number,
+    revisionId: doc.revisionId as string,
+    revisionHash: doc.revisionHash as string,
   };
 }
 
@@ -466,11 +492,23 @@ const impl = s.router(contract.public, {
     const team = await findTeamByPublicId(params.teamId);
     if (!team) return { status: 404, body: { error: "Team not found" } };
 
-    const sections = await listDocSections(team.id);
+    const live = await readDocumentation(team.id);
+    const sections = live.sections;
     return {
       status: 200,
       body: {
-        items: sections.map((s) => serializeDates(omitInternal(s, "teamId"))),
+        items: sections.map((s: any) =>
+          serializeDates({
+            sectionId: s.sectionId as string,
+            name: s.name as string,
+            slug: s.slug as string,
+            order: s.order as number,
+            createdAt: s.createdAt as string | null,
+            updatedAt: s.updatedAt as string | null,
+          }),
+        ),
+        publicationId: live.publicationId,
+        policyEpoch: live.policyEpoch,
       },
     };
   },
@@ -488,18 +526,67 @@ const impl = s.router(contract.public, {
     const team = await findTeamByPublicId(params.teamId);
     if (!team) return { status: 404, body: { error: "Team not found" } };
 
-    const [items, total] = await Promise.all([
-      listPublishedDocuments("doc", {
-        teamId: team.id,
-        offset: query.offset,
-        itemsPerPage: query.itemsPerPage,
-      }),
-      countPublishedDocuments("doc", { teamId: team.id }),
-    ]);
+    const live = await readDocumentation(team.id);
+    const start = ((query.offset ?? 1) - 1) * (query.itemsPerPage ?? 20);
     return {
       status: 200,
-      body: { items: items.map((item) => toPublicDocumentProjection(item)), total },
+      body: {
+        items: live.items
+          .slice(start, start + (query.itemsPerPage ?? 20))
+          .map((item) => toPublicDocumentationProjection(item)),
+        total: live.items.length,
+        publicationId: live.publicationId,
+        policyEpoch: live.policyEpoch,
+      },
     };
+  },
+  getDocumentationSnapshot: async ({ params, query }) => {
+    const team = await findTeamByPublicId(params.teamId);
+    if (!team) return { status: 404, body: { error: "Team not found" } };
+    try {
+      const live = await readDocumentation(team.id, {
+        publicationId: query.expectedPublicationId,
+        policyEpoch: query.expectedPolicyEpoch,
+      });
+      return {
+        status: 200,
+        body: {
+          publicationId: live.publicationId,
+          policyEpoch: live.policyEpoch,
+          items: live.items.map(toPublicDocumentationProjection),
+          sections: live.sections.map((s: any) => ({
+            sectionId: s.sectionId as string,
+            name: s.name as string,
+            slug: s.slug as string,
+            order: s.order as number,
+            createdAt: s.createdAt as string | null,
+            updatedAt: s.updatedAt as string | null,
+          })),
+        },
+      };
+    } catch (error) {
+      if (error instanceof DocsContentError)
+        return { status: 409, body: documentationErrorBody(error) };
+      throw error;
+    }
+  },
+  getDocumentationByPath: async ({ params, query }) => {
+    const team = await findTeamByPublicId(params.teamId);
+    if (!team) return { status: 404, body: { error: "Team not found" } };
+    try {
+      const live = await readDocumentation(team.id, {
+        publicationId: query.expectedPublicationId,
+        policyEpoch: query.expectedPolicyEpoch,
+      });
+      const doc = live.items.find((item) => item.slug === query.slug);
+      return doc
+        ? { status: 200, body: toPublicDocumentationProjection(doc) }
+        : { status: 404, body: { error: "Not found" } };
+    } catch (error) {
+      if (error instanceof DocsContentError)
+        return { status: 409, body: documentationErrorBody(error) };
+      throw error;
+    }
   },
   getDocumentationBySlug: async ({ params }) => {
     const team = await findTeamByPublicId(params.teamId);
@@ -507,7 +594,7 @@ const impl = s.router(contract.public, {
 
     const doc = await getPublishedDocumentBySlug("doc", team.id, params.slug);
     if (!doc) return { status: 404, body: { error: "Not found" } };
-    return { status: 200, body: toPublicDocumentProjection(doc) };
+    return { status: 200, body: toPublicDocumentationProjection(doc) };
   },
   listProductUpdates: async ({ params, query }) => {
     const team = await findTeamByPublicId(params.teamId);

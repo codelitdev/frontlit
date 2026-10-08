@@ -62,6 +62,11 @@ async function forward(
         },
   });
 
+  for (const name of ["Cache-Control", "X-Robots-Tag"]) {
+    const value = upstream.headers.get(name);
+    if (value) res.headers.set(name, value);
+  }
+
   if (upstream.status === 401) {
     res.headers.set("X-Auth-Error", "session_expired");
   }

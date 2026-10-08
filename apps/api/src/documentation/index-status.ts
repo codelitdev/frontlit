@@ -1,3 +1,4 @@
+import { readDocumentation } from "./publications";
 import { count, inArray } from "drizzle-orm";
 import { db } from "../db/client";
 import { documentChunks, documentIndexJobs, type DocumentKind } from "../db/schema";
@@ -32,6 +33,26 @@ export async function attachDocumentIndex<
     }
   }
 
+  if (kind === "doc" && teamId && docs.every((doc) => "documentId" in doc)) {
+    const live = await readDocumentation(teamId);
+    return docs.map((doc) => ({
+      ...doc,
+      index: !doc.publishedAt
+        ? null
+        : {
+            state:
+              live.indexing.enabled &&
+              live.items.some(
+                (item) =>
+                  item.documentId === (doc as any).documentId &&
+                  isDocIndexable(item.meta),
+              )
+                ? ("indexed" as const)
+                : ("excluded" as const),
+            lastError: null,
+          },
+    }));
+  }
   const ids = docs.map((doc) => doc.id);
   const [jobs, chunkRows] = await Promise.all([
     db.query.documentIndexJobs.findMany({

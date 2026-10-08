@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { BookOpen, ChevronRight, Folder } from "lucide-react";
-import { TextRenderer, type TextEditorContent } from "@frontlit/text-editor";
+import { TextRenderer } from "@frontlit/page-builder/components";
+import type { TextEditorContent } from "@frontlit/text-editor";
 import {
   Caption,
   Header1,
@@ -59,7 +60,6 @@ export function ThemedDocumentationFeed({
 }) {
   const theme = useSiteThemeStyle();
   const hasCollections = collections.length > 0;
-
   return (
     <div className="flex flex-col gap-10">
       <header className="mx-auto flex w-full max-w-2xl flex-col items-center gap-4 text-center">
@@ -362,7 +362,9 @@ export function ThemedDocArticle({
               </div>
             )}
             <Header1 theme={theme}>{title}</Header1>
-            {content && <TextRenderer json={content} theme={theme} />}
+            {content && (
+              <TextRenderer json={content} theme={theme} profile="documentation" />
+            )}
           </article>
           {headings.length > 0 ? (
             <nav aria-label="On this page" className="hidden lg:block">

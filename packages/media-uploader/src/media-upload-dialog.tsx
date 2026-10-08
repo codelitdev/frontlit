@@ -139,6 +139,7 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
   });
 
   const {
+    uploadNotice,
     uploadMedia,
     listMedia,
     searchUnsplash,
@@ -490,6 +491,9 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
             </TabsList>
           ) : null}
           <TabsContent value="upload" className="space-y-4 py-4">
+            {uploadNotice && (
+              <p className="text-sm text-muted-foreground">{uploadNotice}</p>
+            )}
             <div
               onDragOver={(event) => {
                 event.preventDefault();

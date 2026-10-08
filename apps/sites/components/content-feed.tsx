@@ -1,3 +1,4 @@
+import { getDocumentationSnapshot } from "@/lib/api";
 import type { DataSlotLoader } from "@frontlit/page-builder/data-slots";
 import { getSettings, listArticles, listProductUpdates } from "@/lib/api";
 import { getCanonicalHost } from "@/lib/request-host";
@@ -45,9 +46,10 @@ async function DocumentationFeed({
   teamId: string;
   publicApiBaseUrl?: string;
 }) {
-  const [settings, collections] = await Promise.all([
+  const [settings, collections, snapshot] = await Promise.all([
     getSettings(teamId),
     loadDocsTree(teamId),
+    getDocumentationSnapshot(teamId),
   ]);
 
   return (

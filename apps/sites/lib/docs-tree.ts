@@ -1,6 +1,5 @@
 import {
-  listDocumentation,
-  listDocumentationSections,
+  getDocumentationSnapshot,
   type PublicDocument,
   type DocumentationMeta,
   type DocumentationSection,
@@ -25,7 +24,11 @@ function toNavItem(doc: PublicDocument<DocumentationMeta>): DocsNavItem {
   return {
     documentId: doc.documentId,
     slug: doc.slug,
-    title: doc.title,
+    title:
+      typeof doc.meta.frontmatter?.nav_title === "string" &&
+      doc.meta.frontmatter.nav_title.trim()
+        ? doc.meta.frontmatter.nav_title
+        : doc.title,
     excerpt: doc.excerpt,
     featuredImage: doc.featuredImage,
   };
@@ -49,6 +52,7 @@ export function buildDocsTree(
   for (const docs of bySection.values()) {
     docs.sort((a, b) => (a.meta.order ?? 0) - (b.meta.order ?? 0));
   }
+  unsectioned.sort((a, b) => (a.meta.order ?? 0) - (b.meta.order ?? 0));
 
   const collections: DocsCollection[] = sections.map((section) => ({
     sectionId: section.sectionId,
@@ -68,10 +72,7 @@ export function buildDocsTree(
 }
 
 export async function loadDocsTree(teamId: string): Promise<DocsCollection[]> {
-  const [sections, { items }] = await Promise.all([
-    listDocumentationSections(teamId),
-    listDocumentation(teamId, { itemsPerPage: 500 }),
-  ]);
+  const { sections, items } = await getDocumentationSnapshot(teamId);
   return buildDocsTree(sections, items);
 }
 

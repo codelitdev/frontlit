@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { initClient } from "@ts-rest/core";
 import { contract } from "@frontlit/api-contract";
 import type { TextEditorContent } from "@frontlit/text-editor";
@@ -100,7 +101,7 @@ export async function getSitemap(teamId: string): Promise<SitemapEntry[]> {
   const result = await unwrapOrNull<{ items: SitemapEntry[] }>(
     client.getSitemap({
       params: { teamId },
-      fetchOptions: teamCache(teamId),
+      fetchOptions: { cache: "no-store" },
     }),
   );
   return result?.items ?? [];
@@ -183,6 +184,7 @@ export function getArticleBySlug(
 }
 
 export interface DocumentationMeta {
+  frontmatter?: Record<string, unknown>;
   sectionId?: string;
   order: number;
   seo?: { title?: string; description?: string };
@@ -195,44 +197,55 @@ export interface DocumentationSection {
   order: number;
 }
 
+export interface DocumentationSnapshot {
+  publicationId: string | null;
+  policyEpoch: number;
+  items: PublicDocument<DocumentationMeta>[];
+  sections: DocumentationSection[];
+}
+// React cache only deduplicates this authoritative read within one render.
+export const getDocumentationSnapshot = cache(
+  async (teamId: string): Promise<DocumentationSnapshot> => {
+    const result = await unwrapOrNull<DocumentationSnapshot>(
+      client.getDocumentationSnapshot({
+        params: { teamId },
+        query: {},
+        fetchOptions: { cache: "no-store" },
+      }),
+    );
+    return (
+      result ?? {
+        publicationId: null,
+        policyEpoch: 0,
+        items: [],
+        sections: [],
+      }
+    );
+  },
+);
 export async function listDocumentationSections(
   teamId: string,
 ): Promise<DocumentationSection[]> {
-  const result = await unwrapOrNull<{ items: DocumentationSection[] }>(
-    client.listDocumentationSections({
-      params: { teamId },
-      fetchOptions: teamCache(teamId),
-    }),
-  );
-  return result?.items ?? [];
+  return (await getDocumentationSnapshot(teamId)).sections;
 }
-
 export async function listDocumentation(
   teamId: string,
   params: { offset?: number; itemsPerPage?: number } = {},
 ): Promise<{ items: PublicDocument<DocumentationMeta>[]; total: number }> {
-  const result = await unwrapOrNull<{
-    items: PublicDocument<DocumentationMeta>[];
-    total: number;
-  }>(
-    client.listDocumentation({
-      params: { teamId },
-      query: params,
-      fetchOptions: teamCache(teamId),
-    }),
-  );
-  return result ?? { items: [], total: 0 };
+  const live = await getDocumentationSnapshot(teamId);
+  const start = ((params.offset ?? 1) - 1) * (params.itemsPerPage ?? 20);
+  return {
+    items: live.items.slice(start, start + (params.itemsPerPage ?? 20)),
+    total: live.items.length,
+  };
 }
-
-export function getDocumentationBySlug(
+export async function getDocumentationBySlug(
   teamId: string,
   slug: string,
 ): Promise<PublicDocument<DocumentationMeta> | null> {
-  return unwrapOrNull(
-    client.getDocumentationBySlug({
-      params: { teamId, slug },
-      fetchOptions: teamCache(teamId),
-    }),
+  return (
+    (await getDocumentationSnapshot(teamId)).items.find((doc) => doc.slug === slug) ??
+    null
   );
 }
 

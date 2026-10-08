@@ -1,3 +1,14 @@
+import {
+  readDocumentation,
+  publishSingleDocument,
+} from "../documentation/publications";
+import {
+  saveDocumentation,
+  changeDocumentation,
+  draftReport,
+  getDocsSettings,
+} from "../documentation/authoring";
+import { DocsContentError } from "@frontlit/text-editor/docs";
 import { and, count, eq, ilike, isNotNull, ne } from "drizzle-orm";
 import { db } from "../db/client";
 import { documents, type DocumentKind, type TextEditorContentRow } from "../db/schema";
@@ -158,6 +169,7 @@ export function deriveDocumentStatus(doc: {
   draftFeaturedImage: unknown;
   meta: unknown;
   draftMeta: unknown;
+  draftGitSource?: { sourcePath: string; base: { sourcePath: string } | null } | null;
 }): DocumentStatus {
   if (!doc.publishedAt) return "draft";
 
@@ -167,7 +179,10 @@ export function deriveDocumentStatus(doc: {
     doc.excerpt !== doc.draftExcerpt ||
     JSON.stringify(doc.featuredImage ?? null) !==
       JSON.stringify(doc.draftFeaturedImage ?? null) ||
-    JSON.stringify(doc.meta ?? {}) !== JSON.stringify(doc.draftMeta ?? {});
+    JSON.stringify(doc.meta ?? {}) !== JSON.stringify(doc.draftMeta ?? {}) ||
+    ((doc as any).draftSlug != null && (doc as any).draftSlug !== (doc as any).slug) ||
+    (!!doc.draftGitSource?.base &&
+      doc.draftGitSource.sourcePath !== doc.draftGitSource.base.sourcePath);
 
   return hasChanges ? "published_with_changes" : "published";
 }
@@ -195,11 +210,19 @@ export async function createDocument(
   input: {
     teamId: string;
     title: string;
+    slug?: string;
+    content?: TextEditorContentRow;
+    markdown?: string;
+    gitSourcePath?: string;
     authorAccountId?: string;
     featuredImage?: unknown;
     meta?: Record<string, unknown>;
   },
 ) {
+  if (kind === "doc") {
+    const { teamId, authorAccountId, ...body } = input;
+    return (await saveDocumentation(teamId, null, body, authorAccountId))!;
+  }
   const slug = await uniqueSlug(slugify(input.title), (candidate) =>
     slugTaken(input.teamId, kind, candidate),
   );
@@ -264,13 +287,41 @@ export async function countDocuments(
   return value;
 }
 
-export async function getDocumentByDocumentId(kind: DocumentKind, documentId: string) {
-  return db.query.documents.findFirst({
-    where: and(eq(documents.documentId, documentId), eq(documents.kind, kind)),
+export async function getDocumentByDocumentId(
+  kind: DocumentKind,
+  documentId: string,
+  teamId?: string,
+) {
+  const row = await db.query.documents.findFirst({
+    where: and(
+      eq(documents.documentId, documentId),
+      eq(documents.kind, kind),
+      ...(teamId ? [eq(documents.teamId, teamId)] : []),
+    ),
   });
+  if (row && kind === "doc") {
+    let report;
+    try {
+      report = await draftReport(
+        row.teamId,
+        { ...row, draftSlug: row.draftSlug ?? row.slug },
+        { documentId },
+      );
+    } catch (error) {
+      if (!(error instanceof DocsContentError)) throw error;
+      report = {
+        saved: false,
+        publishable: false,
+        diagnostics: error.diagnostics,
+        validatedAgainstPublicationId: null,
+      };
+    }
+    return { ...row, ...report, source: (await getDocsSettings(row.teamId)).source };
+  }
+  return row;
 }
 
-/** Writes content to draft columns while applying `slug` immediately.
+/** Writes documentation slugs to draft state; other document kinds retain immediate slug edits.
  * Published content remains untouched until `publishDocument` promotes it
  * (architecture.md \u00a73). `meta` is shallow-merged into the existing draft
  * meta so callers can patch one field (e.g. `tags`) without resending all
@@ -280,18 +331,23 @@ export async function updateDocument(
   teamId: string,
   documentId: string,
   patch: Partial<{
+    expectedDraftVersion: number;
+    markdown: string;
     title: string;
     slug: string;
+    gitSourcePath: string;
     content: TextEditorContentRow;
     excerpt: string;
     featuredImage: unknown;
     meta: Record<string, unknown>;
   }>,
 ) {
+  if (kind === "doc") return saveDocumentation(teamId, documentId, patch);
   const existing = await getDocumentByDocumentId(kind, documentId);
   if (!existing || existing.teamId !== teamId) return null;
 
   const { title, slug: requestedSlug, content, excerpt, featuredImage, meta } = patch;
+  const normalizedContent = content;
   const slug =
     requestedSlug === undefined ? undefined : normalizeEditableSlug(requestedSlug);
   if (slug !== undefined && (await slugTaken(teamId, kind, slug, existing.id))) {
@@ -320,7 +376,7 @@ export async function updateDocument(
       .set({
         ...(title !== undefined ? { draftTitle: title } : {}),
         ...(slug !== undefined ? { slug } : {}),
-        ...(content !== undefined ? { draftContent: content } : {}),
+        ...(normalizedContent !== undefined ? { draftContent: normalizedContent } : {}),
         ...(excerpt !== undefined ? { draftExcerpt: excerpt } : {}),
         ...(featuredImage !== undefined
           ? { draftFeaturedImage: normalizedFeaturedImage }
@@ -367,10 +423,20 @@ export async function publishDocument(
   kind: DocumentKind,
   teamId: string,
   documentId: string,
+  expectedDraftVersion?: number,
+  context?: { expectedDocsDraftVersion: number; expectedPublicationId: string | null },
 ) {
+  if (kind === "doc") {
+    const doc = await publishSingleDocument(
+      teamId,
+      documentId,
+      expectedDraftVersion,
+      context,
+    );
+    return doc;
+  }
   const existing = await getDocumentByDocumentId(kind, documentId);
   if (!existing || existing.teamId !== teamId) return null;
-
   const [doc] = await db
     .update(documents)
     .set({
@@ -384,35 +450,27 @@ export async function publishDocument(
     })
     .where(eq(documents.id, existing.id))
     .returning();
-
-  if (doc?.featuredImage) {
+  if (doc?.featuredImage)
     await syncFeaturedImageToMediaLibrary(teamId, doc.featuredImage);
-  }
-
   if (doc && (await teamIndexesKind(teamId, kind))) {
-    if (isDocIndexable(doc.meta)) {
-      await enqueueDocumentIndex(teamId, doc.id);
-    } else {
-      await deleteChunksForDocument(doc.id);
-    }
+    if (isDocIndexable(doc.meta)) await enqueueDocumentIndex(teamId, doc.id);
+    else await deleteChunksForDocument(doc.id);
   }
-
   return doc;
 }
 
-/** Reverts the draft state back to whatever is currently published. A
- * document that has never been published has nothing to revert to, so
- * this is a no-op in that case (draft* columns are NOT NULL \u2014 unlike
- * pages, there's no "empty" draft state to fall back to). */
+/** Restore a published revision to a new documentation draft version. */
 export async function discardDocumentDraft(
   kind: DocumentKind,
   teamId: string,
   documentId: string,
+  expectedDraftVersion?: number,
 ) {
+  if (kind === "doc")
+    return changeDocumentation(teamId, documentId, expectedDraftVersion, "discard");
   const existing = await getDocumentByDocumentId(kind, documentId);
   if (!existing || existing.teamId !== teamId) return null;
   if (!existing.publishedAt) return existing;
-
   const [doc] = await db
     .update(documents)
     .set({
@@ -420,19 +478,30 @@ export async function discardDocumentDraft(
       draftContent: existing.content as TextEditorContentRow,
       draftExcerpt: existing.excerpt,
       draftFeaturedImage: existing.featuredImage,
-      draftMeta: existing.meta as Record<string, unknown>,
+      draftMeta: existing.meta,
       updatedAt: new Date(),
     })
     .where(eq(documents.id, existing.id))
     .returning();
   return doc;
 }
-
 export async function deleteDocument(
   kind: DocumentKind,
   teamId: string,
   documentId: string,
+  expectedDraftVersion?: number,
 ) {
+  if (kind === "doc") {
+    const row = await changeDocumentation(
+      teamId,
+      documentId,
+      expectedDraftVersion,
+      "delete",
+    );
+    return row
+      ? { ok: true as const }
+      : { ok: false as const, reason: "not_found" as const };
+  }
   const existing = await getDocumentByDocumentId(kind, documentId);
   if (!existing || existing.teamId !== teamId)
     return { ok: false as const, reason: "not_found" as const };
@@ -449,6 +518,11 @@ export async function listPublishedDocuments(
   kind: DocumentKind,
   input: { teamId: string; offset?: number; itemsPerPage?: number },
 ) {
+  if (kind === "doc") {
+    const live = await readDocumentation(input.teamId);
+    const start = ((input.offset ?? 1) - 1) * (input.itemsPerPage ?? 20);
+    return live.items.slice(start, start + (input.itemsPerPage ?? 20)) as any[];
+  }
   const offset = ((input.offset ?? 1) - 1) * (input.itemsPerPage ?? 20);
   const limit = input.itemsPerPage ?? 20;
 
@@ -468,6 +542,9 @@ export async function countPublishedDocuments(
   kind: DocumentKind,
   input: { teamId: string },
 ) {
+  if (kind === "doc") {
+    return (await readDocumentation(input.teamId)).items.length;
+  }
   const [{ value }] = await db
     .select({ value: count() })
     .from(documents)
@@ -486,6 +563,9 @@ export async function getPublishedDocumentBySlug(
   teamId: string,
   slug: string,
 ) {
+  if (kind === "doc") {
+    return (await readDocumentation(teamId)).items.find((x) => x.slug === slug) as any;
+  }
   return db.query.documents.findFirst({
     where: and(
       eq(documents.teamId, teamId),
@@ -523,6 +603,10 @@ export async function createDocumentWithContent(
     meta?: Record<string, unknown>;
   },
 ) {
+  if (kind === "doc") {
+    const { teamId, ...body } = input;
+    return (await saveDocumentation(teamId, null, body))!;
+  }
   const slug = await uniqueSlug(slugify(input.title), (candidate) =>
     slugTaken(input.teamId, kind, candidate),
   );

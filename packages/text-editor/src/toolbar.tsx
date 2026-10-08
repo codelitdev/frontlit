@@ -22,6 +22,7 @@ import {
 import LinkEditorPopover from "./components/link-editor-popover.js";
 
 interface ToolbarProps {
+  profile?: "default" | "documentation";
   editor: Editor | null;
   onRequestImageUpload: () => void;
   isUploadingImage?: boolean;
@@ -82,6 +83,7 @@ const Toolbar = ({
   editor,
   onRequestImageUpload,
   isUploadingImage,
+  profile = "default",
 }: ToolbarProps): React.JSX.Element | null => {
   const [activePopover, setActivePopover] = useState<PopoverType>(null);
   const [wordCount, setWordCount] = useState(0);
@@ -122,8 +124,17 @@ const Toolbar = ({
 
   if (!editor) return null;
 
+  const availableHeadingOptions =
+    profile === "documentation"
+      ? [
+          ...headingOptions,
+          { label: "Heading 4", value: "h4", level: 4 as Level },
+          { label: "Heading 5", value: "h5", level: 5 as Level },
+          { label: "Heading 6", value: "h6", level: 6 as Level },
+        ]
+      : headingOptions;
   const activeHeading =
-    headingOptions.find((option) =>
+    availableHeadingOptions.find((option) =>
       option.level
         ? editor.isActive("heading", { level: option.level })
         : editor.isActive("paragraph"),
@@ -180,7 +191,7 @@ const Toolbar = ({
             </button>
             {activePopover === "heading" && (
               <div className="te-popover absolute left-0 top-full z-30 mt-1 w-40 rounded-md p-1 shadow-lg">
-                {headingOptions.map((option) => (
+                {availableHeadingOptions.map((option) => (
                   <button
                     key={option.value}
                     type="button"
@@ -208,12 +219,14 @@ const Toolbar = ({
             active={editor.isActive("italic")}
             onClick={() => editor.chain().focus().toggleItalic().run()}
           />
-          <IconButton
-            icon={Underline}
-            label="Underline"
-            active={editor.isActive("underline")}
-            onClick={() => editor.chain().focus().toggleMark("underline").run()}
-          />
+          {profile !== "documentation" && (
+            <IconButton
+              icon={Underline}
+              label="Underline"
+              active={editor.isActive("underline")}
+              onClick={() => editor.chain().focus().toggleMark("underline").run()}
+            />
+          )}
           <IconButton
             icon={Code}
             label="Inline code"

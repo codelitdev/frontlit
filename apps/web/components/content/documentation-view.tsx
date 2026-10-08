@@ -20,9 +20,11 @@ import {
   createDocumentationSection,
   createDocumentationPage,
   deleteDocumentationSection,
+  getDocumentationSettings,
+  getDocumentationGitSource,
   deleteDocumentationPage,
   listDocumentationSections,
-  listDocumentationPages,
+  listAllDocumentationPages,
   searchDocumentation,
   updateDocumentationSection,
   updateDocumentationPage,
@@ -65,6 +67,9 @@ import {
   SelectValue,
 } from "@/components/ui/codelit/select";
 
+import { DocumentationProposals } from "@/components/content/documentation-proposals";
+import { useWorkspaceAccess } from "@/components/workspace/workspace-access";
+
 const NO_SECTION = "none";
 
 const FILTERS: Array<{ value: DocsFilter; label: string }> = [
@@ -91,6 +96,13 @@ export default function DocumentationPage() {
   ]);
 
   const router = useRouter();
+  const { currentTeam } = useWorkspaceAccess();
+  const canPublish = Boolean(
+    currentTeam?.isOwner ||
+      currentTeam?.effectivePermissions.includes("documentation:publish"),
+  );
+  const [navigationPending, setNavigationPending] = useState(false);
+  const [settingsVersion, setSettingsVersion] = useState(1);
   const [docs, setDocs] = useState<DocumentationPage[]>([]);
   const [sections, setSections] = useState<DocumentationSection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,6 +114,8 @@ export default function DocumentationPage() {
   const [newDocOpen, setNewDocOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDocSectionId, setNewDocSectionId] = useState(NO_SECTION);
+  const [gitDirectory, setGitDirectory] = useState<string | null>(null);
+  const [newSourcePath, setNewSourcePath] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -120,11 +134,16 @@ export default function DocumentationPage() {
   const [searchError, setSearchError] = useState<string | null>(null);
 
   async function refresh() {
-    const [docResult, sectionResult] = await Promise.all([
-      listDocumentationPages({ itemsPerPage: 500 }),
+    const [docResult, sectionResult, settings] = await Promise.all([
+      listAllDocumentationPages(),
       listDocumentationSections(),
+      getDocumentationSettings(),
     ]);
-    setDocs(docResult.items);
+    setSettingsVersion(settings.draftVersion);
+    const source = settings.source === "git" ? await getDocumentationGitSource() : null;
+    setGitDirectory(source ? (source.binding?.directory ?? "") : null);
+    setNavigationPending(Boolean(settings.navigationPending));
+    setDocs(docResult);
     setSections(sectionResult.items);
   }
 
@@ -153,8 +172,22 @@ export default function DocumentationPage() {
     setNewTitle("");
     setCreateError(null);
     setNewDocSectionId(sectionId);
+    setNewSourcePath(null);
     setNewDocOpen(true);
   }
+  const suggestedSourcePath = [
+    gitDirectory,
+    sections.find((section) => section.sectionId === newDocSectionId)?.slug,
+    `${
+      newTitle
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "") || "article"
+    }.md`,
+  ]
+    .filter(Boolean)
+    .join("/");
 
   async function handleCreateDoc(event: React.FormEvent) {
     event.preventDefault();
@@ -172,6 +205,9 @@ export default function DocumentationPage() {
       );
       const created = await createDocumentationPage({
         title: validation.title,
+        ...(gitDirectory !== null
+          ? { gitSourcePath: newSourcePath ?? suggestedSourcePath }
+          : {}),
         meta: {
           sectionId: newDocSectionId === NO_SECTION ? undefined : newDocSectionId,
           order: sectionDocs.length,
@@ -191,7 +227,10 @@ export default function DocumentationPage() {
 
   async function handleDeleteDoc(documentId: string) {
     try {
-      await deleteDocumentationPage(documentId);
+      await deleteDocumentationPage(
+        documentId,
+        docs.find((doc) => doc.documentId === documentId)!.draftVersion,
+      );
       setDocs((current) => current.filter((doc) => doc.documentId !== documentId));
       toast.success("Doc deleted.");
     } catch (error) {
@@ -219,15 +258,22 @@ export default function DocumentationPage() {
     setSectionSaving(true);
     try {
       if (editingSection) {
-        await updateDocumentationSection(editingSection.sectionId, {
-          name,
-        });
+        await updateDocumentationSection(
+          editingSection.sectionId,
+          {
+            name,
+          },
+          settingsVersion,
+        );
         toast.success("Section renamed.");
       } else {
-        await createDocumentationSection({
-          name,
-          order: sections.length,
-        });
+        await createDocumentationSection(
+          {
+            name,
+            order: sections.length,
+          },
+          settingsVersion,
+        );
         toast.success("Section added.");
       }
       setSectionDialogOpen(false);
@@ -248,12 +294,21 @@ export default function DocumentationPage() {
       );
       await Promise.all(
         assignedDocs.map((doc) =>
-          updateDocumentationPage(doc.documentId, {
-            meta: { order: doc.draftMeta.order },
-          }),
+          updateDocumentationPage(
+            doc.documentId,
+            {
+              meta: { sectionId: null, order: doc.draftMeta.order },
+            },
+            doc.draftVersion,
+          ),
         ),
       );
-      await deleteDocumentationSection(section.sectionId);
+      await deleteDocumentationSection(
+        section.sectionId,
+        assignedDocs.length
+          ? (await getDocumentationSettings()).draftVersion
+          : settingsVersion,
+      );
       await refresh();
       toast.success("Section deleted. Its docs are now unsectioned.");
     } catch (error) {
@@ -305,6 +360,9 @@ export default function DocumentationPage() {
         <header className="flex flex-col gap-5 border-b pb-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Docs</h1>
+            {navigationPending && (
+              <p className="text-sm">Navigation has unpublished Section changes.</p>
+            )}
             <p className="mt-1 text-sm text-muted-foreground">
               {plural(counts.published, "live doc")} · {plural(counts.draft, "draft")} ·{" "}
               {plural(counts.changes, "doc")} with unpublished changes
@@ -312,6 +370,17 @@ export default function DocumentationPage() {
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            {gitDirectory !== null && (
+              <Button variant="outline" asChild>
+                <Link href="/content/documentation/github/checks">Git checks</Link>
+              </Button>
+            )}
+            {gitDirectory !== null && (
+              <DocumentationProposals
+                key={currentTeam?.teamId}
+                canPublish={canPublish}
+              />
+            )}
             <div className="relative sm:w-72">
               <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -573,15 +642,20 @@ export default function DocumentationPage() {
                                 </div>
                                 <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
                                   /docs/
-                                  {doc.slug}
+                                  {doc.draftSlug ?? doc.slug}
                                 </p>
                               </Link>
                               <span className="hidden shrink-0 text-xs text-muted-foreground sm:block">
                                 {relativeUpdatedAt(doc.updatedAt)}
                               </span>
                               <DeleteConfirm
-                                title={`Delete ${doc.draftTitle}?`}
-                                description="This doc and its published version will be permanently deleted."
+                                disabled={Boolean(doc.publishedAt)}
+                                title={
+                                  doc.publishedAt
+                                    ? "Unpublish this document before deleting it."
+                                    : `Delete ${doc.draftTitle}?`
+                                }
+                                description="Only unpublished documentation can be deleted."
                                 onConfirm={() => handleDeleteDoc(doc.documentId)}
                               />
                             </div>
@@ -665,6 +739,23 @@ export default function DocumentationPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {gitDirectory !== null && (
+                <div>
+                  <Label htmlFor="new-doc-source-path">Git Markdown path</Label>
+                  <Input
+                    id="new-doc-source-path"
+                    value={newSourcePath ?? suggestedSourcePath}
+                    onChange={(event) => setNewSourcePath(event.target.value)}
+                    disabled={creating}
+                    required
+                  />
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Use a .md file inside{" "}
+                    {gitDirectory || "the configured documentation directory"}. This
+                    creates a local draft; submit a proposal to add it to Git.
+                  </p>
+                </div>
+              )}
             </div>
 
             <DialogFooter>

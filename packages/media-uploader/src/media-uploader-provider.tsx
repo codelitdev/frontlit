@@ -1,8 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react";
-import type {
-  LibraryMedia,
-  MediaUploaderAdapters,
-} from "./types";
+import type { LibraryMedia, MediaUploaderAdapters } from "./types";
 
 const MediaUploaderContext = createContext<MediaUploaderAdapters | null>(null);
 
@@ -39,6 +36,7 @@ export function useMediaUploaderAdapters<TMedia extends LibraryMedia = LibraryMe
   const resolvedUploadMedia = uploadMedia ?? fallbackUploadMedia;
 
   return {
+    uploadNotice: overrides.uploadNotice ?? context?.uploadNotice,
     uploadMedia: resolvedUploadMedia,
     listMedia: overrides.listMedia ?? context?.listMedia,
     searchUnsplash: overrides.searchUnsplash ?? context?.searchUnsplash,

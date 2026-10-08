@@ -1,5 +1,7 @@
 import React from "react";
 import { renderToReactElement } from "@tiptap/static-renderer";
+import { getSchema } from "@tiptap/core";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { extractTextFromNode } from "./extract-text-from-node";
 import emptyDoc from "./empty-doc";
 import { createExtensions } from "./extensions";
@@ -8,8 +10,10 @@ import type { TextEditorContent } from "./text-editor-content";
 import type { TextRendererTheme } from "./renderer-theme";
 import { cn } from "./lib/cn";
 import { RenderedCodeBlock } from "./components/rendered-code-block";
+import { extractDocsHeadings } from "./docs/headings";
 
 interface TextRendererProps {
+  profile?: "default" | "documentation";
   json: TextEditorContent;
   className?: string;
   theme?: TextRendererTheme;
@@ -64,15 +68,34 @@ function removeEmptyTextNodes(node: any): any {
  * a `theme` is provided, headings/paragraphs/links pick up its typography;
  * otherwise plain semantic HTML tags are used.
  */
-export function TextRenderer({ json, className, theme }: TextRendererProps) {
+export function TextRenderer({
+  json,
+  className,
+  theme,
+  profile = "default",
+}: TextRendererProps) {
   const extensions = createExtensions();
   const content = removeEmptyTextNodes(
     (json as any) ?? (emptyDoc as any),
   ) as TextEditorContent;
+  const docsHeadings = profile === "documentation" ? extractDocsHeadings(content) : [];
+  // React can replay each mapped node (StrictMode, hydration, or a retry).
+  // Bind IDs before rendering instead of consuming an iterator in a component.
+  const renderContent =
+    profile === "documentation" ? getSchema(extensions).nodeFromJSON(content) : content;
+  const headingIds = new WeakMap<ProseMirrorNode, string>();
+  if (profile === "documentation") {
+    let headingIndex = 0;
+    (renderContent as ProseMirrorNode).descendants((node) => {
+      if (node.type.name === "heading") {
+        headingIds.set(node, docsHeadings[headingIndex++].id);
+      }
+    });
+  }
 
   const rendered = renderToReactElement({
     extensions,
-    content,
+    content: renderContent,
     options: {
       nodeMapping: {
         paragraph: ({ children }) => {
@@ -87,7 +110,8 @@ export function TextRenderer({ json, className, theme }: TextRendererProps) {
           const level = node?.attrs?.level ?? 1;
           // Extract text from the node structure (same as extractHeadings does)
           const textContent = extractTextFromNode(node);
-          const id = createId(textContent);
+          const id =
+            profile === "documentation" ? headingIds.get(node) : createId(textContent);
 
           if (!theme) {
             const Tag = `h${level}` as React.ElementType;
@@ -118,12 +142,19 @@ export function TextRenderer({ json, className, theme }: TextRendererProps) {
           }
           const classes = cn(
             "scroll-m-20 text-2xl font-semibold tracking-normal",
-            ...typographyClasses(theme?.typography?.header3),
+            ...typographyClasses(
+              profile === "documentation" && level >= 4
+                ? (theme?.typography?.header4 ?? theme?.typography?.header3)
+                : theme?.typography?.header3,
+            ),
           );
+          const Tag = (
+            profile === "documentation" ? `h${level}` : "h3"
+          ) as React.ElementType;
           return (
-            <h3 id={id} className={classes}>
+            <Tag id={id} className={classes}>
               {children}
-            </h3>
+            </Tag>
           );
         },
         codeBlock: ({ node, children }) => (

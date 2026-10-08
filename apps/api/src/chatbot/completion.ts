@@ -1,4 +1,4 @@
-import { generateText, streamText, type ModelMessage } from "ai";
+import { generateText, type ModelMessage } from "ai";
 import type { SearchResult } from "../documentation/queries";
 import { getChatLanguageModel } from "../ai/provider";
 import type { ResolvedAiConfig } from "../ai/queries";
@@ -9,6 +9,11 @@ export interface ChatSource {
   title: string | null;
   anchor: string | null;
   kind?: "blog" | "doc" | "changelog";
+  revisionId?: string;
+  publicationId?: string | null;
+  policyEpoch?: number;
+  evidenceId?: string;
+  url?: string;
 }
 
 export interface ChatAnswer {
@@ -63,14 +68,18 @@ export function toSources(chunks: SearchResult[]): ChatSource[] {
       title: chunk.title,
       anchor: chunk.anchor,
       kind: chunk.kind,
+      ...(chunk.revisionId ? { revisionId: chunk.revisionId } : {}),
+      ...(chunk.publicationId ? { publicationId: chunk.publicationId } : {}),
+      ...(chunk.policyEpoch !== undefined ? { policyEpoch: chunk.policyEpoch } : {}),
+      ...(chunk.evidenceId ? { evidenceId: chunk.evidenceId } : {}),
+      ...(chunk.url ? { url: chunk.url } : {}),
     });
   }
   return sources;
 }
 
 /** Map 1-based help-article indexes from the model onto unique sources.
- * Invalid indexes are ignored. If the model cited nothing, fall back to
- * the retrieved set so grounded replies still show articles. */
+ * Only supplied evidence can become a source. Missing citations return no sources. */
 export function sourcesFromCitations(
   chunks: SearchResult[],
   citations: number[],
@@ -84,7 +93,26 @@ export function sourcesFromCitations(
     seen.add(index);
     picked.push(chunk);
   }
-  return toSources(picked.length > 0 ? picked : chunks);
+  return toSources(picked);
+}
+
+/** Model indexes refer to retrieved chunks; the UI numbers the cited source list. */
+export function normalizeCitedAnswer(answer: string, chunks: SearchResult[]) {
+  const sources = sourcesFromCitations(
+    chunks,
+    extractCitationIndexes(answer, chunks.length),
+  );
+  const indexes = new Map(
+    sources.map((source, index) => [source.documentId || source.slug, index + 1]),
+  );
+  return {
+    sources,
+    answer: answer.replace(/\[(\d+)\]/g, (marker, number) => {
+      const chunk = chunks[Number(number) - 1];
+      const index = chunk ? indexes.get(chunk.documentId || chunk.slug) : undefined;
+      return index === undefined ? marker : `[${index}]`;
+    }),
+  };
 }
 
 /**
@@ -92,6 +120,30 @@ export function sourcesFromCitations(
  * produces a useful reply, while refusing jailbreaks / general inference
  * abuse (architecture.md §13.4 prompt-injection containment).
  */
+export function escapePromptData(value: string) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+export function hasValidCitations(answer: string, chunkCount: number) {
+  const markers = [...answer.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1]));
+  return (
+    markers.length > 0 &&
+    markers.every((n) => Number.isInteger(n) && n >= 1 && n <= chunkCount)
+  );
+}
+/** URLs in generated prose must come from server-supplied evidence too. */
+export function hasValidEvidenceAnswer(answer: string, chunks: SearchResult[]) {
+  if (!hasValidCitations(answer, chunks.length)) return false;
+  const cited = extractCitationIndexes(answer, chunks.length).map(
+    (index) => chunks[index - 1],
+  );
+  const urls = [...answer.matchAll(/https?:\/\/[^\s<>\])]+|\]\(([^)]+)\)/g)].map(
+    (match) => match[1] ?? match[0],
+  );
+  return urls.every((url) => cited.some((chunk) => chunk.url === url));
+}
+export const MISSING_EVIDENCE_COPY =
+  "I couldn't verify this from the published documentation. Could you clarify what you need, or contact support?";
+
 export function buildInstructions(
   chunks: SearchResult[],
   teamName?: string | null,
@@ -138,9 +190,9 @@ export function buildInstructions(
     .map((chunk, i) => {
       const heading = chunk.heading ? ` — ${chunk.heading}` : "";
       return [
-        `<help_article index="${i + 1}" title=${JSON.stringify(chunk.title ?? "Untitled")}>`,
-        `${chunk.title ?? "Untitled"}${heading}`,
-        chunk.content,
+        `<help_article index="${i + 1}" title=${JSON.stringify(escapePromptData(chunk.title ?? "Untitled"))}>`,
+        escapePromptData(`${chunk.title ?? "Untitled"}${heading}`),
+        escapePromptData(chunk.content.slice(0, 6000)),
         `</help_article>`,
       ].join("\n");
     })
@@ -151,8 +203,7 @@ export function buildInstructions(
 
 /** Wrap the latest visitor text so the model treats it as data, not instructions. */
 export function wrapVisitorMessage(question: string): string {
-  // Strip sequences that look like our delimiters to reduce trivial breakouts.
-  const sanitized = question.replace(/<\/?visitor_message>/gi, "").trim();
+  const sanitized = escapePromptData(question.trim());
   return `<visitor_message>\n${sanitized}\n</visitor_message>`;
 }
 
@@ -169,7 +220,10 @@ function buildMessages(
           content: wrapVisitorMessage(turn.content),
         };
       }
-      return { role: "assistant" as const, content: turn.content };
+      return {
+        role: "assistant" as const,
+        content: `<prior_assistant_message>\n${escapePromptData(turn.content)}\n</prior_assistant_message>`,
+      };
     }),
     { role: "user", content: wrapVisitorMessage(question) },
   ];
@@ -189,7 +243,7 @@ export async function getChatAnswer(
   history: { role: "user" | "assistant"; content: string }[] = [],
   options: ChatAnswerOptions = {},
 ): Promise<ChatAnswer> {
-  const sources = toSources(chunks);
+  const sources: ChatSource[] = [];
   const escalate = chunks.length === 0;
 
   const model = await getChatLanguageModel(options.aiConfig);
@@ -200,10 +254,13 @@ export async function getChatAnswer(
   const { text } = await generateText({
     model,
     instructions: buildInstructions(chunks, options.teamName),
-    messages: buildMessages(question, history),
+    messages: buildMessages(question.slice(0, 4000), history.slice(-20)),
+    maxOutputTokens: 800,
   });
 
-  return { answer: text, sources, escalate };
+  if (!hasValidEvidenceAnswer(text, chunks))
+    return { answer: MISSING_EVIDENCE_COPY, sources: [], escalate: true };
+  return { ...normalizeCitedAnswer(text, chunks), escalate };
 }
 
 /**
@@ -219,25 +276,7 @@ export async function* streamChatAnswer(
   | { type: "token"; text: string }
   | { type: "done"; answer: string; sources: ChatSource[]; escalate: boolean }
 > {
-  const sources = toSources(chunks);
-  const escalate = chunks.length === 0;
-
-  const model = await getChatLanguageModel(options.aiConfig);
-  if (!model) {
-    yield { type: "done", answer: "", sources, escalate };
-    return;
-  }
-
-  const result = streamText({
-    model,
-    instructions: buildInstructions(chunks, options.teamName),
-    messages: buildMessages(question, history),
-  });
-
-  let answer = "";
-  for await (const delta of result.textStream) {
-    answer += delta;
-    yield { type: "token", text: delta };
-  }
-  yield { type: "done", answer, sources, escalate };
+  // Do not release partial text before citation and policy validation.
+  const answer = await getChatAnswer(question, chunks, history, options);
+  yield { type: "done", ...answer };
 }

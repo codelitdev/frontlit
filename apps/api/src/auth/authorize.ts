@@ -39,6 +39,7 @@ export type AuthzDenial = {
 const RECENT_AUTH_WINDOW_MS = 10 * 60 * 1000;
 
 const SENSITIVE_BROWSER_OPERATIONS = new Set<string>([
+  "content.documentationSections.commitPurge",
   "teams.remove",
   "teams.transferOwnership",
 ]);

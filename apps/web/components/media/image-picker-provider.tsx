@@ -33,6 +33,7 @@ export function ImagePickerProvider({ children }: { children: ReactNode }) {
 
   return (
     <ImageUploaderProvider
+      uploadNotice="Library uploads are public and accessible by URL immediately, before you publish this document."
       uploadMedia={async (file, meta) =>
         toLibraryImage(await uploadToLibrary(file, meta))
       }

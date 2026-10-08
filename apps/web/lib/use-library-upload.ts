@@ -32,6 +32,7 @@ export function useLibraryUpload() {
     }
     return registerMedia({
       mediaLitId,
+      intentId: uploaded.intentId,
       alt: meta.alt,
       caption: meta.caption,
     });

@@ -6,6 +6,10 @@ import { makeTestDb, seedTeam, type TestDb } from "../test/db";
 // `db` from `db/client` (including `./queries` and this file) shares one
 // PGlite instance with real migrations applied.
 vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
+vi.mock("../media/service", async (original) => ({
+  ...(await original<typeof import("../media/service")>()),
+  mediaLitBindsSignedGroups: async () => false,
+}));
 
 import { db as testDb } from "../db/client";
 import { DEFAULT_SHARED_WIDGETS, pages } from "../db/schema";
@@ -419,7 +423,7 @@ describe("pages draft/publish", () => {
       expect(media).toHaveLength(0);
     });
 
-    it("updates page with external MediaLit format, promotes upon publish", async () => {
+    it("promotes an external page social image without accepting its supplied metadata as verified library media", async () => {
       const page = await createPage({ teamId, name: "Pricing" });
       const updated = await updatePage(teamId, page.pageId, {
         socialImage: {
@@ -447,10 +451,7 @@ describe("pages draft/publish", () => {
 
       const media = await listMedia({ teamId });
       const found = media.find((m) => m.url === "https://medialit.example/card.png");
-      expect(found).toBeDefined();
-      expect(found?.mediaLitId).toBe("ml_page_123");
-      expect(found?.thumbnailUrl).toBe("https://medialit.example/thumb.png");
-      expect(found?.alt).toBe("Pricing Social Card");
+      expect(found).toBeUndefined();
     });
   });
 });

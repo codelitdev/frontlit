@@ -3,15 +3,35 @@ import { resolveHost } from "./lib/api";
 import { decideHost, hostCache, normalizeHost } from "./lib/host";
 
 export async function proxy(request: NextRequest) {
+  const docs = /(?:^|\/)docs(?:\/|$)/.test(request.nextUrl.pathname);
+  const uncached = (response: NextResponse) => {
+    if (docs) response.headers.set("Cache-Control", "no-store");
+    return response;
+  };
+
+  // Direct access to the internal /sites rewrite segment is never allowed.
+  if (request.nextUrl.pathname.startsWith("/sites")) {
+    return uncached(new NextResponse(null, { status: 404 }));
+  }
+
   const requestHost = request.headers.get("host");
-  if (!requestHost) return NextResponse.next();
+  if (!requestHost) return uncached(new NextResponse(null, { status: 404 }));
   const host = normalizeHost(requestHost);
-  if (!host) return NextResponse.next();
+  if (!host) return uncached(new NextResponse(null, { status: 404 }));
 
   let resolved = hostCache.get(host);
   if (resolved === undefined) {
-    resolved = await resolveHost(host).catch(() => null);
-    hostCache.set(host, resolved);
+    try {
+      resolved = await resolveHost(host);
+      hostCache.set(host, resolved);
+    } catch {
+      // An API outage is not evidence of an unknown tenant. Avoid caching
+      // it as a 404 for the next minute.
+      return new NextResponse("Site temporarily unavailable", {
+        status: 503,
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
   }
 
   const decision = decideHost(resolved, {
@@ -20,7 +40,10 @@ export async function proxy(request: NextRequest) {
     protocol: request.nextUrl.protocol,
   });
 
-  if (decision.action === "unknown") return NextResponse.next();
+  // Unknown hosts do not map to any tenant site; refuse rather than falling through.
+  if (decision.action === "unknown") {
+    return uncached(new NextResponse(null, { status: 404 }));
+  }
 
   const url = request.nextUrl.clone();
   // Not `_sites` — a leading underscore makes Next.js treat the folder as
@@ -36,7 +59,7 @@ export async function proxy(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/embed/"))
     headers.set("x-frontlit-embed", "1");
 
-  return NextResponse.rewrite(url, { request: { headers } });
+  return uncached(NextResponse.rewrite(url, { request: { headers } }));
 }
 
 export const config = {

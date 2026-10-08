@@ -18,6 +18,8 @@ describe("permission presets and delegation filter", () => {
         "articles:write",
         "documentation:read",
         "documentation:write",
+        "documentation:publish",
+        "documentation:manage",
         "product-updates:read",
         "product-updates:write",
       ],

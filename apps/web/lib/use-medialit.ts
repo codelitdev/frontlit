@@ -28,11 +28,19 @@ export function useMediaLit({
   const uploadRef = useRef<TUSUpload | null>(null);
 
   async function getSignature(): Promise<{
+    intentId?: string;
     signature?: string;
     endpoint?: string;
   }> {
     const res = await fetch(signatureEndpoint, { method: "POST" });
-    if (!res.ok) return {};
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(
+        body.code === "MEDIA_GROUP_BINDING_UNAVAILABLE"
+          ? "Public uploads are unavailable because storage could not verify ownership. Try again after storage is updated."
+          : (body.error ?? "Failed to obtain upload signature."),
+      );
+    }
     return res.json();
   }
 
@@ -45,7 +53,7 @@ export function useMediaLit({
 
     return new Promise((resolve, reject) => {
       getSignature()
-        .then(({ signature, endpoint }) => {
+        .then(({ signature, endpoint, intentId }) => {
           if (!signature || !endpoint) {
             const err = new Error("Failed to obtain upload signature");
             setIsUploading(false);
@@ -80,7 +88,7 @@ export function useMediaLit({
                 if (!media) throw new Error("Upload completed without media metadata");
                 setUploadProgress(100);
                 onUploadComplete?.(media);
-                resolve(media);
+                resolve({ ...media, intentId });
               } catch (error) {
                 const uploadError =
                   error instanceof Error ? error : new Error("Failed to parse media");
@@ -94,11 +102,7 @@ export function useMediaLit({
 
           const upload = new TUSUpload(fileToUpload, tusOptions);
           uploadRef.current = upload;
-          upload.findPreviousUploads().then((previousUploads) => {
-            if (previousUploads.length)
-              upload.resumeFromPreviousUpload(previousUploads[0]);
-            upload.start();
-          });
+          upload.start();
         })
         .catch((error) => {
           setIsUploading(false);

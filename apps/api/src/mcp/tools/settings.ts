@@ -7,7 +7,9 @@ import { getTeamId } from "./auth";
 import { omitInternal, serializeDates } from "../../utils/public";
 
 function toPublicSettings<T extends Record<string, unknown>>(settings: T) {
-  return serializeDates(omitInternal(settings, "teamId"));
+  return serializeDates(
+    omitInternal(settings, "teamId", "sharedWidgets", "draftSharedWidgets"),
+  );
 }
 
 export function registerSettingsTools(server: McpToolRegistrar): void {

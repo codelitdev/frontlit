@@ -1,5 +1,5 @@
 {
   "title": "Self hosting",
   "icon": "Server",
-  "pages": ["index"]
+  "pages": ["index", "github-app"]
 }

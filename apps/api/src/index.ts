@@ -1,3 +1,4 @@
+import { startDocumentationPublicationWorker } from "./documentation/publication-worker";
 import { config as loadDotFile } from "dotenv";
 loadDotFile();
 
@@ -30,6 +31,7 @@ checkConfig()
     startOutboxWorker();
     startInboxAiWorker();
     startDocumentIndexWorker();
+    startDocumentationPublicationWorker();
     startAuthorizationMaintenance();
 
     const shutdown = createGracefulShutdown({

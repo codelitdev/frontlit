@@ -183,8 +183,13 @@ describe("API input validation schemas", () => {
       updateDocumentationBodySchema,
       updateProductUpdateBodySchema,
     ]) {
+      const version =
+        updateSchema === updateDocumentationBodySchema
+          ? { expectedDraftVersion: 1 }
+          : {};
       expect(
         updateSchema.parse({
+          ...version,
           featuredImage: {
             mediaId: "med_1",
             url: "https://example.com/img.png",
@@ -198,13 +203,16 @@ describe("API input validation schemas", () => {
           alt: "Cover",
         },
       });
-      expect(updateSchema.parse({ featuredImage: null })).toMatchObject({
+      expect(updateSchema.parse({ ...version, featuredImage: null })).toMatchObject({
         featuredImage: null,
       });
-      expect(updateSchema.parse({ title: "Updated" })).toMatchObject({
+      expect(updateSchema.parse({ ...version, title: "Updated" })).toMatchObject({
         title: "Updated",
       });
     }
+    expect(
+      updateDocumentationBodySchema.safeParse({ title: "Missing version" }).success,
+    ).toBe(false);
 
     expect(
       textEditorContentSchema.safeParse({
@@ -234,6 +242,7 @@ describe("API input validation schemas", () => {
     expect(
       createDocumentationSectionBodySchema.safeParse({
         name: "Getting started",
+        expectedDocsDraftVersion: 1,
       }).success,
     ).toBe(true);
   });

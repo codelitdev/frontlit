@@ -19,9 +19,14 @@ import BubbleMenu from "./bubble-menu";
 import type { ReactEditorProps } from "./types";
 import { cn } from "./lib/cn";
 import { useImagePicker } from "./image-picker";
+import { createDocsExtensions } from "./docs/extensions";
+import Placeholder from "@tiptap/extension-placeholder";
+import { isSafeDocsUrl } from "./docs/urls";
 
 export interface EditorProps {
+  profile?: "default" | "documentation";
   onChange: (json: JSONContent) => void;
+  onFlushChangeReady?: (flush: () => void) => void;
   showToolbar?: boolean;
   editable?: boolean;
   refresh?: number;
@@ -46,6 +51,7 @@ const Editor: EditorType = Object.assign(
   ({
     initialContent,
     onChange,
+    onFlushChangeReady,
     placeholder,
     children,
     showToolbar = true,
@@ -59,6 +65,7 @@ const Editor: EditorType = Object.assign(
     editorClassName,
     contentClassName,
     beforeContent,
+    profile = "default" as EditorProps["profile"],
   }) => {
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -67,9 +74,20 @@ const Editor: EditorType = Object.assign(
     const lastSerializedContentRef = useRef(JSON.stringify(initialContent ?? emptyDoc));
     const refreshRef = useRef<EditorProps["refresh"]>(refresh);
 
-    const extensions = useMemo(() => createExtensions({ placeholder }), [placeholder]);
+    const extensions = useMemo(
+      () =>
+        profile === "documentation"
+          ? [
+              ...createDocsExtensions(),
+              Placeholder.configure({ placeholder: placeholder || "Write something…" }),
+            ]
+          : createExtensions({ placeholder }),
+      [placeholder, profile],
+    );
 
     const changeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const onChangeRef = useRef(onChange);
+    onChangeRef.current = onChange;
 
     const editor = useEditor(
       {
@@ -97,7 +115,7 @@ const Editor: EditorType = Object.assign(
           }
 
           changeTimeoutRef.current = setTimeout(() => {
-            onChange(instance.getJSON());
+            onChangeRef.current(instance.getJSON());
             changeTimeoutRef.current = null;
           }, 1000);
         },
@@ -107,6 +125,15 @@ const Editor: EditorType = Object.assign(
       },
       [extensions],
     );
+    useEffect(() => {
+      onFlushChangeReady?.(() => {
+        if (!editor || !changeTimeoutRef.current) return;
+        clearTimeout(changeTimeoutRef.current);
+        changeTimeoutRef.current = null;
+        onChangeRef.current(editor.getJSON());
+      });
+      return () => onFlushChangeReady?.(() => {});
+    }, [editor, onFlushChangeReady]);
     useEffect(() => {
       return () => {
         if (changeTimeoutRef.current) {
@@ -157,6 +184,12 @@ const Editor: EditorType = Object.assign(
 
     const handleImageUpload = useCallback(
       async (file: File) => {
+        if (profile === "documentation") {
+          onError?.(
+            "Upload a public image using the media library before inserting it.",
+          );
+          return;
+        }
         const sizeLimit = imageSizeLimit ?? 2097152; // 2 MB
         if (file.size > sizeLimit) {
           onError?.("File is larger than the allowed size");
@@ -188,7 +221,7 @@ const Editor: EditorType = Object.assign(
           setIsUploading(false);
         }
       },
-      [editor],
+      [editor, profile, onError, imageSizeLimit],
     );
 
     const handleSelectFile = useCallback(
@@ -207,6 +240,10 @@ const Editor: EditorType = Object.assign(
 
     const insertPickedImage = useCallback(
       (image: { src: string; alt?: string }) => {
+        if (profile === "documentation" && !isSafeDocsUrl(image.src, true)) {
+          onError?.("Documentation images require a stable public HTTPS URL.");
+          return;
+        }
         editor
           ?.chain()
           .focus()
@@ -217,7 +254,7 @@ const Editor: EditorType = Object.assign(
           })
           .run();
       },
-      [editor],
+      [editor, profile, onError],
     );
 
     const openFileDialog = useCallback(() => {
@@ -235,7 +272,15 @@ const Editor: EditorType = Object.assign(
     }
 
     return (
-      <div className={cn("tiptap-editor flex flex-col gap-4 border", className)}>
+      <div
+        className={cn("tiptap-editor flex flex-col gap-4 border", className)}
+        onPointerDownCapture={() => {
+          hasInteractedRef.current = true;
+        }}
+        onKeyDownCapture={() => {
+          hasInteractedRef.current = true;
+        }}
+      >
         {editable && showToolbar && (
           <div
             className="sticky top-0 bg-background"
@@ -247,6 +292,7 @@ const Editor: EditorType = Object.assign(
               editor={editor}
               onRequestImageUpload={openFileDialog}
               isUploadingImage={isUploading}
+              profile={profile}
             />
           </div>
         )}
@@ -267,7 +313,7 @@ const Editor: EditorType = Object.assign(
               />
             )}
             {children}
-            {editor && <BubbleMenu editor={editor} />}
+            {editor && <BubbleMenu editor={editor} profile={profile} />}
           </div>
         </div>
       </div>

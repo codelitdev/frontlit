@@ -15,6 +15,7 @@ interface SlugEditorProps {
   testId?: string;
   /** A one-line treatment for compact editor toolbars. */
   compact?: boolean;
+  helpText?: string;
 }
 
 export function SlugEditor({
@@ -25,6 +26,7 @@ export function SlugEditor({
   disabledReason,
   testId,
   compact = false,
+  helpText = "Changing this updates the public URL immediately.",
 }: SlugEditorProps) {
   const [value, setValue] = useState(slug);
   const [saving, setSaving] = useState(false);
@@ -58,10 +60,7 @@ export function SlugEditor({
   const helpId = `${testId ?? "resource"}-slug-help`;
   const unchanged = value === slug;
 
-  const message =
-    disabled && disabledReason
-      ? disabledReason
-      : "Changing this updates the public URL immediately.";
+  const message = disabled && disabledReason ? disabledReason : helpText;
 
   return (
     <form

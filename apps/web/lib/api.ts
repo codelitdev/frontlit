@@ -12,6 +12,12 @@ import {
 
 function describeApiError(code: string): string {
   switch (code) {
+    case "GITHUB_REFERENCE_UNAVAILABLE":
+      return "The repository or publishing branch is unavailable. Check repository access and choose an existing branch. For an empty repository, use Review setup PR with its default branch; FrontLit handles initialization.";
+    case "GITHUB_PROPOSAL_NOT_FOUND":
+      return "This documentation proposal is unavailable.";
+    case "GITHUB_CHECK_NOT_FOUND":
+      return "This documentation check is unavailable.";
     case "insufficient_permission":
       return "You don't have permission to do that.";
     case "owner_required":
@@ -66,6 +72,8 @@ async function unwrap<T>(
     | {
         error?: string;
         error_description?: string;
+        code?: string;
+        diagnostics?: Array<{ message: string }>;
       }
     | undefined;
   if (typeof window !== "undefined") {
@@ -81,10 +89,15 @@ async function unwrap<T>(
     }
   }
 
-  const code = errorBody?.error || `request_failed`;
+  const code = errorBody?.code || errorBody?.error || `request_failed`;
   throw new ApiError(
     result.status,
-    errorBody?.error_description || describeApiError(code),
+    errorBody?.error_description ||
+      errorBody?.diagnostics?.[0]?.message ||
+      // Coded errors carry a human message in `error`; plain errors use it as the code.
+      (errorBody?.code && errorBody.error && errorBody.error !== errorBody.code
+        ? errorBody.error
+        : describeApiError(code)),
     code,
   );
 }
@@ -437,6 +450,7 @@ export function searchUnsplash(q?: string) {
 }
 
 export function registerMedia(input: {
+  intentId?: string;
   mediaLitId: string;
   alt?: string;
   caption?: string;
@@ -531,9 +545,10 @@ export function deleteArticle(documentId: string) {
 // ---- Content: documentation --------------------------------------------
 
 export interface DocumentationMeta {
-  sectionId?: string;
+  sectionId?: string | null;
   order: number;
   indexable?: boolean;
+  frontmatter?: Record<string, unknown>;
 }
 
 export type DocumentationIndexState = "pending" | "indexed" | "failed" | "excluded";
@@ -544,6 +559,15 @@ export interface DocumentationIndex {
 }
 
 export interface DocumentationPage {
+  draftVersion: number;
+  draftGitSource?: import("@ts-rest/core").ClientInferResponseBody<
+    typeof contract.content.documentation.get,
+    200
+  >["draftGitSource"];
+  source?: "editor" | "git";
+  draftSlug: string | null;
+  publishable?: boolean;
+  diagnostics?: Array<{ code: string; message: string; blocksPublish: boolean }>;
   documentId: string;
   slug: string;
   status: DocumentStatus;
@@ -571,8 +595,30 @@ export function listDocumentationPages(
   );
 }
 
+/** Load complete administrative selections rather than silently stopping at 500. */
+export async function listAllDocumentationPages() {
+  const items: DocumentationPage[] = [];
+  let total = 0;
+  let pageNumber = 1;
+  do {
+    const page = await listDocumentationPages({
+      offset: pageNumber,
+      itemsPerPage: 500,
+    });
+    total = page.total;
+    if (!page.items.length && items.length < total)
+      throw new Error("Documentation changed while loading. Refresh and try again.");
+    items.push(...page.items);
+    pageNumber += 1;
+  } while (items.length < total);
+  if (new Set(items.map((item) => item.documentId)).size !== items.length)
+    throw new Error("Documentation changed while loading. Refresh and try again.");
+  return items;
+}
+
 export function createDocumentationPage(input: {
   title: string;
+  gitSourcePath?: string;
   meta?: Partial<DocumentationMeta>;
 }) {
   return unwrap<DocumentationPage>(
@@ -590,35 +636,62 @@ export function updateDocumentationPage(
   documentId: string,
   patch: Partial<{
     slug: string;
+    gitSourcePath: string;
     title: string;
     content: TextEditorContent;
-    excerpt: string;
+    excerpt: string | null;
     featuredImage: Record<string, unknown> | null;
     meta: Partial<DocumentationMeta>;
   }>,
+  expectedDraftVersion: number,
 ) {
   return unwrap<DocumentationPage>(
     client.content.documentation.update({
       params: { documentId },
-      body: patch,
+      body: { ...patch, expectedDraftVersion },
     }),
   );
 }
 
-export function publishDocumentationPage(documentId: string) {
+export async function publishDocumentationPage(
+  documentId: string,
+  expectedDraftVersion: number,
+) {
+  const settings = await getDocumentationSettings();
   return unwrap<DocumentationPage>(
-    client.content.documentation.publish({ params: { documentId } }),
+    client.content.documentation.publish({
+      params: { documentId },
+      body: {
+        expectedDraftVersion,
+        expectedDocsDraftVersion: settings.draftVersion,
+        expectedPublicationId: settings.activePublicationId,
+      },
+    }),
   );
 }
 
-export function discardDocumentationPageDraft(documentId: string) {
+export function discardDocumentationPageDraft(
+  documentId: string,
+  expectedDraftVersion: number,
+) {
   return unwrap<DocumentationPage>(
-    client.content.documentation.discardDraft({ params: { documentId } }),
+    client.content.documentation.discardDraft({
+      params: { documentId },
+      body: { expectedDraftVersion },
+    }),
   );
 }
 
-export function deleteDocumentationPage(documentId: string) {
-  return unwrap<void>(client.content.documentation.remove({ params: { documentId } }));
+export function deleteDocumentationPage(
+  documentId: string,
+  expectedDraftVersion: number,
+) {
+  return unwrap<void>(
+    client.content.documentation.remove({
+      params: { documentId },
+      query: { expectedDraftVersion },
+    }),
+  );
 }
 
 export interface DocumentationSection {
@@ -636,27 +709,58 @@ export function listDocumentationSections() {
   );
 }
 
-export function createDocumentationSection(input: { name: string; order?: number }) {
+export function getDocumentationSettings() {
+  return unwrap<{
+    draftVersion: number;
+    activePublicationId: string | null;
+    navigationPending?: boolean;
+    publishedNavigation?: {
+      sectionId: string;
+      name: string;
+      slug: string;
+      order: number;
+    }[];
+    requestedGeneration: number;
+    policyEpoch: number;
+    purgeGeneration: number;
+    source: "editor" | "git";
+    indexing: { enabled: boolean; mode?: "lexical" | "semantic" };
+  }>(client.content.documentationSections.getSettings());
+}
+
+export function createDocumentationSection(
+  input: { name: string; order?: number },
+  expectedDocsDraftVersion: number,
+) {
   return unwrap<DocumentationSection>(
-    client.content.documentationSections.create({ body: input }),
+    client.content.documentationSections.create({
+      body: { ...input, expectedDocsDraftVersion },
+    }),
   );
 }
 
 export function updateDocumentationSection(
   sectionId: string,
   patch: Partial<{ name: string; order: number }>,
+  expectedDocsDraftVersion: number,
 ) {
   return unwrap<DocumentationSection>(
     client.content.documentationSections.update({
       params: { sectionId },
-      body: patch,
+      body: { ...patch, expectedDocsDraftVersion },
     }),
   );
 }
 
-export function deleteDocumentationSection(sectionId: string) {
+export function deleteDocumentationSection(
+  sectionId: string,
+  expectedDocsDraftVersion: number,
+) {
   return unwrap<void>(
-    client.content.documentationSections.remove({ params: { sectionId } }),
+    client.content.documentationSections.remove({
+      params: { sectionId },
+      query: { expectedDocsDraftVersion },
+    }),
   );
 }
 
@@ -1417,4 +1521,320 @@ export function updateTeamSettings(
   }>,
 ) {
   return unwrap<TeamSettings>(client.settings.update({ body: patch }));
+}
+
+export type DocsPublication = import("@ts-rest/core").ClientInferResponseBody<
+  typeof contract.content.documentationSections.getPublication,
+  200
+>;
+export type DocsPreview = import("@ts-rest/core").ClientInferResponseBody<
+  typeof contract.content.documentationSections.preview,
+  200
+>;
+export type DocsRevision = import("@ts-rest/core").ClientInferResponseBody<
+  typeof contract.content.documentationSections.getRevision,
+  200
+>;
+export function previewDocumentationPage(
+  documentId: string,
+  expectedDraftVersion: number,
+) {
+  return unwrap<DocsPreview>(
+    client.content.documentationSections.preview({
+      params: { documentId },
+      body: { expectedDraftVersion },
+    }),
+  );
+}
+export function listDocumentationPublications(cursor?: string) {
+  return unwrap<{ items: DocsPublication[]; nextCursor: string | null }>(
+    client.content.documentationSections.listPublications({
+      query: { limit: 20, cursor },
+    }),
+  );
+}
+export function getDocumentationPublication(publicationId: string) {
+  return unwrap<DocsPublication>(
+    client.content.documentationSections.getPublication({ params: { publicationId } }),
+  );
+}
+export function queueDocumentationPublication(
+  input: import("@ts-rest/core").ClientInferRequest<
+    typeof contract.content.documentationSections.queuePublication
+  >["body"],
+) {
+  return unwrap<DocsPublication>(
+    client.content.documentationSections.queuePublication({ body: input }),
+  );
+}
+export function retryDocumentationPublication(
+  publicationId: string,
+  idempotencyKey: string,
+) {
+  return unwrap<DocsPublication>(
+    client.content.documentationSections.retryPublication({
+      params: { publicationId },
+      body: { idempotencyKey },
+    }),
+  );
+}
+export function unpublishDocumentationPage(
+  documentId: string,
+  expectedPublicationId: string | null,
+  expectedDocsDraftVersion: number,
+  idempotencyKey: string,
+) {
+  return unwrap<DocsPublication>(
+    client.content.documentationSections.unpublish({
+      params: { documentId },
+      body: { expectedPublicationId, expectedDocsDraftVersion, idempotencyKey },
+    }),
+  );
+}
+export function listDocumentationRevisions(documentId: string) {
+  return unwrap<{ items: Omit<DocsRevision, "content" | "markdown">[] }>(
+    client.content.documentationSections.listRevisions({ params: { documentId } }),
+  );
+}
+export function getDocumentationRevision(documentId: string, revisionId: string) {
+  return unwrap<DocsRevision>(
+    client.content.documentationSections.getRevision({
+      params: { documentId, revisionId },
+    }),
+  );
+}
+export function validateDocumentationPublication(
+  selected: { documentId: string; expectedDraftVersion: number }[],
+  removals: string[],
+  includeSectionChanges = true,
+) {
+  return unwrap<
+    import("@ts-rest/core").ClientInferResponseBody<
+      typeof contract.content.documentationSections.validate,
+      200
+    >
+  >(
+    client.content.documentationSections.validate({
+      body: { mode: "publication", selected, removals, includeSectionChanges },
+    }),
+  );
+}
+
+export type DocumentationImprovement = import("@ts-rest/core").ClientInferResponseBody<
+  typeof contract.content.documentationSections.getImprovement,
+  200
+>;
+export function listDocumentationImprovements(
+  query: import("@ts-rest/core").ClientInferRequest<
+    typeof contract.content.documentationSections.listImprovements
+  >["query"] = {},
+) {
+  return unwrap<
+    import("@ts-rest/core").ClientInferResponseBody<
+      typeof contract.content.documentationSections.listImprovements,
+      200
+    >
+  >(client.content.documentationSections.listImprovements({ query }));
+}
+export function getDocumentationImprovement(itemId: string) {
+  return unwrap<DocumentationImprovement>(
+    client.content.documentationSections.getImprovement({ params: { itemId } }),
+  );
+}
+export function reviewDocumentationImprovement(
+  itemId: string,
+  body: import("@ts-rest/core").ClientInferRequest<
+    typeof contract.content.documentationSections.reviewImprovement
+  >["body"],
+) {
+  return unwrap<DocumentationImprovement>(
+    client.content.documentationSections.reviewImprovement({
+      params: { itemId },
+      body,
+    }),
+  );
+}
+export function createDocumentationImprovementDraft(
+  itemId: string,
+  body: import("@ts-rest/core").ClientInferRequest<
+    typeof contract.content.documentationSections.createImprovementDraft
+  >["body"],
+) {
+  return unwrap<
+    import("@ts-rest/core").ClientInferResponseBody<
+      typeof contract.content.documentationSections.createImprovementDraft,
+      201
+    >
+  >(
+    client.content.documentationSections.createImprovementDraft({
+      params: { itemId },
+      body,
+    }),
+  );
+}
+export function recordTicketDocumentationFeedback(ticketId: string, messageId: string) {
+  return unwrap<{ itemId: string; evidenceId: string }>(
+    client.tickets.documentationFeedback({
+      params: { ticketId },
+      body: { messageId, eventId: crypto.randomUUID(), trigger: "negative_feedback" },
+    }),
+  );
+}
+
+export function updateDocumentationSettings(
+  body: import("@ts-rest/core").ClientInferRequest<
+    typeof contract.content.documentationSections.updateSettings
+  >["body"],
+) {
+  return unwrap<
+    import("@ts-rest/core").ClientInferResponseBody<
+      typeof contract.content.documentationSections.updateSettings,
+      200
+    >
+  >(client.content.documentationSections.updateSettings({ body }));
+}
+
+type GitContract = typeof contract.content.documentationGithub;
+type GitRequest<K extends keyof GitContract> =
+  import("@ts-rest/core").ClientInferRequest<GitContract[K]>;
+type GitResponse<
+  K extends keyof GitContract,
+  S extends number = 200,
+> = import("@ts-rest/core").ClientInferResponseBody<
+  GitContract[K],
+  S & keyof GitContract[K]["responses"]
+>;
+export type DocumentationGitSource = GitResponse<"get">;
+export type DocumentationGitRepositories = GitResponse<"repositories">;
+export type DocumentationGitPreflight = GitResponse<"preflight">;
+export type DocumentationGitMigration = GitResponse<"getMigration">;
+export function grantDocumentationGitCapabilities(
+  body: GitRequest<"capabilities">["body"],
+) {
+  return unwrap<GitResponse<"capabilities">>(
+    client.content.documentationGithub.capabilities({ body }),
+  );
+}
+export function getDocumentationGitSource() {
+  return unwrap<DocumentationGitSource>(client.content.documentationGithub.get({}));
+}
+export type DocumentationGitProposal = GitResponse<"getProposal">;
+export function submitDocumentationGitProposal(
+  body: GitRequest<"submitProposal">["body"],
+) {
+  return unwrap<GitResponse<"submitProposal", 202>>(
+    client.content.documentationGithub.submitProposal({ body }),
+  );
+}
+export function listDocumentationGitProposals(
+  query: GitRequest<"listProposals">["query"] = {},
+) {
+  return unwrap<GitResponse<"listProposals">>(
+    client.content.documentationGithub.listProposals({ query }),
+  );
+}
+export function getDocumentationGitProposal(proposalId: string) {
+  return unwrap<DocumentationGitProposal>(
+    client.content.documentationGithub.getProposal({ params: { proposalId } }),
+  );
+}
+export function startDocumentationGitSetup(body: GitRequest<"setup">["body"]) {
+  return unwrap<GitResponse<"setup", 201>>(
+    client.content.documentationGithub.setup({ body }),
+  );
+}
+export function listDocumentationGitRepositories(
+  setupId: string,
+  query: GitRequest<"repositories">["query"] = {},
+) {
+  return unwrap<DocumentationGitRepositories>(
+    client.content.documentationGithub.repositories({ params: { setupId }, query }),
+  );
+}
+export function preflightDocumentationGit(body: GitRequest<"preflight">["body"]) {
+  return unwrap<DocumentationGitPreflight>(
+    client.content.documentationGithub.preflight({ body }),
+  );
+}
+export function connectDocumentationGit(body: GitRequest<"connect">["body"]) {
+  return unwrap<DocumentationGitSource>(
+    client.content.documentationGithub.connect({ body }),
+  );
+}
+export async function changeDocumentationGitState(
+  action: "sync" | "pause" | "resume" | "disconnect",
+) {
+  if (action === "disconnect")
+    return unwrap<DocumentationGitSource>(
+      client.content.documentationGithub.disconnect({}),
+    );
+  if (action === "sync")
+    return unwrap<GitResponse<"sync", 202>>(
+      client.content.documentationGithub.sync({ body: {} }),
+    );
+  if (action === "resume")
+    return unwrap<DocumentationGitSource>(
+      client.content.documentationGithub.resume({ body: {} }),
+    );
+  return unwrap<DocumentationGitSource>(
+    client.content.documentationGithub.pause({ body: {} }),
+  );
+}
+export function planDocumentationGitMigration(
+  body: GitRequest<"planMigration">["body"],
+) {
+  return unwrap<GitResponse<"planMigration", 201>>(
+    client.content.documentationGithub.planMigration({ body }),
+  );
+}
+export function getDocumentationGitMigration(planId: string, offset = 0) {
+  return unwrap<DocumentationGitMigration>(
+    client.content.documentationGithub.getMigration({
+      params: { planId },
+      query: { offset, limit: 25 },
+    }),
+  );
+}
+export function createDocumentationGitMigrationPr(
+  planId: string,
+  body: GitRequest<"createMigrationPr">["body"],
+) {
+  return unwrap<GitResponse<"createMigrationPr", 202>>(
+    client.content.documentationGithub.createMigrationPr({ params: { planId }, body }),
+  );
+}
+export function verifyDocumentationGitMigration(planId: string, setupId: string) {
+  return unwrap<GitResponse<"verifyMigration">>(
+    client.content.documentationGithub.verifyMigration({
+      params: { planId },
+      body: { setupId },
+    }),
+  );
+}
+export function activateDocumentationGitMigration(
+  planId: string,
+  body: GitRequest<"activateMigration">["body"],
+) {
+  return unwrap<DocumentationGitSource>(
+    client.content.documentationGithub.activateMigration({ params: { planId }, body }),
+  );
+}
+export function cancelDocumentationGitMigration(planId: string) {
+  return unwrap<GitResponse<"cancelMigration">>(
+    client.content.documentationGithub.cancelMigration({ params: { planId } }),
+  );
+}
+
+export type DocumentationGitCheck = GitResponse<"getCheck">;
+export function getDocumentationGitCheck(checkId: string) {
+  return unwrap<DocumentationGitCheck>(
+    client.content.documentationGithub.getCheck({ params: { checkId } }),
+  );
+}
+export function listDocumentationGitChecks(
+  query: GitRequest<"listChecks">["query"] = {},
+) {
+  return unwrap<GitResponse<"listChecks">>(
+    client.content.documentationGithub.listChecks({ query }),
+  );
 }

@@ -17,7 +17,6 @@ import {
   publishDocument,
   updateDocument,
 } from "./queries";
-import { SlugConflictError } from "../utils/slug";
 import { listMedia } from "../media/queries";
 
 describe("documents engine (blog kind)", () => {
@@ -64,21 +63,26 @@ describe("documents engine (blog kind)", () => {
     });
 
     const updated = await updateDocument("doc", teamId, doc.documentId, {
-      slug: "  Installation Guide  ",
+      expectedDraftVersion: 1,
+      slug: "installation-guide",
     });
 
-    expect(updated?.slug).toBe("installation-guide");
+    expect((updated as any)?.draftSlug).toBe("installation-guide");
+    expect(updated?.slug).toBe("getting-started");
   });
 
-  it("rejects an edited slug already used by the same document kind", async () => {
+  it("saves duplicate documentation routes with publication blockers", async () => {
     const first = await createDocument("doc", { teamId, title: "First" });
     const second = await createDocument("doc", { teamId, title: "Second" });
 
-    await expect(
-      updateDocument("doc", teamId, second.documentId, {
-        slug: first.slug,
-      }),
-    ).rejects.toBeInstanceOf(SlugConflictError);
+    const saved = await updateDocument("doc", teamId, second.documentId, {
+      expectedDraftVersion: 1,
+      slug: first.slug,
+    });
+    expect((saved as any)?.publishable).toBe(false);
+    expect(
+      (saved as any)?.diagnostics.some((x: any) => x.code === "DUPLICATE_ROUTE"),
+    ).toBe(true);
   });
 
   it("update writes only the draft columns, leaving published fields untouched", async () => {
@@ -273,33 +277,18 @@ describe("documents engine (blog kind)", () => {
       expect(mediaItems).toHaveLength(0);
     });
 
-    it("creates a document with MediaLit integration format and reflects in media library", async () => {
-      const doc = await createDocument("doc", {
-        teamId,
-        title: "Provisioned Doc",
-        featuredImage: {
-          file: "https://ext-medialit.example/item.jpg",
-          thumbnail: "https://ext-medialit.example/item-thumb.jpg",
-          mediaId: "ml_ext_999",
-          caption: "Featured caption",
-        },
-      });
-
-      expect(doc.draftFeaturedImage).toMatchObject({
-        url: "https://ext-medialit.example/item.jpg",
-        thumbnailUrl: "https://ext-medialit.example/item-thumb.jpg",
-        mediaLitId: "ml_ext_999",
-        caption: "Featured caption",
-      });
-
-      const mediaItems = await listMedia({ teamId });
-      const found = mediaItems.find(
-        (m) => m.url === "https://ext-medialit.example/item.jpg",
-      );
-      expect(found).toBeDefined();
-      expect(found?.mediaLitId).toBe("ml_ext_999");
-      expect(found?.thumbnailUrl).toBe("https://ext-medialit.example/item-thumb.jpg");
-      expect(found?.caption).toBe("Featured caption");
+    it("does not let a client manufacture library ownership with featured-image metadata", async () => {
+      await expect(
+        createDocument("doc", {
+          teamId,
+          title: "Forged",
+          featuredImage: {
+            url: "https://ext-medialit.example/item.jpg",
+            mediaLitId: "ml_ext_999",
+          },
+        }),
+      ).rejects.toThrow();
+      expect(await listMedia({ teamId })).toHaveLength(0);
     });
 
     it("updates featured image with MediaLit backing and promotes it upon publish", async () => {
@@ -324,7 +313,7 @@ describe("documents engine (blog kind)", () => {
       });
 
       const mediaItems = await listMedia({ teamId });
-      expect(mediaItems.some((m) => m.mediaLitId === "ml_updated_123")).toBe(true);
+      expect(mediaItems.some((m) => m.mediaLitId === "ml_updated_123")).toBe(false);
 
       const published = await publishDocument("blog", teamId, created.documentId);
       expect(published?.featuredImage).toMatchObject({

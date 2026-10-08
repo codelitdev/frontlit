@@ -9,6 +9,13 @@ import { documentChunks, documentIndexJobs, documents } from "../db/schema";
 import { createDocument, publishDocument, updateDocument } from "../documents/queries";
 import { upsertAiConfig } from "../ai/queries";
 import { enqueuePublishedDocsForTeam } from "./index-jobs";
+import { getDocsSettings } from "./authoring";
+import {
+  queuePublication,
+  processPublication,
+  readDocumentation,
+  searchPublishedDocumentation,
+} from "./publications";
 import { processOneDocumentIndexJob } from "./worker";
 
 function testDbAny(db: TestDb): any {
@@ -20,6 +27,7 @@ const headingDoc = {
   content: [
     {
       type: "heading",
+      attrs: { level: 2 },
       content: [{ type: "text", text: "Installation" }],
     },
     {
@@ -50,76 +58,59 @@ describe("document index queue", () => {
     teamId = seeded.team.id;
   });
 
-  it("publish enqueues instead of writing chunks immediately", async () => {
-    const created = await createDocument("doc", {
-      teamId,
-      title: "Getting Started",
-    });
+  it("captures documentation in a publication job before exposing chunks", async () => {
+    const created = await createDocument("doc", { teamId, title: "Getting Started" });
     await db
       .update(documents)
       .set({ draftContent: headingDoc })
       .where(eq(documents.id, created.id));
-    await publishDocument("doc", teamId, created.documentId);
-
-    const before = await db.query.documentChunks.findMany({
-      where: eq(documentChunks.documentId, created.id),
+    const settings = await getDocsSettings(teamId);
+    const job = await queuePublication(teamId, {
+      selected: [{ documentId: created.documentId, expectedDraftVersion: 1 }],
+      removals: [],
+      expectedPublicationId: settings.activePublicationId,
+      expectedDocsDraftVersion: settings.draftVersion,
+      idempotencyKey: "queued-doc",
     });
-    expect(before).toHaveLength(0);
-
-    const jobs = await db.query.documentIndexJobs.findMany({
-      where: eq(documentIndexJobs.documentId, created.id),
-    });
-    expect(jobs).toHaveLength(1);
-    expect(jobs[0].status).toBe("queued");
+    expect(job.status).toBe("queued");
+    expect((await readDocumentation(teamId)).items).toEqual([]);
+    expect(await searchPublishedDocumentation(teamId, "Installation")).toEqual([]);
+    expect(await db.query.documentIndexJobs.findMany()).toEqual([]);
+    await processPublication(teamId, job.publicationId);
+    expect(
+      (await searchPublishedDocumentation(teamId, "Installation"))[0].heading,
+    ).toBe("Installation");
   });
 
-  it("worker chunks and embeds a queued published doc", async () => {
-    const created = await createDocument("doc", {
-      teamId,
-      title: "Getting Started",
-    });
+  it("single-document publication prepares immutable chunks before activation", async () => {
+    const created = await createDocument("doc", { teamId, title: "Getting Started" });
     await db
       .update(documents)
       .set({ draftContent: headingDoc })
       .where(eq(documents.id, created.id));
-    await publishDocument("doc", teamId, created.documentId);
-    await drainIndexJobs();
-
-    const chunks = await db.query.documentChunks.findMany({
-      where: eq(documentChunks.documentId, created.id),
+    await publishDocument("doc", teamId, created.documentId, 1);
+    expect(
+      (await searchPublishedDocumentation(teamId, "Installation"))[0],
+    ).toMatchObject({
+      heading: "Installation",
+      documentId: created.documentId,
     });
-    expect(chunks).toHaveLength(1);
-    expect(chunks[0].heading).toBe("Installation");
-
-    const job = await db.query.documentIndexJobs.findFirst({
-      where: eq(documentIndexJobs.documentId, created.id),
-    });
-    expect(job?.status).toBe("done");
+    expect(await db.query.documentIndexJobs.findMany()).toEqual([]);
   });
 
-  it("republish coalesces to one job and indexes the latest content", async () => {
-    const created = await createDocument("doc", {
-      teamId,
-      title: "Getting Started",
-    });
+  it("republication reuses identical revisions without duplicating retrieval results", async () => {
+    const created = await createDocument("doc", { teamId, title: "Getting Started" });
     await db
       .update(documents)
       .set({ draftContent: headingDoc })
       .where(eq(documents.id, created.id));
-    await publishDocument("doc", teamId, created.documentId);
-    await publishDocument("doc", teamId, created.documentId);
-
-    const jobs = await db.query.documentIndexJobs.findMany({
-      where: eq(documentIndexJobs.documentId, created.id),
-    });
-    expect(jobs).toHaveLength(1);
-    expect(jobs[0].generation).toBeGreaterThanOrEqual(2);
-
-    await drainIndexJobs();
-    const chunks = await db.query.documentChunks.findMany({
-      where: eq(documentChunks.documentId, created.id),
-    });
-    expect(chunks).toHaveLength(1);
+    await publishDocument("doc", teamId, created.documentId, 1);
+    const first = (await readDocumentation(teamId)).items[0];
+    await publishDocument("doc", teamId, created.documentId, 1);
+    expect((await readDocumentation(teamId)).items[0].revisionId).toBe(
+      first.revisionId,
+    );
+    expect(await searchPublishedDocumentation(teamId, "Installation")).toHaveLength(1);
   });
 
   it("saving AI settings enqueues every published doc for the team", async () => {
@@ -198,7 +189,7 @@ describe("document index queue", () => {
     expect(await enqueuePublishedDocsForTeam(teamId)).toBe(0);
   });
 
-  it("turning off indexable on a published doc drops its chunks", async () => {
+  it("turning off indexable is staged until publication, then drops chunks", async () => {
     const created = await createDocument("doc", {
       teamId,
       title: "Getting Started",
@@ -207,18 +198,17 @@ describe("document index queue", () => {
       .update(documents)
       .set({ draftContent: headingDoc })
       .where(eq(documents.id, created.id));
-    await publishDocument("doc", teamId, created.documentId);
+    await publishDocument("doc", teamId, created.documentId, 1);
     await drainIndexJobs();
 
     await updateDocument("doc", teamId, created.documentId, {
+      expectedDraftVersion: 1,
       meta: { indexable: false },
     });
-    await drainIndexJobs();
-
-    const chunks = await db.query.documentChunks.findMany({
-      where: eq(documentChunks.documentId, created.id),
-    });
-    expect(chunks).toHaveLength(0);
+    expect(await searchPublishedDocumentation(teamId, "Installation")).toHaveLength(1);
+    await publishDocument("doc", teamId, created.documentId, 2);
+    expect(await searchPublishedDocumentation(teamId, "Installation")).toHaveLength(0);
+    expect((await readDocumentation(teamId)).items).toHaveLength(1);
   });
 
   it("does not index articles until the team enables article indexing", async () => {

@@ -13,7 +13,7 @@ import {
   registerMedia,
   updateMedia,
 } from "./queries";
-import { getMediaUploadSignature } from "./service";
+import { createLibraryUploadIntent, MediaProvenanceError } from "./provenance";
 import {
   isUnsplashConfigured,
   searchUnsplash as searchUnsplashPhotos,
@@ -35,9 +35,14 @@ const impl = s.router(
     {
       presigned: async ({ req }) => {
         try {
-          const result = await getMediaUploadSignature((req as any).teamId);
+          const result = await createLibraryUploadIntent((req as any).teamId);
           return { status: 200, body: result };
-        } catch {
+        } catch (error) {
+          if (error instanceof MediaProvenanceError)
+            return {
+              status: error.status as any,
+              body: { error: error.message, code: error.code },
+            };
           return {
             status: 500,
             body: { error: "Failed to create upload signature" },
@@ -56,7 +61,12 @@ const impl = s.router(
               body: { error: "Failed to register media" },
             };
           return { status: 201, body: toPublicMedia(item) };
-        } catch {
+        } catch (error) {
+          if (error instanceof MediaProvenanceError)
+            return {
+              status: error.status as any,
+              body: { error: error.message, code: error.code },
+            };
           return {
             status: 500,
             body: { error: "Failed to register media" },
@@ -125,7 +135,17 @@ const impl = s.router(
         return { status: 200, body: toPublicMedia(item) };
       },
       remove: async ({ params, req }) => {
-        const result = await deleteMediaRecord((req as any).teamId, params.mediaId);
+        let result;
+        try {
+          result = await deleteMediaRecord((req as any).teamId, params.mediaId);
+        } catch (error) {
+          if (error instanceof MediaProvenanceError)
+            return {
+              status: error.status as any,
+              body: { error: error.message, code: error.code },
+            };
+          throw error;
+        }
         if (!result.ok) return { status: 404, body: { error: "Media not found" } };
         return { status: 204, body: undefined };
       },

@@ -16,6 +16,8 @@ function doc(
   order = 0,
 ): DocumentationPage {
   return {
+    draftVersion: 1,
+    draftSlug: null,
     documentId,
     slug,
     status,

@@ -2,9 +2,14 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Settings2, X } from "lucide-react";
+import { FileX2, Settings2, X } from "lucide-react";
 import { Button } from "@/components/ui/codelit/button";
 import { IconButton } from "@/components/ui/codelit/icon-button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/codelit/tooltip";
 import {
   DocumentStatusBadge,
   type DocumentStatus,
@@ -34,13 +39,19 @@ interface WritingEditorShellProps {
   index?: DocumentationIndex | null;
   updatedAt?: string | null;
   saving: boolean;
+  saveError?: boolean;
   publishing: boolean;
   publishingLabel?: string;
   settingsOpen: boolean;
   onSettingsOpenChange: (open: boolean) => void;
   onPublish: () => void;
+  canPublish?: boolean;
+  publishBlockedReason?: string;
+  publishAction?: ReactNode;
+  headerActions?: ReactNode;
   onDiscardDraft: () => void;
   discardDescription: string;
+  actions?: ReactNode;
   settings: ReactNode;
   children: ReactNode;
 }
@@ -55,14 +66,20 @@ export function WritingEditorShell({
   index,
   updatedAt,
   saving,
+  saveError = false,
   publishing,
   publishingLabel = "Publishing…",
   settingsOpen,
   onSettingsOpenChange,
   onPublish,
+  canPublish = true,
+  publishBlockedReason,
+  publishAction,
+  headerActions,
   onDiscardDraft,
   discardDescription,
   settings,
+  actions,
   children,
 }: WritingEditorShellProps) {
   const [now, setNow] = useState<number | null>(null);
@@ -109,23 +126,35 @@ export function WritingEditorShell({
             className="hidden min-w-24 text-right text-xs text-muted-foreground lg:inline"
             aria-live="polite"
           >
-            {saving
-              ? "Saving…"
-              : now === null
-                ? "Saved"
-                : formatSavedAt(updatedAt, now)}
+            {saveError
+              ? "Save failed"
+              : saving
+                ? "Saving…"
+                : now === null
+                  ? "Saved"
+                  : formatSavedAt(updatedAt, now)}
           </span>
+          {headerActions}
           <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={publishing || saving || !hasDraftChanges}
-                className="hidden sm:inline-flex"
-              >
-                Discard draft
-              </Button>
-            </AlertDialogTrigger>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex">
+                  <AlertDialogTrigger asChild>
+                    <IconButton
+                      type="button"
+                      size="sm"
+                      aria-label="Discard draft"
+                      disabled={publishing || saving || !hasDraftChanges}
+                    >
+                      <FileX2 />
+                    </IconButton>
+                  </AlertDialogTrigger>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                {hasDraftChanges ? "Discard draft" : "No draft changes to discard"}
+              </TooltipContent>
+            </Tooltip>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Discard draft?</AlertDialogTitle>
@@ -137,28 +166,49 @@ export function WritingEditorShell({
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          <Button
-            size="sm"
-            onClick={onPublish}
-            disabled={publishing || saving || !hasDraftChanges}
-            data-testid="publish-button"
-          >
-            {publishing ? publishingLabel : "Publish changes"}
-          </Button>
+          {publishAction ?? (
+            <Button
+              size="sm"
+              onClick={onPublish}
+              disabled={
+                !canPublish ||
+                Boolean(publishBlockedReason) ||
+                publishing ||
+                saving ||
+                !hasDraftChanges
+              }
+              title={
+                !canPublish
+                  ? "Documentation publish permission is required."
+                  : publishBlockedReason
+              }
+              data-testid="publish-button"
+            >
+              {publishing ? publishingLabel : "Publish changes"}
+            </Button>
+          )}
           <span aria-hidden className="hidden h-7 w-px bg-border sm:block" />
-          <IconButton
-            type="button"
-            aria-label={
-              settingsOpen ? "Close document settings" : "Open document settings"
-            }
-            title={settingsOpen ? "Close document settings" : "Open document settings"}
-            onClick={() => onSettingsOpenChange(!settingsOpen)}
-            className={settingsOpen ? "bg-muted text-foreground" : undefined}
-          >
-            <Settings2 />
-          </IconButton>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <IconButton
+                type="button"
+                size="sm"
+                aria-label={
+                  settingsOpen ? "Close document settings" : "Open document settings"
+                }
+                onClick={() => onSettingsOpenChange(!settingsOpen)}
+                className={settingsOpen ? "bg-muted text-foreground" : undefined}
+              >
+                <Settings2 />
+              </IconButton>
+            </TooltipTrigger>
+            <TooltipContent>
+              {settingsOpen ? "Close document settings" : "Open document settings"}
+            </TooltipContent>
+          </Tooltip>
         </div>
       </header>
+      {actions && <div className="shrink-0 border-b bg-card px-4 py-2">{actions}</div>}
 
       <div className="relative flex min-h-0 flex-1">
         <main className="min-w-0 flex-1 overflow-hidden">{children}</main>

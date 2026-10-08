@@ -53,12 +53,39 @@ import {
   updateArticleBodySchema,
 } from "./schemas/articles";
 import {
+  documentationHistoryQuerySchema,
+  documentationHistorySchema,
+  documentationPreviewSchema,
+  documentationRevisionSchema,
+  documentationRevisionReceiptSchema,
+  unpublishDocumentationBodySchema,
+  retryDocumentationPublicationBodySchema,
+  queueDocumentationPublicationSchema,
+  documentationPublicationSchema,
+  documentationImprovementQuerySchema,
+  documentationImprovementSchema,
+  documentationImprovementsSchema,
+  reviewDocumentationImprovementSchema,
+  createDocumentationImprovementDraftSchema,
+  documentationImprovementDraftSchema,
+  preflightDocumentationPurgeSchema,
+  commitDocumentationPurgeSchema,
+  documentationPurgeSchema,
+  documentationLiveIdentitySchema,
+  documentationExpectedIdentitySchema,
+  documentationPublishBodySchema,
+  documentationVersionBodySchema,
+  documentationValidationBodySchema,
+  documentationValidationReportSchema,
+  documentationSettingsSchema,
+  updateDocumentationSettingsBodySchema,
   createDocumentationBodySchema,
   createDocumentationSectionBodySchema,
   documentationMetaSchema,
   documentationSchema,
   documentationSearchResultSchema,
   documentationSectionSchema,
+  documentationValidationErrorSchema,
   searchDocumentationQuerySchema,
   updateDocumentationBodySchema,
   updateDocumentationSectionBodySchema,
@@ -485,7 +512,11 @@ const mediaContract = c.router(
       method: "POST",
       path: "/media/presigned",
       body: c.noBody(),
-      responses: { 200: mediaUploadSignatureSchema, 500: errorSchema },
+      responses: {
+        200: mediaUploadSignatureSchema,
+        503: errorSchema,
+        500: errorSchema,
+      },
       summary: "Generate a MediaLit upload signature",
       description:
         "Returns a short-lived MediaLit signature and endpoint. Upload files directly to `${endpoint}/media/create/resumable` with the signature in the `x-medialit-signature` header (TUS resumable upload).",
@@ -494,7 +525,12 @@ const mediaContract = c.router(
       method: "POST",
       path: "/media",
       body: createMediaBodySchema,
-      responses: { 201: mediaSchema, 500: errorSchema },
+      responses: {
+        201: mediaSchema,
+        422: errorSchema,
+        503: errorSchema,
+        500: errorSchema,
+      },
       summary: "Register an uploaded file in the team's media library",
       description:
         "Seals the MediaLit upload (temp → permanent) and adds it to the team's library. Idempotent by `mediaLitId`.",
@@ -534,7 +570,7 @@ const mediaContract = c.router(
     remove: {
       method: "DELETE",
       path: "/media/:mediaId",
-      responses: { 204: c.noBody(), 404: errorSchema },
+      responses: { 204: c.noBody(), 404: errorSchema, 409: errorSchema },
       summary: "Delete a media item",
       description:
         "Deletes the file from MediaLit and removes it from the team's library.",
@@ -628,7 +664,7 @@ const articlesContract = makeDocumentContract(
   createArticleBodySchema,
   updateArticleBodySchema,
 );
-const documentationContract = makeDocumentContract(
+const baseDocumentationContract = makeDocumentContract(
   "content/documentation",
   "Content: Documentation",
   "documentation page",
@@ -637,6 +673,54 @@ const documentationContract = makeDocumentContract(
   createDocumentationBodySchema,
   updateDocumentationBodySchema,
 );
+const documentationContract = c.router({
+  ...baseDocumentationContract,
+  discardDraft: {
+    ...baseDocumentationContract.discardDraft,
+    body: documentationVersionBodySchema,
+    responses: {
+      200: documentationSchema,
+      404: errorSchema,
+      409: documentationValidationErrorSchema,
+    },
+  },
+  remove: {
+    ...baseDocumentationContract.remove,
+    query: documentationVersionBodySchema.extend({
+      expectedDraftVersion: z.coerce.number().int().positive(),
+    }),
+    responses: {
+      ...baseDocumentationContract.remove.responses,
+      409: documentationValidationErrorSchema,
+    },
+  },
+  create: {
+    ...baseDocumentationContract.create,
+    responses: {
+      ...baseDocumentationContract.create.responses,
+      422: documentationValidationErrorSchema,
+    },
+  },
+  update: {
+    ...baseDocumentationContract.update,
+    responses: {
+      ...baseDocumentationContract.update.responses,
+      400: z.union([errorSchema, documentationValidationErrorSchema]),
+      409: documentationValidationErrorSchema,
+      422: documentationValidationErrorSchema,
+    },
+  },
+  publish: {
+    ...baseDocumentationContract.publish,
+    body: documentationPublishBodySchema,
+    responses: {
+      ...baseDocumentationContract.publish.responses,
+      409: documentationValidationErrorSchema,
+      422: documentationValidationErrorSchema,
+      429: documentationValidationErrorSchema,
+    },
+  },
+});
 const baseProductUpdatesContract = makeDocumentContract(
   "content/product-updates",
   "Content: Product updates",
@@ -694,11 +778,187 @@ const productUpdatesContract = c.router(
  * (§6.4), backed by the pgvector chunks generated on publish. */
 const documentationSectionsContract = c.router(
   {
+    listImprovements: {
+      method: "GET",
+      path: "/content/documentation/improvements",
+      query: documentationImprovementQuerySchema,
+      responses: { 200: documentationImprovementsSchema, 404: errorSchema },
+    },
+    getImprovement: {
+      method: "GET",
+      path: "/content/documentation/improvements/:itemId",
+      responses: { 200: documentationImprovementSchema, 404: errorSchema },
+    },
+    reviewImprovement: {
+      method: "PATCH",
+      path: "/content/documentation/improvements/:itemId",
+      body: reviewDocumentationImprovementSchema,
+      responses: {
+        200: documentationImprovementSchema,
+        404: errorSchema,
+        403: documentationValidationErrorSchema,
+        409: documentationValidationErrorSchema,
+        422: documentationValidationErrorSchema,
+      },
+    },
+    createImprovementDraft: {
+      method: "POST",
+      path: "/content/documentation/improvements/:itemId/draft",
+      body: createDocumentationImprovementDraftSchema,
+      responses: {
+        201: documentationImprovementDraftSchema,
+        404: errorSchema,
+        409: documentationValidationErrorSchema,
+        422: documentationValidationErrorSchema,
+      },
+    },
+    listPublications: {
+      method: "GET",
+      path: "/content/documentation/publications",
+      query: documentationHistoryQuerySchema,
+      responses: { 200: documentationHistorySchema, 404: errorSchema },
+    },
+    preview: {
+      method: "POST",
+      path: "/content/documentation/:documentId/preview",
+      body: documentationVersionBodySchema,
+      responses: {
+        200: documentationPreviewSchema,
+        404: errorSchema,
+        409: documentationValidationErrorSchema,
+        422: documentationValidationErrorSchema,
+      },
+    },
+    listRevisions: {
+      method: "GET",
+      path: "/content/documentation/:documentId/revisions",
+      responses: {
+        200: itemsList(documentationRevisionReceiptSchema),
+        404: errorSchema,
+      },
+    },
+    getRevision: {
+      method: "GET",
+      path: "/content/documentation/:documentId/revisions/:revisionId",
+      responses: { 200: documentationRevisionSchema, 404: errorSchema },
+    },
+    unpublish: {
+      method: "POST",
+      path: "/content/documentation/:documentId/unpublish",
+      body: unpublishDocumentationBodySchema,
+      responses: {
+        202: documentationPublicationSchema,
+        404: errorSchema,
+        409: documentationValidationErrorSchema,
+        422: documentationValidationErrorSchema,
+      },
+    },
+    retryPublication: {
+      method: "POST",
+      path: "/content/documentation/publications/:publicationId/retry",
+      body: retryDocumentationPublicationBodySchema,
+      responses: {
+        202: documentationPublicationSchema,
+        404: errorSchema,
+        409: documentationValidationErrorSchema,
+        422: documentationValidationErrorSchema,
+      },
+    },
+    queuePublication: {
+      method: "POST",
+      path: "/content/documentation/publications",
+      body: queueDocumentationPublicationSchema,
+      responses: {
+        202: documentationPublicationSchema,
+        400: documentationValidationErrorSchema,
+        404: errorSchema,
+        409: documentationValidationErrorSchema,
+        422: documentationValidationErrorSchema,
+        429: documentationValidationErrorSchema,
+      },
+    },
+    getPublication: {
+      method: "GET",
+      path: "/content/documentation/publications/:publicationId",
+      responses: {
+        200: documentationPublicationSchema,
+        400: documentationValidationErrorSchema,
+        404: errorSchema,
+        409: documentationValidationErrorSchema,
+        422: documentationValidationErrorSchema,
+      },
+    },
+    preflightPurge: {
+      method: "POST",
+      path: "/content/documentation/purges/preflight",
+      body: preflightDocumentationPurgeSchema,
+      responses: {
+        201: documentationPurgeSchema,
+        400: documentationValidationErrorSchema,
+        404: errorSchema,
+        409: documentationValidationErrorSchema,
+        422: documentationValidationErrorSchema,
+      },
+    },
+    commitPurge: {
+      method: "POST",
+      path: "/content/documentation/purges",
+      body: commitDocumentationPurgeSchema,
+      responses: {
+        200: documentationPurgeSchema,
+        400: documentationValidationErrorSchema,
+        404: errorSchema,
+        409: documentationValidationErrorSchema,
+        422: documentationValidationErrorSchema,
+      },
+    },
+    getPurge: {
+      method: "GET",
+      path: "/content/documentation/purges/:purgeId",
+      responses: {
+        200: documentationPurgeSchema,
+        400: documentationValidationErrorSchema,
+        404: errorSchema,
+        409: documentationValidationErrorSchema,
+        422: documentationValidationErrorSchema,
+      },
+    },
+    validate: {
+      method: "POST",
+      path: "/content/documentation/validate",
+      body: documentationValidationBodySchema,
+      responses: {
+        200: documentationValidationReportSchema,
+        404: errorSchema,
+        409: documentationValidationErrorSchema,
+        422: documentationValidationErrorSchema,
+        400: documentationValidationErrorSchema,
+        429: documentationValidationErrorSchema,
+      },
+    },
+    getSettings: {
+      method: "GET",
+      path: "/content/documentation/settings",
+      responses: { 200: documentationSettingsSchema },
+    },
+    updateSettings: {
+      method: "PATCH",
+      path: "/content/documentation/settings",
+      body: updateDocumentationSettingsBodySchema,
+      responses: {
+        200: documentationSettingsSchema,
+        409: documentationValidationErrorSchema,
+      },
+    },
+
     create: {
       method: "POST",
       path: "/content/documentation/sections",
       body: createDocumentationSectionBodySchema,
-      responses: { 201: documentationSectionSchema },
+      responses: {
+        201: documentationSectionSchema,
+        409: documentationValidationErrorSchema,
+      },
       summary: "Create a help-center section",
     },
     list: {
@@ -711,13 +971,22 @@ const documentationSectionsContract = c.router(
       method: "PATCH",
       path: "/content/documentation/sections/:sectionId",
       body: updateDocumentationSectionBodySchema,
-      responses: { 200: documentationSectionSchema, 404: errorSchema },
+      responses: {
+        200: documentationSectionSchema,
+        404: errorSchema,
+        409: documentationValidationErrorSchema,
+      },
       summary: "Update a help-center section",
     },
     remove: {
       method: "DELETE",
       path: "/content/documentation/sections/:sectionId",
-      responses: { 204: c.noBody(), 404: errorSchema },
+      query: z.object({ expectedDocsDraftVersion: z.coerce.number().int().positive() }),
+      responses: {
+        409: documentationValidationErrorSchema,
+        204: c.noBody(),
+        404: errorSchema,
+      },
       summary: "Delete a help-center section",
     },
     search: {
@@ -736,7 +1005,14 @@ const documentationSectionsContract = c.router(
 const publicArticleSchema = makePublicDocumentSchema(articleMetaSchema).extend({
   author: publicArticleAuthorSchema.nullable(),
 });
-const publicDocumentationSchema = makePublicDocumentSchema(documentationMetaSchema);
+const publicDocumentationSchema = makePublicDocumentSchema(
+  documentationMetaSchema,
+).extend({
+  publicationId: z.string().nullable(),
+  policyEpoch: z.number(),
+  revisionId: z.string(),
+  revisionHash: z.string(),
+});
 const publicProductUpdateSchema = makePublicDocumentSchema(productUpdateMetaSchema);
 
 /**
@@ -814,7 +1090,9 @@ const publicContract = c.router(
       method: "GET",
       path: "/public/:teamId/content/documentation/sections",
       responses: {
-        200: itemsList(documentationSectionSchema),
+        200: itemsList(documentationSectionSchema).merge(
+          documentationLiveIdentitySchema,
+        ),
         404: errorSchema,
       },
       summary: "List a team's help-center nav sections",
@@ -839,10 +1117,35 @@ const publicContract = c.router(
         itemsPerPage: z.coerce.number().int().min(1).optional(),
       }),
       responses: {
-        200: paginated(publicDocumentationSchema),
+        200: paginated(publicDocumentationSchema).merge(
+          documentationLiveIdentitySchema,
+        ),
         404: errorSchema,
       },
       summary: "List a team's published documentation",
+    },
+    getDocumentationSnapshot: {
+      method: "GET",
+      path: "/public/:teamId/content/documentation/snapshot",
+      query: documentationExpectedIdentitySchema,
+      responses: {
+        200: documentationLiveIdentitySchema.extend({
+          items: z.array(publicDocumentationSchema),
+          sections: z.array(documentationSectionSchema),
+        }),
+        404: errorSchema,
+        409: documentationValidationErrorSchema,
+      },
+    },
+    getDocumentationByPath: {
+      method: "GET",
+      path: "/public/:teamId/content/documentation/by-slug",
+      query: documentationExpectedIdentitySchema.extend({ slug: z.string() }),
+      responses: {
+        200: publicDocumentationSchema,
+        404: errorSchema,
+        409: documentationValidationErrorSchema,
+      },
     },
     getDocumentationBySlug: {
       method: "GET",
@@ -980,6 +1283,20 @@ const publicContract = c.router(
  * instead — visitors never authenticate. */
 const ticketsContract = c.router(
   {
+    documentationFeedback: {
+      method: "POST",
+      path: "/tickets/:ticketId/documentation-feedback",
+      body: z.object({
+        messageId: z.string(),
+        eventId: z.string().min(1).max(128),
+        trigger: z.enum(["retrieval_miss", "negative_feedback", "escalation"]),
+        targetDocumentId: z.string().optional(),
+      }),
+      responses: {
+        201: z.object({ itemId: z.string(), evidenceId: z.string() }),
+        404: errorSchema,
+      },
+    },
     list: {
       method: "GET",
       path: "/tickets",
@@ -1480,6 +1797,7 @@ const emailContract = c.router(
   { metadata: { tag: "Email" } },
 );
 
+import { documentationGithubContract } from "./documentation-github-contract";
 export const contract = c.router({
   teams: teamsContract,
   teamInvitations: teamInvitationsContract,
@@ -1492,6 +1810,7 @@ export const contract = c.router({
     documentation: documentationContract,
     productUpdates: productUpdatesContract,
     documentationSections: documentationSectionsContract,
+    documentationGithub: documentationGithubContract,
   }),
   contacts: contactsContract,
   segments: segmentsContract,

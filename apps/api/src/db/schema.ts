@@ -1,4 +1,5 @@
 import {
+  bigint,
   boolean,
   check,
   index,
@@ -383,6 +384,14 @@ export const documents = pgTable(
     // these into the published columns; `discardDraft()` does the
     // reverse. Unlike pages, a document always has draft content (there's
     // no "empty until first save" state — creation seeds an empty doc).
+    draftVersion: integer("draft_version").notNull().default(1),
+    draftSlug: text("draft_slug"),
+    draftMarkdown: text("draft_markdown"),
+    draftHash: text("draft_hash"),
+    draftGitSource: jsonb("draft_git_source").$type<{
+      sourcePath: string;
+      base: { commitSha: string; sourcePath: string; sourceHash: string } | null;
+    }>(),
     draftTitle: text("draft_title").notNull(),
     draftContent: jsonb("draft_content").$type<TextEditorContentRow>().notNull(),
     draftExcerpt: text("draft_excerpt"),
@@ -399,11 +408,9 @@ export const documents = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("documents_team_kind_slug_idx").on(
-      table.teamId,
-      table.kind,
-      table.slug,
-    ),
+    uniqueIndex("documents_team_kind_slug_idx")
+      .on(table.teamId, table.kind, table.slug)
+      .where(sql`${table.kind} <> 'doc'`),
     index("documents_team_kind_idx").on(table.teamId, table.kind),
     index("documents_published_idx").on(table.teamId, table.kind, table.publishedAt),
     publicIdCheck("document_id", "doc"),
@@ -613,6 +620,9 @@ export const media = pgTable(
     teamId: text("team_id")
       .notNull()
       .references(() => teams.id, { onDelete: "cascade" }),
+    providerGroup: text("provider_group"),
+    verifiedAt: timestamp("verified_at"),
+    access: text("access"),
     mediaLitId: text("media_lit_id").notNull(),
     url: text("url").notNull(),
     thumbnailUrl: text("thumbnail_url"),
@@ -778,6 +788,12 @@ export const ticketMessageAuthors = ["requester", "agent", "bot"] as const;
 export type TicketMessageAuthor = (typeof ticketMessageAuthors)[number];
 
 export type TicketMessageSource = {
+  kind?: "blog" | "doc" | "changelog";
+  revisionId?: string;
+  publicationId?: string | null;
+  policyEpoch?: number;
+  evidenceId?: string;
+  url?: string;
   documentId: string;
   slug: string;
   title: string | null;
@@ -888,6 +904,10 @@ export const inboxAiRunStatuses = [
 export type InboxAiRunStatus = (typeof inboxAiRunStatuses)[number];
 
 export type InboxAiRetrievalHit = {
+  revisionId?: string;
+  publicationId?: string | null;
+  policyEpoch?: number;
+  evidenceId?: string;
   documentId: string;
   slug: string;
   title: string | null;
@@ -1124,5 +1144,862 @@ export const pages = pgTable(
     index("pages_team_idx").on(table.teamId),
     uniqueIndex("pages_team_slug_idx").on(table.teamId, table.slug),
     publicIdCheck("page_id", "pg"),
+  ],
+);
+
+// Shared authoring/publication coordination.
+export const documentationSettings = pgTable("documentation_settings", {
+  teamId: text("team_id")
+    .primaryKey()
+    .references(() => teams.id, { onDelete: "cascade" }),
+  source: text("source", { enum: ["editor", "git"] })
+    .notNull()
+    .default("editor"),
+  draftVersion: integer("draft_version").notNull().default(1),
+  activePublicationId: text("active_publication_id"),
+  requestedGeneration: integer("requested_generation").notNull().default(0),
+  policyEpoch: integer("policy_epoch").notNull().default(0),
+  purgeGeneration: integer("purge_generation").notNull().default(0),
+  indexing: jsonb("indexing")
+    .$type<{
+      enabled: boolean;
+      mode?: "lexical" | "semantic";
+      configHash?: string | null;
+    }>()
+    .notNull()
+    .default({ enabled: true }),
+});
+export const mediaUploadIntents = pgTable("media_upload_intents", {
+  intentId: text("intent_id")
+    .primaryKey()
+    .$defaultFn(() => genPublicId("upload")),
+  teamId: text("team_id")
+    .notNull()
+    .references(() => teams.id, { onDelete: "cascade" }),
+  providerGroup: text("provider_group").notNull().unique(),
+  mediaLitId: text("media_lit_id"),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
+/** D3 immutable publication store. Payloads are captured at admission, never
+ * reconstructed from newer drafts by a retry. Terminal reports contain codes,
+ * not document bodies. Published membership is the route authority. */
+export const documentationRevisions = pgTable(
+  "documentation_revisions",
+  {
+    revisionId: text("revision_id")
+      .primaryKey()
+      .$defaultFn(() => genPublicId("rev")),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    documentId: text("document_id").notNull(),
+    hash: text("hash").notNull(),
+    schemaVersion: text("schema_version").notNull().default("docs-v1"),
+    snapshot: jsonb("snapshot").$type<Record<string, any>>().notNull(),
+    markdown: text("markdown").notNull(),
+    headings: jsonb("headings").$type<Record<string, any>[]>().notNull(),
+    chunks: jsonb("chunks")
+      .$type<{ heading: string | null; anchor: string | null; content: string }[]>()
+      .notNull(),
+    assetIds: jsonb("asset_ids").$type<string[]>().notNull().default([]),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("documentation_revisions_team_idx").on(t.teamId)],
+);
+export const documentationPublications = pgTable(
+  "documentation_publications",
+  {
+    publicationId: text("publication_id")
+      .primaryKey()
+      .$defaultFn(() => genPublicId("pub")),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    idempotencyKey: text("idempotency_key").notNull(),
+    inputHash: text("input_hash").notNull(),
+    basePublicationId: text("base_publication_id"),
+    source: text("source", { enum: ["editor", "git"] }).notNull(),
+    admissionType: text("admission_type", { enum: ["explicit", "automatic"] })
+      .notNull()
+      .default("explicit"),
+    gitContext: jsonb("git_context").$type<{
+      installationId: string;
+      repositoryId: string;
+      ownerId: string;
+      connectionGeneration: number;
+      requestGeneration: number;
+      commitSha: string;
+      runId: string;
+      proposalIds?: string[];
+    }>(),
+    generation: integer("generation").notNull(),
+    purgeGeneration: integer("purge_generation").notNull(),
+    docsDraftVersion: integer("docs_draft_version").notNull(),
+    indexing: jsonb("indexing")
+      .$type<{
+        enabled: boolean;
+        mode?: "lexical" | "semantic";
+        configHash?: string | null;
+      }>()
+      .notNull(),
+    navigation: jsonb("navigation").$type<Record<string, any>[]>().notNull(),
+    status: text("status", {
+      enum: [
+        "queued",
+        "preparing",
+        "prepared",
+        "active",
+        "archived",
+        "failed",
+        "superseded",
+      ],
+    })
+      .notNull()
+      .default("queued"),
+    diagnostics: jsonb("diagnostics")
+      .$type<Record<string, any>[]>()
+      .notNull()
+      .default([]),
+    attempts: integer("attempts").notNull().default(0),
+    leaseToken: text("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at"),
+    nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    activatedAt: timestamp("activated_at"),
+    finishedAt: timestamp("finished_at"),
+  },
+  (t) => [
+    uniqueIndex("documentation_publications_idempotency_idx").on(
+      t.teamId,
+      t.idempotencyKey,
+    ),
+    index("documentation_publications_poll_idx").on(t.status, t.nextAttemptAt),
+  ],
+);
+export const documentationMemberships = pgTable(
+  "documentation_memberships",
+  {
+    publicationId: text("publication_id")
+      .notNull()
+      .references(() => documentationPublications.publicationId, {
+        onDelete: "cascade",
+      }),
+    documentId: text("document_id").notNull(),
+    revisionId: text("revision_id")
+      .notNull()
+      .references(() => documentationRevisions.revisionId, { onDelete: "restrict" }),
+    route: text("route").notNull(),
+  },
+  (t) => [
+    uniqueIndex("documentation_memberships_route_idx").on(t.publicationId, t.route),
+    uniqueIndex("documentation_memberships_document_idx").on(
+      t.publicationId,
+      t.documentId,
+    ),
+  ],
+);
+export const documentationDeliveryOutbox = pgTable("documentation_delivery_outbox", {
+  eventId: text("event_id")
+    .primaryKey()
+    .$defaultFn(() => genPublicId("evt")),
+  teamId: text("team_id")
+    .notNull()
+    .references(() => teams.id, { onDelete: "cascade" }),
+  publicationId: text("publication_id"),
+  policyEpoch: integer("policy_epoch").notNull(),
+  type: text("type", {
+    enum: ["activation", "policy", "purge", "media_delete"],
+  }).notNull(),
+  payload: jsonb("payload").$type<Record<string, any>>().notNull().default({}),
+  destinations: jsonb("destinations").$type<string[]>().notNull().default(["local"]),
+  acknowledgments: jsonb("acknowledgments").$type<string[]>().notNull().default([]),
+  attempts: integer("attempts").notNull().default(0),
+  nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
+  leaseToken: text("lease_token"),
+  leaseExpiresAt: timestamp("lease_expires_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+export const documentationPurges = pgTable(
+  "documentation_purges",
+  {
+    purgeId: text("purge_id")
+      .primaryKey()
+      .$defaultFn(() => genPublicId("purge")),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    planHash: text("plan_hash").notNull(),
+    manifest: jsonb("manifest").$type<Record<string, any>>().notNull(),
+    actorAccountId: text("actor_account_id"),
+    idempotencyKey: text("idempotency_key"),
+    status: text("status", { enum: ["preflight", "completed"] })
+      .notNull()
+      .default("preflight"),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    completedAt: timestamp("completed_at"),
+  },
+  (t) => [
+    uniqueIndex("documentation_purges_idempotency_idx").on(t.teamId, t.idempotencyKey),
+  ],
+);
+
+/** D5 private review artifacts and publication-bound derived vectors. */
+export const documentationImprovements = pgTable(
+  "documentation_improvements",
+  {
+    itemId: text("item_id")
+      .primaryKey()
+      .$defaultFn(() => genPublicId("imp")),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    version: integer("version").notNull().default(1),
+    state: text("state", { enum: ["open", "dismissed", "draft_created", "published"] })
+      .notNull()
+      .default("open"),
+    groupKey: text("group_key").notNull(),
+    reason: text("reason").notNull(),
+    targetDocumentId: text("target_document_id"),
+    predecessorId: text("predecessor_id"),
+    mergedIntoId: text("merged_into_id"),
+    approved: jsonb("approved").$type<{
+      version: number;
+      title: string;
+      description: string;
+      correction: string;
+      actorAccountId: string;
+      approvedAt: string;
+      noCustomerDetails: true;
+    }>(),
+    draftDocumentId: text("draft_document_id"),
+    draftVersion: integer("draft_version"),
+    draftHash: text("draft_hash"),
+    revisionId: text("revision_id"),
+    publicationId: text("publication_id"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("documentation_improvements_team_idx").on(t.teamId, t.createdAt)],
+);
+export const documentationEvidence = pgTable(
+  "documentation_evidence",
+  {
+    evidenceId: text("evidence_id")
+      .primaryKey()
+      .$defaultFn(() => genPublicId("evd")),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => documentationImprovements.itemId, { onDelete: "cascade" }),
+    ticketId: text("ticket_id")
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    messageId: text("message_id")
+      .notNull()
+      .references(() => ticketMessages.id, { onDelete: "cascade" }),
+    dedupeKey: text("dedupe_key").notNull(),
+    trigger: text("trigger", {
+      enum: ["retrieval_miss", "negative_feedback", "escalation"],
+    }).notNull(),
+    retrieved: jsonb("retrieved")
+      .$type<
+        {
+          documentId: string;
+          revisionId?: string;
+          publicationId?: string | null;
+          anchor?: string | null;
+        }[]
+      >()
+      .notNull()
+      .default([]),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    expiresAt: timestamp("expires_at").notNull(),
+  },
+  (t) => [uniqueIndex("documentation_evidence_dedupe_idx").on(t.teamId, t.dedupeKey)],
+);
+export const documentationImprovementDrafts = pgTable(
+  "documentation_improvement_drafts",
+  {
+    itemId: text("item_id")
+      .notNull()
+      .references(() => documentationImprovements.itemId, { onDelete: "cascade" }),
+    approvedVersion: integer("approved_version").notNull(),
+    itemVersion: integer("item_version").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    inputHash: text("input_hash").notNull(),
+    documentId: text("document_id").notNull(),
+    draftVersion: integer("draft_version").notNull(),
+  },
+  (t) => [
+    uniqueIndex("documentation_improvement_drafts_version_idx").on(
+      t.itemId,
+      t.approvedVersion,
+    ),
+  ],
+);
+export const documentationEmbeddings = pgTable(
+  "documentation_embeddings",
+  {
+    revisionId: text("revision_id")
+      .notNull()
+      .references(() => documentationRevisions.revisionId, { onDelete: "cascade" }),
+    configHash: text("config_hash").notNull(),
+    vectors: jsonb("vectors").$type<number[][]>().notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("documentation_embeddings_revision_config_idx").on(
+      t.revisionId,
+      t.configHash,
+    ),
+  ],
+);
+
+export const documentationEmbeddingConfigs = pgTable(
+  "documentation_embedding_configs",
+  {
+    configHash: text("config_hash").primaryKey(),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    provider: text("provider", { enum: ["openai", "azure"] }).notNull(),
+    deployment: text("deployment"),
+    endpoint: text("endpoint"),
+    encryptedApiKey: text("encrypted_api_key").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+);
+
+export const documentationImprovementReviews = pgTable(
+  "documentation_improvement_reviews",
+  {
+    reviewId: text("review_id")
+      .primaryKey()
+      .$defaultFn(() => genPublicId("drv")),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => documentationImprovements.itemId, { onDelete: "cascade" }),
+    actorAccountId: text("actor_account_id").notNull(),
+    itemVersion: integer("item_version").notNull(),
+    action: text("action").notNull(),
+    // Validated reviewer input only. Raw source evidence is never copied here.
+    input: jsonb("input").$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("documentation_improvement_reviews_item_idx").on(t.teamId, t.itemId)],
+);
+
+/** Temporary, account-bound OAuth proof. Raw state is never persisted. */
+export const documentationGitSetups = pgTable(
+  "documentation_git_setups",
+  {
+    setupId: text("setup_id")
+      .primaryKey()
+      .$defaultFn(() => genPublicId("gsetup")),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    actorAccountId: text("actor_account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    stateHash: text("state_hash").notNull().unique(),
+    encryptedVerifier: text("encrypted_verifier"),
+    encryptedUserToken: text("encrypted_user_token"),
+    githubUserId: text("github_user_id"),
+    githubLogin: text("github_login"),
+    purpose: text("purpose", { enum: ["connect", "reconnect", "upgrade"] }).notNull(),
+    returnPath: text("return_path").notNull(),
+    status: text("status", {
+      enum: ["pending", "verifying", "authorized", "consumed", "failed", "expired"],
+    })
+      .notNull()
+      .default("pending"),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("documentation_git_setups_expiry_idx").on(t.expiresAt)],
+);
+
+/** One independently delegated binding per team; installation is not team identity. */
+export const documentationGitBindings = pgTable(
+  "documentation_git_bindings",
+  {
+    teamId: text("team_id")
+      .primaryKey()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    installationId: text("installation_id").notNull(),
+    repositoryId: text("repository_id").notNull(),
+    ownerId: text("owner_id").notNull(),
+    ownerLogin: text("owner_login").notNull(),
+    repositoryName: text("repository_name").notNull(),
+    repositoryPrivate: boolean("repository_private").notNull(),
+    branch: text("branch").notNull(),
+    directory: text("directory").notNull(),
+    status: text("status", {
+      enum: ["connected", "paused", "access_lost", "disconnected"],
+    }).notNull(),
+    generation: integer("generation").notNull().default(1),
+    requestedGeneration: integer("requested_generation").notNull().default(0),
+    grantVersion: integer("grant_version").notNull().default(1),
+    grantActorAccountId: text("grant_actor_account_id").notNull(),
+    grantGithubUserId: text("grant_github_user_id").notNull(),
+    repositoryAdminVerified: boolean("repository_admin_verified").notNull(),
+    capabilities: jsonb("capabilities")
+      .$type<{ read: boolean; proposals: boolean; directCommit: boolean }>()
+      .notNull(),
+    grantedAt: timestamp("granted_at").notNull().defaultNow(),
+    observedSha: text("observed_sha"),
+    validatedSha: text("validated_sha"),
+    liveSha: text("live_sha"),
+    lastSuccessfulSyncAt: timestamp("last_successful_sync_at"),
+    lastDiagnostic: text("last_diagnostic"),
+    connectionReceipt: jsonb("connection_receipt").$type<{
+      actorAccountId: string;
+      inputHash: string;
+      key: string;
+      runId: string;
+    }>(),
+    nextReconcileAt: timestamp("next_reconcile_at").notNull().defaultNow(),
+    nextPrReconcileAt: timestamp("next_pr_reconcile_at").notNull().defaultNow(),
+    lastPrReconcileError: text("last_pr_reconcile_error"),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("documentation_git_bindings_installation_idx").on(t.installationId),
+    index("documentation_git_bindings_reconcile_idx").on(t.status, t.nextReconcileAt),
+    index("documentation_git_bindings_pr_reconcile_idx").on(
+      t.status,
+      t.nextPrReconcileAt,
+    ),
+  ],
+);
+
+export const documentationGitPreflights = pgTable(
+  "documentation_git_preflights",
+  {
+    preflightId: text("preflight_id")
+      .primaryKey()
+      .$defaultFn(() => genPublicId("gpre")),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    setupId: text("setup_id")
+      .notNull()
+      .references(() => documentationGitSetups.setupId, { onDelete: "cascade" }),
+    installationId: text("installation_id").notNull(),
+    repositoryId: text("repository_id").notNull(),
+    ownerId: text("owner_id").notNull(),
+    ownerLogin: text("owner_login").notNull(),
+    repositoryName: text("repository_name").notNull(),
+    repositoryPrivate: boolean("repository_private").notNull(),
+    branch: text("branch").notNull(),
+    directory: text("directory").notNull(),
+    // Setup captures for genuinely empty repositories have no Git commit yet.
+    // Normal source connection still requires a nonnull validated manifest/SHA.
+    commitSha: text("commit_sha"),
+    docsDraftVersion: integer("docs_draft_version").notNull(),
+    manifestHash: text("manifest_hash").notNull(),
+    manifest:
+      jsonb("manifest").$type<
+        import("../documentation/github/importer").DocumentationGitManifest
+      >(),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("documentation_git_preflights_team_idx").on(t.teamId, t.expiresAt)],
+);
+
+/** Imported source is separate from unsubmitted editor proposals. */
+export const documentationGitGrants = pgTable(
+  "documentation_git_grants",
+  {
+    grantId: text("grant_id")
+      .primaryKey()
+      .$defaultFn(() => genPublicId("ggrant")),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    idempotencyKey: text("idempotency_key").notNull(),
+    inputHash: text("input_hash").notNull(),
+    actorAccountId: text("actor_account_id").notNull(),
+    githubUserId: text("github_user_id").notNull(),
+    installationId: text("installation_id").notNull(),
+    repositoryId: text("repository_id").notNull(),
+    ownerId: text("owner_id").notNull(),
+    branch: text("branch").notNull(),
+    directory: text("directory").notNull(),
+    grantVersion: integer("grant_version").notNull(),
+    connectionGeneration: integer("connection_generation").notNull(),
+    capabilities: jsonb("capabilities")
+      .$type<{ read: boolean; proposals: boolean; directCommit: boolean }>()
+      .notNull(),
+    repositoryAdminVerified: boolean("repository_admin_verified").notNull(),
+    grantedAt: timestamp("granted_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("documentation_git_grants_idempotency_idx").on(
+      t.teamId,
+      t.idempotencyKey,
+    ),
+    uniqueIndex("documentation_git_grants_version_idx").on(t.teamId, t.grantVersion),
+  ],
+);
+
+export const documentationGitProposals = pgTable(
+  "documentation_git_proposals",
+  {
+    proposalId: text("proposal_id")
+      .primaryKey()
+      .$defaultFn(() => genPublicId("gproposal")),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    idempotencyKey: text("idempotency_key").notNull(),
+    inputHash: text("input_hash").notNull(),
+    actorCredential: jsonb("actor_credential")
+      .$type<import("../documentation/github/publisher").GitPublisherCredential>()
+      .notNull(),
+    sourceContext: jsonb("source_context").$type<{
+      installationId: string;
+      repositoryId: string;
+      ownerId: string;
+      branch: string;
+      directory: string;
+    }>(),
+    connectionGeneration: integer("connection_generation").notNull(),
+    grantVersion: integer("grant_version").notNull(),
+    mode: text("mode", { enum: ["pull_request", "direct"] }).notNull(),
+    title: text("title").notNull(),
+    changes: jsonb("changes")
+      .$type<import("../documentation/github/proposal-patch").CapturedGitChange[]>()
+      .notNull(),
+    baseSha: text("base_sha"),
+    treeSha: text("tree_sha"),
+    commitSha: text("commit_sha"),
+    mergedCommitSha: text("merged_commit_sha"),
+    branch: text("branch"),
+    pullRequestNumber: integer("pull_request_number"),
+    pullRequestUrl: text("pull_request_url"),
+    status: text("status", {
+      enum: [
+        "queued",
+        "validating",
+        "prepared",
+        "writing",
+        "open",
+        "merged",
+        "published",
+        "closed",
+        "failed",
+        "conflict",
+        "canceled",
+      ],
+    })
+      .notNull()
+      .default("queued"),
+    diagnostics: jsonb("diagnostics")
+      .$type<Record<string, any>[]>()
+      .notNull()
+      .default([]),
+    attempts: integer("attempts").notNull().default(0),
+    leaseToken: text("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at"),
+    nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    finishedAt: timestamp("finished_at"),
+  },
+  (t) => [
+    uniqueIndex("documentation_git_proposals_idempotency_idx").on(
+      t.teamId,
+      t.idempotencyKey,
+    ),
+    index("documentation_git_proposals_poll_idx").on(t.status, t.nextAttemptAt),
+  ],
+);
+export const documentationGitProposalDocuments = pgTable(
+  "documentation_git_proposal_documents",
+  {
+    proposalId: text("proposal_id")
+      .notNull()
+      .references(() => documentationGitProposals.proposalId, { onDelete: "cascade" }),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    documentId: text("document_id").notNull(),
+    draftVersion: integer("draft_version").notNull(),
+    sourcePath: text("source_path"),
+    targetPath: text("target_path"),
+    open: boolean("open").notNull().default(true),
+  },
+  (t) => [
+    uniqueIndex("documentation_git_proposal_documents_identity_idx").on(
+      t.proposalId,
+      t.documentId,
+    ),
+    uniqueIndex("documentation_git_proposal_documents_open_idx")
+      .on(t.teamId, t.documentId)
+      .where(sql`${t.open} = true`),
+  ],
+);
+
+/** Imported source is separate from unsubmitted editor proposals. */
+export const documentationGitFiles = pgTable(
+  "documentation_git_files",
+  {
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    sourcePath: text("source_path").notNull(),
+    documentId: text("document_id").notNull(),
+    commitSha: text("commit_sha").notNull(),
+    blobSha: text("blob_sha").notNull(),
+    sourceHash: text("source_hash").notNull(),
+    markdown: text("markdown").notNull(),
+    frontmatter: jsonb("frontmatter")
+      .$type<import("@frontlit/text-editor/docs").DocsFrontmatter>()
+      .notNull(),
+    snapshot: jsonb("snapshot").$type<Record<string, unknown>>().notNull(),
+    removedAt: timestamp("removed_at"),
+  },
+  (t) => [
+    uniqueIndex("documentation_git_files_path_idx").on(t.teamId, t.sourcePath),
+    uniqueIndex("documentation_git_files_document_idx")
+      .on(t.teamId, t.documentId)
+      .where(sql`${t.removedAt} is null`),
+  ],
+);
+
+export const documentationGitJobs = pgTable(
+  "documentation_git_jobs",
+  {
+    runId: text("run_id")
+      .primaryKey()
+      .$defaultFn(() => genPublicId("gsync")),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    connectionGeneration: integer("connection_generation").notNull(),
+    requestGeneration: integer("request_generation").notNull(),
+    trigger: text("trigger", {
+      enum: ["manual", "webhook", "reconcile", "connect", "migration", "configuration"],
+    })
+      .notNull()
+      .default("reconcile"),
+    reviewedSha: text("reviewed_sha"),
+    observedSha: text("observed_sha"),
+    publicationId: text("publication_id"),
+    status: text("status", {
+      enum: ["queued", "running", "preparing", "active", "failed", "superseded"],
+    })
+      .notNull()
+      .default("queued"),
+    diagnostic: text("diagnostic"),
+    diagnosticReport: jsonb("diagnostic_report").$type<{
+      diagnostics: import("@frontlit/text-editor/docs").DocsDiagnostic[];
+      policyEpoch: number;
+      purgeGeneration: number;
+    }>(),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
+    leaseToken: text("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    finishedAt: timestamp("finished_at"),
+  },
+  (t) => [
+    uniqueIndex("documentation_git_jobs_generation_idx").on(
+      t.teamId,
+      t.connectionGeneration,
+      t.requestGeneration,
+    ),
+    index("documentation_git_jobs_poll_idx").on(t.status, t.nextAttemptAt),
+  ],
+);
+
+/** Signature-verified delivery receipt; minimal payload, no raw headers/body. */
+export const documentationGitDeliveries = pgTable("documentation_git_deliveries", {
+  deliveryId: text("delivery_id").primaryKey(),
+  event: text("event").notNull(),
+  action: text("action"),
+  outcome: text("outcome", { enum: ["ignored", "queued", "processed"] })
+    .notNull()
+    .default("ignored"),
+  runIds: jsonb("run_ids").$type<string[]>().notNull().default([]),
+  payload: jsonb("payload")
+    .$type<{
+      ref?: string;
+      deleted?: boolean;
+      senderId?: string;
+      removedRepositoryIds?: string[];
+      addedRepositoryIds?: string[];
+      contentsPermission?: string;
+    }>()
+    .notNull()
+    .default({}),
+  installationId: text("installation_id"),
+  repositoryId: text("repository_id"),
+  receivedAt: timestamp("received_at").notNull().defaultNow(),
+});
+
+export const documentationGitMigrations = pgTable(
+  "documentation_git_migrations",
+  {
+    planId: text("plan_id")
+      .primaryKey()
+      .$defaultFn(() => genPublicId("gmig")),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    setupId: text("setup_id")
+      .notNull()
+      .references(() => documentationGitSetups.setupId, { onDelete: "cascade" }),
+    actorAccountId: text("actor_account_id").notNull(),
+    preflightId: text("preflight_id").references(
+      () => documentationGitPreflights.preflightId,
+      { onDelete: "set null" },
+    ),
+    docsDraftVersion: integer("docs_draft_version").notNull(),
+    activePublicationId: text("active_publication_id"),
+    planHash: text("plan_hash").notNull(),
+    // Server-generated identity map and export; never accept document IDs from Git metadata.
+    selection: jsonb("selection")
+      .$type<{
+        installationId: number;
+        repositoryId: number;
+        branch: string;
+        directory: string;
+      }>()
+      .notNull(),
+    files: jsonb("files")
+      .$type<
+        {
+          path: string;
+          documentId: string | null;
+          draftVersion: number | null;
+          markdown: string;
+          hash: string;
+        }[]
+      >()
+      .notNull(),
+    sections: jsonb("sections").$type<Record<string, unknown>[]>().notNull(),
+    status: text("status", {
+      enum: ["planned", "verified", "activated", "canceled", "expired"],
+    })
+      .notNull()
+      .default("planned"),
+    verifiedSha: text("verified_sha"),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    activatedAt: timestamp("activated_at"),
+  },
+  (t) => [index("documentation_git_migrations_team_idx").on(t.teamId, t.expiresAt)],
+);
+
+/** Setup writes stay editor-owned until their merged capture is verified/adopted.
+ * Bodies remain solely in the reviewed migration capture; this row stores work
+ * and recovery references, never a second copy of exported documentation. */
+export const documentationGitMigrationPrs = pgTable(
+  "documentation_git_migration_prs",
+  {
+    planId: text("plan_id")
+      .primaryKey()
+      .references(() => documentationGitMigrations.planId, { onDelete: "cascade" }),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    setupId: text("setup_id")
+      .notNull()
+      .references(() => documentationGitSetups.setupId),
+    actorCredential: jsonb("actor_credential")
+      .$type<import("../documentation/github/publisher").GitPublisherCredential>()
+      .notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    inputHash: text("input_hash").notNull(),
+    policyEpoch: integer("policy_epoch").notNull(),
+    purgeGeneration: integer("purge_generation").notNull(),
+    initializeEmptyRepository: boolean("initialize_empty_repository")
+      .notNull()
+      .default(false),
+    status: text("status", {
+      enum: ["queued", "writing", "open", "merged", "closed", "failed", "canceled"],
+    })
+      .notNull()
+      .default("queued"),
+    ownerId: text("owner_id").notNull(),
+    branch: text("branch").notNull(),
+    baseSha: text("base_sha"),
+    treeSha: text("tree_sha"),
+    commitSha: text("commit_sha"),
+    bootstrapSha: text("bootstrap_sha"),
+    pullRequestNumber: integer("pull_request_number"),
+    pullRequestUrl: text("pull_request_url"),
+    mergedCommitSha: text("merged_commit_sha"),
+    diagnostic: text("diagnostic"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
+    leaseToken: text("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    finishedAt: timestamp("finished_at"),
+  },
+  (t) => [
+    uniqueIndex("documentation_git_migration_prs_idempotency_idx").on(
+      t.teamId,
+      t.idempotencyKey,
+    ),
+    index("documentation_git_migration_prs_work_idx").on(t.status, t.nextAttemptAt),
+  ],
+);
+
+/** Validation/report work is independent from public import/preparation. */
+export const documentationGitChecks = pgTable(
+  "documentation_git_checks",
+  {
+    checkId: text("check_id")
+      .primaryKey()
+      .$defaultFn(() => genPublicId("gcheck")),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    connectionGeneration: integer("connection_generation").notNull(),
+    pullRequestNumber: integer("pull_request_number"),
+    syncRunId: text("sync_run_id"),
+    publicationResult:
+      jsonb("publication_result").$type<
+        import("../documentation/github/publication-checks").GitPublicationCheckResult
+      >(),
+    status: text("status", {
+      enum: ["queued", "validating", "reporting", "delivered", "superseded"],
+    })
+      .notNull()
+      .default("queued"),
+    result:
+      jsonb("result").$type<
+        import("../documentation/github/pr-validation").GitPullRequestValidation
+      >(),
+    checkRunId: bigint("check_run_id", { mode: "number" }),
+    lastError: text("last_error"),
+    errorPhase: text("error_phase", { enum: ["validation", "delivery"] }),
+    attempts: integer("attempts").notNull().default(0),
+    leaseToken: text("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at"),
+    nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    finishedAt: timestamp("finished_at"),
+  },
+  (t) => [
+    index("documentation_git_checks_poll_idx").on(t.status, t.nextAttemptAt),
+    uniqueIndex("documentation_git_checks_sync_run_idx").on(t.teamId, t.syncRunId),
+    uniqueIndex("documentation_git_checks_active_pr_idx")
+      .on(t.teamId, t.pullRequestNumber)
+      .where(sql`${t.status} in ('queued', 'validating', 'reporting')`),
   ],
 );

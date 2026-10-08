@@ -1,3 +1,4 @@
+import { documentationEvidenceAllowed } from "../documentation/publications";
 import { and, asc, desc, eq, lte } from "drizzle-orm";
 import { db } from "../db/client";
 import { ticketMailOutbox, tickets } from "../db/schema";
@@ -91,6 +92,30 @@ export async function processTicketMailJob(job: typeof ticketMailOutbox.$inferSe
       subject: ticket.subject,
     });
   } else {
+    const evidence = Array.isArray(job.payload.sources)
+      ? (job.payload.sources as {
+          documentId: string;
+          kind?: string;
+          revisionId?: string;
+          publicationId?: string | null;
+          evidenceId?: string;
+          url?: string;
+        }[])
+      : [];
+    if (!(await documentationEvidenceAllowed(ticket.teamId, evidence))) {
+      // Consume this sequence without sending stale evidence or retaining
+      // the queued answer. Later, unrelated replies can still proceed.
+      await db
+        .update(ticketMailOutbox)
+        .set({
+          status: "sent",
+          payload: { withheld: "documentation_changed" },
+          lastError: "documentation_changed",
+          updatedAt: new Date(),
+        })
+        .where(eq(ticketMailOutbox.id, job.id));
+      return;
+    }
     await notifyRequesterOfReply({
       teamId: ticket.teamId,
       ticketId: ticket.ticketId,

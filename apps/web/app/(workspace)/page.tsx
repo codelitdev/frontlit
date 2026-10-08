@@ -33,6 +33,7 @@ import {
   getTicket,
   listTickets,
   replyToTicket,
+  recordTicketDocumentationFeedback,
   updateTicket,
   type Ticket,
   type TicketAiOptics,
@@ -274,7 +275,13 @@ function textContent(text: string): TextEditorContent {
 
 export default function InboxPage() {
   useSetBreadcrumb([{ label: "Inbox" }]);
-  const { currentTeamId } = useWorkspaceAccess();
+  const { currentTeamId, currentTeam } = useWorkspaceAccess();
+  const canFlagDocumentation = Boolean(
+    currentTeam?.isOwner ||
+      currentTeam?.effectivePermissions.includes("helpdesk:write"),
+  );
+  const [feedbackSaved, setFeedbackSaved] = useState<string[]>([]);
+  const [feedbackPending, setFeedbackPending] = useState<string[]>([]);
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [filter, setFilter] = useState<InboxFilter>("open");
@@ -320,6 +327,32 @@ export default function InboxPage() {
   useEffect(() => {
     void loadInbox();
   }, [loadInbox]);
+
+  useEffect(() => {
+    const ticketId = new URLSearchParams(window.location.search).get("ticket");
+    if (!ticketId || !currentTeamId) return;
+    let cancelled = false;
+    getTicket(ticketId)
+      .then((ticket) => {
+        if (cancelled) return;
+        setFilter(
+          ticket.status === "closed" || ticket.status === "resolved"
+            ? "closed"
+            : "open",
+        );
+        setQuery("");
+        setTickets((previous) =>
+          previous.some((row) => row.ticketId === ticketId)
+            ? previous
+            : [ticket, ...previous],
+        );
+        setSelectedTicketId(ticketId);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [currentTeamId]);
 
   useEffect(() => {
     setPendingFiles([]);
@@ -860,6 +893,46 @@ export default function InboxPage() {
                             )}
                           >
                             <TextRenderer json={message.content} />
+                            {isRequester && canFlagDocumentation && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={
+                                  feedbackSaved.includes(message.messageId) ||
+                                  feedbackPending.includes(message.messageId)
+                                }
+                                onClick={async () => {
+                                  setFeedbackPending((ids) => [
+                                    ...ids,
+                                    message.messageId,
+                                  ]);
+                                  try {
+                                    await recordTicketDocumentationFeedback(
+                                      selectedTicket.ticketId,
+                                      message.messageId,
+                                    );
+                                    setFeedbackSaved((ids) => [
+                                      ...ids,
+                                      message.messageId,
+                                    ]);
+                                  } catch (error) {
+                                    toast.error(
+                                      error instanceof Error
+                                        ? error.message
+                                        : "Unable to record documentation feedback.",
+                                    );
+                                  } finally {
+                                    setFeedbackPending((ids) =>
+                                      ids.filter((id) => id !== message.messageId),
+                                    );
+                                  }
+                                }}
+                              >
+                                {feedbackSaved.includes(message.messageId)
+                                  ? "Documentation feedback recorded"
+                                  : "Flag documentation gap"}
+                              </Button>
+                            )}
                             <MessageAttachments
                               attachments={message.attachments ?? []}
                               align={isRequester ? "start" : "end"}

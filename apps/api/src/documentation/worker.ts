@@ -37,6 +37,7 @@ export async function processOneDocumentIndexJob(): Promise<boolean> {
       teamId: job.teamId,
       documentId: doc.id,
       content: doc.content,
+      kind: doc.kind,
     });
     await finishDocumentIndexJob(job.id, job.generation, {
       status: "done",

@@ -1,3 +1,5 @@
+import { recordDocumentationEvidence } from "../documentation/improvements";
+import { documentationEvidenceAllowed } from "../documentation/publications";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import {
@@ -53,6 +55,11 @@ export type InboxAiResult = {
     title: string | null;
     anchor: string | null;
     kind?: "blog" | "doc" | "changelog";
+    revisionId?: string;
+    publicationId?: string | null;
+    policyEpoch?: number;
+    evidenceId?: string;
+    url?: string;
   }>;
   skipReason?: string;
 };
@@ -84,6 +91,10 @@ function toRetrieval(
     anchor: string | null;
     similarity: number;
     kind?: "blog" | "doc" | "changelog";
+    revisionId?: string;
+    publicationId?: string | null;
+    policyEpoch?: number;
+    evidenceId?: string;
   }[],
 ): InboxAiRetrievalHit[] {
   return chunks.map((chunk) => ({
@@ -94,6 +105,10 @@ function toRetrieval(
     anchor: chunk.anchor,
     similarity: Math.round(chunk.similarity * 1000) / 1000,
     kind: chunk.kind,
+    revisionId: chunk.revisionId,
+    publicationId: chunk.publicationId,
+    policyEpoch: chunk.policyEpoch,
+    evidenceId: chunk.evidenceId,
   }));
 }
 
@@ -290,6 +305,13 @@ async function notifyIfTicketChannel(
       token,
       replyText,
       sources: sources.map((source) => ({
+        documentId: source.documentId,
+        kind: source.kind,
+        revisionId: source.revisionId,
+        publicationId: source.publicationId,
+        policyEpoch: source.policyEpoch,
+        evidenceId: source.evidenceId,
+        url: source.url,
         slug: source.slug,
         title: source.title,
         anchor: source.anchor,
@@ -405,6 +427,13 @@ export async function runInboxAi(input: {
       if (runId) await markRun(runId, "skipped", { skipReason: "stale" });
       return { ...empty, skipReason: "stale" };
     }
+    await recordDocumentationEvidence({
+      teamId: input.teamId,
+      ticketDbId: ticket.id,
+      messageDbId: trigger.id,
+      trigger: "escalation",
+      retrieved: retrieval,
+    });
     if (runId)
       await markRun(runId, "succeeded", {
         stopReason: reason,
@@ -426,7 +455,8 @@ export async function runInboxAi(input: {
   const estimated =
     estimateTokens(visitorText) +
     history.reduce((sum, turn) => sum + estimateTokens(turn.content), 0) +
-    MAX_OUTPUT_TOKENS;
+    4 * MAX_OUTPUT_TOKENS +
+    10000;
 
   const reserved = await reserveTokens(input.teamId, estimated);
   if (!reserved) return finishSkip("budget_exhausted");
@@ -450,6 +480,14 @@ export async function runInboxAi(input: {
     });
     usedTokens = generated.usedTokens || estimated;
     retrieval = toRetrieval(generated.chunks);
+    if (generated.groundingMissing)
+      await recordDocumentationEvidence({
+        teamId: input.teamId,
+        ticketDbId: ticket.id,
+        messageDbId: trigger.id,
+        trigger: "retrieval_miss",
+        retrieved: generated.chunks,
+      });
 
     if (generated.handoff) {
       return escalateDeterministic(generated.handoff.reason, retrieval);
@@ -469,6 +507,14 @@ export async function runInboxAi(input: {
       return { ...empty, skipReason: stillValid.reason };
     }
 
+    if (!(await documentationEvidenceAllowed(input.teamId, generated.chunks))) {
+      if (runId)
+        await markRun(runId, "skipped", {
+          skipReason: "documentation_changed",
+          retrieval: [],
+        });
+      return { ...empty, skipReason: "documentation_changed" };
+    }
     const sources = citationsFromModel(generated.chunks, generated.result.citations);
     const ok = await persistAnswer(
       ticket,

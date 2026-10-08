@@ -13,6 +13,7 @@ import { registerDocumentTools } from "./tools/documents";
 import { registerProductUpdateTools } from "./tools/changelogs";
 import { registerEmailTools } from "./tools/email";
 import { registerDocumentationTools } from "./tools/documentation";
+import { registerDocumentationGitHubTools } from "./tools/documentation-github";
 import { registerChatbotTools } from "./tools/chatbot";
 import { registerInboxAiTools } from "./tools/inbox-ai";
 import { registerHelpdeskTools } from "./tools/helpdesk";
@@ -33,6 +34,7 @@ export function registerAllTools(tools: McpToolRegistrar): void {
   registerProductUpdateTools(tools);
   registerEmailTools(tools);
   registerDocumentationTools(tools);
+  registerDocumentationGitHubTools(tools);
   registerChatbotTools(tools);
   registerInboxAiTools(tools);
   registerHelpdeskTools(tools);

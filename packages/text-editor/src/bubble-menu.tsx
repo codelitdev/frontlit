@@ -14,6 +14,7 @@ import LinkEditorPopover from "./components/link-editor-popover";
 
 interface BubbleMenuProps {
   editor: Editor;
+  profile?: "default" | "documentation";
 }
 
 const buttonBase =
@@ -110,7 +111,10 @@ function InlineButton({
   );
 }
 
-const InlineBubbleMenu = ({ editor }: BubbleMenuProps): React.JSX.Element | null => {
+const InlineBubbleMenu = ({
+  editor,
+  profile = "default",
+}: BubbleMenuProps): React.JSX.Element | null => {
   const [isLinkEditing, setIsLinkEditing] = useState(false);
 
   const openLinkEditor = useCallback(() => {
@@ -151,12 +155,14 @@ const InlineBubbleMenu = ({ editor }: BubbleMenuProps): React.JSX.Element | null
           active={editor.isActive("italic")}
           onClick={() => editor.chain().focus().toggleItalic().run()}
         />
-        <InlineButton
-          icon={Underline}
-          label="Underline"
-          active={editor.isActive("underline")}
-          onClick={() => editor.chain().focus().toggleMark("underline").run()}
-        />
+        {profile !== "documentation" && (
+          <InlineButton
+            icon={Underline}
+            label="Underline"
+            active={editor.isActive("underline")}
+            onClick={() => editor.chain().focus().toggleMark("underline").run()}
+          />
+        )}
         <InlineButton
           icon={Strikethrough}
           label="Strikethrough"

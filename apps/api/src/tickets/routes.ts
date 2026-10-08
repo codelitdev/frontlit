@@ -1,3 +1,4 @@
+import { recordDocumentationEvidence } from "../documentation/improvements";
 import { Router } from "express";
 import { createExpressEndpoints, initServer } from "@ts-rest/express";
 import { contract } from "@frontlit/api-contract";
@@ -69,6 +70,27 @@ const impl = s.router(
   contract.tickets,
   authorizeHandlers(
     {
+      documentationFeedback: async ({ params, body, req }) => {
+        const teamId = (req as any).teamId;
+        const ticket = await getTicketByTicketId(teamId, params.ticketId);
+        const message = ticket
+          ? (await getTicketMessages(ticket.id)).find(
+              (m) => m.messageId === body.messageId,
+            )
+          : null;
+        if (!ticket || !message) return { status: 404, body: { error: "Not found" } };
+        const value = await recordDocumentationEvidence({
+          teamId,
+          ticketDbId: ticket.id,
+          messageDbId: message.id,
+          trigger: body.trigger,
+          eventId: body.eventId,
+          targetDocumentId: body.targetDocumentId,
+        });
+        return value
+          ? { status: 201, body: value }
+          : { status: 404, body: { error: "Not found" } };
+      },
       list: async ({ query, req }) => {
         const teamId = (req as any).teamId;
         const [items, total] = await Promise.all([
@@ -220,6 +242,7 @@ const impl = s.router(
       },
     },
     {
+      documentationFeedback: "tickets.documentationFeedback",
       list: "tickets.list",
       create: "tickets.create",
       get: "tickets.get",

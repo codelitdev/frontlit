@@ -1,6 +1,15 @@
-import { and, cosineDistance, count, eq, gt, inArray, sql } from "drizzle-orm";
+import { searchPublishedDocumentation } from "./publications";
+import { DocsContentError, diagnostic } from "@frontlit/text-editor/docs";
+import { lockSettings, DraftConflict } from "./authoring";
+import { withDbTransaction } from "../db/transaction";
+import { and, cosineDistance, count, eq, gt, inArray, ne, sql } from "drizzle-orm";
 import { db } from "../db/client";
-import { documentChunks, documents, docSections } from "../db/schema";
+import {
+  documentChunks,
+  documents,
+  docSections,
+  documentationSettings,
+} from "../db/schema";
 import { extractChunks } from "./chunking";
 import { getEmbedding, getEmbeddings } from "./embeddings";
 import { getResolvedEmbeddingConfig } from "../ai/queries";
@@ -14,8 +23,9 @@ export async function reindexDocument(input: {
   teamId: string;
   documentId: string;
   content: unknown;
+  kind?: "doc" | "blog" | "changelog";
 }) {
-  const chunks = extractChunks(input.content as any);
+  const chunks = extractChunks(input.content as any, input.kind);
 
   const embeddingConfig = await getResolvedEmbeddingConfig(input.teamId);
   const embeddings = chunks.length
@@ -76,6 +86,11 @@ export interface SearchResult {
   content: string;
   similarity: number;
   kind: "blog" | "doc" | "changelog";
+  publicationId?: string | null;
+  policyEpoch?: number;
+  revisionId?: string;
+  evidenceId?: string;
+  url?: string;
 }
 
 const SIMILARITY_FLOOR = 0.25;
@@ -89,6 +104,14 @@ export async function searchChunks(
   query: string,
   k = 6,
 ): Promise<SearchResult[]> {
+  const documentationResults = await searchPublishedDocumentation(teamId, query, k);
+  const others = await db
+    .select({ id: documentChunks.id })
+    .from(documentChunks)
+    .innerJoin(documents, eq(documentChunks.documentId, documents.id))
+    .where(and(eq(documentChunks.teamId, teamId), ne(documents.kind, "doc")))
+    .limit(1);
+  if (!others.length) return documentationResults;
   const embeddingConfig = await getResolvedEmbeddingConfig(teamId);
   const embedding = await getEmbedding(query, embeddingConfig);
   const similarity = sql<number>`1 - (${cosineDistance(documentChunks.embedding, embedding)})`;
@@ -106,11 +129,19 @@ export async function searchChunks(
     })
     .from(documentChunks)
     .innerJoin(documents, eq(documentChunks.documentId, documents.id))
-    .where(and(eq(documentChunks.teamId, teamId), gt(similarity, SIMILARITY_FLOOR)))
+    .where(
+      and(
+        eq(documentChunks.teamId, teamId),
+        ne(documents.kind, "doc"),
+        gt(similarity, SIMILARITY_FLOOR),
+      ),
+    )
     .orderBy((row) => sql`${row.similarity} desc`)
     .limit(k);
 
-  return rows;
+  return [...documentationResults, ...rows]
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, k);
 }
 
 // ---------------------------------------------------------------------------
@@ -129,20 +160,29 @@ export async function createDocSection(input: {
   teamId: string;
   name: string;
   order?: number;
+  expectedDocsDraftVersion: number;
 }) {
-  const slug = await uniqueSlug(slugify(input.name), (candidate) =>
-    sectionSlugTaken(input.teamId, candidate),
-  );
-  const [section] = await db
-    .insert(docSections)
-    .values({
-      teamId: input.teamId,
-      name: input.name,
-      slug,
-      order: input.order ?? 0,
-    })
-    .returning();
-  return section;
+  return withDbTransaction(async (tx) => {
+    const settings = await lockSettings(tx, input.teamId);
+    if (settings.source !== "editor")
+      throw new DocsContentError([
+        diagnostic("SOURCE_REQUIRES_GIT", "This documentation area is owned by Git."),
+      ]);
+    if (settings.draftVersion !== input.expectedDocsDraftVersion)
+      throw new DraftConflict(settings.draftVersion);
+    const slug = await uniqueSlug(slugify(input.name), (candidate) =>
+      sectionSlugTaken(input.teamId, candidate),
+    );
+    const [row] = await tx
+      .insert(docSections)
+      .values({ teamId: input.teamId, name: input.name, slug, order: input.order ?? 0 })
+      .returning();
+    await tx
+      .update(documentationSettings)
+      .set({ draftVersion: settings.draftVersion + 1 })
+      .where(eq(documentationSettings.teamId, input.teamId));
+    return row;
+  });
 }
 
 export async function listDocSections(teamId: string) {
@@ -161,23 +201,55 @@ export async function getDocSectionBySectionId(teamId: string, sectionId: string
 export async function updateDocSection(
   teamId: string,
   sectionId: string,
-  patch: Partial<{ name: string; order: number }>,
+  patch: Partial<{ name: string; order: number }> & {
+    expectedDocsDraftVersion: number;
+  },
 ) {
   const existing = await getDocSectionBySectionId(teamId, sectionId);
   if (!existing) return null;
-  const [section] = await db
-    .update(docSections)
-    .set({ ...patch, updatedAt: new Date() })
-    .where(eq(docSections.id, existing.id))
-    .returning();
-  return section;
+  return withDbTransaction(async (tx) => {
+    const settings = await lockSettings(tx, teamId);
+    if (settings.source !== "editor")
+      throw new DocsContentError([
+        diagnostic("SOURCE_REQUIRES_GIT", "This documentation area is owned by Git."),
+      ]);
+    if (settings.draftVersion !== patch.expectedDocsDraftVersion)
+      throw new DraftConflict(settings.draftVersion);
+    const { expectedDocsDraftVersion, ...fields } = patch;
+    const [row] = await tx
+      .update(docSections)
+      .set({ ...fields, updatedAt: new Date() })
+      .where(eq(docSections.id, existing.id))
+      .returning();
+    await tx
+      .update(documentationSettings)
+      .set({ draftVersion: settings.draftVersion + 1 })
+      .where(eq(documentationSettings.teamId, teamId));
+    return row;
+  });
 }
-
-export async function deleteDocSection(teamId: string, sectionId: string) {
+export async function deleteDocSection(
+  teamId: string,
+  sectionId: string,
+  expectedDocsDraftVersion: number,
+) {
   const existing = await getDocSectionBySectionId(teamId, sectionId);
   if (!existing) return { ok: false as const, reason: "not_found" as const };
-  await db.delete(docSections).where(eq(docSections.id, existing.id));
-  return { ok: true as const };
+  return withDbTransaction(async (tx) => {
+    const settings = await lockSettings(tx, teamId);
+    if (settings.source !== "editor")
+      throw new DocsContentError([
+        diagnostic("SOURCE_REQUIRES_GIT", "This documentation area is owned by Git."),
+      ]);
+    if (settings.draftVersion !== expectedDocsDraftVersion)
+      throw new DraftConflict(settings.draftVersion);
+    await tx.delete(docSections).where(eq(docSections.id, existing.id));
+    await tx
+      .update(documentationSettings)
+      .set({ draftVersion: settings.draftVersion + 1 })
+      .where(eq(documentationSettings.teamId, teamId));
+    return { ok: true as const };
+  });
 }
 
 export async function countDocSections(teamId: string) {

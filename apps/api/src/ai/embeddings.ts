@@ -88,3 +88,19 @@ function getLocalEmbedding(text: string): number[] {
   const magnitude = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0));
   return vector.map((value) => value / magnitude);
 }
+
+/** Publication retrieval must use configured provider embeddings, never local test vectors. */
+export async function getRealEmbeddings(
+  texts: string[],
+  config: ResolvedEmbeddingConfig,
+) {
+  if (!config.apiKey) throw new Error("embedding_credentials_required");
+  if (!texts.length) return { embeddings: [] as number[][], usedTokens: 0 };
+  const result = await embedMany({
+    model: embeddingModel(config),
+    values: texts,
+    maxRetries: 0,
+    abortSignal: AbortSignal.timeout(60000),
+  });
+  return { embeddings: result.embeddings, usedTokens: result.usage.tokens };
+}
