@@ -71,7 +71,8 @@
             "source-map-js@<2": ">=1.2.2 <2",
             "postcss-selector-parser@>=7 <8": ">=7.1.6 <8",
             "prosemirror-view@<2": ">=1.42.3 <2",
-            "@modelcontextprotocol/sdk@>=1 <2": ">=1.31.0 <2"
+            "@modelcontextprotocol/sdk@>=1 <2": ">=1.31.0 <2",
+            "esbuild@>=0.27.3 <0.28.1": ">=0.28.1 <0.29"
         }
     },
     "type": "module"
