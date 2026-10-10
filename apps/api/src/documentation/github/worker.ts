@@ -168,7 +168,7 @@ async function finishUnchangedSync(job: SyncJob, head: string) {
     return done;
   });
 }
-async function authoringHash(snapshot: any) {
+export async function authoringHash(snapshot: any) {
   return hashDocsContent({
     content: snapshot.draftContent,
     metadata: {

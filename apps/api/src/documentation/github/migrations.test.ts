@@ -426,15 +426,33 @@ describe("reviewed CMS adoption after a platform-created setup PR", () => {
       await activateGitMigration(teamId, actor, p.planId, activation(p), config, app),
     ).toMatchObject({ source: "git" });
   });
-  it("rejects unpublished live changes and changes made after planning without overwriting anything", async () => {
+  it("exports the published state and keeps unpublished edits as local drafts through adoption", async () => {
+    const doc = await createPublished();
+    await saveDocumentation(teamId, doc.documentId, {
+      title: "Local edit",
+      expectedDraftVersion: doc.draftVersion,
+    });
+    const p = await plan();
+    const file = p.files.find((f) => f.documentId === doc.documentId)!;
+    expect(file.markdown).toContain("title: Guide");
+    expect(file.markdown).not.toContain("Local edit");
+    commit(p.files);
+    expect(
+      (await verifyGitMigration(teamId, actor, p.planId, {}, config, app)).verified,
+    ).toBe(true);
+    await activateGitMigration(teamId, actor, p.planId, activation(p), config, app);
+    await processGitSync(teamId, app);
+    const kept = await db.query.documents.findFirst({
+      where: eq(documents.documentId, doc.documentId),
+    });
+    expect(kept?.draftTitle).toBe("Local edit");
+  });
+  it("rejects changes made after planning without overwriting anything", async () => {
     const doc = await createPublished();
     const p = await plan();
     await saveDocumentation(teamId, doc.documentId, {
       title: "Local edit",
       expectedDraftVersion: doc.draftVersion,
-    });
-    await expect(plan()).rejects.toMatchObject({
-      code: "MIGRATION_UNPUBLISHED_CHANGES",
     });
     commit(p.files);
     await expect(

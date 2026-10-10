@@ -1886,6 +1886,8 @@ export const documentationGitMigrations = pgTable(
           draftVersion: number | null;
           markdown: string;
           hash: string;
+          /** The editor draft has edits newer than the exported published state. */
+          unpublished?: boolean;
         }[]
       >()
       .notNull(),

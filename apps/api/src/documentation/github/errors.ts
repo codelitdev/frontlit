@@ -27,8 +27,6 @@ const messages: Record<string, string> = {
     "Ten setup or adoption plans are outstanding. Cancel an unused adoption plan or wait for authorization expiry before starting another.",
   MIGRATION_STALE:
     "Documentation changed after export. Create a new adoption plan to preserve the latest editor work.",
-  MIGRATION_UNPUBLISHED_CHANGES:
-    "Publish or discard changes to live documents before exporting a Git adoption plan. Never-published drafts can be exported privately.",
   MIGRATION_EXPIRED:
     "This adoption plan is canceled, expired, or no longer available. Create a new plan.",
   MIGRATION_HEAD_CHANGED:

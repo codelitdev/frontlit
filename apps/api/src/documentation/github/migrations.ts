@@ -43,6 +43,7 @@ import {
   type GitSourceSelection,
 } from "./source";
 import { enqueueGitSync } from "./state";
+import { authoringHash } from "./worker";
 import { requireGitPlanCapacity, reserveGitValidation } from "./admission";
 
 function requireRestoreReady() {
@@ -372,22 +373,21 @@ export async function planGitMigration(
     if (!settings.activePublicationId && docs.some((d) => d.publishedAt))
       fail("MIGRATION_BOOTSTRAP_REQUIRED");
     const exported: Plan["files"] = [];
-    for (const doc of docs) {
-      const accepted = live.find((x) => x.member.documentId === doc.documentId);
-      if (accepted) {
-        const snap = accepted.revision.snapshot;
-        const liveDoc = {
-          ...doc,
-          draftTitle: snap.draftTitle,
-          draftSlug: snap.draftSlug,
-          draftContent: snap.draftContent,
-          draftExcerpt: snap.draftExcerpt,
-          draftFeaturedImage: snap.draftFeaturedImage,
-          draftMeta: snap.draftMeta,
-        };
-        if (exportDoc(doc, true) !== exportDoc(liveDoc, true))
-          fail("MIGRATION_UNPUBLISHED_CHANGES");
-      }
+    for (const draft of docs) {
+      // Git starts from the published state; newer editor edits stay local drafts.
+      const accepted = live.find((x) => x.member.documentId === draft.documentId);
+      const doc = accepted
+        ? {
+            ...draft,
+            draftTitle: accepted.revision.snapshot.draftTitle,
+            draftSlug: accepted.revision.snapshot.draftSlug,
+            draftContent: accepted.revision.snapshot.draftContent,
+            draftExcerpt: accepted.revision.snapshot.draftExcerpt,
+            draftFeaturedImage: accepted.revision.snapshot.draftFeaturedImage,
+            draftMeta: accepted.revision.snapshot.draftMeta,
+          }
+        : draft;
+      const unpublished = !!accepted && exportDoc(draft, true) !== exportDoc(doc, true);
       const section = sections.find((s) => s.sectionId === doc.draftMeta.sectionId);
       if (doc.draftMeta.sectionId && !section) fail("MIGRATION_SECTIONS_MISMATCH");
       const path = `${directory}/${section ? `${section.slug}/` : ""}${doc.documentId}.md`;
@@ -398,6 +398,7 @@ export async function planGitMigration(
         draftVersion: doc.draftVersion,
         markdown,
         hash: textHash(markdown),
+        ...(unpublished ? { unpublished } : {}),
       });
     }
     const markdown =
@@ -816,7 +817,17 @@ export async function activateGitMigration(
             section?.sectionId ?? null,
             identity.draftVersion!,
           ),
-          draftHash: original.draftHash,
+          // Unpublished edits must differ from the imported base so sync keeps them.
+          draftHash: identity.unpublished
+            ? await authoringHash(
+                gitDocumentSnapshot(
+                  imported,
+                  identity.documentId!,
+                  section?.sectionId ?? null,
+                  identity.draftVersion!,
+                ),
+              )
+            : original.draftHash,
         },
       });
     }
