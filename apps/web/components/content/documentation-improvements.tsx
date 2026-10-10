@@ -5,6 +5,17 @@ import { Button } from "@/components/ui/codelit/button";
 import { Input } from "@/components/ui/codelit/input";
 import { Textarea } from "@/components/ui/codelit/textarea";
 import { Label } from "@/components/ui/codelit/label";
+import { Badge } from "@/components/ui/codelit/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/codelit/select";
+import { ArrowLeft, ChevronRight, ExternalLink } from "lucide-react";
+import { Callout, ConsentRow } from "@/components/content/documentation-connect-parts";
+import { cn } from "@/lib/utils";
 import { documentationPanel } from "@/components/content/documentation-panel";
 import { useWorkspaceAccess } from "@/components/workspace/workspace-access";
 import {
@@ -15,6 +26,41 @@ import {
   type DocumentationImprovement,
   type DocumentationPage,
 } from "@/lib/api";
+
+const STATES = [
+  { value: "open", label: "Open" },
+  { value: "dismissed", label: "Dismissed" },
+  { value: "draft_created", label: "Draft created" },
+  { value: "published", label: "Published" },
+];
+
+const humanize = (value: string) => value.replaceAll("_", " ");
+
+function Field({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-3 rounded-[0.625rem] border border-border p-4">
+      <h3 className="font-semibold text-sm">{title}</h3>
+      {children}
+    </section>
+  );
+}
 
 export function DocumentationImprovements({
   docs,
@@ -100,6 +146,8 @@ export function DocumentationImprovements({
   useEffect(() => {
     if (inline) loadPanel();
   }, [inline]);
+  const itemLabel = (row: DocumentationImprovement) =>
+    row.approved?.title ?? (row.reason ? humanize(row.reason) : "Approved artifact");
   return (
     <>
       {!inline && (
@@ -123,285 +171,367 @@ export function DocumentationImprovements({
           if (!busy) setOpen(value);
         }}
       >
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
+        <DialogContent className="flex max-h-[90dvh] flex-col gap-5 sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Documentation improvements</DialogTitle>
+            <DialogTitle>Documentation gaps</DialogTitle>
             <DialogDescription>
-              Review support gaps, approve a redacted correction, then create a private
-              draft for normal publication review.
+              Questions readers asked that your docs couldn&apos;t answer. Approve a
+              redacted fix and it becomes a private draft for normal publication review.
             </DialogDescription>
           </DialogHeader>
-          {busy && <p role="status">Working…</p>}
-          {error && <p role="alert">{error}</p>}
-          <Label>
-            State
-            <select
-              className="ml-2 rounded border p-2"
-              value={state}
-              disabled={busy}
-              onChange={(e) => {
-                const next = e.target.value;
-                setState(next);
-                setItem(null);
-                void action(() => load(undefined, next));
-              }}
-            >
-              {["open", "dismissed", "draft_created", "published"].map((value) => (
-                <option key={value} value={value}>
-                  {value.replaceAll("_", " ")}
-                </option>
-              ))}
-            </select>
-          </Label>
-          <div className="flex flex-wrap gap-2">
-            {items.map((row) => (
-              <Button
-                key={row.itemId}
-                variant={item?.itemId === row.itemId ? "primary" : "outline"}
-                disabled={busy}
-                onClick={() => select(row)}
-              >
-                {row.approved?.title ??
-                  row.reason?.replaceAll("_", " ") ??
-                  "Approved artifact"}
-                {row.evidenceCount !== undefined
-                  ? ` · ${row.evidenceCount} evidence`
-                  : ""}
-              </Button>
-            ))}
-          </div>
-          {!items.length && !busy && <p>No improvements available in this state.</p>}
-          {cursor && (
-            <Button
-              variant="outline"
-              disabled={busy}
-              onClick={() => action(() => load(cursor))}
-            >
-              Load more
-            </Button>
+          {error && (
+            <p role="alert" className="text-destructive text-sm">
+              {error}
+            </p>
           )}
-          {item && (
-            <div className="space-y-4 rounded border p-4">
-              <p>
-                State: {item.state.replaceAll("_", " ")} · version {item.version}
-              </p>
-              {item.mergedIntoId && <p>Merged into {item.mergedIntoId}</p>}
-              {item.evidence && (
-                <section aria-label="Authorized support evidence">
-                  <h3>Support evidence</h3>
-                  {item.evidence.map((e) => (
-                    <div className="my-2 rounded border p-3" key={e.evidenceId}>
-                      <Link href={`/?ticket=${e.ticketId}`}>Open conversation</Link>
-                      <p className="whitespace-pre-wrap">{e.question}</p>
-                      <p>{e.trigger.replaceAll("_", " ")}</p>
-                    </div>
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+            {!item ? (
+              <>
+                <div
+                  role="tablist"
+                  aria-label="Gap state"
+                  className="flex flex-wrap gap-1.5"
+                >
+                  {STATES.map((s) => (
+                    <button
+                      key={s.value}
+                      type="button"
+                      role="tab"
+                      aria-selected={state === s.value}
+                      disabled={busy}
+                      onClick={() => {
+                        setState(s.value);
+                        void action(() => load(undefined, s.value));
+                      }}
+                      className={cn(
+                        "rounded-full border px-3 py-1 font-medium text-[13px] focus-visible:shadow-[var(--shadow-focus)] focus-visible:outline-none disabled:opacity-50",
+                        state === s.value
+                          ? "border-primary bg-[var(--primary-soft)] text-primary"
+                          : "border-border text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {s.label}
+                    </button>
                   ))}
-                </section>
-              )}
-              {item.approved && (
-                <section aria-label="Approved redacted artifact">
-                  <h3>Approved documentation text · version {item.approved.version}</h3>
-                  <p>{item.approved.title}</p>
-                  <p className="whitespace-pre-wrap">{item.approved.description}</p>
-                  <pre className="whitespace-pre-wrap break-words text-sm">
-                    {item.approved.correction}
-                  </pre>
-                  <p>No customer-specific details declared by reviewer.</p>
-                </section>
-              )}
-              {canReview && !item.draftDocumentId && !item.mergedIntoId && (
-                <section className="space-y-3" aria-label="Approve redacted correction">
-                  <p>
-                    Use a standalone description and correction. Remove names, account
-                    details, internal URLs and transcripts. If facts are uncertain, keep
-                    the item open for investigation.
-                  </p>
-                  <Label htmlFor="improvement-title">Draft title</Label>
-                  <Input
-                    id="improvement-title"
-                    maxLength={200}
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                  />
-                  <Label htmlFor="improvement-description">Redacted description</Label>
-                  <Textarea
-                    id="improvement-description"
-                    maxLength={1000}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                  />
-                  <Label htmlFor="improvement-correction">
-                    Proposed correction (Markdown)
-                  </Label>
-                  <Textarea
-                    id="improvement-correction"
-                    maxLength={16000}
-                    value={correction}
-                    onChange={(e) => setCorrection(e.target.value)}
-                  />
-                  <Label>
-                    <input
-                      type="checkbox"
-                      checked={confirmed}
-                      onChange={(e) => setConfirmed(e.target.checked)}
-                    />{" "}
-                    I reviewed this text and it contains no customer-specific details.
-                  </Label>
-                  <Button
-                    disabled={
-                      busy ||
-                      !confirmed ||
-                      !title.trim() ||
-                      !description.trim() ||
-                      !correction.trim()
-                    }
-                    onClick={() =>
-                      action(() =>
-                        review({
-                          action: "approve-summary",
-                          expectedVersion: item.version,
-                          title,
-                          description,
-                          correction,
-                          noCustomerDetails: true,
-                        }),
-                      )
-                    }
+                </div>
+                {items.length > 0 && (
+                  <ul className="divide-y overflow-clip rounded-[0.625rem] border border-border">
+                    {items.map((row) => (
+                      <li key={row.itemId}>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => select(row)}
+                          className="flex w-full items-center gap-3 px-4 py-3.5 text-left text-sm hover:bg-muted/50 focus-visible:shadow-[var(--shadow-focus)] focus-visible:outline-none"
+                        >
+                          <span className="min-w-0 flex-1 font-medium">
+                            {itemLabel(row)}
+                          </span>
+                          {row.evidenceCount !== undefined && (
+                            <Badge variant="neutral">
+                              {row.evidenceCount}{" "}
+                              {row.evidenceCount === 1 ? "question" : "questions"}
+                            </Badge>
+                          )}
+                          <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {!items.length && (
+                  <p
+                    role="status"
+                    className="rounded-[0.625rem] border border-border border-dashed px-4 py-10 text-center text-muted-foreground text-sm"
                   >
-                    Approve redacted text
-                  </Button>
-                </section>
-              )}
-              {canReview && !item.mergedIntoId && (
-                <div className="flex flex-wrap gap-2">
+                    {busy ? "Loading…" : `No ${humanize(state)} gaps right now.`}
+                  </p>
+                )}
+                {cursor && (
                   <Button
                     variant="outline"
                     disabled={busy}
-                    onClick={() =>
-                      action(() =>
-                        review({
-                          action: item.state === "dismissed" ? "reopen" : "dismiss",
-                          expectedVersion: item.version,
-                        }),
-                      )
-                    }
+                    onClick={() => action(() => load(cursor))}
                   >
-                    {item.state === "dismissed" ? "Reopen" : "Dismiss"}
+                    Load more
                   </Button>
-                  {item.state === "open" && (
-                    <>
-                      <Label>
-                        Merge into
-                        <select
-                          className="ml-2 rounded border p-2"
-                          value={mergeTarget}
-                          onChange={(e) => setMergeTarget(e.target.value)}
-                        >
-                          <option value="">Select open item</option>
-                          {items
-                            .filter(
-                              (i) => i.itemId !== item.itemId && i.state === "open",
-                            )
-                            .map((i) => (
-                              <option key={i.itemId} value={i.itemId}>
-                                {i.approved?.title ?? i.reason ?? i.itemId}
-                              </option>
-                            ))}
-                        </select>
-                      </Label>
-                      <Button
-                        variant="outline"
-                        disabled={busy || !mergeTarget}
-                        onClick={() =>
-                          action(() =>
-                            review({
-                              action: "merge",
-                              expectedVersion: item.version,
-                              targetItemId: mergeTarget,
-                              expectedTargetVersion: items.find(
-                                (i) => i.itemId === mergeTarget,
-                              )!.version,
-                            }),
-                          )
-                        }
-                      >
-                        Merge evidence
-                      </Button>
-                    </>
-                  )}
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => setItem(null)}
+                  >
+                    <ArrowLeft className="size-4" />
+                    All gaps
+                  </Button>
+                  <span className="flex items-center gap-2 text-muted-foreground text-xs">
+                    <Badge variant="neutral" className="capitalize">
+                      {humanize(item.state)}
+                    </Badge>
+                    Version {item.version}
+                  </span>
                 </div>
-              )}
-              {canWrite &&
-                item.approved &&
-                !item.draftDocumentId &&
-                item.state === "open" && (
-                  <section className="space-y-3">
-                    <Label>
-                      Draft target
-                      <select
-                        className="ml-2 rounded border p-2"
-                        value={target}
-                        onChange={(e) => setTarget(e.target.value)}
-                      >
-                        <option value="">Create new document</option>
-                        {docs.map((d) => (
-                          <option key={d.documentId} value={d.documentId}>
-                            {d.draftTitle} · version {d.draftVersion}
-                          </option>
-                        ))}
-                      </select>
-                    </Label>
-                    {target && (
-                      <p>
-                        This replaces the selected saved draft with the approved text. A
-                        newer draft will block the operation.
+                <h3 className="font-semibold text-base leading-tight">
+                  {itemLabel(item)}
+                </h3>
+                {item.mergedIntoId && (
+                  <Callout tone="info" title="Merged">
+                    Evidence was merged into another gap ({item.mergedIntoId}).
+                  </Callout>
+                )}
+                {item.evidence && (
+                  <Panel title="What readers asked">
+                    <ul aria-label="Authorized support evidence" className="space-y-2">
+                      {item.evidence.map((e) => (
+                        <li
+                          className="space-y-1.5 rounded-lg bg-muted/50 px-3.5 py-3 text-sm"
+                          key={e.evidenceId}
+                        >
+                          <p className="whitespace-pre-wrap">{e.question}</p>
+                          <p className="flex items-center justify-between gap-3 text-muted-foreground text-xs">
+                            <span className="capitalize">{humanize(e.trigger)}</span>
+                            <Link
+                              href={`/?ticket=${e.ticketId}`}
+                              className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                            >
+                              Open conversation
+                              <ExternalLink className="size-3" />
+                            </Link>
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </Panel>
+                )}
+                {item.approved && (
+                  <Panel title={`Approved text · version ${item.approved.version}`}>
+                    <div className="space-y-2 text-sm">
+                      <p className="font-medium">{item.approved.title}</p>
+                      <p className="whitespace-pre-wrap text-muted-foreground">
+                        {item.approved.description}
                       </p>
-                    )}
-                    <Button
+                      <pre className="whitespace-pre-wrap break-words rounded-lg bg-muted/50 px-3.5 py-3 text-[13px]">
+                        {item.approved.correction}
+                      </pre>
+                      <p className="text-muted-foreground text-xs">
+                        Reviewer confirmed no customer-specific details.
+                      </p>
+                    </div>
+                  </Panel>
+                )}
+                {canReview && !item.draftDocumentId && !item.mergedIntoId && (
+                  <Panel title="Approve a redacted fix">
+                    <p className="text-muted-foreground text-sm">
+                      Write a standalone description and correction. Remove names,
+                      account details, internal URLs and transcripts. If the facts are
+                      uncertain, keep the gap open.
+                    </p>
+                    <Field label="Draft title" htmlFor="improvement-title">
+                      <Input
+                        id="improvement-title"
+                        maxLength={200}
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                      />
+                    </Field>
+                    <Field
+                      label="Redacted description"
+                      htmlFor="improvement-description"
+                    >
+                      <Textarea
+                        id="improvement-description"
+                        maxLength={1000}
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                      />
+                    </Field>
+                    <Field
+                      label="Proposed correction (Markdown)"
+                      htmlFor="improvement-correction"
+                    >
+                      <Textarea
+                        id="improvement-correction"
+                        className="min-h-32 font-mono text-[13px]"
+                        maxLength={16000}
+                        value={correction}
+                        onChange={(e) => setCorrection(e.target.value)}
+                      />
+                    </Field>
+                    <ConsentRow
+                      checked={confirmed}
+                      onChange={setConfirmed}
                       disabled={busy}
+                    >
+                      I reviewed this text and it contains no customer-specific details.
+                    </ConsentRow>
+                    <Button
+                      disabled={
+                        busy ||
+                        !confirmed ||
+                        !title.trim() ||
+                        !description.trim() ||
+                        !correction.trim()
+                      }
                       onClick={() =>
-                        action(async () => {
-                          const existing = docs.find((d) => d.documentId === target);
-                          const result = await createDocumentationImprovementDraft(
-                            item.itemId,
-                            {
-                              expectedVersion: item.version,
-                              approvedSummaryVersion: item.approved!.version,
-                              idempotencyKey: `improvement:${item.itemId}:${item.approved!.version}`,
-                              ...(existing
-                                ? {
-                                    targetDocumentId: existing.documentId,
-                                    expectedDraftVersion: existing.draftVersion,
-                                  }
-                                : {}),
-                            },
-                          );
-                          setReceipt(result);
-                          setItem(await getDocumentationImprovement(item.itemId));
-                          await load();
-                          await onChanged();
-                        })
+                        action(() =>
+                          review({
+                            action: "approve-summary",
+                            expectedVersion: item.version,
+                            title,
+                            description,
+                            correction,
+                            noCustomerDetails: true,
+                          }),
+                        )
                       }
                     >
-                      Create private draft
+                      Approve redacted text
                     </Button>
-                  </section>
+                  </Panel>
                 )}
-              {(receipt || item.draftDocumentId) && (
-                <Link
-                  href={`/editor/content/documentation/${receipt?.documentId ?? item.draftDocumentId}`}
-                >
-                  Open linked draft
-                </Link>
-              )}
-              {item.publicationId && (
-                <p>
-                  Accepted publication: {item.publicationId}. Publication does not
-                  assert that the support issue is resolved.
-                </p>
-              )}
-            </div>
-          )}
+                {canWrite &&
+                  item.approved &&
+                  !item.draftDocumentId &&
+                  item.state === "open" && (
+                    <Panel title="Create a draft">
+                      <Field label="Draft target">
+                        <Select
+                          value={target || "new"}
+                          onValueChange={(value) =>
+                            setTarget(value === "new" ? "" : value)
+                          }
+                        >
+                          <SelectTrigger aria-label="Draft target">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="new">Create new document</SelectItem>
+                            {docs.map((d) => (
+                              <SelectItem key={d.documentId} value={d.documentId}>
+                                {d.draftTitle} · version {d.draftVersion}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      {target && (
+                        <Callout title="This replaces the saved draft">
+                          The selected document&apos;s saved draft is replaced with the
+                          approved text. A newer draft blocks the operation.
+                        </Callout>
+                      )}
+                      <Button
+                        disabled={busy}
+                        onClick={() =>
+                          action(async () => {
+                            const existing = docs.find((d) => d.documentId === target);
+                            const result = await createDocumentationImprovementDraft(
+                              item.itemId,
+                              {
+                                expectedVersion: item.version,
+                                approvedSummaryVersion: item.approved!.version,
+                                idempotencyKey: `improvement:${item.itemId}:${item.approved!.version}`,
+                                ...(existing
+                                  ? {
+                                      targetDocumentId: existing.documentId,
+                                      expectedDraftVersion: existing.draftVersion,
+                                    }
+                                  : {}),
+                              },
+                            );
+                            setReceipt(result);
+                            setItem(await getDocumentationImprovement(item.itemId));
+                            await load();
+                            await onChanged();
+                          })
+                        }
+                      >
+                        Create private draft
+                      </Button>
+                    </Panel>
+                  )}
+                {(receipt || item.draftDocumentId) && (
+                  <Button asChild variant="outline">
+                    <Link
+                      href={`/editor/content/documentation/${receipt?.documentId ?? item.draftDocumentId}`}
+                    >
+                      Open linked draft
+                    </Link>
+                  </Button>
+                )}
+                {item.publicationId && (
+                  <p className="text-muted-foreground text-sm">
+                    Accepted publication: {item.publicationId}. Publication does not
+                    assert that the support issue is resolved.
+                  </p>
+                )}
+                {canReview && !item.mergedIntoId && (
+                  <div className="flex flex-wrap items-center gap-2 border-t pt-4">
+                    <Button
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() =>
+                        action(() =>
+                          review({
+                            action: item.state === "dismissed" ? "reopen" : "dismiss",
+                            expectedVersion: item.version,
+                          }),
+                        )
+                      }
+                    >
+                      {item.state === "dismissed" ? "Reopen" : "Dismiss"}
+                    </Button>
+                    {item.state === "open" &&
+                      items.some(
+                        (i) => i.itemId !== item.itemId && i.state === "open",
+                      ) && (
+                        <>
+                          <Select value={mergeTarget} onValueChange={setMergeTarget}>
+                            <SelectTrigger aria-label="Merge into" className="w-56">
+                              <SelectValue placeholder="Merge into…" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {items
+                                .filter(
+                                  (i) => i.itemId !== item.itemId && i.state === "open",
+                                )
+                                .map((i) => (
+                                  <SelectItem key={i.itemId} value={i.itemId}>
+                                    {itemLabel(i)}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="outline"
+                            disabled={busy || !mergeTarget}
+                            onClick={() =>
+                              action(() =>
+                                review({
+                                  action: "merge",
+                                  expectedVersion: item.version,
+                                  targetItemId: mergeTarget,
+                                  expectedTargetVersion: items.find(
+                                    (i) => i.itemId === mergeTarget,
+                                  )!.version,
+                                }),
+                              )
+                            }
+                          >
+                            Merge evidence
+                          </Button>
+                        </>
+                      )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </>

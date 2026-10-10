@@ -45,6 +45,7 @@ const ROUTE_ACCESS: readonly RouteAccess[] = [
   { href: "/settings/esp", permissions: ["esp:read"] },
   { href: "/settings/ai", permissions: ["ai:read"] },
   { href: "/settings/content", permissions: ["documentation:read"] },
+  { href: "/settings/integrations", permissions: ["documentation:manage"] },
   /** Legacy URL; the page redirects to Website → Help desk. */
   { href: "/settings/help-desk", permissions: ["helpdesk:read"] },
   { href: "/media", permissions: ["media:read"] },

@@ -140,7 +140,7 @@ describe("durable GitHub webhook admission", () => {
       );
       expect(response.status).toBe(303);
       expect(response.headers.get("location")).toBe(
-        "http://localhost:3000/settings/content?tab=source&githubInstallationReturned=1",
+        "http://localhost:3000/settings/integrations?tab=github&githubInstallationReturned=1",
       );
       expect(response.headers.get("cache-control")).toBe("private, no-store");
     }
@@ -193,7 +193,7 @@ describe("durable GitHub webhook admission", () => {
     expect(callback.headers.get("cache-control")).toBe("private, no-store");
     expect(callback.headers.get("x-robots-tag")).toBe("noindex");
     expect(callback.headers.get("location")).toBe(
-      `http://localhost:3000/settings/content?tab=source&githubSetup=${setup.setupId}`,
+      `http://localhost:3000/settings/integrations?tab=github&githubSetup=${setup.setupId}`,
     );
     expect(exchangeCode).toHaveBeenCalledTimes(1);
     expect(exchangeCode).toHaveBeenCalledWith("oauth-code", expect.any(String));

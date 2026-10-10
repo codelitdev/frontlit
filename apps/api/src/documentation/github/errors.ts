@@ -5,6 +5,10 @@ import {
 } from "../content-validation";
 import { GitHubDocsError } from "./app";
 const messages: Record<string, string> = {
+  PROPOSAL_NOT_OPEN:
+    "That pull request is no longer open, so it can't be updated. Create a new pull request instead.",
+  PROPOSAL_ALREADY_OPEN:
+    "One of these documents is already in an open pull request. Merge or close that pull request first, then submit again.",
   GITHUB_CHECK_NOT_FOUND: "This documentation check is unavailable.",
   GITHUB_PROPOSAL_NOT_FOUND: "This documentation proposal is unavailable.",
   GITHUB_PROPOSAL_RECOVERY_CONFLICT:

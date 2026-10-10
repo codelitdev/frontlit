@@ -65,7 +65,7 @@ type Review = {
   report: Awaited<ReturnType<typeof validateDocumentationPublication>>;
 };
 
-function liveDocumentationUrl(hostname: string, slug: string): string {
+export function liveDocumentationUrl(hostname: string, slug: string): string {
   const local = hostname === "localhost" || hostname.endsWith(".localhost");
   const origin = `${local ? "http" : "https"}://${hostname}${local ? ":3002" : ""}`;
   const route = slug.split("/").map(encodeURIComponent).join("/");

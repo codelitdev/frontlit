@@ -116,9 +116,24 @@ export async function writeGitProposal(
   // Before the first remote object, use the latest head when the selected-file
   // preconditions still hold. After an object is persisted, its base is fixed
   // for deterministic recovery; direct ref advancement checks that parent again.
+  const updated = current.updatesProposalId
+    ? await db.query.documentationGitProposals.findFirst({
+        where: and(
+          eq(proposals.teamId, current.teamId),
+          eq(proposals.proposalId, current.updatesProposalId),
+        ),
+      })
+    : null;
+  if (current.updatesProposalId && !updated?.branch)
+    throw new GitHubDocsError("PROPOSAL_NOT_OPEN", 409);
   const planningSha =
     !current.treeSha && !current.commitSha
-      ? await app.branchHead(token, owner, name, context.binding.branch)
+      ? await app.branchHead(
+          token,
+          owner,
+          name,
+          updated?.branch ?? context.binding.branch,
+        )
       : current.baseSha!;
   const baseCommit = await app.commit(token, owner, name, planningSha);
   const entries = await app.tree(token, owner, name, baseCommit.tree.sha);
@@ -190,6 +205,98 @@ export async function writeGitProposal(
   )
     unavailable();
 
+  if (updated) {
+    // Append to the open PR's branch. A closed or merged PR is never reopened.
+    const openPr = await app.findProposalPullRequest(token, owner, name, {
+      proposalId: updated.proposalId,
+      base: context.binding.branch,
+      repositoryId: Number(context.binding.repositoryId),
+    });
+    if (!openPr || openPr.state !== "open" || openPr.merged)
+      throw new GitHubDocsError("PROPOSAL_NOT_OPEN", 409);
+    const head = await app.branchHead(token, owner, name, updated.branch!);
+    if (head !== current.commitSha) {
+      if (head !== current.baseSha) {
+        if (!(await app.isAncestor(token, owner, name, current.commitSha!, head)))
+          throw new GitHubDocsError("UPSTREAM_CHANGED", 409);
+      } else
+        await app.advanceBranch(
+          token,
+          owner,
+          name,
+          {
+            branch: updated.branch!,
+            expectedHead: current.baseSha!,
+            commitSha: current.commitSha!,
+          },
+          guard,
+        );
+    }
+    return withGitProposalAuthority(identity, ["writing"], async (tx, row) => {
+      const target = await tx.query.documentationGitProposals.findFirst({
+        where: and(
+          eq(proposals.teamId, row.teamId),
+          eq(proposals.proposalId, updated.proposalId),
+        ),
+      });
+      if (!target || target.status !== "open")
+        throw new GitHubDocsError("PROPOSAL_NOT_OPEN", 409);
+      // The open PR now carries these versions. Keep its original base provenance.
+      const merged = [...target.changes];
+      for (const change of row.changes) {
+        const at = merged.findIndex((c) => c.documentId === change.documentId);
+        if (at < 0) merged.push(change);
+        else merged[at] = { ...change, base: merged[at].base };
+      }
+      await tx
+        .update(links)
+        .set({ open: false })
+        .where(eq(links.proposalId, row.proposalId));
+      for (const change of row.changes) {
+        const patch = {
+          draftVersion: change.draftVersion,
+          targetPath: change.target?.sourcePath ?? null,
+        };
+        const [existing] = await tx
+          .update(links)
+          .set(patch)
+          .where(
+            and(
+              eq(links.proposalId, target.proposalId),
+              eq(links.documentId, change.documentId),
+            ),
+          )
+          .returning();
+        if (!existing)
+          await tx.insert(links).values({
+            teamId: row.teamId,
+            proposalId: target.proposalId,
+            documentId: change.documentId,
+            sourcePath: change.base?.sourcePath ?? null,
+            ...patch,
+          });
+      }
+      await tx
+        .update(proposals)
+        .set({ changes: merged, commitSha: row.commitSha })
+        .where(eq(proposals.proposalId, target.proposalId));
+      const [finished] = await tx
+        .update(proposals)
+        .set({
+          status: "updated",
+          pullRequestNumber: openPr.number,
+          pullRequestUrl: openPr.url,
+          diagnostics: report.diagnostics,
+          leaseToken: null,
+          leaseExpiresAt: null,
+          finishedAt: new Date(),
+        })
+        .where(eq(proposals.proposalId, row.proposalId))
+        .returning();
+      await enqueueGitPrCheck(row.teamId, openPr.number, tx);
+      return finished;
+    });
+  }
   let pr: {
     number: number;
     url: string;

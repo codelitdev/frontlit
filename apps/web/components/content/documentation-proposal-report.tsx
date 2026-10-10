@@ -15,6 +15,8 @@ const descriptions: Record<DocumentationGitProposal["status"], string> = {
   prepared: "Validation completed; waiting to write to GitHub.",
   writing: "Writing the captured proposal to GitHub.",
   open: "Review and merge this pull request in GitHub. Public documentation is unchanged by this proposal.",
+  updated:
+    "Added as a commit to an open pull request. Review and merge that pull request in GitHub.",
   merged: "Merged into Git. Documentation publication is still pending.",
   published: "The merged documentation candidate was published successfully.",
   closed: "Closed without merging. Your local drafts remain available.",

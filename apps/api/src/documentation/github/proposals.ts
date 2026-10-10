@@ -23,7 +23,7 @@ import { digest, documentationReadAllowed } from "../publications";
 import { GitHubDocsError } from "./app";
 import { assertGitPublisherCredential, type GitPublisherCredential } from "./publisher";
 import { gitDraftSource } from "./drafts";
-import type { CapturedGitChange } from "./proposal-patch";
+import { gitSourceHash, type CapturedGitChange } from "./proposal-patch";
 function fail(code: string): never {
   throw new GitHubDocsError(code, 409);
 }
@@ -185,14 +185,35 @@ export async function submitGitProposal(
     const chosen = [...input.selected, ...input.removals],
       ids = chosen.map((d) => d.documentId);
     if (new Set(ids).size !== ids.length) fail("INVALID_PROPOSAL");
-    const open = await tx.query.documentationGitProposalDocuments.findFirst({
+    // An update appends to a proposal whose PR is open; its documents stay owned by it.
+    let openPr: typeof proposals.$inferSelect | null = null;
+    if (input.updatesProposalId) {
+      if (input.mode !== "pull_request") fail("INVALID_PROPOSAL");
+      openPr =
+        (await tx.query.documentationGitProposals.findFirst({
+          where: and(
+            eq(proposals.teamId, teamId),
+            eq(proposals.proposalId, input.updatesProposalId),
+          ),
+        })) ?? null;
+      if (
+        !openPr ||
+        openPr.status !== "open" ||
+        openPr.mode !== "pull_request" ||
+        !openPr.branch ||
+        !openPr.commitSha
+      )
+        fail("PROPOSAL_NOT_OPEN");
+    }
+    const owned = await tx.query.documentationGitProposalDocuments.findMany({
       where: and(
         eq(proposalDocs.teamId, teamId),
         inArray(proposalDocs.documentId, ids),
         eq(proposalDocs.open, true),
       ),
     });
-    if (open) fail("PROPOSAL_ALREADY_OPEN");
+    if (owned.some((link) => link.proposalId !== openPr?.proposalId))
+      fail("PROPOSAL_ALREADY_OPEN");
     await requireDocumentationWorkCapacity(tx, teamId);
     const changes: CapturedGitChange[] = [];
     let bytes = 0;
@@ -209,8 +230,25 @@ export async function submitGitProposal(
       if (doc.draftVersion !== selection.expectedDraftVersion)
         throw new DraftConflict(doc.draftVersion);
       const source = await gitDraftSource(tx, teamId, doc);
+      // Against the open PR's branch, the file is whatever that PR last wrote.
+      const prior = openPr?.changes.find((c) => c.documentId === doc.documentId);
+      let base = source.base;
+      if (prior) {
+        if (
+          !prior.target &&
+          !input.selected.some((d) => d.documentId === doc.documentId)
+        )
+          fail("INVALID_PROPOSAL");
+        base = prior.target
+          ? {
+              commitSha: openPr!.commitSha!,
+              sourcePath: prior.target.sourcePath,
+              sourceHash: gitSourceHash(prior.target.markdown),
+            }
+          : null;
+      }
       const selected = input.selected.find((d) => d.documentId === doc.documentId);
-      if (!selected && !source.base) fail("INVALID_PROPOSAL");
+      if (!selected && !base) fail("INVALID_PROPOSAL");
       let target: CapturedGitChange["target"] = null;
       if (selected) {
         const fm: Record<string, unknown> = {
@@ -239,7 +277,7 @@ export async function submitGitProposal(
       changes.push({
         documentId: doc.documentId,
         draftVersion: doc.draftVersion,
-        base: source.base,
+        base,
         target,
       });
     }
@@ -261,6 +299,7 @@ export async function submitGitProposal(
         grantVersion: binding.grantVersion,
         mode: input.mode,
         title: input.title,
+        updatesProposalId: openPr?.proposalId ?? null,
         changes,
       })
       .returning();
@@ -272,6 +311,8 @@ export async function submitGitProposal(
         draftVersion: change.draftVersion,
         sourcePath: change.base?.sourcePath ?? null,
         targetPath: change.target?.sourcePath ?? null,
+        // Documents already in the open PR stay owned by it.
+        open: !owned.some((link) => link.documentId === change.documentId),
       })),
     );
     return proposalProjection(proposal);

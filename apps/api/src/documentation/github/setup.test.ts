@@ -132,7 +132,7 @@ describe("account-bound GitHub setup proof", () => {
       teamId,
       actorAccountId: actor.accountId,
       purpose: "connect",
-      returnPath: "/settings/content?tab=source",
+      returnPath: "/settings/integrations?tab=github",
       status: "pending",
     });
     expect(row.expiresAt.getTime() - row.createdAt.getTime()).toBeLessThanOrEqual(

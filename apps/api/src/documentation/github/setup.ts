@@ -39,7 +39,10 @@ export function requireGitManager(
 }
 export function requireSetupReturnPath(path: string) {
   // No arbitrary redirects, hashes, credentials or cross-workspace destinations.
-  if (path !== "/content?type=documentation" && path !== "/settings/content?tab=source")
+  if (
+    path !== "/content?type=documentation" &&
+    path !== "/settings/integrations?tab=github"
+  )
     throw new GitHubDocsError("GITHUB_INVALID_RETURN_PATH", 400);
   return path;
 }
@@ -54,7 +57,7 @@ export async function startGitHubSetup(
 ) {
   requireGitManager(teamId, actor);
   const returnPath = requireSetupReturnPath(
-    input.returnPath ?? "/settings/content?tab=source",
+    input.returnPath ?? "/settings/integrations?tab=github",
   );
   const proof = createSetupProof();
   const expiresAt = new Date(Date.now() + SETUP_TTL_MS);

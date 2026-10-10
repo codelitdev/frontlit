@@ -1678,6 +1678,8 @@ export const documentationGitProposals = pgTable(
     grantVersion: integer("grant_version").notNull(),
     mode: text("mode", { enum: ["pull_request", "direct"] }).notNull(),
     title: text("title").notNull(),
+    /** Set when this submission appends a commit to another proposal's open PR. */
+    updatesProposalId: text("updates_proposal_id"),
     changes: jsonb("changes")
       .$type<import("../documentation/github/proposal-patch").CapturedGitChange[]>()
       .notNull(),
@@ -1695,6 +1697,7 @@ export const documentationGitProposals = pgTable(
         "prepared",
         "writing",
         "open",
+        "updated",
         "merged",
         "published",
         "closed",

@@ -285,6 +285,9 @@ export async function getGitMigration(
       : null,
     requiresManualCommit: false,
     repositoryPrivate: preflight?.repositoryPrivate ?? null,
+    repositoryName: preflight
+      ? `${preflight.ownerLogin}/${preflight.repositoryName}`
+      : null,
     initializeEmptyRepositoryRequired: preflight?.commitSha === null,
     unpublishedDraftCount: plan.files.filter(
       (file) =>

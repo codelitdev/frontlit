@@ -12,8 +12,8 @@ export const documentationGitSetupBodySchema = z
   .object({
     purpose: z.enum(["connect", "reconnect", "upgrade"]).default("connect"),
     returnPath: z
-      .enum(["/content?type=documentation", "/settings/content?tab=source"])
-      .default("/settings/content?tab=source"),
+      .enum(["/content?type=documentation", "/settings/integrations?tab=github"])
+      .default("/settings/integrations?tab=github"),
   })
   .strict();
 export const documentationGitSetupSchema = z.object({
@@ -64,6 +64,8 @@ export const documentationGitProposalBodySchema = z
       )
       .max(1000),
     removals: z.array(proposalDocumentSchema).max(1000).default([]),
+    /** Append a commit to this proposal's open pull request instead of opening another. */
+    updatesProposalId: z.string().min(1).max(100).optional(),
     idempotencyKey: z.string().min(1).max(200),
   })
   .strict()
@@ -83,6 +85,7 @@ export const documentationGitProposalSchema = z.object({
     "prepared",
     "writing",
     "open",
+    "updated",
     "merged",
     "published",
     "closed",
@@ -340,6 +343,7 @@ export const documentationGitMigrationSchema = z.object({
   pullRequest: documentationGitMigrationPrSchema.nullable().default(null),
   requiresManualCommit: z.literal(false),
   repositoryPrivate: z.boolean().nullable(),
+  repositoryName: z.string().nullable(),
   unpublishedDraftCount: z.number().int().nonnegative(),
   initializeEmptyRepositoryRequired: z.boolean(),
   diagnostics: z.array(documentationDiagnosticSchema),

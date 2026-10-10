@@ -49,6 +49,10 @@ describe("isNavItemActive", () => {
     expect(canAccessWorkspacePath("/settings/content", team(["articles:read"]))).toBe(
       false,
     );
+    expect(canAccessWorkspacePath("/settings/integrations", readOnlyDocs)).toBe(false);
+    expect(
+      canAccessWorkspacePath("/settings/integrations", team(["documentation:manage"])),
+    ).toBe(true);
     expect(canAccessWorkspacePath("/", readOnlyDocs)).toBe(false);
     expect(canAccessWorkspacePath("/content", readOnlyDocs)).toBe(true);
     expect(canAccessWorkspacePath("/website/pages", readOnlyDocs)).toBe(false);

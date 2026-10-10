@@ -121,7 +121,7 @@ describe("signed OAuth documentation setup transports", () => {
         actorAccountId: account.id,
         stateHash: crypto.randomUUID(),
         purpose: "connect",
-        returnPath: "/settings/content?tab=source",
+        returnPath: "/settings/integrations?tab=github",
         status: "authorized",
         encryptedUserToken: "fixture",
         githubUserId: "123",

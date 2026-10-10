@@ -77,11 +77,25 @@ export async function prepareGitProposal(proposal: Proposal, app: DocsGitHubApp)
     async (_tx, current, binding) => ({ current, binding }),
   );
   const { token, repository } = await readGitBindingAccess(context.binding, app);
+  // An update appends to the open PR's branch instead of the publishing branch.
+  const updated = context.current.updatesProposalId
+    ? await db.query.documentationGitProposals.findFirst({
+        where: and(
+          eq(proposals.teamId, proposal.teamId),
+          eq(proposals.proposalId, context.current.updatesProposalId),
+        ),
+      })
+    : null;
+  if (
+    context.current.updatesProposalId &&
+    (!updated?.branch || updated.status !== "open")
+  )
+    throw new GitHubDocsError("PROPOSAL_NOT_OPEN", 409);
   const head = await app.branchHead(
     token,
     repository.owner.login,
     repository.name,
-    context.binding.branch,
+    updated?.branch ?? context.binding.branch,
   );
   await renew(identity);
   const entries = await app.commitTree(
@@ -112,8 +126,9 @@ export async function prepareGitProposal(proposal: Proposal, app: DocsGitHubApp)
         .set({
           status: "prepared",
           baseSha: head,
-          branch:
-            current.mode === "pull_request"
+          branch: updated
+            ? updated.branch
+            : current.mode === "pull_request"
               ? `frontlit/docs/${current.proposalId}`
               : binding.branch,
           diagnostics: report.diagnostics,

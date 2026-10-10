@@ -458,7 +458,7 @@ router.get(
         /^[1-9][0-9]*$/.test(req.query.installation_id) &&
         ["install", "update", "request"].includes(String(req.query.setup_action))
       ) {
-        const url = new URL("/settings/content?tab=source", config.webOrigin);
+        const url = new URL("/settings/integrations?tab=github", config.webOrigin);
         url.searchParams.set("githubInstallationReturned", "1");
         res.redirect(303, url.toString());
         return;
@@ -473,7 +473,7 @@ router.get(
               eq(setups.status, "pending"),
             ),
           );
-        const url = new URL("/settings/content?tab=source", config.webOrigin);
+        const url = new URL("/settings/integrations?tab=github", config.webOrigin);
         url.searchParams.set("githubError", "GITHUB_AUTHORIZATION_DENIED");
         res.redirect(303, url.toString());
         return;

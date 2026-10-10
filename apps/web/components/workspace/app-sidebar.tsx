@@ -15,6 +15,7 @@ import {
   Library,
   Mail,
   Palette,
+  Plug,
   Send,
   Settings,
   LifeBuoy,
@@ -85,6 +86,7 @@ const FOOTER_NAV: NavItem[] = [
       { href: "/settings/esp", label: "ESP", icon: Send },
       { href: "/settings/ai", label: "AI", icon: Sparkles },
       { href: "/settings/content", label: "Content", icon: Library },
+      { href: "/settings/integrations", label: "Integrations", icon: Plug },
     ],
   },
 ];

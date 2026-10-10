@@ -393,6 +393,133 @@ describe("durable guarded Git proposal writes", () => {
       targetPath: "docs/guide.md",
     });
   });
+  async function openThenEdit() {
+    const f = await fixture();
+    const first = await writeGitProposal(
+      f.prepared,
+      f.provider,
+      "http://localhost:3000",
+    );
+    const firstMarkdown = first.changes[0].target!.markdown;
+    await saveDocumentation(f.teamId, f.doc.documentId, {
+      expectedDraftVersion: 1,
+      title: "Guide",
+      markdown: "Second local edit",
+    });
+    // The open PR's branch now holds the first proposal's file.
+    f.app.blob.mockResolvedValue(Buffer.from(firstMarkdown));
+    return { f, first, firstMarkdown };
+  }
+  it("appends a commit to the open PR branch instead of opening another PR", async () => {
+    const { f, first, firstMarkdown } = await openThenEdit();
+    const update = await submitGitProposal(
+      f.teamId,
+      { kind: "apikey", keyId: f.key.id },
+      {
+        title: "Update guide",
+        mode: "pull_request",
+        selected: [{ documentId: f.doc.documentId, expectedDraftVersion: 2 }],
+        updatesProposalId: first.proposalId,
+        idempotencyKey: crypto.randomUUID(),
+      },
+    );
+    expect(update).toMatchObject({ status: "queued" });
+    // Same-document submissions without naming the open PR stay rejected.
+    await expect(
+      submitGitProposal(
+        f.teamId,
+        { kind: "apikey", keyId: f.key.id },
+        {
+          title: "Competing",
+          mode: "pull_request",
+          selected: [{ documentId: f.doc.documentId, expectedDraftVersion: 2 }],
+          idempotencyKey: crypto.randomUUID(),
+        },
+      ),
+    ).rejects.toMatchObject({ code: "PROPOSAL_ALREADY_OPEN" });
+    const newCommit = "1".repeat(40);
+    f.app.createProposalCommit.mockImplementationOnce(async (...args: unknown[]) => {
+      await (args.at(-1) as GitWriteGuard)();
+      return newCommit;
+    });
+    f.app.commit.mockImplementation(
+      async (_t: string, _o: string, _n: string, sha: string) => ({
+        sha,
+        tree: { sha: sha === newCommit || sha === commit ? tree : base },
+        parents: [{ sha: sha === newCommit ? commit : sha === commit ? parent : base }],
+      }),
+    );
+    const done = await processGitProposalQueue(
+      f.teamId,
+      f.provider,
+      "http://localhost:3000",
+    );
+    expect(done).toMatchObject({
+      status: "updated",
+      pullRequestNumber: 12,
+      updatesProposalId: first.proposalId,
+    });
+    expect(f.app.createProposalCommit.mock.calls.at(-1)![3]).toMatchObject({
+      parentSha: commit,
+    });
+    expect(f.app.advanceBranch).toHaveBeenCalledWith(
+      "scoped-token",
+      "org",
+      "docs",
+      {
+        branch: `frontlit/docs/${first.proposalId}`,
+        expectedHead: commit,
+        commitSha: newCommit,
+      },
+      expect.any(Function),
+    );
+    expect(f.app.createProposalPullRequest).toHaveBeenCalledTimes(1);
+    expect(f.remote.branches.get("trunk")).toBe(parent);
+    const target = (await db.query.documentationGitProposals.findFirst({
+      where: eq(proposals.proposalId, first.proposalId),
+    }))!;
+    expect(target).toMatchObject({ status: "open", commitSha: newCommit });
+    expect(target.changes[0]).toMatchObject({
+      draftVersion: 2,
+      base: first.changes[0].base,
+      target: { markdown: expect.stringContaining("Second local edit") },
+    });
+    expect(target.changes[0].target!.markdown).not.toBe(firstMarkdown);
+    expect(
+      await db.query.documentationGitProposalDocuments.findMany({
+        where: eq(links.documentId, f.doc.documentId),
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          proposalId: first.proposalId,
+          draftVersion: 2,
+          open: true,
+        }),
+        expect.objectContaining({ proposalId: update.proposalId, open: false }),
+      ]),
+    );
+  });
+  it("does not update a PR that is no longer open", async () => {
+    const { f, first } = await openThenEdit();
+    await db
+      .update(proposals)
+      .set({ status: "closed" })
+      .where(eq(proposals.proposalId, first.proposalId));
+    await expect(
+      submitGitProposal(
+        f.teamId,
+        { kind: "apikey", keyId: f.key.id },
+        {
+          title: "Update guide",
+          mode: "pull_request",
+          selected: [{ documentId: f.doc.documentId, expectedDraftVersion: 2 }],
+          updatesProposalId: first.proposalId,
+          idempotencyKey: crypto.randomUUID(),
+        },
+      ),
+    ).rejects.toMatchObject({ code: "PROPOSAL_NOT_OPEN" });
+  });
   it("recovers a response-lost PR creation without a duplicate PR, branch, commit or tree", async () => {
     const f = await fixture();
     f.remote.failPr = true;
