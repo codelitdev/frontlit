@@ -1,39 +1,39 @@
 import React, { useEffect, useId, useRef, useState } from "react";
 
 interface SandboxedEmbedProps {
-    content: string;
-    className?: string;
-    style?: React.CSSProperties;
-    id?: string;
+  content: string;
+  className?: string;
+  style?: React.CSSProperties;
+  id?: string;
 }
 
 export const SandboxedEmbed = ({
-    content,
-    className,
-    style,
-    id,
+  content,
+  className,
+  style,
+  id,
 }: SandboxedEmbedProps) => {
-    const iframeRef = useRef<HTMLIFrameElement>(null);
-    const [height, setHeight] = useState("100px");
-    const generatedId = useId();
-    const iframeId = id || generatedId;
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [height, setHeight] = useState("100px");
+  const generatedId = useId();
+  const iframeId = id || generatedId;
 
-    useEffect(() => {
-        const handleMessage = (event: MessageEvent) => {
-            if (
-                event.data?.type === "embed-resize" &&
-                event.data?.id === iframeId &&
-                event.data?.height
-            ) {
-                setHeight(`${event.data.height}px`);
-            }
-        };
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (
+        event.data?.type === "embed-resize" &&
+        event.data?.id === iframeId &&
+        event.data?.height
+      ) {
+        setHeight(`${event.data.height}px`);
+      }
+    };
 
-        window.addEventListener("message", handleMessage);
-        return () => window.removeEventListener("message", handleMessage);
-    }, [iframeId]);
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [iframeId]);
 
-    const srcDoc = `
+  const srcDoc = `
         <!DOCTYPE html>
         <html>
         <head>
@@ -82,19 +82,19 @@ export const SandboxedEmbed = ({
         </html>
     `;
 
-    return (
-        <iframe
-            ref={iframeRef}
-            srcDoc={srcDoc}
-            className={className}
-            style={{
-                width: "100%",
-                height: height,
-                border: "none",
-                ...style,
-            }}
-            sandbox="allow-scripts allow-popups allow-forms allow-same-origin"
-            title="Embedded Content"
-        />
-    );
+  return (
+    <iframe
+      ref={iframeRef}
+      srcDoc={srcDoc}
+      className={className}
+      style={{
+        width: "100%",
+        height: height,
+        border: "none",
+        ...style,
+      }}
+      sandbox="allow-scripts allow-popups allow-forms allow-same-origin"
+      title="Embedded Content"
+    />
+  );
 };

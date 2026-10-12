@@ -1,20 +1,22 @@
 import type { WidgetDefaultSettings } from "../../models";
 
 export interface HeaderNavLink {
-    id: string;
-    label: string;
-    href: string;
-    isButton?: boolean;
+  id: string;
+  label: string;
+  href: string;
+  isButton?: boolean;
 }
 
 export interface HeaderSettings extends WidgetDefaultSettings {
-    logoText?: string;
-    logoImage?: string;
-    links?: HeaderNavLink[];
-    ctaLabel?: string;
-    ctaHref?: string;
-    linkAlignment?: "left" | "center" | "right";
-    layout?: "fixed" | "floating" | "centered";
-    backdropBlur?: boolean;
-    showThemeSwitcher?: boolean;
+  logoText?: string;
+  logoImage?: string;
+  logoCorners?: number;
+  logoRadius?: number;
+  links?: HeaderNavLink[];
+  ctaLabel?: string;
+  ctaHref?: string;
+  linkAlignment?: "left" | "center" | "right";
+  layout?: "fixed" | "floating" | "centered";
+  backdropBlur?: boolean;
+  showThemeSwitcher?: boolean;
 }

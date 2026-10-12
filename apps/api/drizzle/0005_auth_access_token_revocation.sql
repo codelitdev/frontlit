@@ -1,0 +1,1 @@
+ALTER TABLE "auth_oauth_access_token" ADD COLUMN "revoked" timestamp with time zone;

@@ -9,50 +9,50 @@ import { ThemedDocCollection } from "@/components/themed-docs";
 import { loadDocsTree } from "@/lib/docs-tree";
 
 interface Props {
-    params: Promise<{ teamId: string; sectionSlug: string }>;
+  params: Promise<{ teamId: string; sectionSlug: string }>;
 }
 
 export async function generateMetadata(
-    { params }: Props,
-    parent: ResolvingMetadata,
+  { params }: Props,
+  parent: ResolvingMetadata,
 ): Promise<Metadata> {
-    const { teamId, sectionSlug } = await params;
-    const [collections, settings, previous] = await Promise.all([
-        loadDocsTree(teamId),
-        getSettings(teamId),
-        parent,
-    ]);
-    const collection = collections.find((item) => item.slug === sectionSlug);
-    if (!collection) return {};
+  const { teamId, sectionSlug } = await params;
+  const [collections, settings, previous] = await Promise.all([
+    loadDocsTree(teamId),
+    getSettings(teamId),
+    parent,
+  ]);
+  const collection = collections.find((item) => item.slug === sectionSlug);
+  if (!collection) return {};
 
-    const seo = resolveSeo(
-        { title: collection.name, fallbackName: collection.name },
-        settings,
-        previous.title?.absolute || "FrontLit site",
-    );
+  const seo = resolveSeo(
+    { title: collection.name, fallbackName: collection.name },
+    settings,
+    previous.title?.absolute || "FrontLit site",
+  );
 
-    return {
-        title: `${seo.title} | ${previous.title?.absolute}`,
-        description: seo.description ?? undefined,
-        alternates: {
-            canonical: `https://${await getCanonicalHost()}/docs/collections/${sectionSlug}`,
-        },
-    };
+  return {
+    title: `${seo.title} | ${previous.title?.absolute}`,
+    description: seo.description ?? undefined,
+    alternates: {
+      canonical: `https://${await getCanonicalHost()}/docs/collections/${sectionSlug}`,
+    },
+  };
 }
 
 export default async function DocCollectionPage({ params }: Props) {
-    const { teamId, sectionSlug } = await params;
-    const collections = await loadDocsTree(teamId);
-    const collection = collections.find((item) => item.slug === sectionSlug);
-    if (!collection) notFound();
+  const { teamId, sectionSlug } = await params;
+  const collections = await loadDocsTree(teamId);
+  const collection = collections.find((item) => item.slug === sectionSlug);
+  if (!collection) notFound();
 
-    return (
-        <SiteChrome teamId={teamId}>
-            <ThemedDocCollection
-                collection={collection}
-                teamId={teamId}
-                publicApiBaseUrl={API_PUBLIC_URL}
-            />
-        </SiteChrome>
-    );
+  return (
+    <SiteChrome teamId={teamId}>
+      <ThemedDocCollection
+        collection={collection}
+        teamId={teamId}
+        publicApiBaseUrl={API_PUBLIC_URL}
+      />
+    </SiteChrome>
+  );
 }

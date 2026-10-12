@@ -8,8 +8,8 @@ import type { MarqueeSettings } from "./settings";
 export * from "./settings";
 
 export const Marquee: Widget<MarqueeSettings> = {
-    metadata: marqueeMetadata,
-    widget: MarqueeWidget,
-    editor: MarqueeEditor,
-    getDefaultSettings: () => marqueeDefaults,
+  metadata: marqueeMetadata,
+  widget: MarqueeWidget,
+  editor: MarqueeEditor,
+  getDefaultSettings: () => marqueeDefaults,
 };

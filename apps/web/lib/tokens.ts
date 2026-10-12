@@ -6,19 +6,19 @@
 export const TEAM_ID_COOKIE = "frontlit_team_id";
 
 export function getTeamIdFromCookie(): string | null {
-    if (typeof document === "undefined") return null;
-    const match = document.cookie.match(
-        new RegExp(`(?:^|;\\s*)${TEAM_ID_COOKIE}=([^;]+)`),
-    );
-    return match ? decodeURIComponent(match[1]) : null;
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(
+    new RegExp(`(?:^|;\\s*)${TEAM_ID_COOKIE}=([^;]+)`),
+  );
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 /** Clears a stale team selection (team deleted, or this account isn't/no
  * longer a member of it) so the next request falls back to auto-resolution
  * instead of repeatedly failing against a team this browser can't use. */
 export function clearTeamIdCookie(): void {
-    if (typeof document === "undefined") return;
-    document.cookie = `${TEAM_ID_COOKIE}=; Max-Age=0; path=/`;
+  if (typeof document === "undefined") return;
+  document.cookie = `${TEAM_ID_COOKIE}=; Max-Age=0; path=/`;
 }
 
 /** True only for API errors that mean "the caller must pick/has no valid
@@ -26,33 +26,30 @@ export function clearTeamIdCookie(): void {
  * conflicts such as an unprovisioned SendLit integration or a duplicate
  * slug, and those errors must stay on their originating screen. */
 export function needsTeamSelection(status: number, error?: string): boolean {
-    return (
-        (status === 409 &&
-            (error === "no_team" || error === "team_required")) ||
-        (status === 400 && error === "invalid_team_id") ||
-        (status === 403 && error === "not_a_team_member")
-    );
+  return (
+    (status === 409 && (error === "no_team" || error === "team_required")) ||
+    (status === 400 && error === "invalid_team_id") ||
+    (status === 403 && error === "not_a_team_member")
+  );
 }
 
 /** Whether that error means the cookie itself is stale (as opposed to just
  * "no team picked yet") and should be cleared rather than reused. */
 export function isStaleTeamSelectionError(error?: string): boolean {
-    return error === "invalid_team_id" || error === "not_a_team_member";
+  return error === "invalid_team_id" || error === "not_a_team_member";
 }
 
 /** Resolves which team the workspace should treat as "current": the
  * cookie's team if the account still belongs to it, else its sole team, or
  * `null` if it has none/several and no valid selection. Clears the cookie as
  * a side effect when it's stale. */
-export function resolveCurrentTeamId(
-    teams: { teamId: string }[],
-): string | null {
-    const cookieTeamId = getTeamIdFromCookie();
-    const cookieIsValid =
-        !!cookieTeamId && teams.some((team) => team.teamId === cookieTeamId);
-    if (cookieTeamId && !cookieIsValid) {
-        clearTeamIdCookie();
-    }
-    if (cookieIsValid) return cookieTeamId;
-    return teams.length === 1 ? teams[0].teamId : null;
+export function resolveCurrentTeamId(teams: { teamId: string }[]): string | null {
+  const cookieTeamId = getTeamIdFromCookie();
+  const cookieIsValid =
+    !!cookieTeamId && teams.some((team) => team.teamId === cookieTeamId);
+  if (cookieTeamId && !cookieIsValid) {
+    clearTeamIdCookie();
+  }
+  if (cookieIsValid) return cookieTeamId;
+  return teams.length === 1 ? teams[0].teamId : null;
 }

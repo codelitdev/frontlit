@@ -3,25 +3,25 @@
 import { Node } from "@tiptap/core";
 
 export const CodeMirrorNode = Node.create({
-    name: "codeMirror",
-    content: "block+",
-    code: true,
+  name: "codeMirror",
+  content: "block+",
+  code: true,
 
-    addOptions() {
-        return {
-            HTMLAttributes: {},
-        };
-    },
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+    };
+  },
 
-    parseHTML() {
-        return [
-            {
-                tag: "pre",
-            },
-        ];
-    },
+  parseHTML() {
+    return [
+      {
+        tag: "pre",
+      },
+    ];
+  },
 
-    renderHTML({ HTMLAttributes }) {
-        return ["pre", HTMLAttributes, 0];
-    },
+  renderHTML({ HTMLAttributes }) {
+    return ["pre", HTMLAttributes, 0];
+  },
 });

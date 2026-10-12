@@ -3610,12 +3610,6 @@
                     "primaryKey": false,
                     "notNull": true
                 },
-                "type": {
-                    "name": "type",
-                    "type": "text",
-                    "primaryKey": false,
-                    "notNull": true
-                },
                 "slug": {
                     "name": "slug",
                     "type": "text",

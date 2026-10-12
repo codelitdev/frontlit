@@ -39,18 +39,19 @@ jobs:
                   git checkout ${{ github.ref_name }}
                   git pull origin ${{ github.ref_name }}
 
-            - name: Setup pnpm
-              uses: pnpm/action-setup@v4
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: 1.4.1
 
-            - name: Setup Node
+            - name: Setup Node for npm publishing
               uses: actions/setup-node@v4
               with:
                   node-version: 24
-                  cache: pnpm
                   registry-url: https://registry.npmjs.org
 
             - name: Install Packages
-              run: pnpm install --frozen-lockfile
+              run: bun install --frozen-lockfile
 
             - name: Create and publish versions
               id: changesets
@@ -58,7 +59,7 @@ jobs:
               with:
                   commit: "chore: update versions"
                   title: "chore: update versions"
-                  publish: pnpm ci:publish
+                  publish: bun run ci:publish
                   createGithubReleases: false
               env:
                   GITHUB_TOKEN: ${{ secrets.PAT }}

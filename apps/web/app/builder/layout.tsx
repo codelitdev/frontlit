@@ -1,10 +1,10 @@
 import { requireAuth } from "@/lib/server-auth";
 
 export default async function BuilderLayout({
-    children,
+  children,
 }: {
-    children: React.ReactNode;
+  children: React.ReactNode;
 }) {
-    await requireAuth();
-    return children;
+  await requireAuth();
+  return children;
 }

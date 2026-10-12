@@ -5,16 +5,16 @@ import { getWebLoginUrl } from "@/lib/login-url";
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage({
-    searchParams,
+  searchParams,
 }: {
-    searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string }>;
 }) {
-    const { next } = await searchParams;
-    redirect(
-        getWebLoginUrl({
-            apiPublicUrl: API_PUBLIC_URL,
-            webClient: WEB_CLIENT,
-            next,
-        }),
-    );
+  const { next } = await searchParams;
+  redirect(
+    getWebLoginUrl({
+      apiPublicUrl: API_PUBLIC_URL,
+      webClient: WEB_CLIENT,
+      next,
+    }),
+  );
 }

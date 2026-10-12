@@ -65,7 +65,7 @@ Connect an AI agent: add `https://api.frontlit.app/mcp` as a remote MCP server i
 | [`@frontlit/page-builder`](packages/page-builder)     | Block-based WYSIWYG page builder and renderer for React      | [![npm](https://img.shields.io/npm/v/@frontlit/page-builder)](https://www.npmjs.com/package/@frontlit/page-builder) |
 | [`@frontlit/text-editor`](packages/text-editor)       | TipTap-based rich text editor and static renderer            | [![npm](https://img.shields.io/npm/v/@frontlit/text-editor)](https://www.npmjs.com/package/@frontlit/text-editor)   |
 | [`@frontlit/api-contract`](packages/api-contract)     | Shared ts-rest contract (Zod schemas and routes), internal   | private                                                                                                             |
-| [`@frontlit/image-uploader`](packages/image-uploader) | Image upload dialog with library and Unsplash tabs, internal | private                                                                                                             |
+| [`@frontlit/media-uploader`](packages/media-uploader) | Media upload dialog with library and Unsplash tabs, internal | private                                                                                                             |
 
 The repository also contains the API (`apps/api`), which owns all product behavior; the dashboard (`apps/web`), a thin client over the API; the public sites server (`apps/sites`); and the docs site (`apps/docs`). A runnable demo of the component packages is in [`examples/components-demo`](examples/components-demo).
 
@@ -102,27 +102,27 @@ For a public deployment, use externally reachable HTTPS origins and set `ENABLE_
 
 ## Development
 
-**Requirements:** [Node.js](https://nodejs.org) 24, [pnpm](https://pnpm.io) 10 and Docker. We develop on Linux; on Windows, use WSL.
+**Requirements:** [Bun](https://bun.sh) 1.4.1 or newer and Docker. We develop on Linux; on Windows, use WSL.
 
 ```bash
-pnpm install
+bun install
 
 # Postgres, Redis and SendLit. FrontLit itself runs on your machine.
 docker compose -f docker-compose.local.yml up
 ```
 
-Wait for `FrontLit migrations applied.` in the Compose logs, then configure and start the apps in separate terminals (or use `pnpm dev` to run all three together):
+Wait for `FrontLit migrations applied.` in the Compose logs, then configure and start the apps in separate terminals (or use `bun run dev` to run all three together):
 
 ```bash
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
 cp apps/sites/.env.example apps/sites/.env
-pnpm --filter @frontlit/api-contract build
+bun run --filter @frontlit/api-contract build
 
-pnpm dev:api     # API on http://localhost:4000
-pnpm dev:web     # Dashboard on http://localhost:3000
-pnpm dev:sites   # Public sites on http://localhost:3002
-pnpm dev:docs    # Docs site
+bun run dev:api     # API on http://localhost:4000
+bun run dev:web     # Dashboard on http://localhost:3000
+bun run dev:sites   # Public sites on http://localhost:3002
+bun run dev:docs    # Docs site
 ```
 
 Don't chain them with `&&`: each command waits for the previous process to exit.
@@ -138,9 +138,11 @@ Postgres is on `127.0.0.1:5433` and SendLit on <http://localhost:3001>. Don't ru
 ### Tests
 
 ```bash
-pnpm --filter @frontlit/api-contract build
-pnpm test
+bun run --filter @frontlit/api-contract build
+bun run test
 ```
+
+Other useful scripts: `bun run typecheck`, `bun run format:check` (Biome) and `bun run check:drift` (verifies the generated auth and billing schemas are up to date). Documentation management and GitHub sync are described in [docs/docs-management.md](docs/docs-management.md).
 
 ### Tech stack
 
@@ -168,8 +170,8 @@ ts-rest, PostgreSQL (with pgvector), Drizzle ORM, Next.js, Tailwind CSS, Shadcn 
 Contributions are welcome. For anything larger than a small fix, please open an issue first so we can agree on the approach.
 
 1. Fork the repository and create a branch.
-2. Make your change, with tests. If you change a published package, add a changeset with `pnpm changeset`.
-3. Run `pnpm lint`, `pnpm prettier` and `pnpm test`.
+2. Make your change, with tests. If you change a published package, add a changeset with `bun run changeset`.
+3. Run `bun run lint`, `bun run format`, `bun run typecheck` and `bun run test`.
 4. Open a pull request. Tests and code quality checks run on every pull request and must pass.
 
 Public site UI must be built from `@frontlit/page-builder` primitives; see [AGENTS.md](AGENTS.md) for the rules.
@@ -185,6 +187,6 @@ Please don't report security issues in public issues. Report them privately thro
 FrontLit is split into two licenses:
 
 - **AGPL-3.0-or-later** covers the server (`apps/api`) and the web app (`apps/web`). If you run a modified FrontLit as a hosted service, you must share your changes under the same license. Self-hosting is free.
-- **MIT** covers the packages you embed in your own products: `@frontlit/page-builder`, `@frontlit/text-editor`, `@frontlit/image-uploader` and `@frontlit/api-contract`. Each of these has its own `LICENSE` file.
+- **MIT** covers the packages you embed in your own products: `@frontlit/page-builder`, `@frontlit/text-editor`, `@frontlit/media-uploader` and `@frontlit/api-contract`. Each of these has its own `LICENSE` file.
 
 The AGPL license text is in [LICENSE](./LICENSE). For a commercial license that allows a private modified fork, contact the maintainers.

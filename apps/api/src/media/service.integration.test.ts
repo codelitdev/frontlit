@@ -10,17 +10,17 @@ import { getMediaUploadSignature } from "./service";
  * a network dependency.
  */
 const hasCredentials = Boolean(
-    process.env.MEDIALIT_APIKEY && process.env.MEDIALIT_SERVER,
+  process.env.MEDIALIT_APIKEY && process.env.MEDIALIT_SERVER,
 );
 
 describe.skipIf(!hasCredentials)("MediaLit service (live)", () => {
-    it("obtains a real upload signature scoped to a group", async () => {
-        const { signature, endpoint } = await getMediaUploadSignature(
-            "integration-test-team",
-        );
+  it("obtains a real upload signature scoped to a group", async () => {
+    const { signature, endpoint } = await getMediaUploadSignature(
+      "integration-test-team",
+    );
 
-        expect(typeof signature).toBe("string");
-        expect(signature.length).toBeGreaterThan(0);
-        expect(endpoint).toBe(process.env.MEDIALIT_SERVER);
-    });
+    expect(typeof signature).toBe("string");
+    expect(signature.length).toBeGreaterThan(0);
+    expect(endpoint).toBe(process.env.MEDIALIT_SERVER);
+  });
 });

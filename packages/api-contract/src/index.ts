@@ -11,6 +11,7 @@ export * from "./schemas/documents";
 export * from "./content-paths";
 export * from "./schemas/articles";
 export * from "./schemas/documentation";
+export * from "./schemas/documentation-github";
 export * from "./schemas/product-updates";
 export * from "./schemas/email";
 export * from "./schemas/esp";

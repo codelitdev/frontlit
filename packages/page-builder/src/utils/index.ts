@@ -7,6 +7,6 @@ export * from "./color-mode";
 
 // Text-editor-content utilities now live in @frontlit/text-editor.
 export {
-    normalizeTextEditorContent,
-    extractTextFromTextEditorContent,
+  normalizeTextEditorContent,
+  extractTextFromTextEditorContent,
 } from "@frontlit/text-editor";

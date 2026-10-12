@@ -22,9 +22,9 @@ The slug stays reserved when hidden. Removing the custom domain always re-enable
 
 Verification is two independent checks. Both must pass:
 
-1. **Ownership** — `TXT` at `_frontlit-verify.<hostname>` equals the issued token.
+1. **Ownership** — `TXT` at `<team TXT record name>.<hostname>` equals the issued token. Standalone teams default to `_frontlit-verify`; provisioning integrations can assign a team-specific label.
 2. **Routing**
-    - Non-apex (`www.example.com`): `CNAME` chain includes `CUSTOM_DOMAIN_CNAME_TARGET`.
+    - Non-apex (`www.example.com`): `CNAME` chain includes the team's configured target, or `CUSTOM_DOMAIN_CNAME_TARGET` when no team override is set.
     - Apex (`example.com`): ALIAS / ANAME / CNAME-flattening to the same target. The name must resolve (flattening often surfaces as a CNAME or as A records). If `CUSTOM_DOMAIN_A_RECORDS` is set, the apex A set must match; otherwise ownership TXT plus name-resolves is enough so Cloudflare-style flattening works.
 
 Do not put a raw CNAME at the zone apex unless the DNS host flattens it. Status flips only when the team clicks Check DNS (`POST /domain/custom/verify`).
@@ -55,7 +55,8 @@ authority as `GET /public/resolve-host?host=`:
 | Variable                                       | Purpose                                                                                                                                           |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `PLATFORM_SITE_DOMAIN`                         | Suffix used to classify `<slug>.<domain>` (default `localhost`).                                                                                  |
-| `CUSTOM_DOMAIN_CNAME_TARGET`                   | DNS target shown in the workspace and checked for non-apex CNAME. Defaults to `sites.<PLATFORM_SITE_DOMAIN>`.                                     |
+| `CUSTOM_DOMAIN_CNAME_TARGET`                   | Default DNS target shown in the workspace and checked for non-apex CNAME when a team has no provisioning override. Defaults to `sites.<PLATFORM_SITE_DOMAIN>`. |
+| `CUSTOM_DOMAIN_TXT_RECORD_NAME`                | Default relative TXT owner label. Defaults to `_frontlit-verify`; team provisioning can override it.                                               |
 | `CUSTOM_DOMAIN_A_RECORDS`                      | Optional comma-separated IPv4 set required for apex hosts. Omit until anycast IPs are stable.                                                     |
 | `SITES_BASE_URL` / `REVALIDATE_WEBHOOK_SECRET` | Domain mutations ping `apps/sites` with `{ teamId, invalidateHosts }` so the process host map drops immediately. ISR tag revalidation still runs. |
 
@@ -71,7 +72,7 @@ authority as `GET /public/resolve-host?host=`:
     127.0.0.1 acme.localhost
     ```
 
-3. Mock or publish the TXT + CNAME (or apex flattening) records, then Check DNS.
+3. Mock or publish the configured TXT + CNAME (or apex flattening) records, then Check DNS.
 4. Toggle **Also serve this site on {slug}.{platform}**. With it off, `<slug>.localhost:3002` is an unknown host; the custom host still renders.
 
 ## Workspace

@@ -8,13 +8,13 @@ import type { ContentSettings } from "./settings";
 export * from "./settings";
 
 export const Content: Widget<ContentSettings> = {
-    metadata: contentMetadata,
-    widget: ContentWidget,
-    editor: ContentEditor,
-    getDefaultSettings: () => contentDefaults,
-    layouts: [
-        { id: "side", name: "Media beside" },
-        { id: "stacked", name: "Media on top" },
-        { id: "overlay", name: "Overlay" },
-    ],
+  metadata: contentMetadata,
+  widget: ContentWidget,
+  editor: ContentEditor,
+  getDefaultSettings: () => contentDefaults,
+  layouts: [
+    { id: "side", name: "Media beside" },
+    { id: "stacked", name: "Media on top" },
+    { id: "overlay", name: "Overlay" },
+  ],
 };

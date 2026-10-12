@@ -406,9 +406,9 @@ using the superseded incremental history must be reset before applying it.
 For a built API, apply migrations before starting it:
 
 ```bash
-pnpm --filter @frontlit/api build
-pnpm --filter @frontlit/api db:migrate
-pnpm dev:api
+bun run --filter @frontlit/api build
+bun run --filter @frontlit/api db:migrate
+bun run dev:api
 ```
 
 If the API crashes with `relation "auth_oauth_resource" does not exist`, the
@@ -472,7 +472,7 @@ failures recorded below.
 The focused protocol and OAuth checks are:
 
 ```bash
-pnpm --filter @frontlit/api exec vitest run \
+bun run --filter @frontlit/api test \
   src/mcp \
   src/auth/cimd-fetch.test.ts \
   src/auth/better-auth-mcp.test.ts \
@@ -482,11 +482,11 @@ pnpm --filter @frontlit/api exec vitest run \
 The normal repository checks are:
 
 ```bash
-pnpm --filter @frontlit/api check-types
-pnpm --filter @frontlit/api test
-pnpm --filter @frontlit/api build
-pnpm lint
-pnpm --filter @frontlit/docs build
+bun run --filter @frontlit/api check-types
+bun run --filter @frontlit/api test
+bun run --filter @frontlit/api build
+bun run lint
+bun run --filter @frontlit/docs build
 git diff --check
 ```
 

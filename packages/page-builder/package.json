@@ -1,143 +1,153 @@
 {
-    "name": "@frontlit/page-builder",
-    "version": "0.1.0-alpha.1",
-    "description": "Block-based WYSIWYG page builder and renderer for React",
-    "author": "FrontLit",
-    "license": "MIT",
-    "type": "module",
-    "main": "./dist/index.js",
-    "module": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "files": [
-        "dist",
-        "README.md",
-        "LICENSE"
-    ],
-    "exports": {
-        ".": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.js",
-            "default": "./dist/index.js"
-        },
-        "./models": {
-            "types": "./dist/models/index.d.ts",
-            "import": "./dist/models/index.js",
-            "default": "./dist/models/index.js"
-        },
-        "./primitives": {
-            "types": "./dist/primitives/index.d.ts",
-            "import": "./dist/primitives/index.js",
-            "default": "./dist/primitives/index.js"
-        },
-        "./components": {
-            "types": "./dist/components/index.d.ts",
-            "import": "./dist/components/index.js",
-            "default": "./dist/components/index.js"
-        },
-        "./blocks": {
-            "types": "./dist/blocks/index.d.ts",
-            "import": "./dist/blocks/index.js",
-            "default": "./dist/blocks/index.js"
-        },
-        "./renderer": {
-            "types": "./dist/renderer/index.d.ts",
-            "import": "./dist/renderer/index.js",
-            "default": "./dist/renderer/index.js"
-        },
-        "./builder": {
-            "types": "./dist/builder/index.d.ts",
-            "import": "./dist/builder/index.js",
-            "default": "./dist/builder/index.js"
-        },
-        "./data-slots": {
-            "types": "./dist/data-slots.d.ts",
-            "import": "./dist/data-slots.js",
-            "default": "./dist/data-slots.js"
-        },
-        "./styles.css": "./dist/styles.css",
-        "./theme.css": "./dist/theme.css"
+  "name": "@frontlit/page-builder",
+  "version": "0.1.0-alpha.2",
+  "description": "Block-based WYSIWYG page builder and renderer for React",
+  "author": "FrontLit",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
-    "typesVersions": {
-        "*": {
-            "models": [
-                "dist/models/index.d.ts"
-            ],
-            "primitives": [
-                "dist/primitives/index.d.ts"
-            ],
-            "components": [
-                "dist/components/index.d.ts"
-            ],
-            "blocks": [
-                "dist/blocks/index.d.ts"
-            ],
-            "renderer": [
-                "dist/renderer/index.d.ts"
-            ],
-            "builder": [
-                "dist/builder/index.d.ts"
-            ],
-            "data-slots": [
-                "dist/data-slots.d.ts"
-            ]
-        }
+    "./models": {
+      "types": "./dist/models/index.d.ts",
+      "import": "./dist/models/index.js",
+      "default": "./dist/models/index.js"
     },
-    "sideEffects": [
-        "**/*.css"
-    ],
-    "publishConfig": {
-        "access": "public"
+    "./primitives": {
+      "types": "./dist/primitives/index.d.ts",
+      "import": "./dist/primitives/index.js",
+      "default": "./dist/primitives/index.js"
     },
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/codelitdev/frontlit.git",
-        "directory": "packages/page-builder"
+    "./components": {
+      "types": "./dist/components/index.d.ts",
+      "import": "./dist/components/index.js",
+      "default": "./dist/components/index.js"
     },
-    "homepage": "https://github.com/codelitdev/frontlit/tree/main/packages/page-builder",
-    "bugs": {
-        "url": "https://github.com/codelitdev/frontlit/issues"
+    "./blocks": {
+      "types": "./dist/blocks/index.d.ts",
+      "import": "./dist/blocks/index.js",
+      "default": "./dist/blocks/index.js"
     },
-    "keywords": [
-        "react",
-        "page-builder",
-        "wysiwyg",
-        "blocks",
-        "landing-page",
-        "frontlit"
-    ],
-    "scripts": {
-        "build": "tsup && node scripts/add-use-client.mjs && tailwindcss -i src/styles.css -o dist/styles.css && cp src/theme.css dist/theme.css && rm -rf dist/fonts && cp -a fonts dist/fonts && node scripts/rewrite-font-urls.mjs",
-        "prepublishOnly": "pnpm run build",
-        "dev": "tsup --watch",
-        "clean": "rimraf dist",
-        "check-types": "tsc --noEmit"
+    "./renderer": {
+      "types": "./dist/renderer/index.d.ts",
+      "import": "./dist/renderer/index.js",
+      "default": "./dist/renderer/index.js"
     },
-    "peerDependencies": {
-        "react": "^18.0.0 || ^19.0.0",
-        "react-dom": "^18.0.0 || ^19.0.0"
+    "./builder": {
+      "types": "./dist/builder/index.d.ts",
+      "import": "./dist/builder/index.js",
+      "default": "./dist/builder/index.js"
     },
-    "dependencies": {
-        "@frontlit/text-editor": "workspace:*",
-        "@radix-ui/react-dialog": "^1.1.15",
-        "@radix-ui/react-label": "^2.1.8",
-        "@radix-ui/react-slot": "^1.2.4",
-        "@radix-ui/react-switch": "^1.2.6",
-        "class-variance-authority": "^0.7.1",
-        "clsx": "^2.1.1",
-        "color-convert": "^3.1.0",
-        "lucide-react": "^0.553.0",
-        "tailwind-merge": "^3.4.0",
-        "tw-animate-css": "^1.4.0"
+    "./data-slots": {
+      "types": "./dist/data-slots.d.ts",
+      "import": "./dist/data-slots.js",
+      "default": "./dist/data-slots.js"
     },
-    "devDependencies": {
-        "@types/color-convert": "^2.0.4",
-        "@types/node": "^20.0.0",
-        "@types/react": "^19.0.0",
-        "@types/react-dom": "^19.0.0",
-        "@tailwindcss/cli": "^4.1.0",
-        "rimraf": "^5.0.0",
-        "tailwindcss": "^4.1.0",
-        "tsup": "^8.3.0",
-        "typescript": "^5.6.2"
+    "./styles.css": "./dist/styles.css",
+    "./theme.css": "./dist/theme.css"
+  },
+  "typesVersions": {
+    "*": {
+      "models": [
+        "dist/models/index.d.ts"
+      ],
+      "primitives": [
+        "dist/primitives/index.d.ts"
+      ],
+      "components": [
+        "dist/components/index.d.ts"
+      ],
+      "blocks": [
+        "dist/blocks/index.d.ts"
+      ],
+      "renderer": [
+        "dist/renderer/index.d.ts"
+      ],
+      "builder": [
+        "dist/builder/index.d.ts"
+      ],
+      "data-slots": [
+        "dist/data-slots.d.ts"
+      ]
     }
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codelitdev/frontlit.git",
+    "directory": "packages/page-builder"
+  },
+  "homepage": "https://github.com/codelitdev/frontlit/tree/main/packages/page-builder",
+  "bugs": {
+    "url": "https://github.com/codelitdev/frontlit/issues"
+  },
+  "keywords": [
+    "react",
+    "page-builder",
+    "wysiwyg",
+    "blocks",
+    "landing-page",
+    "frontlit"
+  ],
+  "scripts": {
+    "build": "tsup && node scripts/add-use-client.mjs && tailwindcss -i src/styles.css -o dist/styles.css && cp src/theme.css dist/theme.css && rm -rf dist/fonts && cp -a fonts dist/fonts && node scripts/rewrite-font-urls.mjs",
+    "prepublishOnly": "bun run build",
+    "dev": "tsup --watch",
+    "clean": "rimraf dist",
+    "check-types": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
+  },
+  "dependencies": {
+    "@frontlit/media-uploader": "workspace:*",
+    "@frontlit/text-editor": "workspace:*",
+    "@radix-ui/react-alert-dialog": "^1.1.23",
+    "@radix-ui/react-avatar": "^1.2.6",
+    "@radix-ui/react-checkbox": "^1.3.11",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.24",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-popover": "^1.1.23",
+    "@radix-ui/react-radio-group": "^1.4.7",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-switch": "^1.2.6",
+    "@radix-ui/react-select": "^2.3.7",
+    "@radix-ui/react-separator": "^1.1.15",
+    "@radix-ui/react-tooltip": "^1.2.16",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "color-convert": "^3.1.0",
+    "lucide-react": "^0.553.0",
+    "tailwind-merge": "^3.4.0",
+    "tw-animate-css": "^1.4.0"
+  },
+  "devDependencies": {
+    "@types/color-convert": "^2.0.4",
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@tailwindcss/cli": "^4.1.0",
+    "rimraf": "^5.0.0",
+    "tailwindcss": "^4.1.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.2"
+  }
 }

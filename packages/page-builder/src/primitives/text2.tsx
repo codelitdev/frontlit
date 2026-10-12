@@ -1,33 +1,37 @@
-import React from "react";
-import { TypographyProps } from "./typography";
+import type React from "react";
 import { cn } from "./lib/utils";
+import type { TypographyProps } from "./typography";
 
-export const Text2: React.FC<
-    TypographyProps & { component?: "p" | "span" }
-> = ({ children, className = "", theme, component = "p", ...props }) => {
-    const typographyStyles = theme?.typography?.text2;
-    const classes = cn(
-        // Base styles
-        "text-sm",
-        // Theme overrides
-        typographyStyles?.fontFamily,
-        typographyStyles?.fontSize,
-        typographyStyles?.fontWeight,
-        typographyStyles?.lineHeight,
-        typographyStyles?.letterSpacing,
-        typographyStyles?.textTransform,
-        typographyStyles?.textDecoration,
-        typographyStyles?.textOverflow,
-        className,
-    );
+export const Text2: React.FC<TypographyProps & { component?: "p" | "span" }> = ({
+  children,
+  className = "",
+  theme,
+  component = "p",
+  ...props
+}) => {
+  const typographyStyles = theme?.typography?.text2;
+  const classes = cn(
+    // Base styles
+    "text-sm",
+    // Theme overrides
+    typographyStyles?.fontFamily,
+    typographyStyles?.fontSize,
+    typographyStyles?.fontWeight,
+    typographyStyles?.lineHeight,
+    typographyStyles?.letterSpacing,
+    typographyStyles?.textTransform,
+    typographyStyles?.textDecoration,
+    typographyStyles?.textOverflow,
+    className,
+  );
 
-    return component === "p" ? (
-        <p className={classes} {...props}>
-            {children}
-        </p>
-    ) : (
-        <span className={classes} {...props}>
-            {children}
-        </span>
-    );
+  return component === "p" ? (
+    <p className={classes} {...props}>
+      {children}
+    </p>
+  ) : (
+    <span className={classes} {...props}>
+      {children}
+    </span>
+  );
 };

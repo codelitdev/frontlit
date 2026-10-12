@@ -1,0 +1,1 @@
+ALTER TABLE "documentation_git_proposals" ADD COLUMN "updates_proposal_id" text;

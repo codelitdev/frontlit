@@ -2,16 +2,16 @@ import convert, { HSL } from "color-convert";
 import type { Theme } from "../models";
 
 function formatHSL(hsl: HSL): string {
-    return `${hsl[0]} ${hsl[1]}% ${hsl[2]}%`;
+  return `${hsl[0]} ${hsl[1]}% ${hsl[2]}%`;
 }
 
 function cssColorFromHex(hex?: string): string {
-    if (!hex) return "";
-    try {
-        return `hsl(${formatHSL(convert.hex.hsl(hex.replace("#", "")))})`;
-    } catch {
-        return "";
-    }
+  if (!hex) return "";
+  try {
+    return `hsl(${formatHSL(convert.hex.hsl(hex.replace("#", "")))})`;
+  } catch {
+    return "";
+  }
 }
 
 /**
@@ -23,21 +23,18 @@ function cssColorFromHex(hex?: string): string {
  * Callers rendering more than one theme in a document should pass a unique
  * selector so one renderer cannot overwrite another renderer's variables.
  */
-export function generateThemeStyles(
-    theme: Theme,
-    selector = ".pb-theme",
-): string {
-    const colors = theme?.theme?.colors;
-    if (!colors) {
-        return "";
-    }
+export function generateThemeStyles(theme: Theme, selector = ".pb-theme"): string {
+  const colors = theme?.theme?.colors;
+  if (!colors) {
+    return "";
+  }
 
-    const { light, dark } = colors;
-    if (!light || !dark) {
-        return "";
-    }
+  const { light, dark } = colors;
+  if (!light || !dark) {
+    return "";
+  }
 
-    const block = (c: typeof light) => `
+  const block = (c: typeof light) => `
         --background: ${cssColorFromHex(c.background)};
         --foreground: ${cssColorFromHex(c.foreground)};
         --card: ${cssColorFromHex(c.card)};
@@ -78,7 +75,7 @@ export function generateThemeStyles(
         --shadow-2xl: ${c.shadow2xl ?? ""};
     `;
 
-    return `
+  return `
         ${selector} {
             ${block(light)}
         }

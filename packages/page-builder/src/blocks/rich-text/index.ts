@@ -8,8 +8,8 @@ import type { RichTextSettings } from "./settings";
 export * from "./settings";
 
 export const RichText: Widget<RichTextSettings> = {
-    metadata: richTextMetadata,
-    widget: RichTextWidget,
-    editor: RichTextEditor,
-    getDefaultSettings: () => richTextDefaults,
+  metadata: richTextMetadata,
+  widget: RichTextWidget,
+  editor: RichTextEditor,
+  getDefaultSettings: () => richTextDefaults,
 };

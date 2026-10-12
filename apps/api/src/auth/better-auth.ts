@@ -14,8 +14,8 @@ import { logger } from "../services/log";
 import { MailNotConfiguredError, sendMail } from "../utils/mail";
 import { ensureFrontLitAccountForUser } from "../account/queries";
 import {
-    createFrontLitOAuthTeamSelectionHooks,
-    oauthTeamSelectionAdapter,
+  createFrontLitOAuthTeamSelectionHooks,
+  oauthTeamSelectionAdapter,
 } from "./oauth-team-selection";
 import { MCP_SCOPES_SUPPORTED } from "../mcp/policy";
 import { fetchClientMetadataResource } from "./cimd-fetch";
@@ -46,18 +46,14 @@ export const mcpResourceUrl = `${authBaseUrl}/mcp`;
 
 /** Resource audiences accepted during bearer-token verification. */
 export const validOAuthAudiences = [authBaseUrl, mcpResourceUrl];
-export const OAUTH_CLIENT_DEFAULT_SCOPES = [
-    "openid",
-    "profile",
-    "email",
-] as const;
+export const OAUTH_CLIENT_DEFAULT_SCOPES = ["openid", "profile", "email"] as const;
 export const OAUTH_CLIENT_REQUESTABLE_SCOPES = [
-    "offline_access",
-    ...MCP_SCOPES_SUPPORTED,
+  "offline_access",
+  ...MCP_SCOPES_SUPPORTED,
 ] as const;
 const supportedOAuthScopes = [
-    ...OAUTH_CLIENT_DEFAULT_SCOPES,
-    ...OAUTH_CLIENT_REQUESTABLE_SCOPES,
+  ...OAUTH_CLIENT_DEFAULT_SCOPES,
+  ...OAUTH_CLIENT_REQUESTABLE_SCOPES,
 ] as const;
 
 /** Where an MCP client should discover `mcpResourceUrl`'s protected-resource
@@ -73,222 +69,223 @@ const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
 async function sendOtpEmail(email: string, otp: string) {
-    try {
-        await sendMail({
-            to: email,
-            subject: "Your FrontLit verification code",
-            text: `Enter this code to sign in to FrontLit: ${otp}`,
-            html: `<p>Enter this code to sign in to FrontLit:</p><h2>${otp}</h2>`,
-        });
-    } catch (error) {
-        // OTP issuance still succeeds locally / without SMTP; Better Auth
-        // would otherwise surface a 500 to the sign-in form.
-        if (error instanceof MailNotConfiguredError) return;
-        throw error;
+  try {
+    await sendMail({
+      to: email,
+      subject: "Your FrontLit verification code",
+      text: `Enter this code to sign in to FrontLit: ${otp}`,
+      html: `<p>Enter this code to sign in to FrontLit:</p><h2>${otp}</h2>`,
+    });
+  } catch (error) {
+    // OTP issuance still succeeds locally / without SMTP; Better Auth
+    // would otherwise surface a 500 to the sign-in form.
+    if (error instanceof MailNotConfiguredError) return;
+    if (process.env.NODE_ENV !== "production") {
+      logger.warn(
+        { to: email, error: error instanceof Error ? error.message : String(error) },
+        "Failed to deliver OTP email in development; logging OTP to console",
+      );
+      console.log(`[Dev] OTP for ${email}: ${otp}`); // eslint-disable-line no-console
+      return;
     }
+    throw error;
+  }
 }
 
 export { oauthTeamSelectionAdapter };
 
 export const hostedLoginMethods: HostedLoginMethod[] = [
-    { type: "email-otp" },
-    ...(googleClientId && googleClientSecret
-        ? [
-              {
-                  type: "social" as const,
-                  providerId: "google",
-                  label: "Continue with Google",
-              },
-          ]
-        : []),
+  { type: "email-otp" },
+  ...(googleClientId && googleClientSecret
+    ? [
+        {
+          type: "social" as const,
+          providerId: "google",
+          label: "Continue with Google",
+        },
+      ]
+    : []),
 ];
 
 export const auth = betterAuth({
-    appName: "FrontLit",
-    baseURL: authBaseUrl,
-    basePath: authBasePath,
-    secret: process.env.BETTER_AUTH_SECRET,
-    database: drizzleAdapter(db, {
-        provider: "pg",
-        schema,
-    }),
-    trustedOrigins: [webClientUrl, authBaseUrl],
-    // Better Auth deliberately returns an empty 500 body for unexpected
-    // production errors. Keep a sanitized server-side record: OAuth clients
-    // need the opaque response, while operators need the failure cause to
-    // diagnose a failed token exchange. Do not log the request URL because it
-    // can contain authorization codes and other credentials.
-    onAPIError: {
-        onError(error) {
-            // Expected OAuth rejections (invalid grant, PKCE mismatch, and so
-            // on) are client-visible 4xx responses, not operational errors.
-            if (
-                error instanceof APIError &&
-                error.status !== "INTERNAL_SERVER_ERROR"
-            ) {
-                return;
-            }
+  appName: "FrontLit",
+  baseURL: authBaseUrl,
+  basePath: authBasePath,
+  secret: process.env.BETTER_AUTH_SECRET,
+  database: drizzleAdapter(db, {
+    provider: "pg",
+    schema,
+  }),
+  trustedOrigins: [webClientUrl, authBaseUrl],
+  // Better Auth deliberately returns an empty 500 body for unexpected
+  // production errors. Keep a sanitized server-side record: OAuth clients
+  // need the opaque response, while operators need the failure cause to
+  // diagnose a failed token exchange. Do not log the request URL because it
+  // can contain authorization codes and other credentials.
+  onAPIError: {
+    onError(error) {
+      // Expected OAuth rejections (invalid grant, PKCE mismatch, and so
+      // on) are client-visible 4xx responses, not operational errors.
+      if (error instanceof APIError && error.status !== "INTERNAL_SERVER_ERROR") {
+        return;
+      }
 
-            logger.error(
-                {
-                    errorType:
-                        error instanceof Error ? error.name : "UnknownError",
-                    error:
-                        error instanceof APIError
-                            ? (error.body?.error_description ??
-                              error.body?.error ??
-                              error.status)
-                            : error instanceof Error
-                              ? error.message
-                              : String(error),
-                },
-                "Better Auth API request failed",
-            );
+      logger.error(
+        {
+          errorType: error instanceof Error ? error.name : "UnknownError",
+          error:
+            error instanceof APIError
+              ? (error.body?.error_description ?? error.body?.error ?? error.status)
+              : error instanceof Error
+                ? error.message
+                : String(error),
         },
+        "Better Auth API request failed",
+      );
     },
-    advanced: authCookieDomain
-        ? {
-              crossSubDomainCookies: {
-                  enabled: true,
-                  domain: authCookieDomain,
-              },
-          }
-        : undefined,
+  },
+  advanced: authCookieDomain
+    ? {
+        crossSubDomainCookies: {
+          enabled: true,
+          domain: authCookieDomain,
+        },
+      }
+    : undefined,
+  user: {
+    modelName: "authUser",
+  },
+  session: {
+    modelName: "authSession",
+    expiresIn: 60 * 60 * 24 * 30,
+    updateAge: 60 * 60 * 24,
+  },
+  account: {
+    modelName: "authAccount",
+  },
+  verification: {
+    modelName: "authVerification",
+  },
+  socialProviders:
+    googleClientId && googleClientSecret
+      ? {
+          google: {
+            clientId: googleClientId,
+            clientSecret: googleClientSecret,
+          },
+        }
+      : undefined,
+  databaseHooks: {
     user: {
-        modelName: "authUser",
-    },
-    session: {
-        modelName: "authSession",
-        expiresIn: 60 * 60 * 24 * 30,
-        updateAge: 60 * 60 * 24,
-    },
-    account: {
-        modelName: "authAccount",
-    },
-    verification: {
-        modelName: "authVerification",
-    },
-    socialProviders:
-        googleClientId && googleClientSecret
-            ? {
-                  google: {
-                      clientId: googleClientId,
-                      clientSecret: googleClientSecret,
-                  },
-              }
-            : undefined,
-    databaseHooks: {
-        user: {
-            create: {
-                async after(user) {
-                    if (user.email) {
-                        await ensureFrontLitAccountForUser({
-                            id: user.id,
-                            email: user.email,
-                            name: user.name,
-                        });
-                    }
-                },
-            },
-        },
-    },
-    hooks: {
-        before: createAuthMiddleware(async (context) => {
-            if (context.path !== "/oauth2/authorize") return;
-
-            const scope = context.query?.scope;
-            if (typeof scope === "string" && scope.trim().length > 0) return;
-
-            // Better Auth can otherwise substitute a client's complete
-            // capability set when scope is omitted. Require an explicit grant
-            // so registration never becomes full MCP authorization.
-            throw new APIError("BAD_REQUEST", {
-                error: "invalid_scope",
-                error_description:
-                    "OAuth authorization requests must include an explicit scope.",
+      create: {
+        async after(user) {
+          if (user.email) {
+            await ensureFrontLitAccountForUser({
+              id: user.id,
+              email: user.email,
+              name: user.name,
             });
-        }),
+          }
+        },
+      },
     },
-    plugins: [
-        emailOTP({
-            async sendVerificationOTP({ email, otp }) {
-                await sendOtpEmail(email, otp);
-            },
-            storeOTP: "hashed",
-            expiresIn: 5 * 60,
-            allowedAttempts: 5,
-            rateLimit: {
-                window: 60,
-                max: 3,
-            },
-        }),
-        jwt(),
-        oauthProvider({
-            ...createOAuthProviderOptions({
-                loginPage: `${authBaseUrl}/oauth/login`,
-                consentPage: `${authBaseUrl}/oauth/consent`,
-                allowDynamicClientRegistration: true,
-                allowUnauthenticatedDynamicClientRegistration: true,
-                scopes: supportedOAuthScopes,
-                validAudiences: validOAuthAudiences,
-                clientRegistrationDefaultScopes: OAUTH_CLIENT_DEFAULT_SCOPES,
-                clientRegistrationAllowedScopes:
-                    OAUTH_CLIENT_REQUESTABLE_SCOPES,
-            }),
-            // The app-level auth test verifies this exact external metadata
-            // endpoint. Suppress the provider's configuration reminder only
-            // after that route is proven to exist.
-            silenceWarnings: {
-                oauthAuthServerConfig: true,
-            },
-            resources: [
-                {
-                    identifier: mcpResourceUrl,
-                    name: "FrontLit MCP",
-                    allowedScopes: [...MCP_SCOPES_SUPPORTED],
-                },
-            ],
-            clientRegistrationDefaultResources: [mcpResourceUrl],
-            schema: {
-                oauthClient: {
-                    modelName: "authOAuthClient",
-                },
-                oauthResource: {
-                    modelName: "authOAuthResource",
-                },
-                oauthClientResource: {
-                    modelName: "authOAuthClientResource",
-                },
-                oauthAccessToken: {
-                    modelName: "authOAuthAccessToken",
-                },
-                oauthRefreshToken: {
-                    modelName: "authOAuthRefreshToken",
-                },
-                oauthConsent: {
-                    modelName: "authOAuthConsent",
-                },
-                oauthClientAssertion: {
-                    modelName: "authOAuthClientAssertion",
-                },
-            },
-            ...createFrontLitOAuthTeamSelectionHooks({
-                page: `${authBaseUrl}/oauth/select-team`,
-                adapter: oauthTeamSelectionAdapter,
-            }),
-        }),
-        cimd({
-            fetchClientMetadataResource,
-            metadataProfile: "mcp-2026-07-28",
-            metadataRevalidationInterval: "60m",
-            metadataFetchPolicy: {
-                // VS Code's canonical metadata is no-store and must be
-                // refetched immediately during the token exchange.
-                minimumFetchInterval: 0,
-            },
-            originBoundFields: ["post_logout_redirect_uris", "client_uri"],
-        }),
-    ],
+  },
+  hooks: {
+    before: createAuthMiddleware(async (context) => {
+      if (context.path !== "/oauth2/authorize") return;
+
+      const scope = context.query?.scope;
+      if (typeof scope === "string" && scope.trim().length > 0) return;
+
+      // Better Auth can otherwise substitute a client's complete
+      // capability set when scope is omitted. Require an explicit grant
+      // so registration never becomes full MCP authorization.
+      throw new APIError("BAD_REQUEST", {
+        error: "invalid_scope",
+        error_description:
+          "OAuth authorization requests must include an explicit scope.",
+      });
+    }),
+  },
+  plugins: [
+    emailOTP({
+      async sendVerificationOTP({ email, otp }) {
+        await sendOtpEmail(email, otp);
+      },
+      storeOTP: "hashed",
+      expiresIn: 5 * 60,
+      allowedAttempts: 5,
+      rateLimit: {
+        window: 60,
+        max: 3,
+      },
+    }),
+    jwt(),
+    oauthProvider({
+      ...createOAuthProviderOptions({
+        loginPage: `${authBaseUrl}/oauth/login`,
+        consentPage: `${authBaseUrl}/oauth/consent`,
+        allowDynamicClientRegistration: true,
+        allowUnauthenticatedDynamicClientRegistration: true,
+        scopes: supportedOAuthScopes,
+        validAudiences: validOAuthAudiences,
+        clientRegistrationDefaultScopes: OAUTH_CLIENT_DEFAULT_SCOPES,
+        clientRegistrationAllowedScopes: OAUTH_CLIENT_REQUESTABLE_SCOPES,
+      }),
+      // The app-level auth test verifies this exact external metadata
+      // endpoint. Suppress the provider's configuration reminder only
+      // after that route is proven to exist.
+      silenceWarnings: {
+        oauthAuthServerConfig: true,
+      },
+      resources: [
+        {
+          identifier: mcpResourceUrl,
+          name: "FrontLit MCP",
+          allowedScopes: [...MCP_SCOPES_SUPPORTED],
+        },
+      ],
+      clientRegistrationDefaultResources: [mcpResourceUrl],
+      schema: {
+        oauthClient: {
+          modelName: "authOAuthClient",
+        },
+        oauthResource: {
+          modelName: "authOAuthResource",
+        },
+        oauthClientResource: {
+          modelName: "authOAuthClientResource",
+        },
+        oauthAccessToken: {
+          modelName: "authOAuthAccessToken",
+        },
+        oauthRefreshToken: {
+          modelName: "authOAuthRefreshToken",
+        },
+        oauthConsent: {
+          modelName: "authOAuthConsent",
+        },
+        oauthClientAssertion: {
+          modelName: "authOAuthClientAssertion",
+        },
+      },
+      ...createFrontLitOAuthTeamSelectionHooks({
+        page: `${authBaseUrl}/oauth/select-team`,
+        adapter: oauthTeamSelectionAdapter,
+      }),
+    }),
+    cimd({
+      fetchClientMetadataResource,
+      metadataProfile: "mcp-2026-07-28",
+      metadataRevalidationInterval: "60m",
+      metadataFetchPolicy: {
+        // VS Code's canonical metadata is no-store and must be
+        // refetched immediately during the token exchange.
+        minimumFetchInterval: 0,
+      },
+      originBoundFields: ["post_logout_redirect_uris", "client_uri"],
+    }),
+  ],
 });
 
 export const oauthResourceClient = oauthProviderResourceClient(auth);

@@ -8,19 +8,19 @@ export const themeReferenceSchema = z.string().min(1).max(128);
  * settings are a large, evolving nested object owned by the page-builder
  * package, not something the API needs to validate field-by-field). */
 export const themeSchema = z.object({
-    themeId: z.string(),
-    name: z.string(),
-    style: z.record(z.any()),
-    createdAt: z.string().nullable(),
-    updatedAt: z.string().nullable(),
+  themeId: z.string(),
+  name: z.string(),
+  style: z.record(z.any()),
+  createdAt: z.string().nullable(),
+  updatedAt: z.string().nullable(),
 });
 
 export const createThemeBodySchema = z.object({
-    name: z.string().min(1),
-    style: z.record(z.any()),
+  name: z.string().min(1),
+  style: z.record(z.any()),
 });
 
 export const updateThemeBodySchema = z.object({
-    name: z.string().optional(),
-    style: z.record(z.any()).optional(),
+  name: z.string().optional(),
+  style: z.record(z.any()).optional(),
 });

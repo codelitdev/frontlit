@@ -1,50 +1,66 @@
 {
-    "name": "frontlit",
-    "version": "1.0.0",
-    "description": "The frontoffice of your SaaS",
-    "private": true,
-    "workspaces": [
-        "packages/*",
-        "apps/*",
-        "examples/*"
-    ],
-    "scripts": {
-        "dev": "pnpm --parallel --filter @frontlit/api --filter @frontlit/web --filter @frontlit/sites run dev",
-        "dev:api": "pnpm --filter @frontlit/api dev",
-        "dev:web": "pnpm --filter @frontlit/web dev",
-        "dev:docs": "pnpm --filter @frontlit/docs dev",
-        "dev:sites": "pnpm --filter @frontlit/sites dev",
-        "build": "pnpm -r run build",
-        "lint": "eslint packages apps --quiet",
-        "prettier": "prettier --write packages apps *.md",
-        "prepare": "husky",
-        "test": "pnpm -r run test",
-        "ci:publish": "pnpm publish -r --no-git-checks"
-    },
-    "keywords": [],
-    "author": "",
-    "license": "AGPL-3.0-or-later",
-    "packageManager": "pnpm@10.22.0",
-    "devDependencies": {
-        "@changesets/cli": "^2.29.7",
-        "eslint": "^9.12.0",
-        "eslint-config-next": "16.3.0",
-        "eslint-config-prettier": "^8.5.0",
-        "eslint-plugin-import": "^2.32.0",
-        "eslint-plugin-react": "^7.37.5",
-        "eslint-plugin-react-hooks": "^7.0.1",
-        "eslint-plugin-unused-imports": "^4.3.0",
-        "globals": "^15.15.0",
-        "husky": "^9.1.7",
-        "lint-staged": "^15.2.2",
-        "prettier": "^3.0.2",
-        "typescript-eslint": "^8.46.0"
-    },
-    "pnpm": {
-        "overrides": {
-            "@types/react": "19.2.18",
-            "@types/react-dom": "19.2.4"
-        }
-    },
-    "type": "module"
+  "name": "frontlit",
+  "version": "1.0.0",
+  "description": "The frontoffice of your SaaS",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.1",
+  "engines": {
+    "bun": ">=1.4.1"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "examples/*"
+  ],
+  "trustedDependencies": [
+    "esbuild"
+  ],
+  "overrides": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "esbuild": "0.28.2",
+    "postcss": "8.5.28",
+    "qs": "6.16.0",
+    "ts-deepmerge": "8.0.0"
+  },
+  "patchedDependencies": {
+    "@anatine/zod-openapi@1.14.2": "patches/@anatine__zod-openapi@1.14.2.patch"
+  },
+  "scripts": {
+    "dev": "bun --filter @frontlit/api --filter @frontlit/web --filter @frontlit/sites dev",
+    "dev:api": "bun --filter @frontlit/api dev",
+    "dev:web": "bun --filter @frontlit/web dev",
+    "dev:docs": "bun --filter @frontlit/docs dev",
+    "dev:sites": "bun --filter @frontlit/sites dev",
+    "build": "bun run --workspaces --if-present build",
+    "typecheck": "bun run --workspaces --if-present check-types",
+    "lint": "bun run --workspaces --if-present lint",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "prepare": "husky",
+    "test": "bun run --workspaces --if-present test",
+    "check:drift": "bun run --filter @frontlit/api check:drift",
+    "changeset": "changeset",
+    "ci:publish": "bun run --workspaces --if-present publish"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "AGPL-3.0-or-later",
+  "devDependencies": {
+    "@biomejs/biome": "2.5.12",
+    "@changesets/cli": "^2.29.7",
+    "@types/bun": "1.4.1",
+    "eslint": "^9.12.0",
+    "eslint-config-next": "16.3.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-unused-imports": "^4.3.0",
+    "globals": "^15.15.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.2",
+    "typescript-eslint": "^8.46.0"
+  }
 }

@@ -10,7 +10,7 @@ import { SiteThemeProvider } from "@/lib/site-theme-context";
 import { useColorMode } from "@/components/color-mode-provider";
 
 function SiteLink(props: PageBuilderLinkProps) {
-    return <NextLink {...props} />;
+  return <NextLink {...props} />;
 }
 
 /**
@@ -23,51 +23,51 @@ function SiteLink(props: PageBuilderLinkProps) {
  * rather than fighting the page-builder package's bundling.
  */
 export function SitePageRenderer({
-    layout,
-    themeId,
-    themeStyle,
-    pageData,
-    siteLogoUrl,
-    siteLogoAlt,
-    children,
-    dataSlots,
+  layout,
+  themeId,
+  themeStyle,
+  pageData,
+  siteLogoUrl,
+  siteLogoAlt,
+  children,
+  dataSlots,
 }: {
-    layout: WidgetInstance[];
-    themeId: string | null;
-    themeStyle: Record<string, unknown> | null;
-    pageData: PageData;
-    siteLogoUrl?: string | null;
-    siteLogoAlt?: string | null;
-    children?: React.ReactNode;
-    dataSlots?: Record<string, React.ReactNode>;
+  layout: WidgetInstance[];
+  themeId: string | null;
+  themeStyle: Record<string, unknown> | null;
+  pageData: PageData;
+  siteLogoUrl?: string | null;
+  siteLogoAlt?: string | null;
+  children?: React.ReactNode;
+  dataSlots?: Record<string, React.ReactNode>;
 }) {
-    const theme = resolveSiteTheme(themeId, themeStyle);
-    const { mode, resolved, setMode } = useColorMode();
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-    const nextTheme = mounted ? resolved : "light";
-    const themeMode = mounted ? mode : "system";
+  const theme = resolveSiteTheme(themeId, themeStyle);
+  const { mode, resolved, setMode } = useColorMode();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  const nextTheme = mounted ? resolved : "light";
+  const themeMode = mounted ? mode : "system";
 
-    return (
-        <SiteThemeProvider theme={theme}>
-            <PageRenderer
-                layout={layout}
-                theme={theme}
-                pageData={{
-                    ...pageData,
-                    ...(siteLogoUrl ? { siteLogoUrl } : {}),
-                    ...(siteLogoAlt ? { siteLogoAlt } : {}),
-                }}
-                dataSlots={dataSlots}
-                nextTheme={nextTheme}
-                themeMode={themeMode}
-                onThemeModeChange={setMode}
-                linkComponent={SiteLink}
-            >
-                {children}
-            </PageRenderer>
-        </SiteThemeProvider>
-    );
+  return (
+    <SiteThemeProvider theme={theme}>
+      <PageRenderer
+        layout={layout}
+        theme={theme}
+        pageData={{
+          ...pageData,
+          ...(siteLogoUrl ? { siteLogoUrl } : {}),
+          ...(siteLogoAlt ? { siteLogoAlt } : {}),
+        }}
+        dataSlots={dataSlots}
+        nextTheme={nextTheme}
+        themeMode={themeMode}
+        onThemeModeChange={setMode}
+        linkComponent={SiteLink}
+      >
+        {children}
+      </PageRenderer>
+    </SiteThemeProvider>
+  );
 }

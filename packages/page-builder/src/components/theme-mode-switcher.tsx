@@ -16,58 +16,57 @@ import type { ResolvedColorMode } from "../utils";
  * light or dark side; later clicks flip between those two.
  */
 export function ThemeModeSwitcher({
-    resolved,
-    onToggle,
-    theme,
-    className,
-    size,
-    variant,
+  resolved,
+  onToggle,
+  theme,
+  className,
+  size,
+  variant,
 }: {
-    resolved: ResolvedColorMode;
-    onToggle: () => void;
-    theme?: ThemeStyle;
-    className?: string;
-    size?: ButtonProps["size"];
-    variant?: ButtonProps["variant"];
+  resolved: ResolvedColorMode;
+  onToggle: () => void;
+  theme?: ThemeStyle;
+  className?: string;
+  size?: ButtonProps["size"];
+  variant?: ButtonProps["variant"];
 }) {
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-    const painted = mounted ? resolved : "light";
-    const next = painted === "dark" ? "light" : "dark";
-    const label =
-        next === "dark" ? "Switch to dark mode" : "Switch to light mode";
-    const Icon = painted === "dark" ? Sun : Moon;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  const painted = mounted ? resolved : "light";
+  const next = painted === "dark" ? "light" : "dark";
+  const label = next === "dark" ? "Switch to dark mode" : "Switch to light mode";
+  const Icon = painted === "dark" ? Sun : Moon;
 
-    if (theme) {
-        return (
-            <Button
-                type="button"
-                variant={variant ?? "outline"}
-                size={size ?? "sm"}
-                theme={theme}
-                title={label}
-                aria-label={label}
-                className={className}
-                onClick={onToggle}
-            >
-                <Icon className="h-4 w-4" />
-            </Button>
-        );
-    }
-
+  if (theme) {
     return (
-        <ChromeButton
-            type="button"
-            variant="outline"
-            size="icon"
-            title={label}
-            aria-label={label}
-            className={className}
-            onClick={onToggle}
-        >
-            <Icon className="h-4 w-4" />
-        </ChromeButton>
+      <Button
+        type="button"
+        variant={variant ?? "outline"}
+        size={size ?? "sm"}
+        theme={theme}
+        title={label}
+        aria-label={label}
+        className={className}
+        onClick={onToggle}
+      >
+        <Icon className="h-4 w-4" />
+      </Button>
     );
+  }
+
+  return (
+    <ChromeButton
+      type="button"
+      variant="outline"
+      size="icon"
+      title={label}
+      aria-label={label}
+      className={className}
+      onClick={onToggle}
+    >
+      <Icon className="h-4 w-4" />
+    </ChromeButton>
+  );
 }

@@ -2,279 +2,270 @@
  * skip this file; 3rd-party consumers get them from styles.css. */
 
 @font-face {
-    font-family: Inter;
-    src: url("../fonts/inter/inter-latin-variable.woff2") format("woff2");
-    font-weight: 100 900;
-    font-style: normal;
-    font-display: swap;
+  font-family: Inter;
+  src: url("../fonts/inter/inter-latin-variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: "Open Sans";
-    src: url("../fonts/open-sans/open-sans-latin-variable.woff2")
-        format("woff2");
-    font-weight: 300 800;
-    font-style: normal;
-    font-display: swap;
+  font-family: "Open Sans";
+  src: url("../fonts/open-sans/open-sans-latin-variable.woff2") format("woff2");
+  font-weight: 300 800;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: "Source Sans 3";
-    src: url("../fonts/source-sans-3/source-sans-3-latin-variable.woff2")
-        format("woff2");
-    font-weight: 200 900;
-    font-style: normal;
-    font-display: swap;
+  font-family: "Source Sans 3";
+  src: url("../fonts/source-sans-3/source-sans-3-latin-variable.woff2") format("woff2");
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: "Noto Sans";
-    src: url("../fonts/noto-sans/noto-sans-latin-variable.woff2")
-        format("woff2");
-    font-weight: 100 900;
-    font-style: normal;
-    font-display: swap;
+  font-family: "Noto Sans";
+  src: url("../fonts/noto-sans/noto-sans-latin-variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: Roboto;
-    src: url("../fonts/roboto/roboto-latin-variable.woff2") format("woff2");
-    font-weight: 100 900;
-    font-style: normal;
-    font-display: swap;
+  font-family: Roboto;
+  src: url("../fonts/roboto/roboto-latin-variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: Mulish;
-    src: url("../fonts/mulish/mulish-latin-variable.woff2") format("woff2");
-    font-weight: 200 1000;
-    font-style: normal;
-    font-display: swap;
+  font-family: Mulish;
+  src: url("../fonts/mulish/mulish-latin-variable.woff2") format("woff2");
+  font-weight: 200 1000;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: Nunito;
-    src: url("../fonts/nunito/nunito-latin-variable.woff2") format("woff2");
-    font-weight: 200 1000;
-    font-style: normal;
-    font-display: swap;
+  font-family: Nunito;
+  src: url("../fonts/nunito/nunito-latin-variable.woff2") format("woff2");
+  font-weight: 200 1000;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: "Work Sans";
-    src: url("../fonts/work-sans/work-sans-latin-variable.woff2")
-        format("woff2");
-    font-weight: 100 900;
-    font-style: normal;
-    font-display: swap;
+  font-family: "Work Sans";
+  src: url("../fonts/work-sans/work-sans-latin-variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: Merriweather;
-    src: url("../fonts/merriweather/merriweather-latin-variable.woff2")
-        format("woff2");
-    font-weight: 300 900;
-    font-style: normal;
-    font-display: swap;
+  font-family: Merriweather;
+  src: url("../fonts/merriweather/merriweather-latin-variable.woff2") format("woff2");
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: Alegreya;
-    src: url("../fonts/alegreya/alegreya-latin-variable.woff2") format("woff2");
-    font-weight: 400 900;
-    font-style: normal;
-    font-display: swap;
+  font-family: Alegreya;
+  src: url("../fonts/alegreya/alegreya-latin-variable.woff2") format("woff2");
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: "Playfair Display";
-    src: url("../fonts/playfair-display/playfair-display-latin-variable.woff2")
-        format("woff2");
-    font-weight: 400 900;
-    font-style: normal;
-    font-display: swap;
+  font-family: "Playfair Display";
+  src: url("../fonts/playfair-display/playfair-display-latin-variable.woff2")
+    format("woff2");
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: "Roboto Slab";
-    src: url("../fonts/roboto-slab/roboto-slab-latin-variable.woff2")
-        format("woff2");
-    font-weight: 100 900;
-    font-style: normal;
-    font-display: swap;
+  font-family: "Roboto Slab";
+  src: url("../fonts/roboto-slab/roboto-slab-latin-variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: "Source Serif 4";
-    src: url("../fonts/source-serif-4/source-serif-4-latin-variable.woff2")
-        format("woff2");
-    font-weight: 200 900;
-    font-style: normal;
-    font-display: swap;
+  font-family: "Source Serif 4";
+  src: url("../fonts/source-serif-4/source-serif-4-latin-variable.woff2")
+    format("woff2");
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: Montserrat;
-    src: url("../fonts/montserrat/montserrat-latin-variable.woff2")
-        format("woff2");
-    font-weight: 100 900;
-    font-style: normal;
-    font-display: swap;
+  font-family: Montserrat;
+  src: url("../fonts/montserrat/montserrat-latin-variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: Poppins;
-    src: url("../fonts/poppins/poppins-latin-100-normal.woff2") format("woff2");
-    font-weight: 100;
-    font-style: normal;
-    font-display: swap;
+  font-family: Poppins;
+  src: url("../fonts/poppins/poppins-latin-100-normal.woff2") format("woff2");
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
 }
 @font-face {
-    font-family: Poppins;
-    src: url("../fonts/poppins/poppins-latin-200-normal.woff2") format("woff2");
-    font-weight: 200;
-    font-style: normal;
-    font-display: swap;
+  font-family: Poppins;
+  src: url("../fonts/poppins/poppins-latin-200-normal.woff2") format("woff2");
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
 }
 @font-face {
-    font-family: Poppins;
-    src: url("../fonts/poppins/poppins-latin-300-normal.woff2") format("woff2");
-    font-weight: 300;
-    font-style: normal;
-    font-display: swap;
+  font-family: Poppins;
+  src: url("../fonts/poppins/poppins-latin-300-normal.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
 }
 @font-face {
-    font-family: Poppins;
-    src: url("../fonts/poppins/poppins-latin-400-normal.woff2") format("woff2");
-    font-weight: 400;
-    font-style: normal;
-    font-display: swap;
+  font-family: Poppins;
+  src: url("../fonts/poppins/poppins-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
 @font-face {
-    font-family: Poppins;
-    src: url("../fonts/poppins/poppins-latin-500-normal.woff2") format("woff2");
-    font-weight: 500;
-    font-style: normal;
-    font-display: swap;
+  font-family: Poppins;
+  src: url("../fonts/poppins/poppins-latin-500-normal.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
 }
 @font-face {
-    font-family: Poppins;
-    src: url("../fonts/poppins/poppins-latin-600-normal.woff2") format("woff2");
-    font-weight: 600;
-    font-style: normal;
-    font-display: swap;
+  font-family: Poppins;
+  src: url("../fonts/poppins/poppins-latin-600-normal.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
 }
 @font-face {
-    font-family: Poppins;
-    src: url("../fonts/poppins/poppins-latin-700-normal.woff2") format("woff2");
-    font-weight: 700;
-    font-style: normal;
-    font-display: swap;
+  font-family: Poppins;
+  src: url("../fonts/poppins/poppins-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
 }
 @font-face {
-    font-family: Poppins;
-    src: url("../fonts/poppins/poppins-latin-800-normal.woff2") format("woff2");
-    font-weight: 800;
-    font-style: normal;
-    font-display: swap;
+  font-family: Poppins;
+  src: url("../fonts/poppins/poppins-latin-800-normal.woff2") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
 }
 @font-face {
-    font-family: Poppins;
-    src: url("../fonts/poppins/poppins-latin-900-normal.woff2") format("woff2");
-    font-weight: 900;
-    font-style: normal;
-    font-display: swap;
-}
-
-@font-face {
-    font-family: Raleway;
-    src: url("../fonts/raleway/raleway-latin-variable.woff2") format("woff2");
-    font-weight: 100 900;
-    font-style: normal;
-    font-display: swap;
+  font-family: Poppins;
+  src: url("../fonts/poppins/poppins-latin-900-normal.woff2") format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: Rubik;
-    src: url("../fonts/rubik/rubik-latin-variable.woff2") format("woff2");
-    font-weight: 300 900;
-    font-style: normal;
-    font-display: swap;
+  font-family: Raleway;
+  src: url("../fonts/raleway/raleway-latin-variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: Oswald;
-    src: url("../fonts/oswald/oswald-latin-variable.woff2") format("woff2");
-    font-weight: 200 700;
-    font-style: normal;
-    font-display: swap;
+  font-family: Rubik;
+  src: url("../fonts/rubik/rubik-latin-variable.woff2") format("woff2");
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: "Bebas Neue";
-    src: url("../fonts/bebas-neue/bebas-neue-latin-400-normal.woff2")
-        format("woff2");
-    font-weight: 400;
-    font-style: normal;
-    font-display: swap;
+  font-family: Oswald;
+  src: url("../fonts/oswald/oswald-latin-variable.woff2") format("woff2");
+  font-weight: 200 700;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: Lato;
-    src: url("../fonts/lato/lato-latin-100-normal.woff2") format("woff2");
-    font-weight: 100;
-    font-style: normal;
-    font-display: swap;
-}
-@font-face {
-    font-family: Lato;
-    src: url("../fonts/lato/lato-latin-300-normal.woff2") format("woff2");
-    font-weight: 300;
-    font-style: normal;
-    font-display: swap;
-}
-@font-face {
-    font-family: Lato;
-    src: url("../fonts/lato/lato-latin-400-normal.woff2") format("woff2");
-    font-weight: 400;
-    font-style: normal;
-    font-display: swap;
-}
-@font-face {
-    font-family: Lato;
-    src: url("../fonts/lato/lato-latin-700-normal.woff2") format("woff2");
-    font-weight: 700;
-    font-style: normal;
-    font-display: swap;
-}
-@font-face {
-    font-family: Lato;
-    src: url("../fonts/lato/lato-latin-900-normal.woff2") format("woff2");
-    font-weight: 900;
-    font-style: normal;
-    font-display: swap;
+  font-family: "Bebas Neue";
+  src: url("../fonts/bebas-neue/bebas-neue-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: "PT Sans";
-    src: url("../fonts/pt-sans/pt-sans-latin-400-normal.woff2") format("woff2");
-    font-weight: 400;
-    font-style: normal;
-    font-display: swap;
+  font-family: Lato;
+  src: url("../fonts/lato/lato-latin-100-normal.woff2") format("woff2");
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
 }
 @font-face {
-    font-family: "PT Sans";
-    src: url("../fonts/pt-sans/pt-sans-latin-700-normal.woff2") format("woff2");
-    font-weight: 700;
-    font-style: normal;
-    font-display: swap;
+  font-family: Lato;
+  src: url("../fonts/lato/lato-latin-300-normal.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: Lato;
+  src: url("../fonts/lato/lato-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: Lato;
+  src: url("../fonts/lato/lato-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: Lato;
+  src: url("../fonts/lato/lato-latin-900-normal.woff2") format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
-    font-family: Quicksand;
-    src: url("../fonts/quicksand/quicksand-latin-variable.woff2")
-        format("woff2");
-    font-weight: 300 700;
-    font-style: normal;
-    font-display: swap;
+  font-family: "PT Sans";
+  src: url("../fonts/pt-sans/pt-sans-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "PT Sans";
+  src: url("../fonts/pt-sans/pt-sans-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: Quicksand;
+  src: url("../fonts/quicksand/quicksand-latin-variable.woff2") format("woff2");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
 }
