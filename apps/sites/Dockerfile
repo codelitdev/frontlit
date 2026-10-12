@@ -13,6 +13,7 @@ COPY apps/sites ./apps/sites
 COPY packages/api-contract ./packages/api-contract
 COPY packages/page-builder ./packages/page-builder
 COPY packages/text-editor ./packages/text-editor
+COPY packages/media-uploader ./packages/media-uploader
 
 RUN bun install --frozen-lockfile
 
@@ -23,6 +24,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN bun run --filter @frontlit/api-contract build
 RUN bun run --filter @frontlit/text-editor build
+RUN bun run --filter @frontlit/media-uploader build
 RUN bun run --filter @frontlit/page-builder build
 RUN bun run --filter @frontlit/sites build
 

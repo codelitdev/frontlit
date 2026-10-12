@@ -10,13 +10,15 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY patches ./patches
 COPY packages/api-contract ./packages/api-contract
+COPY packages/text-editor ./packages/text-editor
 COPY apps/api ./apps/api
 
-RUN bun install --frozen-lockfile --filter=@frontlit/api --filter=@frontlit/api-contract
+RUN bun install --frozen-lockfile --filter=@frontlit/api --filter=@frontlit/api-contract --filter=@frontlit/text-editor
 
 FROM deps AS builder
 WORKDIR /app
 RUN bun run --filter @frontlit/api-contract build
+RUN bun run --filter @frontlit/text-editor build
 RUN bun run --filter @frontlit/api build
 
 FROM base AS prod-deps
@@ -26,11 +28,13 @@ COPY package.json bun.lock ./
 COPY patches ./patches
 COPY --from=builder /app/packages/api-contract/package.json ./packages/api-contract/package.json
 COPY --from=builder /app/packages/api-contract/dist ./packages/api-contract/dist
+COPY --from=builder /app/packages/text-editor/package.json ./packages/text-editor/package.json
+COPY --from=builder /app/packages/text-editor/dist ./packages/text-editor/dist
 COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/drizzle ./apps/api/drizzle
 
-RUN bun install --production --frozen-lockfile --filter=@frontlit/api --filter=@frontlit/api-contract
+RUN bun install --production --frozen-lockfile --filter=@frontlit/api --filter=@frontlit/api-contract --filter=@frontlit/text-editor
 
 FROM node:24-alpine AS runner
 WORKDIR /app
