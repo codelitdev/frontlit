@@ -80,7 +80,6 @@ const toolScopes = {
   retry_documentation_publication: MCP_SCOPES.documentationPublish,
   publish_documentation_changes: MCP_SCOPES.documentationPublish,
   get_documentation_publication: MCP_SCOPES.documentationRead,
-  get_documentation_manifest: MCP_SCOPES.documentationManage,
   preflight_documentation_purge: MCP_SCOPES.documentationManage,
   get_documentation_purge: MCP_SCOPES.documentationManage,
   purge_documentation: MCP_SCOPES.documentationManage,
