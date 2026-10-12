@@ -27,3 +27,5 @@ next-env.d.ts
 
 # Tool caches
 .eslintcache
+
+research_notes/
