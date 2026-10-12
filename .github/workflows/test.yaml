@@ -20,6 +20,7 @@ jobs:
               run: |
                   bun run --filter @frontlit/api-contract build
                   bun run --filter @frontlit/text-editor build
+                  bun run --filter @frontlit/media-uploader build
                   bun run --filter @frontlit/page-builder build
             - name: Running tests
               run: |
