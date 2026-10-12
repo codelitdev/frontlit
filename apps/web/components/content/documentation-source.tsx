@@ -104,6 +104,7 @@ export function DocumentationSource({
   const storageKey = `documentation-git-plan:${workspaceKey}`;
   const setupStorageKey = `documentation-git-setup:${workspaceKey}`;
   const upgradeStorageKey = `documentation-git-upgrade:${workspaceKey}`;
+  const installRedirectKey = `documentation-git-install-redirect:${workspaceKey}`;
   const [grantReview, setGrantReview] = useState<{
     generation: number;
     grantVersion: number;
@@ -241,6 +242,18 @@ export function DocumentationSource({
       clearInterval(timer);
     };
   }, [migration?.planId, migration?.pullRequest?.status]);
+  // No installation yet: send the user to install the App once. The flag stops a
+  // redirect loop when the install still awaits organization approval.
+  useEffect(() => {
+    if (!repositories) return;
+    if (repositories.installations.length) {
+      sessionStorage.removeItem(installRedirectKey);
+      return;
+    }
+    if (!repositories.installUrl || sessionStorage.getItem(installRedirectKey)) return;
+    sessionStorage.setItem(installRedirectKey, "1");
+    window.location.assign(repositories.installUrl);
+  }, [repositories, installRedirectKey]);
   async function authorize() {
     sessionStorage.removeItem(setupStorageKey);
     setInstallationReturned(false);
