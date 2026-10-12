@@ -20,7 +20,7 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    - image: codelit/frontlit-api
+                    - image: codelit/frontlit
                       file: ./apps/api/Dockerfile
                     - image: codelit/frontlit-web
                       file: ./apps/web/Dockerfile

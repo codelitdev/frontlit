@@ -1,6 +1,6 @@
 # Multi-arch:
 # docker buildx build --platform linux/amd64,linux/arm64 \
-#   -f apps/api/Dockerfile -t codelit/frontlit-api:k3s --push .
+#   -f apps/api/Dockerfile -t codelit/frontlit:k3s --push .
 FROM oven/bun:1.4.1-alpine AS base
 
 FROM base AS deps
