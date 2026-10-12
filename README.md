@@ -11,7 +11,7 @@ through a block-based page builder, a REST API, an MCP server and a dashboard.
 
 [![npm](https://img.shields.io/npm/v/@frontlit/page-builder?label=page-builder)](https://www.npmjs.com/package/@frontlit/page-builder)
 [![npm](https://img.shields.io/npm/v/@frontlit/text-editor?label=text-editor)](https://www.npmjs.com/package/@frontlit/text-editor)
-[![License: MIT](https://img.shields.io/badge/packages-MIT-blue)](#licensing)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](./LICENSE)
 [![Discord](https://img.shields.io/badge/chat-Discord-5865F2)](https://discord.gg/AysdDP4wxe)
 [![Testing](https://github.com/codelitdev/frontlit/actions/workflows/test.yaml/badge.svg)](https://github.com/codelitdev/frontlit/actions/workflows/test.yaml)
 [![Code quality](https://github.com/codelitdev/frontlit/actions/workflows/code-quality.yaml/badge.svg)](https://github.com/codelitdev/frontlit/actions/workflows/code-quality.yaml)
@@ -182,4 +182,9 @@ Please don't report security issues in public issues. Report them privately thro
 
 ## Licensing
 
-The published packages (`@frontlit/page-builder` and `@frontlit/text-editor`) are MIT licensed.
+FrontLit is split into two licenses:
+
+- **AGPL-3.0-or-later** covers the server (`apps/api`) and the web app (`apps/web`). If you run a modified FrontLit as a hosted service, you must share your changes under the same license. Self-hosting is free.
+- **MIT** covers the packages you embed in your own products: `@frontlit/page-builder`, `@frontlit/text-editor`, `@frontlit/image-uploader` and `@frontlit/api-contract`. Each of these has its own `LICENSE` file.
+
+The AGPL license text is in [LICENSE](./LICENSE). For a commercial license that allows a private modified fork, contact the maintainers.
