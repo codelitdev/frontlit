@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Better Auth protected REST API for building and serving pages — the FrontLit backend",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "main": "dist/index.js",
   "files": [
     "dist",

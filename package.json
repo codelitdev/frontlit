@@ -46,7 +46,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "AGPL-3.0-or-later",
   "devDependencies": {
     "@biomejs/biome": "2.5.12",
     "@changesets/cli": "^2.29.7",
