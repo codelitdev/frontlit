@@ -121,3 +121,12 @@ API at `API_PUBLIC_URL` (`http://localhost:4000`), public sites at
     ```
 
     Restart the FrontLit API so it picks up the new env, then reload `/settings/esp`.
+
+## Licensing
+
+FrontLit is split into two licenses:
+
+- **AGPL-3.0-or-later** covers the server (`apps/api`) and the web app (`apps/web`). If you run a modified FrontLit as a hosted service, you must share your changes under the same license. Self-hosting is free.
+- **MIT** covers the packages you embed in your own products: `@frontlit/page-builder`, `@frontlit/text-editor`, `@frontlit/image-uploader` and `@frontlit/api-contract`. Each of these has its own `LICENSE` file.
+
+The AGPL license text is in [LICENSE](./LICENSE). For a commercial license that allows a private modified fork, contact the maintainers.
