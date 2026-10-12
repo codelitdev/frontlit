@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useApiPublicUrl } from "./public-config";
 import { getTeamIdFromCookie } from "./tokens";
 
-function inboxSocketUrl(teamId: string): string {
-  const base = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000").replace(
-    /\/$/,
-    "",
-  );
+function inboxSocketUrl(apiPublicUrl: string, teamId: string): string {
+  const base = apiPublicUrl.replace(/\/$/, "");
   const wsBase = base.replace(/^http/, "ws");
   return `${wsBase}/inbox/stream?teamId=${encodeURIComponent(teamId)}`;
 }
@@ -17,6 +15,7 @@ export function useInboxLive(
   onUpdate: (ticketId: string) => void,
   teamId?: string | null,
 ) {
+  const apiPublicUrl = useApiPublicUrl();
   const onUpdateRef = useRef(onUpdate);
   useEffect(() => {
     onUpdateRef.current = onUpdate;
@@ -33,7 +32,7 @@ export function useInboxLive(
 
     const connect = () => {
       if (stopped) return;
-      socket = new WebSocket(inboxSocketUrl(resolvedTeamId));
+      socket = new WebSocket(inboxSocketUrl(apiPublicUrl, resolvedTeamId));
       socket.onopen = () => {
         retryMs = 1000;
       };
@@ -66,5 +65,5 @@ export function useInboxLive(
       if (retryTimer) clearTimeout(retryTimer);
       socket?.close();
     };
-  }, [teamId]);
+  }, [teamId, apiPublicUrl]);
 }
