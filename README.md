@@ -1,101 +1,158 @@
-# Introduction
+<div align="center">
 
-Build your SaaS website, publish content, support users, and send email from one place.
+<img src="assets/logo.svg" alt="FrontLit logo" width="72" height="72" />
 
-The front office of your SaaS.
+# FrontLit
 
-Articles, documentation, and product updates share one content system and can be placed on pages as data-backed feeds.
+**The front office of your SaaS.**
 
-API first. AI ready (MCP compatible).
+Build your website, publish content, support users and send email from one place,<br />
+through a block-based page builder, a REST API, an MCP server and a dashboard.
 
-## Local development
+[![npm](https://img.shields.io/npm/v/@frontlit/page-builder?label=page-builder)](https://www.npmjs.com/package/@frontlit/page-builder)
+[![npm](https://img.shields.io/npm/v/@frontlit/text-editor?label=text-editor)](https://www.npmjs.com/package/@frontlit/text-editor)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](./LICENSE)
+[![Discord](https://img.shields.io/badge/chat-Discord-5865F2)](https://discord.gg/AysdDP4wxe)
+[![Testing](https://github.com/codelitdev/frontlit/actions/workflows/test.yaml/badge.svg)](https://github.com/codelitdev/frontlit/actions/workflows/test.yaml)
+[![Code quality](https://github.com/codelitdev/frontlit/actions/workflows/code-quality.yaml/badge.svg)](https://github.com/codelitdev/frontlit/actions/workflows/code-quality.yaml)
 
-Start Postgres, Redis, and SendLit. Run FrontLit on the host:
+[Website](https://frontlit.app) · [Docs](apps/docs/content/docs/index.mdx) · [Getting started](apps/docs/content/docs/getting-started/overview.mdx) · [Self-hosting](apps/docs/content/docs/self-hosting/index.mdx)
 
-```sh
-docker compose -f docker-compose.local.yml up
-```
+</div>
 
-In other terminals (or `pnpm dev` to run all three together):
+---
 
-```sh
-cp apps/api/.env.example apps/api/.env
-cp apps/web/.env.example apps/web/.env
-cp apps/sites/.env.example apps/sites/.env
-pnpm --filter @frontlit/api-contract build
-pnpm dev:api
-pnpm dev:web
-pnpm dev:sites
-```
+## Why FrontLit
 
-Wait for `FrontLit migrations applied.` in the Compose logs before
-`pnpm dev:api`. Schema lives in Compose, not in the API process.
+A SaaS needs more than a product. It needs a marketing site, a blog, documentation, a changelog, a help desk and a way to email people, and these usually live in five different tools that don't share content, themes or users. FrontLit is one system for all of it, and it gives apps, AI agents and people one place to work on the same content.
 
-Do not use `pnpm dev:api && pnpm dev:web && pnpm dev:sites` — `&&` waits
-for each process to exit. Use separate terminals or `pnpm dev`.
+- **One content system.** Articles, documentation and product updates share the same model and can be placed on any page as data-backed feeds.
+- **A real page builder.** Draft and publish pages from a block-based WYSIWYG editor, themed per team. The editor and renderer are published as React packages you can embed.
+- **API first.** Every capability is defined once in a typed [ts-rest](https://ts-rest.com) contract, which drives server validation, the OpenAPI reference and the typed dashboard client. Nothing ships dashboard-only.
+- **AI ready.** The same capabilities are exposed over a remote MCP server, with OAuth for assistants and API keys for scripts.
+- **Multi-tenant.** Every team gets a subdomain and can attach its own custom domain to its public site.
+- **Email built in.** Lead capture on pages and sending through [SendLit](https://github.com/codelitdev/sendlit), provisioned automatically for each team.
+- **Open source and portable.** Self-host the whole stack with one Docker Compose file.
 
-On first SendLit boot, copy the one-time `organizationApiKey` into
-`apps/api/.env` as `SENDLIT_ORGANIZATION_API_KEY`:
+## Quick start
 
-```sh
-docker compose -f docker-compose.local.yml logs sendlit-api
-```
+Run the full stack (PostgreSQL, Redis, SendLit, and FrontLit's API, dashboard and public sites):
 
-Postgres is on `127.0.0.1:5433`, SendLit on `http://localhost:3001`.
-See [`apps/docs/content/docs/getting-started/overview.mdx`](apps/docs/content/docs/getting-started/overview.mdx).
-
-Do not run this at the same time as the self-host stack — both bind those
-ports.
-
-## Self-hosting with Docker Compose
-
-The root Compose file is the product: PostgreSQL (FrontLit + SendLit
-databases), Redis, SendLit, and FrontLit's API, dashboard, and public sites.
-
-```sh
+```bash
+git clone https://github.com/codelitdev/frontlit.git
+cd frontlit
 cp .env.example .env
-# Set the required secrets (commands are included as comments there).
+# Set the required secrets (commands are included as comments in the file).
+docker compose up --build -d
+```
+
+Then open the dashboard at <http://localhost:3000>. See [Self-hosting](#self-hosting) for the one-time keys you need to save.
+
+Embed the page builder in your own React app:
+
+```bash
+npm install @frontlit/page-builder
+```
+
+See the [page builder](apps/docs/content/docs/components/page-builder.mdx) and [text editor](apps/docs/content/docs/components/text-editor.mdx) guides for usage.
+
+Connect an AI agent: add `https://api.frontlit.app/mcp` as a remote MCP server in your client and sign in. See [MCP connections](apps/docs/content/docs/developers/mcp.mdx).
+
+## Packages
+
+| Package                                               | Description                                                  | Version                                                                                                             |
+| ----------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| [`@frontlit/page-builder`](packages/page-builder)     | Block-based WYSIWYG page builder and renderer for React      | [![npm](https://img.shields.io/npm/v/@frontlit/page-builder)](https://www.npmjs.com/package/@frontlit/page-builder) |
+| [`@frontlit/text-editor`](packages/text-editor)       | TipTap-based rich text editor and static renderer            | [![npm](https://img.shields.io/npm/v/@frontlit/text-editor)](https://www.npmjs.com/package/@frontlit/text-editor)   |
+| [`@frontlit/api-contract`](packages/api-contract)     | Shared ts-rest contract (Zod schemas and routes), internal   | private                                                                                                             |
+| [`@frontlit/image-uploader`](packages/image-uploader) | Image upload dialog with library and Unsplash tabs, internal | private                                                                                                             |
+
+The repository also contains the API (`apps/api`), which owns all product behavior; the dashboard (`apps/web`), a thin client over the API; the public sites server (`apps/sites`); and the docs site (`apps/docs`). A runnable demo of the component packages is in [`examples/components-demo`](examples/components-demo).
+
+## Architecture
+
+- **API** (`apps/api`): ts-rest routes, MCP tools, PostgreSQL with Drizzle ORM, pgvector for search.
+- **Dashboard** (`apps/web`): the authenticated team workspace, built on Next.js.
+- **Public sites** (`apps/sites`): serves each team's published site, resolving the tenant from the request host.
+- **SendLit**: the email layer, run alongside FrontLit.
+
+For the full design, see [docs/architecture.md](docs/architecture.md).
+
+## Self-hosting
+
+The root Compose file runs everything: PostgreSQL (FrontLit and SendLit databases), Redis, SendLit, and FrontLit's API, dashboard and public sites.
+
+```bash
+cp .env.example .env
 docker compose up --build -d
 docker compose logs frontlit-api
 docker compose logs sendlit-api
 ```
 
-Set `SUPER_ADMIN_EMAIL` and `SENDLIT_SUPER_ADMIN_EMAIL` before the first
-start. Each process logs a one-time API key; save those. After SendLit prints
-`organizationApiKey`, put it in `.env` as `SENDLIT_ORGANIZATION_API_KEY` and
-run `docker compose up -d frontlit-api`.
+Set `SUPER_ADMIN_EMAIL` and `SENDLIT_SUPER_ADMIN_EMAIL` before the first start. Each process logs a one-time API key; save both. After SendLit prints `organizationApiKey`, put it in `.env` as `SENDLIT_ORGANIZATION_API_KEY` and run `docker compose up -d frontlit-api`.
 
-Open the dashboard at `WEB_CLIENT` (`http://localhost:3000` by default), the
-API at `API_PUBLIC_URL` (`http://localhost:4000`), public sites at
-`SITES_BASE_URL` (`http://localhost:3002`), and SendLit at
-`http://localhost:3001`.
+| Service      | Default URL             |
+| ------------ | ----------------------- |
+| Dashboard    | <http://localhost:3000> |
+| API          | <http://localhost:4000> |
+| Public sites | <http://localhost:3002> |
+| SendLit      | <http://localhost:3001> |
 
-## Tech stack
+For a public deployment, use externally reachable HTTPS origins and set `ENABLE_TRUST_PROXY=true`. The [self-hosting guide](apps/docs/content/docs/self-hosting/index.mdx) has the details.
 
-- ts-rest (for API)
-- PostgreSQL (For DB and vector search)
-- Next.js
-- Tailwind CSS
-- Shadcn UI
-- Drizzle ORM
-- fumadocs (with openapi extension) for docs
+## Development
+
+**Requirements:** [Node.js](https://nodejs.org) 24, [pnpm](https://pnpm.io) 10 and Docker. We develop on Linux; on Windows, use WSL.
+
+```bash
+pnpm install
+
+# Postgres, Redis and SendLit. FrontLit itself runs on your machine.
+docker compose -f docker-compose.local.yml up
+```
+
+Wait for `FrontLit migrations applied.` in the Compose logs, then configure and start the apps in separate terminals (or use `pnpm dev` to run all three together):
+
+```bash
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+cp apps/sites/.env.example apps/sites/.env
+pnpm --filter @frontlit/api-contract build
+
+pnpm dev:api     # API on http://localhost:4000
+pnpm dev:web     # Dashboard on http://localhost:3000
+pnpm dev:sites   # Public sites on http://localhost:3002
+pnpm dev:docs    # Docs site
+```
+
+Don't chain them with `&&`: each command waits for the previous process to exit.
+
+On the first SendLit boot, copy the one-time `organizationApiKey` into `apps/api/.env` as `SENDLIT_ORGANIZATION_API_KEY`:
+
+```bash
+docker compose -f docker-compose.local.yml logs sendlit-api
+```
+
+Postgres is on `127.0.0.1:5433` and SendLit on <http://localhost:3001>. Don't run this at the same time as the self-host stack, since both bind the same ports.
+
+### Tests
+
+```bash
+pnpm --filter @frontlit/api-contract build
+pnpm test
+```
+
+### Tech stack
+
+ts-rest, PostgreSQL (with pgvector), Drizzle ORM, Next.js, Tailwind CSS, Shadcn UI, and fumadocs for the docs.
 
 ## Troubleshooting
 
-### ESP settings say SendLit is still provisioning
+**ESP settings say SendLit is still provisioning.** This means FrontLit has no stored SendLit team key, not that SendLit is down.
 
-`/settings/esp` shows _“It’s provisioned automatically in the background…”_ when FrontLit has no stored SendLit team key (`integrations.provider = 'sendlit'`). That is not the same as SendLit being down.
-
-1. Confirm SendLit is up: `curl -s http://localhost:3001/health`. Local: `docker compose -f docker-compose.local.yml ps`. Self-host: `docker compose ps`.
-2. Confirm `apps/api/.env` (local) or the root `.env` (self-host) has `SENDLIT_API_URL` and `SENDLIT_ORGANIZATION_API_KEY`. The org key is printed **once** on first SendLit boot:
-
-    ```bash
-    docker compose -f docker-compose.local.yml logs sendlit-api | grep organizationApiKey
-    ```
-
-    Recreating the SendLit database or container without updating this key produces `401 unauthorized` on `POST /provisioning/teams`.
-
-3. Check the FrontLit outbox (FrontLit Postgres, not SendLit):
+1. Check SendLit is up: `curl -s http://localhost:3001/health`.
+2. Check `SENDLIT_API_URL` and `SENDLIT_ORGANIZATION_API_KEY` are set in `apps/api/.env` (local) or the root `.env` (self-host). The organization key is printed once on first SendLit boot. Recreating the SendLit database without updating the key causes `401 unauthorized` on provisioning.
+3. Check the outbox in the FrontLit database:
 
     ```sql
     SELECT type, status, attempts, last_error, next_attempt_at
@@ -104,23 +161,24 @@ API at `API_PUBLIC_URL` (`http://localhost:4000`), public sites at
     ORDER BY created_at DESC;
     ```
 
-    After **8** failures a `provision_sendlit` row used to sit in `failed`
-    forever (the banner on `/settings/esp`). The API now requeues those
-    rows on boot and, unless `SENDLIT_PROVISION_RETRY_FOREVER=false`,
-    keeps retrying provision jobs. Team admins can also click **Retry now**
-    on `/settings/esp`. Older images still need the reset below:
+    The API requeues failed provisioning jobs on boot and keeps retrying them unless `SENDLIT_PROVISION_RETRY_FOREVER=false`. Team admins can also click **Retry now** on `/settings/esp`. Restart the API after changing env, then reload the page.
 
-    ```sql
-    UPDATE outbox_jobs
-    SET status = 'pending',
-        attempts = 0,
-        last_error = NULL,
-        next_attempt_at = NOW()
-    WHERE type = 'provision_sendlit'
-      AND status = 'failed';
-    ```
+## Contributing
 
-    Restart the FrontLit API so it picks up the new env, then reload `/settings/esp`.
+Contributions are welcome. For anything larger than a small fix, please open an issue first so we can agree on the approach.
+
+1. Fork the repository and create a branch.
+2. Make your change, with tests. If you change a published package, add a changeset with `pnpm changeset`.
+3. Run `pnpm lint`, `pnpm prettier` and `pnpm test`.
+4. Open a pull request. Tests and code quality checks run on every pull request and must pass.
+
+Public site UI must be built from `@frontlit/page-builder` primitives; see [AGENTS.md](AGENTS.md) for the rules.
+
+Questions are welcome on [Discord](https://discord.gg/AysdDP4wxe) or in [GitHub issues](https://github.com/codelitdev/frontlit/issues).
+
+## Security
+
+Please don't report security issues in public issues. Report them privately through [GitHub's security advisories](https://github.com/codelitdev/frontlit/security/advisories/new).
 
 ## Licensing
 
