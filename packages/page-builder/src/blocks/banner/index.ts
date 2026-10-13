@@ -8,13 +8,13 @@ import type { BannerSettings } from "./settings";
 export * from "./settings";
 
 export const Banner: Widget<BannerSettings> = {
-    metadata: bannerMetadata,
-    widget: BannerWidget,
-    editor: BannerEditor,
-    getDefaultSettings: () => bannerDefaults,
-    layouts: [
-        { id: "stacked", name: "Stacked" },
-        { id: "split", name: "Split" },
-        { id: "boxed", name: "Boxed" },
-    ],
+  metadata: bannerMetadata,
+  widget: BannerWidget,
+  editor: BannerEditor,
+  getDefaultSettings: () => bannerDefaults,
+  layouts: [
+    { id: "stacked", name: "Stacked" },
+    { id: "split", name: "Split" },
+    { id: "boxed", name: "Boxed" },
+  ],
 };

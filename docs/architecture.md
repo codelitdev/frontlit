@@ -320,20 +320,29 @@ export const pages = pgTable(
 ### 4.2 Standard pages
 
 Seeded per team at provisioning time (`provisioning/routes.ts` +
-`teams/queries.ts` `createTeam`), all `deletable: false`:
+`teams/queries.ts` `createTeam`). By default (when no explicit `pages` list
+is supplied), all 7 standard pages are seeded with `deletable: false`:
 
-| name             | slug        | type     | notes                                     |
-| ---------------- | ----------- | -------- | ----------------------------------------- |
-| Homepage         | `` (empty)  | `site`   | root of the public site                   |
-| Blog             | `blog`      | `blog`   | index shell; post list is a builder block |
-| Changelog        | `changelog` | `custom` | entry list is a builder block             |
-| Docs             | `docs`      | `custom` | doc nav/search is a builder block         |
-| Help desk        | `help`      | `custom` | `support-form` block pre-placed (§11.2)   |
-| Terms of Service | `terms`     | `custom` |                                           |
-| Privacy policy   | `privacy`   | `custom` |                                           |
+| name             | slug        | notes                                     |
+| ---------------- | ----------- | ----------------------------------------- |
+| Homepage         | `` (empty)  | root of the public site                   |
+| Blog             | `blog`      | index shell; post list is a builder block |
+| Changelog        | `changelog` | entry list is a builder block             |
+| Docs             | `docs`      | doc nav/search is a builder block         |
+| Help desk        | `help`      | `support-form` block pre-placed (§11.2)   |
+| Terms of Service | `terms`     |                                           |
+| Privacy policy   | `privacy`   |                                           |
 
-Standard pages are ordinary pages — same builder, same draft/publish flow —
-they just can't be deleted and their slugs are reserved. `blog`, `docs`,
+When provisioning via the API (`provisionTeamBodySchema.pages`), consumers can
+optionally supply an explicit list of pages:
+- **Selective standard pages**: only the requested standard pages are seeded.
+- **Empty list (`[]`)**: seeds no pages at all if the caller manages its own layout entirely.
+- **Custom pages**: define custom slugs, names, titles, and descriptions.
+- **Deletable overrides**: both standard and custom pages can explicitly declare `deletable: true` or `deletable: false`.
+- **Custom layout**: callers can optionally provide initial widget layouts, canonicalized to include required header/footer placeholders.
+
+Standard pages are ordinary pages — same builder, same draft/publish flow. Non-deletable
+pages cannot be deleted and their slugs remain fixed. `blog`, `docs`,
 `changelog` and `help` pages ship with the corresponding list/nav/form
 blocks pre-placed in their layout so the sections work out of the box.
 
@@ -975,7 +984,7 @@ same architecture by running their own SendLit next to FrontLit. The
 integration contract is identical either way — REST via `SENDLIT_API_URL`
 — only the URL changes. `docker-compose.yml` is that two-product stack.
 `docker-compose.local.yml` is the host-dev counterpart: Postgres, Redis,
-and SendLit only, so `pnpm dev:api` / `pnpm dev:web` / `pnpm dev:sites`
+and SendLit only, so `bun run dev:api` / `bun run dev:web` / `bun run dev:sites`
 run on the machine.
 
 | service          | image / build                 | notes                                                                                                                                         |
@@ -1719,8 +1728,8 @@ What keeps the design boring under load, and the known ceilings:
 The repo adopts SendLit's vitest setup wholesale — same stack, same
 patterns, proven on the sibling codebase (`sendlit/apps/api/vitest.config.ts`,
 `sendlit/apps/web/vitest.config.ts`, `sendlit/apps/api/src/test/{db,setup}.ts`).
-Per-workspace configs, colocated `*.test.ts` files, `pnpm test` fans out
-via `pnpm -r run test` (the root script already does this).
+Per-workspace configs, colocated `*.test.ts` files, `bun run test` fans out
+via `bun run --workspaces --if-present test` (the root script already does this).
 
 ### 14.1 `apps/api` — real Postgres semantics via PGlite
 
@@ -1782,7 +1791,7 @@ via `pnpm -r run test` (the root script already does this).
   module PR without tests for its queries logic is incomplete.
 - Tests colocate with the code (`src/<module>/queries.test.ts`), never
   in a parallel tree.
-- CI runs `pnpm -r run test` + `pnpm -r run check-types`; both gate
+- CI runs `bun run test` + `bun run typecheck`; both gate
   merges.
 
 ---
@@ -1799,7 +1808,7 @@ the feature, not in a later pass.
 
 0. **Test harness** — vitest configs in `apps/api` + `apps/web` (and
    `apps/sites`), PGlite `test/db.ts` + `setup.ts` ported
-   from sendlit, wired into root `pnpm test` and CI. _(Tiny; lands before
+   from sendlit, wired into root `bun run test` and CI. _(Tiny; lands before
    or with milestone 1 so every subsequent module arrives tested.)_
 
 1. **Pages draft/publish** — schema + migration, PATCH→draft semantics,

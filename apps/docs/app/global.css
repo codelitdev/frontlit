@@ -19,57 +19,57 @@
    from the shared FrontLit design system. `data-product="frontlit"` selects
    the product's blue accent family. */
 @theme inline {
-    --color-fd-background: var(--background);
-    --color-fd-foreground: var(--foreground);
-    --color-fd-card: var(--card);
-    --color-fd-card-foreground: var(--card-foreground);
-    --color-fd-popover: var(--popover);
-    --color-fd-popover-foreground: var(--popover-foreground);
-    --color-fd-primary: var(--primary);
-    --color-fd-primary-foreground: var(--primary-foreground);
-    --color-fd-secondary: var(--secondary);
-    --color-fd-secondary-foreground: var(--secondary-foreground);
-    --color-fd-muted: var(--muted);
-    --color-fd-muted-foreground: var(--muted-foreground);
-    --color-fd-accent: var(--accent);
-    --color-fd-accent-foreground: var(--accent-foreground);
-    --color-fd-border: var(--border);
-    --color-fd-ring: var(--ring);
-    --color-fd-overlay: var(--scrim);
-    --color-fd-error: var(--destructive);
-    --color-fd-warning: var(--warning);
-    --color-fd-success: var(--success);
+  --color-fd-background: var(--background);
+  --color-fd-foreground: var(--foreground);
+  --color-fd-card: var(--card);
+  --color-fd-card-foreground: var(--card-foreground);
+  --color-fd-popover: var(--popover);
+  --color-fd-popover-foreground: var(--popover-foreground);
+  --color-fd-primary: var(--primary);
+  --color-fd-primary-foreground: var(--primary-foreground);
+  --color-fd-secondary: var(--secondary);
+  --color-fd-secondary-foreground: var(--secondary-foreground);
+  --color-fd-muted: var(--muted);
+  --color-fd-muted-foreground: var(--muted-foreground);
+  --color-fd-accent: var(--accent);
+  --color-fd-accent-foreground: var(--accent-foreground);
+  --color-fd-border: var(--border);
+  --color-fd-ring: var(--ring);
+  --color-fd-overlay: var(--scrim);
+  --color-fd-error: var(--destructive);
+  --color-fd-warning: var(--warning);
+  --color-fd-success: var(--success);
 }
 
 .page-builder-demo {
-    border: 1px solid var(--color-fd-border);
-    border-radius: var(--radius-lg);
-    margin: 1rem 0 1.5rem;
-    overflow: hidden;
+  border: 1px solid var(--color-fd-border);
+  border-radius: var(--radius-lg);
+  margin: 1rem 0 1.5rem;
+  overflow: hidden;
 }
 
 .page-builder-demo__header {
-    border-bottom: 1px solid var(--color-fd-border);
-    padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--color-fd-border);
+  padding: 0.85rem 1rem;
 }
 
 .page-builder-demo__header h3 {
-    font-size: 0.95rem;
-    font-weight: 650;
-    margin: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+  margin: 0;
 }
 
 .page-builder-demo__header p {
-    color: var(--color-fd-muted-foreground);
-    font-size: 0.85rem;
-    margin: 0.2rem 0 0;
+  color: var(--color-fd-muted-foreground);
+  font-size: 0.85rem;
+  margin: 0.2rem 0 0;
 }
 
 .page-builder-demo__body {
-    background: var(--color-fd-background);
-    padding: 1rem;
+  background: var(--color-fd-background);
+  padding: 1rem;
 }
 
 .page-builder-demo__tall {
-    height: 680px;
+  height: 680px;
 }

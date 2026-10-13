@@ -1,5 +1,5 @@
 {
-    "title": "Developers",
-    "icon": "Code",
-    "pages": ["overview", "authentication", "mcp"]
+  "title": "Developers",
+  "icon": "Code",
+  "pages": ["overview", "authentication", "mcp"]
 }

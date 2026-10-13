@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 
 export default async function LegacyBlogEditor({
-    params,
+  params,
 }: {
-    params: Promise<{ documentId: string }>;
+  params: Promise<{ documentId: string }>;
 }) {
-    const { documentId } = await params;
-    redirect(`/editor/content/articles/${documentId}`);
+  const { documentId } = await params;
+  redirect(`/editor/content/articles/${documentId}`);
 }

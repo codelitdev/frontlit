@@ -4,8 +4,8 @@
  * `src/ai/` (Vercel AI SDK Core).
  */
 export {
-    EMBEDDING_DIMENSIONS,
-    getEmbedding,
-    getEmbeddings,
-    resolveEmbeddingsProvider,
+  EMBEDDING_DIMENSIONS,
+  getEmbedding,
+  getEmbeddings,
+  resolveEmbeddingsProvider,
 } from "../ai/embeddings";

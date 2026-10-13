@@ -8,9 +8,9 @@ import type { SupportFormSettings } from "./settings";
 export * from "./settings";
 
 export const SupportForm: Widget<SupportFormSettings> = {
-    metadata: supportFormMetadata,
-    widget: SupportFormWidget,
-    editor: SupportFormEditor,
-    getDefaultSettings: () => supportFormDefaults,
-    layouts: [{ id: "stacked", name: "Stacked" }],
+  metadata: supportFormMetadata,
+  widget: SupportFormWidget,
+  editor: SupportFormEditor,
+  getDefaultSettings: () => supportFormDefaults,
+  layouts: [{ id: "stacked", name: "Stacked" }],
 };

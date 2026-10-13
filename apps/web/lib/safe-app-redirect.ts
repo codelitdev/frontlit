@@ -14,22 +14,22 @@ import { WEB_CLIENT } from "@/lib/config";
  * whose origin matches `WEB_CLIENT`). Everything else falls back to `/`.
  */
 export function safeAppRedirect(redirectTo: string): URL {
-    const appOrigin = new URL(WEB_CLIENT);
+  const appOrigin = new URL(WEB_CLIENT);
 
-    try {
-        // Protocol-relative URLs (`//evil.example/...`) must not be treated
-        // as relative paths — `new URL("//…", origin)` would rewrite the host.
-        if (redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
-            return new URL(redirectTo, appOrigin);
-        }
-
-        const absolute = new URL(redirectTo);
-        if (absolute.origin === appOrigin.origin) {
-            return absolute;
-        }
-    } catch {
-        // Invalid URL — fall through to the home path.
+  try {
+    // Protocol-relative URLs (`//evil.example/...`) must not be treated
+    // as relative paths — `new URL("//…", origin)` would rewrite the host.
+    if (redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
+      return new URL(redirectTo, appOrigin);
     }
 
-    return new URL("/", appOrigin);
+    const absolute = new URL(redirectTo);
+    if (absolute.origin === appOrigin.origin) {
+      return absolute;
+    }
+  } catch {
+    // Invalid URL — fall through to the home path.
+  }
+
+  return new URL("/", appOrigin);
 }

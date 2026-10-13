@@ -4,10 +4,10 @@ import { PageBuilderDemo } from "@/components/page-builder-demo";
 import { TextEditorDemo } from "@/components/text-editor-demo";
 
 export function getMDXComponents(components?: MDXComponents): MDXComponents {
-    return {
-        ...defaultMdxComponents,
-        PageBuilderDemo,
-        TextEditorDemo,
-        ...components,
-    };
+  return {
+    ...defaultMdxComponents,
+    PageBuilderDemo,
+    TextEditorDemo,
+    ...components,
+  };
 }

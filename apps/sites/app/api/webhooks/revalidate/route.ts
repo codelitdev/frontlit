@@ -11,30 +11,27 @@ import { invalidateCachedHosts } from "@/lib/host";
  * authenticated by an HMAC signature, not a tenant host.
  */
 export async function POST(request: Request) {
-    const secret = process.env.REVALIDATE_WEBHOOK_SECRET;
-    if (!secret) return new Response("Not configured", { status: 404 });
+  const secret = process.env.REVALIDATE_WEBHOOK_SECRET;
+  if (!secret) return new Response("Not configured", { status: 404 });
 
-    const signature = request.headers.get("x-frontlit-signature");
-    const timestamp = Number(request.headers.get("x-frontlit-timestamp"));
-    const rawBody = await request.text();
+  const signature = request.headers.get("x-frontlit-signature");
+  const timestamp = Number(request.headers.get("x-frontlit-timestamp"));
+  const rawBody = await request.text();
 
-    if (
-        !signature ||
-        !verifyWebhookSignature(secret, rawBody, timestamp, signature)
-    ) {
-        return new Response("Invalid signature", { status: 401 });
-    }
+  if (!signature || !verifyWebhookSignature(secret, rawBody, timestamp, signature)) {
+    return new Response("Invalid signature", { status: 401 });
+  }
 
-    const { teamId, invalidateHosts } = JSON.parse(rawBody) as {
-        teamId?: string;
-        invalidateHosts?: string[];
-    };
-    if (!teamId) return new Response("Missing teamId", { status: 400 });
+  const { teamId, invalidateHosts } = JSON.parse(rawBody) as {
+    teamId?: string;
+    invalidateHosts?: string[];
+  };
+  if (!teamId) return new Response("Missing teamId", { status: 400 });
 
-    // A webhook needs the tag to expire immediately, not just go stale
-    // (Next.js's `profile="max"` stale-while-revalidate default) — this is
-    // exactly the case the docs call out `{ expire: 0 }` for.
-    revalidateTag(`team:${teamId}`, { expire: 0 });
-    invalidateCachedHosts(invalidateHosts);
-    return Response.json({ revalidated: true });
+  // A webhook needs the tag to expire immediately, not just go stale
+  // (Next.js's `profile="max"` stale-while-revalidate default) — this is
+  // exactly the case the docs call out `{ expire: 0 }` for.
+  revalidateTag(`team:${teamId}`, { expire: 0 });
+  invalidateCachedHosts(invalidateHosts);
+  return Response.json({ revalidated: true });
 }

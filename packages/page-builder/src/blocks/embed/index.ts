@@ -8,8 +8,8 @@ import type { EmbedSettings } from "./settings";
 export * from "./settings";
 
 export const Embed: Widget<EmbedSettings> = {
-    metadata: embedMetadata,
-    widget: EmbedWidget,
-    editor: EmbedEditor,
-    getDefaultSettings: () => embedDefaults,
+  metadata: embedMetadata,
+  widget: EmbedWidget,
+  editor: EmbedEditor,
+  getDefaultSettings: () => embedDefaults,
 };

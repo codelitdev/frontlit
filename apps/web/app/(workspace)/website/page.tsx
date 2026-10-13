@@ -12,59 +12,59 @@ import { Loading } from "@/components/workspace/loading";
 import { ScrollablePage } from "@/components/workspace/scrollable-page";
 import { useWorkspaceAccess } from "@/components/workspace/workspace-access";
 import {
-    WEBSITE_TABS,
-    firstAccessibleWebsiteTab,
-    isWebsiteTab,
-    websiteTabHref,
+  WEBSITE_TABS,
+  firstAccessibleWebsiteTab,
+  isWebsiteTab,
+  websiteTabHref,
 } from "@/lib/website-tabs";
 
 export default function WebsitePage({
-    searchParams,
+  searchParams,
 }: {
-    searchParams: Promise<{ tab?: string | string[] }>;
+  searchParams: Promise<{ tab?: string | string[] }>;
 }) {
-    const router = useRouter();
-    const query = use(searchParams);
-    const { currentTeam, loading, canAccess } = useWorkspaceAccess();
-    const requested = typeof query.tab === "string" ? query.tab : null;
-    const fallback = firstAccessibleWebsiteTab(currentTeam);
-    const selectedTab =
-        isWebsiteTab(requested) &&
-        canAccess(
-            WEBSITE_TABS.find((candidate) => candidate.id === requested)
-                ?.accessPath ?? "/website",
-        )
-            ? requested
-            : fallback;
+  const router = useRouter();
+  const query = use(searchParams);
+  const { currentTeam, loading, canAccess } = useWorkspaceAccess();
+  const requested = typeof query.tab === "string" ? query.tab : null;
+  const fallback = firstAccessibleWebsiteTab(currentTeam);
+  const selectedTab =
+    isWebsiteTab(requested) &&
+    canAccess(
+      WEBSITE_TABS.find((candidate) => candidate.id === requested)?.accessPath ??
+        "/website",
+    )
+      ? requested
+      : fallback;
 
-    useEffect(() => {
-        if (!loading && selectedTab && requested !== selectedTab) {
-            router.replace(websiteTabHref(selectedTab));
-        }
-    }, [loading, requested, router, selectedTab]);
-
-    if (loading || !selectedTab) {
-        return (
-            <ScrollablePage>
-                <Loading />
-            </ScrollablePage>
-        );
+  useEffect(() => {
+    if (!loading && selectedTab && requested !== selectedTab) {
+      router.replace(websiteTabHref(selectedTab));
     }
+  }, [loading, requested, router, selectedTab]);
 
-    const view =
-        selectedTab === "branding" ? (
-            <BrandingPage />
-        ) : selectedTab === "domain" ? (
-            <DomainPage />
-        ) : selectedTab === "code-injection" ? (
-            <CodeInjectionPage />
-        ) : selectedTab === "chatbot" ? (
-            <ChatbotPage />
-        ) : selectedTab === "help-desk" ? (
-            <HelpDeskPage />
-        ) : (
-            <PagesPage />
-        );
+  if (loading || !selectedTab) {
+    return (
+      <ScrollablePage>
+        <Loading />
+      </ScrollablePage>
+    );
+  }
 
-    return view;
+  const view =
+    selectedTab === "branding" ? (
+      <BrandingPage />
+    ) : selectedTab === "domain" ? (
+      <DomainPage />
+    ) : selectedTab === "code-injection" ? (
+      <CodeInjectionPage />
+    ) : selectedTab === "chatbot" ? (
+      <ChatbotPage />
+    ) : selectedTab === "help-desk" ? (
+      <HelpDeskPage />
+    ) : (
+      <PagesPage />
+    );
+
+  return view;
 }

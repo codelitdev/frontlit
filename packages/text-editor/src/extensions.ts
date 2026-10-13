@@ -1,12 +1,7 @@
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Link from "@tiptap/extension-link";
-import {
-    Table,
-    TableCell,
-    TableHeader,
-    TableRow,
-} from "@tiptap/extension-table";
+import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
 import Image from "@tiptap/extension-image";
 import Dropcursor from "@tiptap/extension-dropcursor";
 import Gapcursor from "@tiptap/extension-gapcursor";
@@ -30,77 +25,75 @@ lowlight.registerLanguage("css", css);
 lowlight.registerLanguage("html", xml);
 
 interface ExtensionOptions {
-    placeholder?: string;
+  placeholder?: string;
 }
 
 export const createExtensions = ({
-    placeholder,
+  placeholder,
 }: ExtensionOptions = {}): Extensions => [
-    StarterKit.configure({
-        codeBlock: false,
-        // Configured/replaced explicitly below (custom options or a
-        // `.extend()`) — disabled here to avoid tiptap's duplicate-extension
-        // warning and constructing throwaway instances of each.
-        link: false,
-        dropcursor: false,
-        gapcursor: false,
-        heading: false,
-    }),
-    Placeholder.configure({
-        placeholder: placeholder || "Write something…",
-    }),
-    Link.configure({
-        openOnClick: false,
-        autolink: true,
-        linkOnPaste: true,
-    }),
-    Table.configure({
-        resizable: true,
-    }),
-    TableRow,
-    TableHeader,
-    TableCell,
-    Image.configure({
-        // We embed uploaded images as data URLs (no backend/media library in
-        // this package), so base64 sources must be allowed.
-        allowBase64: true,
-        HTMLAttributes: {
-            class: "max-w-full h-auto rounded-md",
-        },
-        resize: {
-            enabled: true,
-            directions: ["top", "bottom", "left", "right"],
-            alwaysPreserveAspectRatio: true,
-        },
-    }),
-    Dropcursor.configure({
-        color: "hsl(var(--foreground))",
-        width: 2,
-    }),
-    Gapcursor,
-    CodeBlockLowlight.configure({
-        lowlight,
-    }),
-    Heading.extend({
-        renderHTML({ node, HTMLAttributes }) {
-            const level = this.options.levels.includes(node.attrs.level)
-                ? node.attrs.level
-                : this.options.levels[0];
-            const id =
-                typeof node.textContent === "string"
-                    ? createId(node.textContent)
-                    : undefined;
+  StarterKit.configure({
+    codeBlock: false,
+    // Configured/replaced explicitly below (custom options or a
+    // `.extend()`) — disabled here to avoid tiptap's duplicate-extension
+    // warning and constructing throwaway instances of each.
+    link: false,
+    dropcursor: false,
+    gapcursor: false,
+    heading: false,
+  }),
+  Placeholder.configure({
+    placeholder: placeholder || "Write something…",
+  }),
+  Link.configure({
+    openOnClick: false,
+    autolink: true,
+    linkOnPaste: true,
+  }),
+  Table.configure({
+    resizable: true,
+  }),
+  TableRow,
+  TableHeader,
+  TableCell,
+  Image.configure({
+    // We embed uploaded images as data URLs (no backend/media library in
+    // this package), so base64 sources must be allowed.
+    allowBase64: true,
+    HTMLAttributes: {
+      class: "max-w-full h-auto rounded-md",
+    },
+    resize: {
+      enabled: true,
+      directions: ["top", "bottom", "left", "right"],
+      alwaysPreserveAspectRatio: true,
+    },
+  }),
+  Dropcursor.configure({
+    color: "hsl(var(--foreground))",
+    width: 2,
+  }),
+  Gapcursor,
+  CodeBlockLowlight.configure({
+    lowlight,
+  }),
+  Heading.extend({
+    renderHTML({ node, HTMLAttributes }) {
+      const level = this.options.levels.includes(node.attrs.level)
+        ? node.attrs.level
+        : this.options.levels[0];
+      const id =
+        typeof node.textContent === "string" ? createId(node.textContent) : undefined;
 
-            return [
-                `h${level}`,
-                {
-                    ...HTMLAttributes,
-                    id,
-                },
-                0,
-            ];
+      return [
+        `h${level}`,
+        {
+          ...HTMLAttributes,
+          id,
         },
-    }),
-    Highlight,
-    CodeMirrorNode,
+        0,
+      ];
+    },
+  }),
+  Highlight,
+  CodeMirrorNode,
 ];

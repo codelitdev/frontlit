@@ -3,11 +3,11 @@ import { db } from "../db/client";
 import { teams } from "../db/schema";
 import { logger } from "../services/log";
 import {
-    claimNextOutboxJob,
-    markOutboxJobDone,
-    markOutboxJobFailed,
-    provisionRetryForeverEnabled,
-    requeueFailedProvisionJobs,
+  claimNextOutboxJob,
+  markOutboxJobDone,
+  markOutboxJobFailed,
+  provisionRetryForeverEnabled,
+  requeueFailedProvisionJobs,
 } from "./outbox";
 import { addContactTag, upsertContact } from "./sendlit-client";
 import { getSendlitApiKey } from "../integrations/queries";
@@ -16,114 +16,106 @@ import { retryProvisionSendlitForTeam } from "./provisioning";
 /** Upserts the lead as a SendLit contact and tags it `frontlit` plus the
  * capturing page's slug, so email can be segmented by source page
  * (architecture.md §10.2). */
-async function processContactSync(
-    teamId: string,
-    payload: Record<string, unknown>,
-) {
-    const apiKey = await getSendlitApiKey(teamId);
-    if (!apiKey) throw new Error("Team has no SendLit integration yet");
+async function processContactSync(teamId: string, payload: Record<string, unknown>) {
+  const apiKey = await getSendlitApiKey(teamId);
+  if (!apiKey) throw new Error("Team has no SendLit integration yet");
 
-    const email = String(payload.email);
-    const name =
-        typeof payload.name === "string" && payload.name.trim()
-            ? payload.name.trim()
-            : undefined;
-    const contact = await upsertContact(apiKey, {
-        email,
-        ...(name ? { name } : {}),
-    });
-    await addContactTag(apiKey, contact.contactId, "frontlit");
+  const email = String(payload.email);
+  const name =
+    typeof payload.name === "string" && payload.name.trim()
+      ? payload.name.trim()
+      : undefined;
+  const contact = await upsertContact(apiKey, {
+    email,
+    ...(name ? { name } : {}),
+  });
+  await addContactTag(apiKey, contact.contactId, "frontlit");
 
-    const sourcePath =
-        typeof payload.sourcePath === "string" ? payload.sourcePath : undefined;
-    if (sourcePath) {
-        const tag = `source:${sourcePath.replace(/^\/+/, "").replace(/\/+/g, "-") || "home"}`;
-        await addContactTag(apiKey, contact.contactId, tag);
-    }
+  const sourcePath =
+    typeof payload.sourcePath === "string" ? payload.sourcePath : undefined;
+  if (sourcePath) {
+    const tag = `source:${sourcePath.replace(/^\/+/, "").replace(/\/+/g, "-") || "home"}`;
+    await addContactTag(apiKey, contact.contactId, tag);
+  }
 }
 
 async function processProvisionSendlit(
-    teamId: string,
-    payload: Record<string, unknown>,
+  teamId: string,
+  payload: Record<string, unknown>,
 ) {
-    const team = await db.query.teams.findFirst({
-        where: eq(teams.id, teamId),
-    });
-    if (!team) return; // Team was deleted before the retry ran.
-    await retryProvisionSendlitForTeam(team, String(payload.ownerEmail));
+  const team = await db.query.teams.findFirst({
+    where: eq(teams.id, teamId),
+  });
+  if (!team) return; // Team was deleted before the retry ran.
+  await retryProvisionSendlitForTeam(team, String(payload.ownerEmail));
 }
 
 async function processOneJob(): Promise<boolean> {
-    const job = await claimNextOutboxJob();
-    if (!job) return false;
+  const job = await claimNextOutboxJob();
+  if (!job) return false;
 
-    try {
-        if (job.type === "contact_sync") {
-            await processContactSync(job.teamId, job.payload);
-        } else if (job.type === "provision_sendlit") {
-            await processProvisionSendlit(job.teamId, job.payload);
-        }
-        await markOutboxJobDone(job.id);
-    } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        logger.warn(
-            {
-                jobId: job.id,
-                type: job.type,
-                attempts: job.attempts,
-                error: message,
-            },
-            "Outbox job failed, will retry",
-        );
-        await markOutboxJobFailed(job.id, job.attempts, message, {
-            retryForever:
-                job.type === "provision_sendlit" &&
-                provisionRetryForeverEnabled(),
-        });
+  try {
+    if (job.type === "contact_sync") {
+      await processContactSync(job.teamId, job.payload);
+    } else if (job.type === "provision_sendlit") {
+      await processProvisionSendlit(job.teamId, job.payload);
     }
-    return true;
+    await markOutboxJobDone(job.id);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.warn(
+      {
+        jobId: job.id,
+        type: job.type,
+        attempts: job.attempts,
+        error: message,
+      },
+      "Outbox job failed, will retry",
+    );
+    await markOutboxJobFailed(job.id, job.attempts, message, {
+      retryForever: job.type === "provision_sendlit" && provisionRetryForeverEnabled(),
+    });
+  }
+  return true;
 }
 
 /** Simple in-process poll loop — no separate worker service/queue library
  * needed at this scale (architecture.md §10.2/§13.5). Drains the queue
  * (processing back-to-back while jobs are ready) then sleeps. */
 export function startOutboxWorker(intervalMs = 5000): () => void {
-    let stopped = false;
+  let stopped = false;
 
-    void requeueFailedProvisionJobs()
-        .then((count) => {
-            if (count > 0) {
-                logger.info(
-                    { count },
-                    "Requeued failed SendLit provision jobs",
-                );
-            }
-        })
-        .catch((err) => {
-            logger.error(
-                { error: err instanceof Error ? err.message : String(err) },
-                "Failed to requeue SendLit provision jobs",
-            );
-        });
+  void requeueFailedProvisionJobs()
+    .then((count) => {
+      if (count > 0) {
+        logger.info({ count }, "Requeued failed SendLit provision jobs");
+      }
+    })
+    .catch((err) => {
+      logger.error(
+        { error: err instanceof Error ? err.message : String(err) },
+        "Failed to requeue SendLit provision jobs",
+      );
+    });
 
-    async function tick() {
-        if (stopped) return;
-        try {
-            let processed = await processOneJob();
-            while (processed && !stopped) {
-                processed = await processOneJob();
-            }
-        } catch (err) {
-            logger.error(
-                { error: err instanceof Error ? err.message : String(err) },
-                "Outbox worker tick failed",
-            );
-        }
-        if (!stopped) setTimeout(tick, intervalMs);
+  async function tick() {
+    if (stopped) return;
+    try {
+      let processed = await processOneJob();
+      while (processed && !stopped) {
+        processed = await processOneJob();
+      }
+    } catch (err) {
+      logger.error(
+        { error: err instanceof Error ? err.message : String(err) },
+        "Outbox worker tick failed",
+      );
     }
+    if (!stopped) setTimeout(tick, intervalMs);
+  }
 
-    setTimeout(tick, intervalMs);
-    return () => {
-        stopped = true;
-    };
+  setTimeout(tick, intervalMs);
+  return () => {
+    stopped = true;
+  };
 }

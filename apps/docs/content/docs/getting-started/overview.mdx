@@ -3,7 +3,7 @@ title: Overview
 description: Run the FrontLit API, dashboard, and public sites locally.
 ---
 
-FrontLit is a pnpm monorepo with four apps and several packages:
+FrontLit is a Bun workspace with four apps and several packages:
 
 - `apps/api` — the REST/OpenAPI/MCP API (Express, ts-rest, better-auth, Drizzle/Postgres).
 - `apps/web` — the dashboard (Next.js), authenticated against `apps/api`.
@@ -44,22 +44,22 @@ cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
 cp apps/sites/.env.example apps/sites/.env
 # Point DB_CONNECTION_STRING at localhost:5433 (Compose publishes Postgres there).
-pnpm --filter @frontlit/api-contract build
+bun run --filter @frontlit/api-contract build
 ```
 
 Then start the apps in **separate terminals** (`&&` waits for each process
 to exit):
 
 ```bash
-pnpm dev:api
-pnpm dev:web
-pnpm dev:sites
+bun run dev:api
+bun run dev:web
+bun run dev:sites
 ```
 
 Or run all three together:
 
 ```bash
-pnpm dev
+bun run dev
 ```
 
 The API listens on `http://localhost:4000`. `GET /health` confirms it's up,

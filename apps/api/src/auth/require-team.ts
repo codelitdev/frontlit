@@ -1,16 +1,16 @@
 import type { NextFunction, Request, Response } from "express";
 import {
-    getTeamByTeamId,
-    getTeamMembership,
-    listTeamsForAccount,
+  getTeamByTeamId,
+  getTeamMembership,
+  listTeamsForAccount,
 } from "../team/queries";
 import { loadTeamAuthz } from "./authorize";
 
 function getHeaderValue(value: unknown): string | undefined {
-    if (Array.isArray(value)) {
-        return typeof value[0] === "string" ? value[0] : undefined;
-    }
-    return typeof value === "string" ? value : undefined;
+  if (Array.isArray(value)) {
+    return typeof value[0] === "string" ? value[0] : undefined;
+  }
+  return typeof value === "string" ? value : undefined;
 }
 
 /**
@@ -25,82 +25,82 @@ function getHeaderValue(value: unknown): string | undefined {
  *   used automatically. Otherwise the caller must specify one explicitly.
  */
 export async function requireTeam(
-    req: Request,
-    res: Response,
-    next: NextFunction,
+  req: Request,
+  res: Response,
+  next: NextFunction,
 ): Promise<void> {
-    const anyReq = req as any;
-    if (anyReq.authKind === "oauth") {
-        if (anyReq.oauthTeamInvalid || !anyReq.teamId) {
-            res.status(403).json({
-                error: "not_a_team_member",
-                error_description:
-                    "This OAuth token is not valid for a current team membership.",
-            });
-            return;
-        }
-        await loadTeamAuthz(req, anyReq.teamId);
-        return next();
-    }
-    if (anyReq.teamId) {
-        await loadTeamAuthz(req, anyReq.teamId);
-        return next();
-    }
-    if (!anyReq.accountId) {
-        res.status(401).json({ error: "unauthorized" });
-        return;
-    }
-
-    const headerTeamId = getHeaderValue(req.headers["x-frontlit-team-id"]);
-    if (headerTeamId) {
-        const team = await getTeamByTeamId(headerTeamId);
-        if (!team) {
-            res.status(400).json({
-                error: "invalid_team_id",
-                error_description: "The provided team ID is not valid.",
-            });
-            return;
-        }
-        let membership;
-        try {
-            membership = await getTeamMembership(team.id, anyReq.accountId);
-        } catch {
-            res.status(400).json({
-                error: "invalid_team_id",
-                error_description: "The provided team ID is not valid.",
-            });
-            return;
-        }
-        if (!membership) {
-            res.status(403).json({
-                error: "not_a_team_member",
-                error_description: "You are not a member of this team.",
-            });
-            return;
-        }
-        anyReq.teamId = team.id;
-        await loadTeamAuthz(req, team.id);
-        return next();
-    }
-
-    const teams = await listTeamsForAccount(anyReq.accountId);
-    if (teams.length === 1) {
-        anyReq.teamId = teams[0].id;
-        await loadTeamAuthz(req, teams[0].id);
-        return next();
-    }
-    if (teams.length === 0) {
-        res.status(409).json({
-            error: "no_team",
-            error_description: "This account doesn't belong to any team yet.",
-        });
-        return;
-    }
-
-    res.status(409).json({
-        error: "team_required",
+  const anyReq = req as any;
+  if (anyReq.authKind === "oauth") {
+    if (anyReq.oauthTeamInvalid || !anyReq.teamId) {
+      res.status(403).json({
+        error: "not_a_team_member",
         error_description:
-            "This account belongs to multiple teams — specify one via the X-Frontlit-Team-Id header.",
-        teams: teams.map((t) => ({ teamId: t.teamId, name: t.name })),
+          "This OAuth token is not valid for a current team membership.",
+      });
+      return;
+    }
+    await loadTeamAuthz(req, anyReq.teamId);
+    return next();
+  }
+  if (anyReq.teamId) {
+    await loadTeamAuthz(req, anyReq.teamId);
+    return next();
+  }
+  if (!anyReq.accountId) {
+    res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+
+  const headerTeamId = getHeaderValue(req.headers["x-frontlit-team-id"]);
+  if (headerTeamId) {
+    const team = await getTeamByTeamId(headerTeamId);
+    if (!team) {
+      res.status(400).json({
+        error: "invalid_team_id",
+        error_description: "The provided team ID is not valid.",
+      });
+      return;
+    }
+    let membership;
+    try {
+      membership = await getTeamMembership(team.id, anyReq.accountId);
+    } catch {
+      res.status(400).json({
+        error: "invalid_team_id",
+        error_description: "The provided team ID is not valid.",
+      });
+      return;
+    }
+    if (!membership) {
+      res.status(403).json({
+        error: "not_a_team_member",
+        error_description: "You are not a member of this team.",
+      });
+      return;
+    }
+    anyReq.teamId = team.id;
+    await loadTeamAuthz(req, team.id);
+    return next();
+  }
+
+  const teams = await listTeamsForAccount(anyReq.accountId);
+  if (teams.length === 1) {
+    anyReq.teamId = teams[0].id;
+    await loadTeamAuthz(req, teams[0].id);
+    return next();
+  }
+  if (teams.length === 0) {
+    res.status(409).json({
+      error: "no_team",
+      error_description: "This account doesn't belong to any team yet.",
     });
+    return;
+  }
+
+  res.status(409).json({
+    error: "team_required",
+    error_description:
+      "This account belongs to multiple teams — specify one via the X-Frontlit-Team-Id header.",
+    teams: teams.map((t) => ({ teamId: t.teamId, name: t.name })),
+  });
 }

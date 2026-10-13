@@ -9,17 +9,17 @@ No Tailwind in this app. Each package ships compiled CSS. The text-editor pane
 imports only `@frontlit/text-editor/styles.css`; the page-builder pane imports
 only `@frontlit/page-builder/styles.css`.
 
-The example is a workspace member so `pnpm --filter @frontlit/components-demo`
-works. Its FrontLit dependencies use the `npm:` protocol so pnpm cannot
-symlink `packages/page-builder` or `packages/text-editor`.
+The example is a workspace member, and its FrontLit dependencies use the
+`npm:` protocol so it exercises the published packages instead of the local
+workspace copies.
 
 ## Run
 
 From the repo root:
 
 ```sh
-pnpm install
-pnpm --filter @frontlit/components-demo dev
+bun install
+bun run --filter @frontlit/components-demo dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173).

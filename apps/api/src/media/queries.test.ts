@@ -8,130 +8,197 @@ vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 // Here we mock the service seam so the queries layer (idempotency,
 // team-scoping, DB shape) is tested in isolation, per architecture.md §14.1.
 vi.mock("./service", () => ({
-    sealMedia: vi.fn(async (mediaLitId: string) => ({
-        mediaId: mediaLitId,
-        originalFileName: "photo.png",
-        mimeType: "image/png",
-        size: 1234,
-        access: "public" as const,
-        file: `https://cdn.medialit.example/${mediaLitId}/main.png`,
-        thumbnail: `https://cdn.medialit.example/${mediaLitId}/thumb.webp`,
-        caption: undefined,
-    })),
-    deleteMedia: vi.fn(async () => undefined),
-    getMedia: vi.fn(),
-    getMediaUploadSignature: vi.fn(),
+  mediaLitBindsSignedGroups: vi.fn(async () => true),
+  sealMedia: vi.fn(async (mediaLitId: string) => ({
+    mediaId: mediaLitId,
+    originalFileName: "photo.png",
+    mimeType: "image/png",
+    size: 1234,
+    access: "public" as const,
+    file: `https://cdn.medialit.example/${mediaLitId}/main.png`,
+    thumbnail: `https://cdn.medialit.example/${mediaLitId}/thumb.webp`,
+    caption: undefined,
+  })),
+  deleteMedia: vi.fn(async () => undefined),
+  getMedia: vi.fn(),
+  getMediaUploadSignature: vi.fn(),
 }));
 
+import { deliverDocumentationEvent } from "../documentation/publications";
+import { saveDocumentation } from "../documentation/authoring";
 import { db as testDb } from "../db/client";
-import { sealMedia, deleteMedia } from "./service";
+import { sealMedia, deleteMedia, getMedia } from "./service";
 import {
-    countMedia,
-    deleteMediaRecord,
-    getMediaByMediaId,
-    listMedia,
-    registerMedia,
-    updateMedia,
+  countMedia,
+  deleteMediaRecord,
+  getMediaByMediaId,
+  listMedia,
+  registerMedia,
+  updateMedia,
 } from "./queries";
 
 describe("media library", () => {
-    const db = testDb as unknown as TestDb;
-    let teamId: string;
+  const db = testDb as unknown as TestDb;
+  let teamId: string;
 
-    beforeEach(async () => {
-        vi.clearAllMocks();
-        const seeded = await seedTeam(db);
-        teamId = seeded.team.id;
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const seeded = await seedTeam(db);
+    teamId = seeded.team.id;
+    vi.mocked(getMedia).mockImplementation(async (mediaLitId: string) => ({
+      mediaId: mediaLitId,
+      originalFileName: "photo.png",
+      mimeType: "image/png",
+      size: 1234,
+      access: "public",
+      file: `https://cdn.medialit.example/${mediaLitId}/main.png`,
+      thumbnail: `https://cdn.medialit.example/${mediaLitId}/thumb.webp`,
+      group: teamId,
+    }));
+  });
+
+  it("adopts a provider-verified public legacy asset without sealing", async () => {
+    const item = await registerMedia({
+      teamId,
+      mediaLitId: "ml_abc123",
+      alt: "A photo",
     });
 
-    it("registers media by sealing it and storing the sealed URL/metadata", async () => {
-        const item = await registerMedia({
-            teamId,
-            mediaLitId: "ml_abc123",
-            alt: "A photo",
-        });
+    expect(sealMedia).not.toHaveBeenCalled();
+    expect(item?.mediaId).toMatch(/^med_/);
+    expect(item?.mediaLitId).toBe("ml_abc123");
+    expect(item?.url).toBe("https://cdn.medialit.example/ml_abc123/main.png");
+    expect(item?.thumbnailUrl).toBe(
+      "https://cdn.medialit.example/ml_abc123/thumb.webp",
+    );
+    expect(item?.mimeType).toBe("image/png");
+    expect(item?.size).toBe(1234);
+    expect(item?.alt).toBe("A photo");
+  });
 
-        expect(sealMedia).toHaveBeenCalledWith("ml_abc123");
-        expect(item?.mediaId).toMatch(/^med_/);
-        expect(item?.mediaLitId).toBe("ml_abc123");
-        expect(item?.url).toBe(
-            "https://cdn.medialit.example/ml_abc123/main.png",
-        );
-        expect(item?.thumbnailUrl).toBe(
-            "https://cdn.medialit.example/ml_abc123/thumb.webp",
-        );
-        expect(item?.mimeType).toBe("image/png");
-        expect(item?.size).toBe(1234);
-        expect(item?.alt).toBe("A photo");
+  it("is idempotent: re-registering the same mediaLitId returns the existing row", async () => {
+    const first = await registerMedia({ teamId, mediaLitId: "ml_dupe" });
+    const second = await registerMedia({ teamId, mediaLitId: "ml_dupe" });
+
+    expect(sealMedia).not.toHaveBeenCalled();
+    expect(second?.mediaId).toBe(first?.mediaId);
+
+    expect(await countMedia({ teamId })).toBe(1);
+    expect(await listMedia({ teamId })).toHaveLength(1);
+  });
+
+  it("rejects a supplied URL that differs from provider metadata", async () => {
+    await expect(
+      registerMedia({
+        teamId,
+        mediaLitId: "ml_provisioned_1",
+        url: "https://external-storage.example/hero.jpg",
+      }),
+    ).rejects.toThrow();
+    expect(sealMedia).not.toHaveBeenCalled();
+    expect(await countMedia({ teamId })).toBe(0);
+  });
+
+  it("rejects unsplash URLs or missing/invalid mediaLitId", async () => {
+    await expect(
+      registerMedia({
+        teamId,
+        mediaLitId: "https://images.unsplash.com/photo-1",
+        url: "https://images.unsplash.com/photo-1",
+      } as any),
+    ).rejects.toThrow();
+
+    await expect(
+      registerMedia({
+        teamId,
+        mediaLitId: "ext_123",
+        url: "https://example.com/photo-1.jpg",
+      } as any),
+    ).rejects.toThrow();
+  });
+
+  it("lists media newest-first, scoped to the team", async () => {
+    await registerMedia({ teamId, mediaLitId: "ml_1" });
+    await registerMedia({ teamId, mediaLitId: "ml_2" });
+    const { team: otherTeam } = await seedTeam(db, { name: "Other" });
+    vi.mocked(getMedia).mockResolvedValueOnce({
+      mediaId: "ml_other",
+      originalFileName: "other.png",
+      mimeType: "image/png",
+      size: 1,
+      access: "public",
+      file: "https://cdn.medialit.example/ml_other/main.png",
+      group: otherTeam.id,
+    });
+    await registerMedia({ teamId: otherTeam.id, mediaLitId: "ml_other" });
+
+    const items = await listMedia({ teamId });
+
+    expect(items).toHaveLength(2);
+    expect(items.map((i) => i.mediaLitId).sort()).toEqual(["ml_1", "ml_2"]);
+    expect(await countMedia({ teamId })).toBe(2);
+  });
+
+  it("updates alt/caption without touching MediaLit", async () => {
+    const created = await registerMedia({ teamId, mediaLitId: "ml_edit" });
+    const updated = await updateMedia(teamId, created!.mediaId, {
+      alt: "New alt",
+      caption: "New caption",
     });
 
-    it("is idempotent: re-registering the same mediaLitId returns the existing row", async () => {
-        const first = await registerMedia({ teamId, mediaLitId: "ml_dupe" });
-        const second = await registerMedia({ teamId, mediaLitId: "ml_dupe" });
+    expect(updated?.alt).toBe("New alt");
+    expect(updated?.caption).toBe("New caption");
+  });
 
-        expect(sealMedia).toHaveBeenCalledTimes(2);
-        expect(second?.mediaId).toBe(first?.mediaId);
-
-        expect(await countMedia({ teamId })).toBe(1);
-        expect(await listMedia({ teamId })).toHaveLength(1);
+  it("update is team-scoped and no-ops for another team", async () => {
+    const created = await registerMedia({
+      teamId,
+      mediaLitId: "ml_scoped",
     });
+    const { team: otherTeam } = await seedTeam(db, { name: "Other" });
 
-    it("lists media newest-first, scoped to the team", async () => {
-        await registerMedia({ teamId, mediaLitId: "ml_1" });
-        await registerMedia({ teamId, mediaLitId: "ml_2" });
-        const { team: otherTeam } = await seedTeam(db, { name: "Other" });
-        await registerMedia({ teamId: otherTeam.id, mediaLitId: "ml_other" });
+    expect(
+      await updateMedia(otherTeam.id, created!.mediaId, {
+        alt: "hijacked",
+      }),
+    ).toBeNull();
+  });
 
-        const items = await listMedia({ teamId });
-
-        expect(items).toHaveLength(2);
-        expect(items.map((i) => i.mediaLitId).sort()).toEqual(["ml_1", "ml_2"]);
-        expect(await countMedia({ teamId })).toBe(2);
+  it("commits deleting state before durable provider deletion", async () => {
+    const created = await registerMedia({
+      teamId,
+      mediaLitId: "ml_delete",
     });
+    const result = await deleteMediaRecord(teamId, created!.mediaId);
 
-    it("updates alt/caption without touching MediaLit", async () => {
-        const created = await registerMedia({ teamId, mediaLitId: "ml_edit" });
-        const updated = await updateMedia(teamId, created!.mediaId, {
-            alt: "New alt",
-            caption: "New caption",
-        });
+    expect(result.ok).toBe(true);
+    expect(deleteMedia).not.toHaveBeenCalled();
+    expect((await getMediaByMediaId(teamId, created!.mediaId))?.access).toBe(
+      "deleting",
+    );
+    while (await deliverDocumentationEvent()) {}
+    expect(deleteMedia).toHaveBeenCalledWith("ml_delete");
+    expect(await getMediaByMediaId(teamId, created!.mediaId)).toBeUndefined();
+  });
 
-        expect(updated?.alt).toBe("New alt");
-        expect(updated?.caption).toBe("New caption");
+  it("delete is a no-op (and never calls MediaLit) for a missing/foreign item", async () => {
+    const result = await deleteMediaRecord(teamId, "med_doesnotexist");
+
+    expect(result.ok).toBe(false);
+    expect(deleteMedia).not.toHaveBeenCalled();
+  });
+
+  it("returns MEDIA_IN_USE with 409 for a saved documentation reference", async () => {
+    const item = await registerMedia({ teamId, mediaLitId: "ml_referenced" });
+    await saveDocumentation(teamId, null, {
+      title: "Referenced image",
+      markdown: `![Library image](${item!.url})`,
     });
-
-    it("update is team-scoped and no-ops for another team", async () => {
-        const created = await registerMedia({
-            teamId,
-            mediaLitId: "ml_scoped",
-        });
-        const { team: otherTeam } = await seedTeam(db, { name: "Other" });
-
-        expect(
-            await updateMedia(otherTeam.id, created!.mediaId, {
-                alt: "hijacked",
-            }),
-        ).toBeNull();
+    await expect(deleteMediaRecord(teamId, item!.mediaId)).rejects.toMatchObject({
+      code: "MEDIA_IN_USE",
+      status: 409,
     });
-
-    it("deletes from MediaLit and the local library together", async () => {
-        const created = await registerMedia({
-            teamId,
-            mediaLitId: "ml_delete",
-        });
-        const result = await deleteMediaRecord(teamId, created!.mediaId);
-
-        expect(result.ok).toBe(true);
-        expect(deleteMedia).toHaveBeenCalledWith("ml_delete");
-        expect(
-            await getMediaByMediaId(teamId, created!.mediaId),
-        ).toBeUndefined();
-    });
-
-    it("delete is a no-op (and never calls MediaLit) for a missing/foreign item", async () => {
-        const result = await deleteMediaRecord(teamId, "med_doesnotexist");
-
-        expect(result.ok).toBe(false);
-        expect(deleteMedia).not.toHaveBeenCalled();
-    });
+    expect((await getMediaByMediaId(teamId, item!.mediaId))?.access).toBe("public");
+    expect(deleteMedia).not.toHaveBeenCalled();
+  });
 });

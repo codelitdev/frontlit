@@ -2,14 +2,14 @@ import type { TeamMembership, TeamPermission } from "./api";
 import { isNavItemActive } from "./nav-active";
 
 type RouteAccess = {
-    href: string;
-    permissions?: readonly TeamPermission[];
-    permissionMode?: "all" | "any";
-    ownerOnly?: boolean;
+  href: string;
+  permissions?: readonly TeamPermission[];
+  permissionMode?: "all" | "any";
+  ownerOnly?: boolean;
 };
 
 type EditorRouteAccess = RouteAccess & {
-    fallbackPath: string;
+  fallbackPath: string;
 };
 
 /**
@@ -18,209 +18,197 @@ type EditorRouteAccess = RouteAccess & {
  * from seeing a screen whose initial data request they cannot make.
  */
 const ROUTE_ACCESS: readonly RouteAccess[] = [
-    { href: "/website/code-injection", ownerOnly: true },
-    { href: "/website/pages", permissions: ["pages:read"] },
-    { href: "/website/branding", permissions: ["settings:read"] },
-    { href: "/website/domain", permissions: ["domains:read"] },
-    { href: "/website/chatbot", permissions: ["chatbot:read"] },
-    { href: "/website/help-desk", permissions: ["helpdesk:read"] },
-    {
-        href: "/website",
-        permissions: [
-            "pages:read",
-            "settings:read",
-            "domains:read",
-            "chatbot:read",
-            "helpdesk:read",
-        ],
-        permissionMode: "any",
-    },
-    { href: "/email", permissions: ["settings:read", "broadcasts:read"] },
-    {
-        href: "/content",
-        permissions: [
-            "articles:read",
-            "documentation:read",
-            "product-updates:read",
-        ],
-        permissionMode: "any",
-    },
-    { href: "/settings/members", permissions: ["members:read"] },
-    { href: "/settings/esp", permissions: ["esp:read"] },
-    { href: "/settings/ai", permissions: ["ai:read"] },
-    /** Legacy URL; the page redirects to Website → Help desk. */
-    { href: "/settings/help-desk", permissions: ["helpdesk:read"] },
-    { href: "/media", permissions: ["media:read"] },
-    { href: "/contacts", permissions: ["contacts:read"] },
-    { href: "/support", permissions: ["helpdesk:read"] },
-    { href: "/", permissions: ["helpdesk:read"] },
+  { href: "/website/code-injection", ownerOnly: true },
+  { href: "/website/pages", permissions: ["pages:read"] },
+  { href: "/website/branding", permissions: ["settings:read"] },
+  { href: "/website/domain", permissions: ["domains:read"] },
+  { href: "/website/chatbot", permissions: ["chatbot:read"] },
+  { href: "/website/help-desk", permissions: ["helpdesk:read"] },
+  {
+    href: "/website",
+    permissions: [
+      "pages:read",
+      "settings:read",
+      "domains:read",
+      "chatbot:read",
+      "helpdesk:read",
+    ],
+    permissionMode: "any",
+  },
+  { href: "/email", permissions: ["settings:read", "broadcasts:read"] },
+  {
+    href: "/content",
+    permissions: ["articles:read", "documentation:read", "product-updates:read"],
+    permissionMode: "any",
+  },
+  { href: "/settings/members", permissions: ["members:read"] },
+  { href: "/settings/esp", permissions: ["esp:read"] },
+  { href: "/settings/ai", permissions: ["ai:read"] },
+  { href: "/settings/content", permissions: ["documentation:read"] },
+  { href: "/settings/integrations", permissions: ["documentation:manage"] },
+  /** Legacy URL; the page redirects to Website → Help desk. */
+  { href: "/settings/help-desk", permissions: ["helpdesk:read"] },
+  { href: "/media", permissions: ["media:read"] },
+  { href: "/contacts", permissions: ["contacts:read"] },
+  { href: "/support", permissions: ["helpdesk:read"] },
+  { href: "/", permissions: ["helpdesk:read"] },
 ];
 
 /** Prefer the first visible product area in sidebar order for a member's
  * landing route. `/` is excluded because Inbox is not a safe default for
  * every membership. */
 const WORKSPACE_LANDING_PATHS = [
-    "/website?tab=pages",
-    "/website?tab=branding",
-    "/website?tab=domain",
-    "/website?tab=chatbot",
-    "/website?tab=help-desk",
-    "/content",
-    "/email?tab=broadcasts",
-    "/contacts",
-    "/media",
-    "/settings/members",
-    "/settings/esp",
-    "/settings/ai",
+  "/website?tab=pages",
+  "/website?tab=branding",
+  "/website?tab=domain",
+  "/website?tab=chatbot",
+  "/website?tab=help-desk",
+  "/content",
+  "/email?tab=broadcasts",
+  "/contacts",
+  "/media",
+  "/settings/members",
+  "/settings/esp",
+  "/settings/ai",
 ] as const;
 
 /** Editors are separate chrome-free routes, so they need their own explicit
  * access map rather than relying on sidebar visibility. Reading a library is
  * deliberately less privileged than opening its mutating editor. */
 const EDITOR_ROUTE_ACCESS: readonly EditorRouteAccess[] = [
-    {
-        href: "/editor/content/articles",
-        permissions: ["articles:write"],
-        fallbackPath: "/content",
-    },
-    {
-        href: "/editor/content/documentation",
-        permissions: ["documentation:write"],
-        fallbackPath: "/content",
-    },
-    {
-        href: "/editor/content/changelog",
-        permissions: ["product-updates:write"],
-        fallbackPath: "/content",
-    },
-    {
-        href: "/editor/pages",
-        permissions: ["pages:write"],
-        fallbackPath: "/website?tab=pages",
-    },
-    {
-        href: "/editor/email",
-        permissions: ["broadcasts:write"],
-        fallbackPath: "/email?tab=broadcasts",
-    },
+  {
+    href: "/editor/content/articles",
+    permissions: ["articles:write"],
+    fallbackPath: "/content",
+  },
+  {
+    href: "/editor/content/documentation",
+    permissions: ["documentation:write"],
+    fallbackPath: "/content",
+  },
+  {
+    href: "/editor/content/changelog",
+    permissions: ["product-updates:write"],
+    fallbackPath: "/content",
+  },
+  {
+    href: "/editor/pages",
+    permissions: ["pages:write"],
+    fallbackPath: "/website?tab=pages",
+  },
+  {
+    href: "/editor/email",
+    permissions: ["broadcasts:write"],
+    fallbackPath: "/email?tab=broadcasts",
+  },
 ];
 
 const WEBSITE_TAB_ACCESS_HREF: Record<string, string> = {
-    pages: "/website/pages",
-    branding: "/website/branding",
-    domain: "/website/domain",
-    "code-injection": "/website/code-injection",
-    chatbot: "/website/chatbot",
-    "help-desk": "/website/help-desk",
+  pages: "/website/pages",
+  branding: "/website/branding",
+  domain: "/website/domain",
+  "code-injection": "/website/code-injection",
+  chatbot: "/website/chatbot",
+  "help-desk": "/website/help-desk",
 };
 
 const CONTENT_TYPE_ACCESS: Record<string, RouteAccess> = {
-    articles: {
-        href: "/content?type=articles",
-        permissions: ["articles:read"],
-    },
-    documentation: {
-        href: "/content?type=documentation",
-        permissions: ["documentation:read"],
-    },
-    changelog: {
-        href: "/content?type=changelog",
-        permissions: ["product-updates:read"],
-    },
+  articles: {
+    href: "/content?type=articles",
+    permissions: ["articles:read"],
+  },
+  documentation: {
+    href: "/content?type=documentation",
+    permissions: ["documentation:read"],
+  },
+  changelog: {
+    href: "/content?type=changelog",
+    permissions: ["product-updates:read"],
+  },
 };
 
 const CONTENT_TYPE_ALIASES: Record<string, string> = {
-    "product-updates": "changelog",
+  "product-updates": "changelog",
 };
 
 function accessForPath(pathname: string): RouteAccess | undefined {
-    const [normalizedPathname = "/", query = ""] = pathname.split(/[?#]/, 2);
-    const searchParams = new URLSearchParams(query);
+  const [normalizedPathname = "/", query = ""] = pathname.split(/[?#]/, 2);
+  const searchParams = new URLSearchParams(query);
 
-    if (normalizedPathname === "/website") {
-        const tabAccessHref =
-            WEBSITE_TAB_ACCESS_HREF[searchParams.get("tab") ?? ""];
-        if (tabAccessHref) {
-            return ROUTE_ACCESS.find((access) => access.href === tabAccessHref);
-        }
+  if (normalizedPathname === "/website") {
+    const tabAccessHref = WEBSITE_TAB_ACCESS_HREF[searchParams.get("tab") ?? ""];
+    if (tabAccessHref) {
+      return ROUTE_ACCESS.find((access) => access.href === tabAccessHref);
     }
+  }
 
-    if (normalizedPathname === "/content") {
-        const rawType = searchParams.get("type");
-        const type = rawType
-            ? (CONTENT_TYPE_ALIASES[rawType] ?? rawType)
-            : null;
-        if (type && type in CONTENT_TYPE_ACCESS) {
-            return CONTENT_TYPE_ACCESS[type];
-        }
+  if (normalizedPathname === "/content") {
+    const rawType = searchParams.get("type");
+    const type = rawType ? (CONTENT_TYPE_ALIASES[rawType] ?? rawType) : null;
+    if (type && type in CONTENT_TYPE_ACCESS) {
+      return CONTENT_TYPE_ACCESS[type];
     }
+  }
 
-    return ROUTE_ACCESS.find((access) =>
-        isNavItemActive(normalizedPathname || "/", access.href),
-    );
+  return ROUTE_ACCESS.find((access) =>
+    isNavItemActive(normalizedPathname || "/", access.href),
+  );
 }
 
 function editorAccessForPath(pathname: string): EditorRouteAccess | undefined {
-    const normalizedPathname = pathname.split(/[?#]/, 1)[0] || "/";
-    return EDITOR_ROUTE_ACCESS.find((access) =>
-        isNavItemActive(normalizedPathname, access.href),
-    );
+  const normalizedPathname = pathname.split(/[?#]/, 1)[0] || "/";
+  return EDITOR_ROUTE_ACCESS.find((access) =>
+    isNavItemActive(normalizedPathname, access.href),
+  );
 }
 
 export function isTeamScopedWorkspacePath(pathname: string): boolean {
-    return accessForPath(pathname) !== undefined;
+  return accessForPath(pathname) !== undefined;
 }
 
 export function canAccessWorkspacePath(
-    pathname: string,
-    team: TeamMembership | null,
+  pathname: string,
+  team: TeamMembership | null,
 ): boolean {
-    const access = accessForPath(pathname);
-    if (!access) return true;
-    if (!team) return false;
-    if (team.isOwner) return true;
-    if (access.ownerOnly) return false;
-    const checks = (access.permissions ?? []).map((permission) =>
-        team.effectivePermissions.includes(permission),
-    );
-    return access.permissionMode === "any"
-        ? checks.some(Boolean)
-        : checks.every(Boolean);
+  const access = accessForPath(pathname);
+  if (!access) return true;
+  if (!team) return false;
+  if (team.isOwner) return true;
+  if (access.ownerOnly) return false;
+  const checks = (access.permissions ?? []).map((permission) =>
+    team.effectivePermissions.includes(permission),
+  );
+  return access.permissionMode === "any" ? checks.some(Boolean) : checks.every(Boolean);
 }
 
-export function getWorkspaceLandingPath(
-    team: TeamMembership | null,
-): string | null {
-    return (
-        WORKSPACE_LANDING_PATHS.find((pathname) =>
-            canAccessWorkspacePath(pathname, team),
-        ) ?? null
-    );
+export function getWorkspaceLandingPath(team: TeamMembership | null): string | null {
+  return (
+    WORKSPACE_LANDING_PATHS.find((pathname) =>
+      canAccessWorkspacePath(pathname, team),
+    ) ?? null
+  );
 }
 
 export function canAccessEditorPath(
-    pathname: string,
-    team: TeamMembership | null,
+  pathname: string,
+  team: TeamMembership | null,
 ): boolean {
-    const access = editorAccessForPath(pathname);
-    if (!access) return true;
-    if (!team) return false;
-    if (team.isOwner) return true;
-    return (access.permissions ?? []).every((permission) =>
-        team.effectivePermissions.includes(permission),
-    );
+  const access = editorAccessForPath(pathname);
+  if (!access) return true;
+  if (!team) return false;
+  if (team.isOwner) return true;
+  return (access.permissions ?? []).every((permission) =>
+    team.effectivePermissions.includes(permission),
+  );
 }
 
 export function getEditorFallbackPath(
-    pathname: string,
-    team: TeamMembership | null,
+  pathname: string,
+  team: TeamMembership | null,
 ): string {
-    const access = editorAccessForPath(pathname);
-    if (
-        access &&
-        canAccessWorkspacePath(access.fallbackPath.split("?")[0], team)
-    ) {
-        return access.fallbackPath;
-    }
-    return getWorkspaceLandingPath(team) ?? "/teams";
+  const access = editorAccessForPath(pathname);
+  if (access && canAccessWorkspacePath(access.fallbackPath.split("?")[0], team)) {
+    return access.fallbackPath;
+  }
+  return getWorkspaceLandingPath(team) ?? "/teams";
 }

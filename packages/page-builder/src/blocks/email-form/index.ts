@@ -8,13 +8,13 @@ import type { EmailFormSettings } from "./settings";
 export * from "./settings";
 
 export const EmailForm: Widget<EmailFormSettings> = {
-    metadata: emailFormMetadata,
-    widget: EmailFormWidget,
-    editor: EmailFormEditor,
-    getDefaultSettings: () => emailFormDefaults,
-    layouts: [
-        { id: "stacked", name: "Stacked" },
-        { id: "split", name: "Split" },
-        { id: "inline", name: "Inline" },
-    ],
+  metadata: emailFormMetadata,
+  widget: EmailFormWidget,
+  editor: EmailFormEditor,
+  getDefaultSettings: () => emailFormDefaults,
+  layouts: [
+    { id: "stacked", name: "Stacked" },
+    { id: "split", name: "Split" },
+    { id: "inline", name: "Inline" },
+  ],
 };

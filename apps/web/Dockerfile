@@ -1,35 +1,32 @@
 # Multi-arch:
 # docker buildx build --platform linux/amd64,linux/arm64 \
 #   -f apps/web/Dockerfile -t codelit/frontlit-web:k3s --push .
-FROM node:24-alpine AS base
-RUN corepack enable pnpm
+FROM oven/bun:1.4.1-alpine AS base
 
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-COPY package.json ./
-COPY pnpm-lock.yaml ./
-COPY pnpm-workspace.yaml ./
+COPY package.json bun.lock ./
+COPY patches ./patches
 COPY apps/web ./apps/web
 COPY packages/api-contract ./packages/api-contract
 COPY packages/page-builder ./packages/page-builder
 COPY packages/text-editor ./packages/text-editor
-COPY packages/image-uploader ./packages/image-uploader
+COPY packages/media-uploader ./packages/media-uploader
 
-RUN pnpm install --frozen-lockfile
+RUN bun install --frozen-lockfile
 
-FROM base AS builder
+FROM deps AS builder
 WORKDIR /app
-COPY --from=deps /app/ ./
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN pnpm --filter=@frontlit/api-contract build
-RUN pnpm --filter=@frontlit/text-editor build
-RUN pnpm --filter=@frontlit/image-uploader build
-RUN pnpm --filter=@frontlit/page-builder build
-RUN pnpm --filter=@frontlit/web build
+RUN bun run --filter @frontlit/api-contract build
+RUN bun run --filter @frontlit/text-editor build
+RUN bun run --filter @frontlit/media-uploader build
+RUN bun run --filter @frontlit/page-builder build
+RUN bun run --filter @frontlit/web build
 
 FROM node:24-alpine AS runner
 WORKDIR /app

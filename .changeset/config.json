@@ -1,19 +1,18 @@
 {
-    "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
-    "changelog": "@changesets/cli/changelog",
-    "commit": false,
-    "fixed": [],
-    "linked": [],
-    "access": "public",
-    "baseBranch": "main",
-    "updateInternalDependencies": "patch",
-    "ignore": [
-        "@frontlit/api",
-        "@frontlit/web",
-        "@frontlit/sites",
-        "@frontlit/docs",
-        "@frontlit/api-contract",
-        "@frontlit/image-uploader",
-        "@frontlit/components-demo"
-    ]
+  "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": [
+    "@frontlit/api",
+    "@frontlit/web",
+    "@frontlit/sites",
+    "@frontlit/docs",
+    "@frontlit/api-contract",
+    "@frontlit/components-demo"
+  ]
 }

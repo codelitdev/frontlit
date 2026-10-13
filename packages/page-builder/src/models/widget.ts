@@ -8,28 +8,26 @@ import type { SectionBackground } from "./section-background";
  * generic (unlike CourseLit's LMS-specific page types) since FrontLit pages
  * can be a marketing site, a blog post, a changelog entry, etc.
  */
-export type PageType = "site" | "blog" | "landing" | "post" | "custom";
-
 export interface WidgetMetadata {
-    name: string;
-    displayName: string;
-    description?: string;
-    compatibleWith: PageType[];
-    icon?: string;
+  name: string;
+  displayName: string;
+  description?: string;
+  compatibleWith?: string[];
+  icon?: string;
 }
 
 /**
  * A single block placed on a page, as persisted in a page's layout.
  */
 export interface WidgetInstance {
-    widgetId: string;
-    name: string;
-    /** Whether the instance can be removed from its page. */
-    deletable: boolean;
-    /** Whether the instance can be repositioned within its page. */
-    moveable: boolean;
-    shared: boolean;
-    settings?: Record<string, unknown>;
+  widgetId: string;
+  name: string;
+  /** Whether the instance can be removed from its page. */
+  deletable: boolean;
+  /** Whether the instance can be repositioned within its page. */
+  moveable: boolean;
+  shared: boolean;
+  settings?: Record<string, unknown>;
 }
 
 /**
@@ -38,8 +36,8 @@ export interface WidgetInstance {
  * instance's `settings.layout` and chosen from the panel's Design tab.
  */
 export interface BlockLayout {
-    id: string;
-    name: string;
+  id: string;
+  name: string;
 }
 
 /**
@@ -48,69 +46,70 @@ export interface BlockLayout {
  * exposes to each section.
  */
 export interface WidgetDefaultSettings {
-    cssId?: string;
-    verticalPadding?: ThemeStyle["structure"]["section"]["padding"]["y"];
-    maxWidth?: ThemeStyle["structure"]["page"]["width"];
-    background?: SectionBackground;
-    /** Selected layout id from the block's `layouts`; first layout when unset. */
-    layout?: string;
+  cssId?: string;
+  verticalPadding?: ThemeStyle["structure"]["section"]["padding"]["y"];
+  maxWidth?: ThemeStyle["structure"]["page"]["width"];
+  background?: SectionBackground;
+  /** Selected layout id from the block's `layouts`; first layout when unset. */
+  layout?: string;
 }
 
 export interface PageData extends Record<string, unknown> {
-    pageType: PageType;
-    /** Tenant branding supplied by the host application. Layout blocks use
-     * this on published sites, while the builder can continue to use its
-     * own local block settings. */
-    siteLogoUrl?: string;
-    siteLogoAlt?: string;
-    /** The page's team (public id) and slug, plus the base URL of FrontLit's
-     * public API — threaded through so blocks that make unauthenticated
-     * public calls (e.g. the email-form block's lead capture, architecture.md
-     * §10.2) know where to send them. Left unset in contexts with no live
-     * backend (e.g. a bare component-library preview), in which case those
-     * blocks degrade to a local-only success state. */
-    teamId?: string;
-    pageSlug?: string;
-    publicApiBaseUrl?: string;
+  pageType?: string;
+  /** Tenant branding supplied by the host application. Layout blocks use
+   * this on published sites, while the builder can continue to use its
+   * own local block settings. */
+  siteLogoUrl?: string;
+  siteLogoAlt?: string;
+  /** The page's team (public id) and slug, plus the base URL of FrontLit's
+   * public API — threaded through so blocks that make unauthenticated
+   * public calls (e.g. the email-form block's lead capture, architecture.md
+   * §10.2) know where to send them. Left unset in contexts with no live
+   * backend (e.g. a bare component-library preview), in which case those
+   * blocks degrade to a local-only success state. */
+  teamId?: string;
+  pageSlug?: string;
+  publicApiBaseUrl?: string;
 }
 
-export interface WidgetProps<
-    T extends WidgetDefaultSettings = WidgetDefaultSettings,
-> {
-    settings: T;
-    state: { theme: Theme };
-    pageData: PageData;
-    /** Host-resolved data rendered by a generic `data-slot` block. */
-    data?: ReactNode;
-    editing?: boolean;
-    /** Resolved palette currently painted (`system` is already applied). */
-    nextTheme?: "light" | "dark";
-    /** Visitor or preview preference, including follow-the-OS. */
-    themeMode?: "light" | "dark" | "system";
-    setThemeMode?: (mode: "light" | "dark" | "system") => void;
-    /** Flips the resolved palette. Used by compact header controls. */
-    toggleTheme?: () => void;
+export interface WidgetProps<T extends WidgetDefaultSettings = WidgetDefaultSettings> {
+  settings: T;
+  state: { theme: Theme };
+  pageData: PageData;
+  /** Host-resolved data rendered by a generic `data-slot` block. */
+  data?: ReactNode;
+  editing?: boolean;
+  /** Resolved palette currently painted (`system` is already applied). */
+  nextTheme?: "light" | "dark";
+  /** Visitor or preview preference, including follow-the-OS. */
+  themeMode?: "light" | "dark" | "system";
+  setThemeMode?: (mode: "light" | "dark" | "system") => void;
+  /** Flips the resolved palette. Used by compact header controls. */
+  toggleTheme?: () => void;
 }
 
 export interface WidgetEditorProps<
-    T extends WidgetDefaultSettings = WidgetDefaultSettings,
+  T extends WidgetDefaultSettings = WidgetDefaultSettings,
 > {
-    settings: T;
-    theme: Theme;
-    onChange: (settings: T) => void;
+  settings: T;
+  theme: Theme;
+  onChange: (settings: T) => void;
 }
 
-export interface Widget<
-    T extends WidgetDefaultSettings = WidgetDefaultSettings,
-> {
-    metadata: WidgetMetadata;
-    widget: ComponentType<WidgetProps<T>>;
-    editor?: ComponentType<WidgetEditorProps<T>>;
-    getDefaultSettings?: () => Partial<T>;
-    /**
-     * Alternate layouts this block can render its data in, selectable from
-     * the Design tab. The widget reads `settings.layout` while rendering
-     * and should treat the first entry as the default.
-     */
-    layouts?: BlockLayout[];
+export interface Widget<T extends WidgetDefaultSettings = WidgetDefaultSettings> {
+  metadata: WidgetMetadata;
+  widget: ComponentType<WidgetProps<T>>;
+  editor?: ComponentType<WidgetEditorProps<T>>;
+  /**
+   * Block-specific design controls rendered on the panel's Design tab
+   * alongside layouts and common section styling.
+   */
+  designEditor?: ComponentType<WidgetEditorProps<T>>;
+  getDefaultSettings?: () => Partial<T>;
+  /**
+   * Alternate layouts this block can render its data in, selectable from
+   * the Design tab. The widget reads `settings.layout` while rendering
+   * and should treat the first entry as the default.
+   */
+  layouts?: BlockLayout[];
 }

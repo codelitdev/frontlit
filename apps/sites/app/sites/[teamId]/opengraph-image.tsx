@@ -9,32 +9,32 @@ export const contentType = "image/png";
  * bare. Routes that set their own `openGraph.images` in `generateMetadata`
  * take precedence over this file-convention fallback. */
 export default async function Image({
-    params,
+  params,
 }: {
-    params: Promise<{ teamId: string }>;
+  params: Promise<{ teamId: string }>;
 }) {
-    const { teamId } = await params;
-    const settings = await getSettings(teamId);
-    const siteName = settings?.title || "FrontLit site";
+  const { teamId } = await params;
+  const settings = await getSettings(teamId);
+  const siteName = settings?.title || "FrontLit site";
 
-    return new ImageResponse(
-        <div
-            style={{
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "#111827",
-                color: "#ffffff",
-                fontSize: 72,
-                fontWeight: 700,
-                textAlign: "center",
-                padding: "0 80px",
-            }}
-        >
-            {siteName}
-        </div>,
-        size,
-    );
+  return new ImageResponse(
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#111827",
+        color: "#ffffff",
+        fontSize: 72,
+        fontWeight: 700,
+        textAlign: "center",
+        padding: "0 80px",
+      }}
+    >
+      {siteName}
+    </div>,
+    size,
+  );
 }

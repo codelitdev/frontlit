@@ -1,92 +1,111 @@
 {
-    "name": "@frontlit/text-editor",
-    "version": "0.1.0-alpha.1",
-    "description": "A TipTap-based rich text editor and static renderer for React",
-    "author": "FrontLit",
-    "license": "MIT",
-    "type": "module",
-    "main": "./dist/index.js",
-    "module": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "files": [
-        "dist",
-        "README.md",
-        "LICENSE"
-    ],
-    "exports": {
-        ".": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.js",
-            "default": "./dist/index.js"
-        },
-        "./styles.css": "./dist/styles.css",
-        "./prose.css": "./dist/prose.css",
-        "./tokens.css": "./dist/tokens.css"
+  "name": "@frontlit/text-editor",
+  "version": "0.1.0-alpha.1",
+  "description": "A TipTap-based rich text editor and static renderer for React",
+  "author": "FrontLit",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
-    "sideEffects": [
-        "**/*.css"
-    ],
-    "publishConfig": {
-        "access": "public"
+    "./docs": {
+      "types": "./dist/docs.d.ts",
+      "import": "./dist/docs.js",
+      "default": "./dist/docs.js"
     },
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/codelitdev/frontlit.git",
-        "directory": "packages/text-editor"
+    "./headings": {
+      "types": "./dist/headings.d.ts",
+      "import": "./dist/headings.js",
+      "default": "./dist/headings.js"
     },
-    "homepage": "https://github.com/codelitdev/frontlit/tree/main/packages/text-editor",
-    "bugs": {
-        "url": "https://github.com/codelitdev/frontlit/issues"
-    },
-    "keywords": [
-        "react",
-        "tiptap",
-        "wysiwyg",
-        "rich-text",
-        "editor",
-        "frontlit"
-    ],
-    "scripts": {
-        "build": "tsup && node scripts/add-use-client.mjs && tailwindcss -i src/styles.css -o dist/styles.css && cp src/prose.css dist/prose.css && cp src/tokens.css dist/tokens.css",
-        "prepublishOnly": "pnpm run build",
-        "dev": "tsup --watch",
-        "clean": "rimraf dist",
-        "check-types": "tsc --noEmit"
-    },
-    "peerDependencies": {
-        "react": "^18.0.0 || ^19.0.0",
-        "react-dom": "^18.0.0 || ^19.0.0"
-    },
-    "dependencies": {
-        "@floating-ui/dom": "^1.6.0",
-        "@tiptap/core": "^3.0.0",
-        "@tiptap/extension-bubble-menu": "^3.10.4",
-        "@tiptap/extension-code-block-lowlight": "^3.0.0",
-        "@tiptap/extension-dropcursor": "^3.0.0",
-        "@tiptap/extension-gapcursor": "^3.0.0",
-        "@tiptap/extension-heading": "^3.0.0",
-        "@tiptap/extension-highlight": "^3.11.0",
-        "@tiptap/extension-image": "^3.0.0",
-        "@tiptap/extension-link": "^3.0.0",
-        "@tiptap/extension-placeholder": "^3.0.0",
-        "@tiptap/extension-table": "^3.10.7",
-        "@tiptap/react": "^3.0.0",
-        "@tiptap/starter-kit": "^3.0.0",
-        "@tiptap/static-renderer": "^3.10.7",
-        "clsx": "^2.1.1",
-        "highlight.js": "^11.10.0",
-        "lowlight": "^2.9.0",
-        "lucide-react": "^0.553.0",
-        "tailwind-merge": "^3.4.0"
-    },
-    "devDependencies": {
-        "@types/node": "^20.0.0",
-        "@types/react": "^19.0.0",
-        "@types/react-dom": "^19.0.0",
-        "@tailwindcss/cli": "^4.1.0",
-        "rimraf": "^5.0.0",
-        "tailwindcss": "^4.1.0",
-        "tsup": "^8.3.0",
-        "typescript": "^5.6.2"
-    }
+    "./styles.css": "./dist/styles.css",
+    "./prose.css": "./dist/prose.css",
+    "./tokens.css": "./dist/tokens.css"
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codelitdev/frontlit.git",
+    "directory": "packages/text-editor"
+  },
+  "homepage": "https://github.com/codelitdev/frontlit/tree/main/packages/text-editor",
+  "bugs": {
+    "url": "https://github.com/codelitdev/frontlit/issues"
+  },
+  "keywords": [
+    "react",
+    "tiptap",
+    "wysiwyg",
+    "rich-text",
+    "editor",
+    "frontlit"
+  ],
+  "scripts": {
+    "build": "tsup && node scripts/add-use-client.mjs && tailwindcss -i src/styles.css -o dist/styles.css && cp src/prose.css dist/prose.css && cp src/tokens.css dist/tokens.css",
+    "prepublishOnly": "bun run build",
+    "dev": "tsup --watch",
+    "clean": "rimraf dist",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
+  },
+  "dependencies": {
+    "@floating-ui/dom": "^1.6.0",
+    "@tiptap/core": "^3.0.0",
+    "@tiptap/extension-bubble-menu": "^3.10.4",
+    "@tiptap/extension-code-block-lowlight": "^3.0.0",
+    "@tiptap/extension-dropcursor": "^3.0.0",
+    "@tiptap/extension-gapcursor": "^3.0.0",
+    "@tiptap/extension-heading": "^3.0.0",
+    "@tiptap/extension-highlight": "^3.11.0",
+    "@tiptap/extension-image": "^3.0.0",
+    "@tiptap/extension-link": "^3.0.0",
+    "@tiptap/extension-placeholder": "^3.0.0",
+    "@tiptap/extension-table": "^3.10.7",
+    "@tiptap/pm": "^3.0.0",
+    "@tiptap/react": "^3.0.0",
+    "@tiptap/starter-kit": "^3.0.0",
+    "@tiptap/static-renderer": "^3.10.7",
+    "clsx": "^2.1.1",
+    "highlight.js": "^11.10.0",
+    "lowlight": "^2.9.0",
+    "lucide-react": "^0.553.0",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "remark-stringify": "^11.0.0",
+    "tailwind-merge": "^3.4.0",
+    "unified": "^11.0.5",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.0",
+    "@types/mdast": "^4.0.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "rimraf": "^5.0.0",
+    "tailwindcss": "^4.1.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.2",
+    "vitest": "^3.2.4"
+  }
 }

@@ -12,14 +12,12 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
-            - uses: pnpm/action-setup@v4
-            - uses: actions/setup-node@v4
+            - uses: oven-sh/setup-bun@v2
               with:
-                  node-version: "24"
-                  cache: pnpm
-            - run: pnpm install --frozen-lockfile
-            - name: Linting and prettifying
+                  bun-version: 1.4.1
+            - run: bun install --frozen-lockfile
+            - name: Linting and formatting checks
               run: |
-                  pnpm lint
-                  pnpm exec prettier --check packages apps "*.md"
+                  bun run format:check
+                  bun run lint
               working-directory: ./

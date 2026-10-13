@@ -12,13 +12,13 @@ import { careersLayout, careersTheme } from "./careers-demo";
 // the demo shows off the builder's fidelity on a real, design-led page
 // instead of the generic starter layout — still fully editable from here.
 export default function BuilderPage() {
-    return (
-        <div className="h-screen w-screen">
-            <PageBuilder
-                pageData={{ pageType: "landing" }}
-                initialLayout={careersLayout}
-                initialTheme={careersTheme}
-            />
-        </div>
-    );
+  return (
+    <div className="h-screen w-screen">
+      <PageBuilder
+        pageData={{ pageType: "landing" }}
+        initialLayout={careersLayout}
+        initialTheme={careersTheme}
+      />
+    </div>
+  );
 }

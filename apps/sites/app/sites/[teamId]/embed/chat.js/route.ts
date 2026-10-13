@@ -2,81 +2,78 @@ import { getChatbotSettings, type ChatbotWidgetStyle } from "@/lib/api";
 import { loadSiteTheme } from "@/lib/load-site-theme";
 
 const DEFAULT_STYLE: ChatbotWidgetStyle = {
-    bubbleShape: "circle",
-    bubbleIcon: "chat",
-    bubbleSize: "md",
-    inputRadius: "full",
-    inputPlaceholder: null,
-    inputWidth: "md",
+  bubbleShape: "circle",
+  bubbleIcon: "chat",
+  bubbleSize: "md",
+  inputRadius: "full",
+  inputPlaceholder: null,
+  inputWidth: "md",
 };
 
 /** Built-in theme primaries (mirrors page-builder themes) for the ~1 KB loader. */
 const BUILTIN_PRIMARY: Record<
-    string,
-    {
-        primary: string;
-        primaryForeground: string;
-        card: string;
-        border: string;
-        mutedForeground: string;
-    }
+  string,
+  {
+    primary: string;
+    primaryForeground: string;
+    card: string;
+    border: string;
+    mutedForeground: string;
+  }
 > = {
-    classic: {
-        primary: "#18181b",
-        primaryForeground: "#fafafa",
-        card: "#ffffff",
-        border: "#e4e4de",
-        mutedForeground: "#52525b",
-    },
-    studio: {
-        primary: "#0f766e",
-        primaryForeground: "#f4fffc",
-        card: "#fffcf7",
-        border: "#e0d8cc",
-        mutedForeground: "#57534e",
-    },
-    neobrutalism: {
-        primary: "#ffe600",
-        primaryForeground: "#050505",
-        card: "#ffffff",
-        border: "#050505",
-        mutedForeground: "#3f3f46",
-    },
-    editorial: {
-        primary: "#1e3a8a",
-        primaryForeground: "#fffaf2",
-        card: "#fffaf2",
-        border: "#e0d5c4",
-        mutedForeground: "#5c5348",
-    },
-    midnight: {
-        primary: "#61afef",
-        primaryForeground: "#0b0d11",
-        card: "#14171e",
-        border: "#262b38",
-        mutedForeground: "#9aa3b2",
-    },
+  classic: {
+    primary: "#18181b",
+    primaryForeground: "#fafafa",
+    card: "#ffffff",
+    border: "#e4e4de",
+    mutedForeground: "#52525b",
+  },
+  studio: {
+    primary: "#0f766e",
+    primaryForeground: "#f4fffc",
+    card: "#fffcf7",
+    border: "#e0d8cc",
+    mutedForeground: "#57534e",
+  },
+  neobrutalism: {
+    primary: "#ffe600",
+    primaryForeground: "#050505",
+    card: "#ffffff",
+    border: "#050505",
+    mutedForeground: "#3f3f46",
+  },
+  editorial: {
+    primary: "#1e3a8a",
+    primaryForeground: "#fffaf2",
+    card: "#fffaf2",
+    border: "#e0d5c4",
+    mutedForeground: "#5c5348",
+  },
+  midnight: {
+    primary: "#61afef",
+    primaryForeground: "#0b0d11",
+    card: "#14171e",
+    border: "#262b38",
+    mutedForeground: "#9aa3b2",
+  },
 };
 
 function resolveEmbedPalette(
-    themeId: string | null,
-    themeStyle: Record<string, unknown> | null,
-    accentColor: string | null,
+  themeId: string | null,
+  themeStyle: Record<string, unknown> | null,
+  accentColor: string | null,
 ) {
-    const colors = (
-        themeStyle as { colors?: { light?: Record<string, string> } } | null
-    )?.colors?.light;
-    const builtin =
-        (themeId && BUILTIN_PRIMARY[themeId]) || BUILTIN_PRIMARY.classic;
-    const primary = accentColor?.trim() || colors?.primary || builtin.primary;
-    return {
-        primary,
-        primaryForeground:
-            colors?.primaryForeground || builtin.primaryForeground,
-        card: colors?.card || builtin.card,
-        border: colors?.border || builtin.border,
-        mutedForeground: colors?.mutedForeground || builtin.mutedForeground,
-    };
+  const colors = (themeStyle as { colors?: { light?: Record<string, string> } } | null)
+    ?.colors?.light;
+  const builtin = (themeId && BUILTIN_PRIMARY[themeId]) || BUILTIN_PRIMARY.classic;
+  const primary = accentColor?.trim() || colors?.primary || builtin.primary;
+  return {
+    primary,
+    primaryForeground: colors?.primaryForeground || builtin.primaryForeground,
+    card: colors?.card || builtin.card,
+    border: colors?.border || builtin.border,
+    mutedForeground: colors?.mutedForeground || builtin.mutedForeground,
+  };
 }
 
 /**
@@ -90,38 +87,35 @@ function resolveEmbedPalette(
  *   real composer and a message sheet grows above it (resize via postMessage).
  */
 export async function GET(
-    _request: Request,
-    { params }: { params: Promise<{ teamId: string }> },
+  _request: Request,
+  { params }: { params: Promise<{ teamId: string }> },
 ) {
-    const { teamId } = await params;
-    const [settings, siteTheme] = await Promise.all([
-        getChatbotSettings(teamId),
-        loadSiteTheme(teamId),
-    ]);
-    if (!settings?.enabled) {
-        return new Response(
-            "// FrontLit chat widget is disabled for this team\n",
-            {
-                headers: {
-                    "content-type": "application/javascript; charset=utf-8",
-                },
-            },
-        );
-    }
+  const { teamId } = await params;
+  const [settings, siteTheme] = await Promise.all([
+    getChatbotSettings(teamId),
+    loadSiteTheme(teamId),
+  ]);
+  if (!settings?.enabled) {
+    return new Response("// FrontLit chat widget is disabled for this team\n", {
+      headers: {
+        "content-type": "application/javascript; charset=utf-8",
+      },
+    });
+  }
 
-    const palette = resolveEmbedPalette(
-        siteTheme.themeId,
-        siteTheme.themeStyle,
-        settings.accentColor,
-    );
-    const color = JSON.stringify(palette.primary);
-    const paletteJson = JSON.stringify(palette);
-    const name = JSON.stringify(settings.name || "Chat");
-    const variant = JSON.stringify(settings.variant || "bubble");
-    const style = { ...DEFAULT_STYLE, ...(settings.widgetStyle ?? {}) };
-    const styleJson = JSON.stringify(style);
+  const palette = resolveEmbedPalette(
+    siteTheme.themeId,
+    siteTheme.themeStyle,
+    settings.accentColor,
+  );
+  const color = JSON.stringify(palette.primary);
+  const paletteJson = JSON.stringify(palette);
+  const name = JSON.stringify(settings.name || "Chat");
+  const variant = JSON.stringify(settings.variant || "bubble");
+  const style = { ...DEFAULT_STYLE, ...(settings.widgetStyle ?? {}) };
+  const styleJson = JSON.stringify(style);
 
-    const script = `(function () {
+  const script = `(function () {
   var open = false;
   var color = ${color};
   var palette = ${paletteJson};
@@ -190,7 +184,7 @@ export async function GET(
 })();
 `;
 
-    return new Response(script, {
-        headers: { "content-type": "application/javascript; charset=utf-8" },
-    });
+  return new Response(script, {
+    headers: { "content-type": "application/javascript; charset=utf-8" },
+  });
 }

@@ -4,20 +4,20 @@ import type { SitemapEntry } from "./api";
  * robots-allowed URL, absolute on the canonical host (architecture.md §12.3).
  * Fully derived from the API's sitemap read; nothing authored here. */
 export function buildSitemapXml(
-    canonicalHost: string,
-    entries: SitemapEntry[],
+  canonicalHost: string,
+  entries: SitemapEntry[],
 ): string {
-    const urls = entries
-        .map((entry) => {
-            const loc = `https://${canonicalHost}${entry.path}`;
-            return `  <url>
+  const urls = entries
+    .map((entry) => {
+      const loc = `https://${canonicalHost}${entry.path}`;
+      return `  <url>
     <loc>${loc}</loc>
     ${entry.lastmod ? `<lastmod>${entry.lastmod}</lastmod>` : ""}
   </url>`;
-        })
-        .join("\n");
+    })
+    .join("\n");
 
-    return `<?xml version="1.0" encoding="UTF-8"?>
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls}
 </urlset>
@@ -27,7 +27,7 @@ ${urls}
 /** Per-host robots policy (architecture.md §12.3) — the embed iframe is
  * disallowed since it's an isolated widget surface, not a content page. */
 export function buildRobotsTxt(canonicalHost: string): string {
-    return `User-agent: *
+  return `User-agent: *
 Allow: /
 Disallow: /embed/
 Sitemap: https://${canonicalHost}/sitemap.xml

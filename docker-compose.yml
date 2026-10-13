@@ -1,6 +1,6 @@
 # Self-host stack (architecture.md §10.4): one Compose file runs Postgres,
 # SendLit, and FrontLit. `docker compose up --build -d` is the product.
-# For host `pnpm dev:api` / `pnpm dev:web` / `pnpm dev:sites`, use
+# For host `bun run dev:api` / `bun run dev:web` / `bun run dev:sites`, use
 # docker-compose.local.yml instead — this file publishes the FrontLit
 # ports those commands also bind.
 name: frontlit
@@ -11,13 +11,13 @@ x-postgres-db: &postgres-db ${POSTGRES_DB:-frontlit}
 
 services:
     postgres:
-        image: pgvector/pgvector:pg16
+        image: pgvector/pgvector:pg17
         restart: unless-stopped
         environment:
             POSTGRES_USER: *postgres-user
             POSTGRES_PASSWORD: *postgres-password
             POSTGRES_DB: *postgres-db
-        # Bound to loopback so local pnpm can reach it without publishing
+        # Bound to loopback so local Bun development can reach it without publishing
         # Postgres on the public interface. Override POSTGRES_BIND/PORT
         # if you must change that.
         ports:
@@ -46,7 +46,7 @@ services:
     # Fresh volumes get `sendlit` from the init script above. This job also
     # creates it on an already-initialized FrontLit Postgres volume.
     sendlit-db-init:
-        image: pgvector/pgvector:pg16
+        image: pgvector/pgvector:pg17
         restart: "no"
         depends_on:
             postgres:
@@ -63,7 +63,7 @@ services:
               -v ON_ERROR_STOP=1 -c "CREATE DATABASE sendlit OWNER ${POSTGRES_USER:-frontlit}"
 
     sendlit-api:
-        image: codelit/sendlit-api:k3s
+        image: codelit/sendlit-api:latest
         restart: unless-stopped
         depends_on:
             postgres:
@@ -79,6 +79,7 @@ services:
               node apps/api/dist/db/migrate.js
               exec node apps/api/dist/index.js
         environment:
+            SENDLIT_DEPLOYMENT_MODE: "${SENDLIT_DEPLOYMENT_MODE:-oss}"
             NODE_ENV: "${SENDLIT_NODE_ENV:-development}"
             PORT: 3001
             DB_CONNECTION_STRING: postgres://${POSTGRES_USER:-frontlit}:${POSTGRES_PASSWORD:-frontlit}@postgres:5432/sendlit

@@ -3,8 +3,8 @@ export { PageBuilderSlider } from "./page-builder-slider";
 export { ColorSelector } from "./color-selector";
 export { MaxWidthSelector, getMaxWidthTWClass } from "./max-width-selector";
 export {
-    VerticalPaddingSelector,
-    getVerticalPaddingTWClass,
+  VerticalPaddingSelector,
+  getVerticalPaddingTWClass,
 } from "./vertical-padding-selector";
 export { ContentPaddingSelector } from "./content-padding-selector";
 export { SectionBackgroundPanel } from "./section-background-panel";

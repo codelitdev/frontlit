@@ -1,69 +1,69 @@
-import React from "react";
+import type React from "react";
+import type { ThemeStyle } from "../models";
 import {
-    Button as ShadcnButton,
-    type ButtonProps as ShadcnButtonProps,
+  Button as ShadcnButton,
+  type ButtonProps as ShadcnButtonProps,
 } from "./components/ui/button";
 import { cn } from "./lib/utils";
-import type { ThemeStyle } from "../models";
 
 export interface ButtonProps extends ShadcnButtonProps {
-    theme?: ThemeStyle;
+  theme?: ThemeStyle;
 }
 
 export const Button: React.FC<ButtonProps> = ({
-    variant = "default",
-    size = "default",
-    disabled = false,
-    children,
-    className = "",
-    theme,
-    ...props
+  variant = "default",
+  size = "default",
+  disabled = false,
+  children,
+  className = "",
+  theme,
+  ...props
 }) => {
-    const buttonStyles = theme?.interactives?.button;
-    const typographyStyles = theme?.typography?.button;
-    const isIcon = size === "icon";
+  const buttonStyles = theme?.interactives?.button;
+  const typographyStyles = theme?.typography?.button;
+  const isIcon = size === "icon";
 
-    const classes = cn(
-        // Base styles
-        "",
-        // Theme typography
-        typographyStyles?.fontFamily,
-        typographyStyles?.fontSize,
-        typographyStyles?.fontWeight,
-        typographyStyles?.lineHeight,
-        typographyStyles?.letterSpacing,
-        typographyStyles?.textTransform,
-        typographyStyles?.textDecoration,
-        typographyStyles?.textOverflow,
-        // Theme interactivity. Icon buttons stay square — CTA padding
-        // would stretch them off the size="icon" box.
-        !isIcon && buttonStyles?.padding?.x,
-        !isIcon && buttonStyles?.padding?.y,
-        buttonStyles?.border?.width,
-        buttonStyles?.border?.radius,
-        buttonStyles?.border?.style,
-        // buttonStyles?.border?.color,
-        buttonStyles?.shadow,
-        // Theme disabled states
-        disabled && buttonStyles?.disabled?.opacity,
-        disabled && buttonStyles?.disabled?.cursor,
-        disabled && buttonStyles?.disabled?.color,
-        disabled && buttonStyles?.disabled?.background,
-        disabled && buttonStyles?.disabled?.border,
-        // User overrides
-        buttonStyles?.custom,
-        className,
-    );
+  const classes = cn(
+    // Base styles
+    "",
+    // Theme typography
+    typographyStyles?.fontFamily,
+    typographyStyles?.fontSize,
+    typographyStyles?.fontWeight,
+    typographyStyles?.lineHeight,
+    typographyStyles?.letterSpacing,
+    typographyStyles?.textTransform,
+    typographyStyles?.textDecoration,
+    typographyStyles?.textOverflow,
+    // Theme interactivity. Icon buttons stay square — CTA padding
+    // would stretch them off the size="icon" box.
+    !isIcon && buttonStyles?.padding?.x,
+    !isIcon && buttonStyles?.padding?.y,
+    buttonStyles?.border?.width,
+    buttonStyles?.border?.radius,
+    buttonStyles?.border?.style,
+    // buttonStyles?.border?.color,
+    buttonStyles?.shadow,
+    // Theme disabled states
+    disabled && buttonStyles?.disabled?.opacity,
+    disabled && buttonStyles?.disabled?.cursor,
+    disabled && buttonStyles?.disabled?.color,
+    disabled && buttonStyles?.disabled?.background,
+    disabled && buttonStyles?.disabled?.border,
+    // User overrides
+    buttonStyles?.custom,
+    className,
+  );
 
-    return (
-        <ShadcnButton
-            variant={variant}
-            size={size}
-            disabled={disabled}
-            className={classes}
-            {...props}
-        >
-            {children}
-        </ShadcnButton>
-    );
+  return (
+    <ShadcnButton
+      variant={variant}
+      size={size}
+      disabled={disabled}
+      className={classes}
+      {...props}
+    >
+      {children}
+    </ShadcnButton>
+  );
 };

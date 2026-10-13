@@ -35,6 +35,6 @@ tool-to-scope policy is in `src/mcp/policy.ts`.
 Focused verification:
 
 ```bash
-pnpm --filter @frontlit/api exec vitest run src/mcp src/auth/cimd-fetch.test.ts src/auth/better-auth-mcp.test.ts
-pnpm --filter @frontlit/api check-types
+bun run --filter @frontlit/api test src/mcp src/auth/cimd-fetch.test.ts src/auth/better-auth-mcp.test.ts
+bun run --filter @frontlit/api check-types
 ```

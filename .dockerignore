@@ -5,7 +5,6 @@
 # Dependencies
 node_modules
 **/node_modules
-.pnpm-store
 
 # Local environment and secrets
 .env

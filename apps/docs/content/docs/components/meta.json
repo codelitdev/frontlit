@@ -1,5 +1,5 @@
 {
-    "title": "Components",
-    "icon": "Component",
-    "pages": ["page-builder", "text-editor"]
+  "title": "Components",
+  "icon": "Component",
+  "pages": ["page-builder", "text-editor"]
 }

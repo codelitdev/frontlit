@@ -25,26 +25,31 @@ import type { ResolvedAiConfig } from "./queries";
  */
 
 export type ChatProviderName =
-    "openai" | "azure" | "anthropic" | "openrouter" | "bedrock" | "opencode";
+  | "openai"
+  | "azure"
+  | "anthropic"
+  | "openrouter"
+  | "bedrock"
+  | "opencode";
 
 type TeamProviderConfig = Pick<
-    ResolvedAiConfig,
-    "provider" | "models" | "apiKey" | "region" | "endpoint"
+  ResolvedAiConfig,
+  "provider" | "models" | "apiKey" | "region" | "endpoint"
 >;
 
 export function resolveChatModelId(
-    provider: ChatProviderName,
-    configuredModel?: string | null,
+  provider: ChatProviderName,
+  configuredModel?: string | null,
 ): string {
-    return configuredModel?.trim() || defaultAiModels[provider].chatbot!;
+  return configuredModel?.trim() || defaultAiModels[provider].chatbot!;
 }
 
 export function resolveModelId(
-    provider: ChatProviderName,
-    purpose: AiModelPurpose,
-    configuredModel?: string | null,
+  provider: ChatProviderName,
+  purpose: AiModelPurpose,
+  configuredModel?: string | null,
 ): string {
-    return configuredModel?.trim() || defaultAiModels[provider][purpose]!;
+  return configuredModel?.trim() || defaultAiModels[provider][purpose]!;
 }
 
 /**
@@ -52,70 +57,66 @@ export function resolveModelId(
  * inbox AI should skip generation (no team credential).
  */
 export function getChatLanguageModel(
-    teamConfig?: TeamProviderConfig | null,
+  teamConfig?: TeamProviderConfig | null,
 ): Promise<LanguageModel | null> {
-    return getLanguageModel(teamConfig, "chatbot");
+  return getLanguageModel(teamConfig, "chatbot");
 }
 
 /** Creates a model for a specific product purpose using the team's selected
  * model for that purpose. New AI features should call this rather than share
  * the chatbot selection. */
 export function getLanguageModel(
-    teamConfig: TeamProviderConfig | null | undefined,
-    purpose: AiModelPurpose,
+  teamConfig: TeamProviderConfig | null | undefined,
+  purpose: AiModelPurpose,
 ): Promise<LanguageModel | null> {
-    if (teamConfig) {
-        if (!teamConfig.apiKey) return Promise.resolve(null);
-        const modelId = resolveModelId(
-            teamConfig.provider,
-            purpose,
-            teamConfig.models[purpose],
+  if (teamConfig) {
+    if (!teamConfig.apiKey) return Promise.resolve(null);
+    const modelId = resolveModelId(
+      teamConfig.provider,
+      purpose,
+      teamConfig.models[purpose],
+    );
+    switch (teamConfig.provider) {
+      case "openai":
+        return Promise.resolve(createOpenAI({ apiKey: teamConfig.apiKey })(modelId));
+      case "azure":
+        if (!teamConfig.endpoint) return Promise.resolve(null);
+        return Promise.resolve(
+          createAzure({
+            apiKey: teamConfig.apiKey,
+            baseURL: teamConfig.endpoint,
+          })(modelId),
         );
-        switch (teamConfig.provider) {
-            case "openai":
-                return Promise.resolve(
-                    createOpenAI({ apiKey: teamConfig.apiKey })(modelId),
-                );
-            case "azure":
-                if (!teamConfig.endpoint) return Promise.resolve(null);
-                return Promise.resolve(
-                    createAzure({
-                        apiKey: teamConfig.apiKey,
-                        baseURL: teamConfig.endpoint,
-                    })(modelId),
-                );
-            case "anthropic":
-                return Promise.resolve(
-                    createAnthropic({ apiKey: teamConfig.apiKey })(modelId),
-                );
-            case "openrouter":
-                return Promise.resolve(
-                    createOpenRouter({ apiKey: teamConfig.apiKey })(modelId),
-                );
-            case "bedrock":
-                return Promise.resolve(
-                    createAmazonBedrock({
-                        apiKey: teamConfig.apiKey,
-                        region: teamConfig.region || "us-east-1",
-                    })(modelId as any),
-                );
-            case "opencode":
-                return Promise.resolve(
-                    createOpencode({
-                        clientOptions: {
-                            headers: {
-                                Authorization: `Bearer ${teamConfig.apiKey}`,
-                            },
-                        },
-                    })(modelId),
-                );
-        }
+      case "anthropic":
+        return Promise.resolve(createAnthropic({ apiKey: teamConfig.apiKey })(modelId));
+      case "openrouter":
+        return Promise.resolve(
+          createOpenRouter({ apiKey: teamConfig.apiKey })(modelId),
+        );
+      case "bedrock":
+        return Promise.resolve(
+          createAmazonBedrock({
+            apiKey: teamConfig.apiKey,
+            region: teamConfig.region || "us-east-1",
+          })(modelId as any),
+        );
+      case "opencode":
+        return Promise.resolve(
+          createOpencode({
+            clientOptions: {
+              headers: {
+                Authorization: `Bearer ${teamConfig.apiKey}`,
+              },
+            },
+          })(modelId),
+        );
     }
+  }
 
-    return Promise.resolve(null);
+  return Promise.resolve(null);
 }
 
 /** One-line summary for boot logs. */
 export function describeChatProvider(): string {
-    return "chat=team-configured (no generation when a team has no AI provider)";
+  return "chat=team-configured (no generation when a team has no AI provider)";
 }

@@ -10,32 +10,33 @@
  * here without either package needing to import the other's types.
  */
 export interface RendererTypography {
-    fontFamily?: string;
-    fontSize?: string;
-    fontWeight?: string;
-    lineHeight?: string;
-    letterSpacing?: string;
-    textTransform?: string;
-    textDecoration?: string;
-    textOverflow?: string;
+  fontFamily?: string;
+  fontSize?: string;
+  fontWeight?: string;
+  lineHeight?: string;
+  letterSpacing?: string;
+  textTransform?: string;
+  textDecoration?: string;
+  textOverflow?: string;
 }
 
 export interface RendererLinkInteractiveStyle {
-    padding?: { x?: string; y?: string };
-    border?: { width?: string; radius?: string; style?: string };
-    textShadow?: string;
-    custom?: string;
+  padding?: { x?: string; y?: string };
+  border?: { width?: string; radius?: string; style?: string };
+  textShadow?: string;
+  custom?: string;
 }
 
 export interface TextRendererTheme {
-    typography?: {
-        header1?: RendererTypography;
-        header2?: RendererTypography;
-        header3?: RendererTypography;
-        text1?: RendererTypography;
-        link?: RendererTypography;
-    };
-    interactives?: {
-        link?: RendererLinkInteractiveStyle;
-    };
+  typography?: {
+    header1?: RendererTypography;
+    header2?: RendererTypography;
+    header3?: RendererTypography;
+    header4?: RendererTypography;
+    text1?: RendererTypography;
+    link?: RendererTypography;
+  };
+  interactives?: {
+    link?: RendererLinkInteractiveStyle;
+  };
 }
