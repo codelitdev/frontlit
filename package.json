@@ -22,7 +22,18 @@
     "esbuild": "0.28.2",
     "postcss": "8.5.28",
     "qs": "6.16.0",
-    "ts-deepmerge": "8.0.0"
+    "ts-deepmerge": "8.0.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "brace-expansion@>=1.0.0 <2.0.0": "1.1.21",
+    "brace-expansion@>=2.0.0 <3.0.0": "2.1.7",
+    "brace-expansion@>=5.0.0 <6.0.0": "5.0.12",
+    "fast-uri": "3.1.8",
+    "image-size": "2.0.3",
+    "ip-address": "10.7.1",
+    "next": "16.3.8",
+    "proxy-addr": "2.0.8",
+    "sharp": "0.35.5",
+    "source-map-js": "1.2.2"
   },
   "patchedDependencies": {
     "@anatine/zod-openapi@1.14.2": "patches/@anatine__zod-openapi@1.14.2.patch"
