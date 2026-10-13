@@ -10,10 +10,11 @@ import {
   deleteMediaRecord,
   getMediaByMediaId,
   listMedia,
+  MediaError,
   registerMedia,
   updateMedia,
 } from "./queries";
-import { createLibraryUploadIntent, MediaProvenanceError } from "./provenance";
+import { getMediaUploadSignature } from "./service";
 import {
   isUnsplashConfigured,
   searchUnsplash as searchUnsplashPhotos,
@@ -35,10 +36,10 @@ const impl = s.router(
     {
       presigned: async ({ req }) => {
         try {
-          const result = await createLibraryUploadIntent((req as any).teamId);
+          const result = await getMediaUploadSignature((req as any).teamId);
           return { status: 200, body: result };
         } catch (error) {
-          if (error instanceof MediaProvenanceError)
+          if (error instanceof MediaError)
             return {
               status: error.status as any,
               body: { error: error.message, code: error.code },
@@ -62,7 +63,7 @@ const impl = s.router(
             };
           return { status: 201, body: toPublicMedia(item) };
         } catch (error) {
-          if (error instanceof MediaProvenanceError)
+          if (error instanceof MediaError)
             return {
               status: error.status as any,
               body: { error: error.message, code: error.code },
@@ -139,7 +140,7 @@ const impl = s.router(
         try {
           result = await deleteMediaRecord((req as any).teamId, params.mediaId);
         } catch (error) {
-          if (error instanceof MediaProvenanceError)
+          if (error instanceof MediaError)
             return {
               status: error.status as any,
               body: { error: error.message, code: error.code },

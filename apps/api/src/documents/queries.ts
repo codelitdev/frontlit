@@ -134,18 +134,6 @@ export async function syncFeaturedImageToMediaLibrary(
     await registerMedia({
       teamId,
       mediaLitId,
-      url,
-      thumbnailUrl:
-        typeof normalized.thumbnailUrl === "string"
-          ? normalized.thumbnailUrl
-          : typeof normalized.thumbnail === "string"
-            ? (normalized.thumbnail as string)
-            : undefined,
-      fileName:
-        typeof normalized.fileName === "string" ? normalized.fileName : undefined,
-      mimeType:
-        typeof normalized.mimeType === "string" ? normalized.mimeType : undefined,
-      size: typeof normalized.size === "number" ? normalized.size : undefined,
       alt: typeof normalized.alt === "string" ? normalized.alt : undefined,
       caption: typeof normalized.caption === "string" ? normalized.caption : undefined,
     });

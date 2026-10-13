@@ -6,7 +6,7 @@ Scope: Authoring, organization, review, publication, delivery, and improvement o
 
 This is the single authoritative feature document. §§1–26 define the product and acceptance contracts; §27 describes the delivered implementation; §28 explains how to verify it; §29 records acceptance evidence and release disposition; §30 is the operator runbook. §31 retains dated implementation and smoke evidence, including fixture identities and recovery observations. Update this file when requirements, implementation, evidence, or release status change.
 
-**Current disposition:** Every V01–V49 scenario has passing local, real-PostgreSQL, or live evidence at its recorded scope. Production backup/retention and deployed scale/cache exercises remain gates. MEDIA-01 is an explicitly accepted provider exception: the signed upload group can be overridden, so affected public-library operations fail closed. Detailed remaining checks and their scope are in [release disposition](#requirement-and-release-disposition).
+**Current disposition:** Every V01–V49 scenario has passing local, real-PostgreSQL, or live evidence at its recorded scope. Production backup/retention and deployed scale/cache exercises remain gates. MEDIA-01 no longer applies: media verification was removed (2026-10-13) and MediaLit is treated as plain storage (§24.2). Detailed remaining checks and their scope are in [release disposition](#requirement-and-release-disposition).
 
 The latest recorded full API scope is 713 passing tests and one MEDIA-01 failure; dashboard 97 and sites 45 passed. These are prior feature-verification results, not tests rerun during this documentation consolidation. Evidence scopes overlap and must not be added together. Verification results and limitations are retained in this document. Raw smoke logs and browser snapshots were removed during cleanup on 2026-10-03; historical `/tmp` artifact paths are provenance only and may no longer exist. Rerun the commands in §28 for fresh evidence.
 
@@ -891,33 +891,16 @@ Use one heading-ID generator in the renderer, extractor, validator, chunker, and
 
 Document title lives in metadata and is rendered once by the page. Body headings remain authored content; importing a body H1 does not silently remove it. A title repeated as the first body H1 can generate a style warning without altering content.
 
-### 24.2 Authoritative media verification (DM-MEDIA)
+### 24.2 Media (DM-MEDIA)
 
-Reuse `apps/api/src/media/service.ts`: it already exposes MediaLit `getMedia`, `sealMedia`, access classification, canonical file URL, and group metadata. The current `registerMedia` branch that trusts supplied URLs is **not sufficient provenance** and must be removed/hardened before docs relies on library ownership. API/MCP callers cannot create verified asset metadata by supplying an ID, URL, MIME type, or team ID.
+MediaLit is plain file storage for FrontLit, like S3. There is no ownership, provenance, or access verification layer around it. MediaLit files cannot switch between private and public, so there is nothing to reconcile after upload.
 
-1. Request `POST /media/presigned` / `get_media_upload_signature`. Extend the docs-upload option with a short-lived server-owned upload intent associated with the authenticated team and intended public-library use. Scope the provider signature to a server-generated upload group containing team/intent identity; store the exact expected group. Ordinary/ticket upload behavior remains separate.
+1. Request `POST /media/presigned` / `get_media_upload_signature`. The signature is grouped by team in MediaLit for organization only.
 2. Upload bytes directly to MediaLit with that signature; FrontLit receives no file bytes.
-3. Register using `POST /media` / `register_media` and the intent/MediaLit ID. Fetch authoritative MediaLit metadata first. Match the group to the team/intent and atomically bind an unused intent to the returned object ID. Reject a foreign group, reused intent for another object, unknown ID, or private-ticket binding with a non-disclosing reference error **before sealing**.
-4. A new verified docs-upload intent explicitly authorizes making this new upload a permanent public-library asset. Seal it, fetch/inspect the resulting metadata, and require public access. Existing private assets/ticket objects cannot use this path; publish an explicitly uploaded public copy instead. Legacy public library objects may be adopted only after provider verification of group/team and public access.
-5. Persist the provider-returned canonical URL, group, access, MIME type, size, ID, verification time, and upload provenance. Client URL fields may be omitted or must match canonical metadata; they never override it. Existing registration stays idempotent for the same verified object. If provider verification is unavailable, return a retryable error without claiming ownership or public visibility.
-6. Insert the public URL into Markdown or the validated image node; file downloads use ordinary links. The author need not type MediaLit IDs. Store resolved asset IDs separately in draft/revision references.
-7. Safe-draft validation uses verified team records and detects a stale/withdrawn/deleting asset. Publication preparation rechecks managed asset existence/visibility through authenticated MediaLit lookup. Do not arbitrarily GET the supplied URL. Record changed canonical metadata and fail a candidate whose asset is now private/missing.
+3. Register using `POST /media` / `register_media` with the MediaLit ID. FrontLit seals the upload and stores the URL, thumbnail, file name, MIME type, and size MediaLit returns. Re-registering the same ID is idempotent; an ID already registered by another team is rejected.
+4. Insert the public URL into Markdown or the image node. Images not in the team's library are allowed with an `EXTERNAL_MEDIA` warning.
 
-Provider signature/group/seal behavior must be verified with the actual MediaLit service in integration tests. Unproven properties must leave the affected media operations unavailable; do not substitute client assertions. The tracked provider issue below is explicitly deferred and does not block D2 completion or subsequent docs work. Existing unverified URL-only library rows must be verified before use by docs, without treating their mere presence as evidence.
-
-Distinguish managed MediaLit hosts from external HTTPS resources using operator-configured canonical delivery domains and aliases. A URL on a managed host with no verified owning record fails `UNVERIFIED_MEDIA`; it cannot be reclassified as an external URL to bypass checks. Recognize known private attachment routes and signed URL forms and reject them in images and links. Arbitrary third-party URLs cannot universally be classified for privacy; label them externally hosted/unverified and warn about availability/tracking. Never claim to have proved that every possible external link is public.
-
-A public asset remains accessible before its draft is published. The picker explains this, and privacy-sensitive material stays out of public-library uploads. No automatic background fetch/copy of external URLs is required.
-
-Deletion and confirmed media access loss use existing media authority plus §23.6 reference checks. A verified provider access-loss/delete signal marks the asset unavailable, increments affected teams' docs serving epochs, and hides documents that depend on the asset until reconciliation confirms public access again. If no provider events exist, operator reconciliation detects changes and no instantaneous upstream-change guarantee is made. Restrict manual changes to managed docs assets through FrontLit where possible. A fresh provider metadata check on preparation is mandatory.
-
-#### MEDIA-01: MediaLit signed upload group can be overridden
-
-A real TUS upload signed for `frontlit-library:test:<nonce>` accepted client metadata `group=client-forged-group`. Authenticated MediaLit lookup returned the client group instead of the signed group. The local provider implementation uses `group: metadata.group || group` in `apps/api/src/tus/tus-server.ts`, allowing client metadata to override the signed ownership scope. The separate private-upload integration case passed. The signed-group case remains failing and must not be reported as passing.
-
-FrontLit probes this behavior before granting public library upload intents or registering media. While the provider fails verification, those operations return retryable `503 MEDIA_GROUP_BINDING_UNAVAILABLE`, without inserting an asset or claiming verified ownership. This restriction also affects public library uploads used by other content types. Image-free docs and safe externally hosted media can continue under the existing validation rules. The milestone deferral does not authorize bypassing the guard or treating existing unverified library rows as verified.
-
-The [prepared provider patch](./medialit-group-binding.patch) gives the signed group precedence and passed `git apply --check` against the local MediaLit checkout. It has not been applied or deployed. Follow-up: fix and deploy the provider, verify signed-group binding and public/private seal behavior with the live integration tests, then repeat the successful upload/registration browser smoke. A patch check alone does not establish provider guarantees. See [D2 smoke evidence](#historical-d2-evidence) for reproduction and observed results.
+Deleting a library item is refused with `409 MEDIA_IN_USE` while saved content (drafts, published revisions, pages, settings) references it; otherwise FrontLit deletes the file from MediaLit and removes the row.
 
 ### 24.3 Feedback operations, evidence permissions, and AI containment (DM-FEEDBACK)
 
@@ -1136,7 +1119,7 @@ The adoption fixtures seed the merged setup PR required by the current contract.
 
 ### 28.3 Live provider verification
 
-From `apps/api`, `bun run test src/media/provenance.integration.test.ts` reproduces the signed-group/private-object contract. `bun run test src/media/provider-guarantees.integration.test.ts` checks forged provider IDs, actual deletion completion and dependent-document hiding after confirmed access loss. Newly created objects are cleaned up. MEDIA-01 remains a failing signed-group scenario, with affected registration/upload operations guarded by a five-minute expiring actual-provider probe. The prepared `docs/medialit-group-binding.patch` is a reviewable provider fix, not passing deployed evidence.
+Media provenance/provider-guarantee integration tests were removed with the media verification layer (§24.2). `bun run test src/media/service.integration.test.ts` still checks a live upload signature.
 
 Use a disposable GitHub installation/repository and explicit authority for provider mutations. Real signatures, complete tree responses, branch protection, grants, response loss and remote recovery need provider evidence; mocked callbacks or injected browser responses cannot replace it. Fault-injection smoke used production adapters and ordinary queues with scoped actual App credentials, discarded a successful provider response at the selected boundary, and let normal scheduler/backoff recover without editing job rows or schedules. Those one-off scripts and their temporary permission rule were removed; the dated summaries in §31 retain the assertions. Recreate fault tooling only when needed and authorized.
 

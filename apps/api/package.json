@@ -28,7 +28,6 @@
     "docs:deletion-ledger": "node --env-file=.env --import tsx src/documentation/deletion-ledger-cli.ts",
     "test:docs-restore-postgres": "node --env-file=.env --import tsx scripts/test-docs-postgres.ts --backup-restore",
     "test:docs-outbox-postgres": "node --env-file=.env --import tsx scripts/test-docs-postgres.ts --outbox-crash",
-    "test:docs-media-postgres": "node --env-file=.env --import tsx scripts/test-docs-postgres.ts --media-race",
     "test:docs-editor-postgres": "node --env-file=.env --import tsx scripts/test-docs-postgres.ts --editor-no-github",
     "test:docs-tenant-burst-postgres": "node --env-file=.env --import tsx scripts/test-docs-postgres.ts --tenant-burst",
     "test:docs-adoption-race-postgres": "node --env-file=.env --import tsx scripts/test-docs-postgres.ts --adoption-transport-race"

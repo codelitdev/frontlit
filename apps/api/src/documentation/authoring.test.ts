@@ -160,22 +160,4 @@ describe("D2 versioned authoring", () => {
       }),
     ).rejects.toBeInstanceOf(DraftConflict);
   });
-  it("rejects an unverified managed image instead of treating it as external", async () => {
-    process.env.MEDIALIT_DELIVERY_HOSTS = "cdn.test.invalid";
-    await expect(
-      saveDocumentation(teamId, null, {
-        title: "Forged",
-        content: {
-          type: "doc",
-          content: [
-            {
-              type: "image",
-              attrs: { src: "https://cdn.test.invalid/forged.png", alt: "" },
-            },
-          ],
-        },
-      }),
-    ).rejects.toThrow();
-    delete process.env.MEDIALIT_DELIVERY_HOSTS;
-  });
 });

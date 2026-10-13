@@ -8,7 +8,6 @@ import {
   documentationGitPreflights as preflights,
 } from "../../db/schema";
 import { lockSettings } from "../authoring";
-import { documentationReadAllowed } from "../publications";
 import {
   DocsGitHubApp,
   GitHubDocsError,
@@ -105,9 +104,6 @@ export async function writeGitMigration(
       )
         throw new GitHubDocsError("MIGRATION_STALE", 409);
       await authorizedSetup(request.teamId, current.setupId, actor, tx);
-      for (const doc of docs)
-        if (!(await documentationReadAllowed(request.teamId, doc, false, tx)))
-          throw new GitHubDocsError("GITHUB_PROPOSAL_UNAVAILABLE", 409);
       await tx
         .update(requests)
         .set({ leaseExpiresAt: new Date(Date.now() + LEASE_MS) })

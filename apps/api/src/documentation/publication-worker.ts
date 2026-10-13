@@ -10,13 +10,11 @@ import {
   processPublication,
   deliverDocumentationEvent,
   cleanupDocumentation,
-  reconcileDocumentationMedia,
 } from "./publications";
 import { logger } from "../services/log";
 export function startDocumentationPublicationWorker(intervalMs = 2000) {
   let stopped = false;
   let lastCleanup = 0;
-  let lastMediaCheck = 0;
   let lastGitReconcile = 0;
   async function tick() {
     if (stopped) return;
@@ -36,10 +34,6 @@ export function startDocumentationPublicationWorker(intervalMs = 2000) {
       for (let i = 0; i < 5 && !stopped; i++) if (!(await processPublication())) break;
       for (let i = 0; i < 10 && !stopped; i++)
         if (!(await deliverDocumentationEvent())) break;
-      if (Date.now() - lastMediaCheck > 60000) {
-        await reconcileDocumentationMedia();
-        lastMediaCheck = Date.now();
-      }
       await cleanupDocumentationEvidence();
       if (Date.now() - lastCleanup > 86400000) {
         await cleanupDocumentation();

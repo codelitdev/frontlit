@@ -10,7 +10,7 @@ import {
   documentationGitPreflights as preflights,
 } from "../../db/schema";
 import { lockSettings } from "../authoring";
-import { digest, documentationReadAllowed } from "../publications";
+import { digest } from "../publications";
 import { serializeDates } from "../../utils/public";
 import { DocsGitHubApp, getDocsGitHubAppConfig, GitHubDocsError } from "./app";
 import { ownedPlan, currentPlan } from "./migrations";
@@ -117,9 +117,6 @@ export async function submitGitMigrationPr(
         "GITHUB_REPOSITORY_INITIALIZATION_CONSENT_REQUIRED",
         409,
       );
-    for (const doc of docs)
-      if (!(await documentationReadAllowed(teamId, doc, false, tx)))
-        throw new GitHubDocsError("GITHUB_PROPOSAL_UNAVAILABLE", 409);
     const same = await tx.query.documentationGitMigrationPrs.findFirst({
       where: and(eq(requests.teamId, teamId), eq(requests.planId, planId)),
     });

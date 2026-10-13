@@ -5,7 +5,6 @@ import {
   createDocumentationImprovementDraft,
 } from "./improvements";
 import {
-  publicationForReader,
   getDocsUiSettings,
   previewDocumentation,
   listPublicationHistory,
@@ -196,7 +195,7 @@ const impl = s.router(
         command(
           async () => {
             const row = await getPublication(req.teamId, params.publicationId);
-            return row ? publicationForReader(req.teamId, row, manages(req)) : null;
+            return row ? publicPublication(row) : null;
           },
           (x) => x,
         ),

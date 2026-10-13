@@ -277,20 +277,6 @@ describe("documents engine (blog kind)", () => {
       expect(mediaItems).toHaveLength(0);
     });
 
-    it("does not let a client manufacture library ownership with featured-image metadata", async () => {
-      await expect(
-        createDocument("doc", {
-          teamId,
-          title: "Forged",
-          featuredImage: {
-            url: "https://ext-medialit.example/item.jpg",
-            mediaLitId: "ml_ext_999",
-          },
-        }),
-      ).rejects.toThrow();
-      expect(await listMedia({ teamId })).toHaveLength(0);
-    });
-
     it("updates featured image with MediaLit backing and promotes it upon publish", async () => {
       const created = await createDocument("blog", {
         teamId,

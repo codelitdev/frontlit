@@ -71,7 +71,6 @@ export async function replayDeletionRecord(record: DeletionRecord) {
       documentIds,
       revisionIds: record.revisionIds,
       routes,
-      assetIds: [],
       draftVersions: [],
       mediaDeletion: "separate authorized operation",
       retainedExternalCopies: [

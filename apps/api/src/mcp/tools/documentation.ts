@@ -13,7 +13,6 @@ import {
   documentationImprovementDraftSchema,
 } from "@frontlit/api-contract";
 import {
-  publicationForReader,
   getDocsUiSettings,
   previewDocumentation,
   listPublicationHistory,
@@ -216,7 +215,7 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
       output: documentationPublicationSchema,
       run: async (teamId: string, args: any, auth: any) => {
         const row = await getPublication(teamId, args.publicationId);
-        return row ? publicationForReader(teamId, row, canManage(auth)) : null;
+        return row ? publicPublication(row) : null;
       },
       project: (value: any) => value,
       read: true,

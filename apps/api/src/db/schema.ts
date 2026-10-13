@@ -620,9 +620,6 @@ export const media = pgTable(
     teamId: text("team_id")
       .notNull()
       .references(() => teams.id, { onDelete: "cascade" }),
-    providerGroup: text("provider_group"),
-    verifiedAt: timestamp("verified_at"),
-    access: text("access"),
     mediaLitId: text("media_lit_id").notNull(),
     url: text("url").notNull(),
     thumbnailUrl: text("thumbnail_url"),
@@ -636,7 +633,7 @@ export const media = pgTable(
   },
   (table) => [
     index("media_team_idx").on(table.teamId, table.createdAt),
-    uniqueIndex("media_team_medialit_idx").on(table.teamId, table.mediaLitId),
+    uniqueIndex("media_medialit_idx").on(table.mediaLitId),
     publicIdCheck("media_id", "med"),
   ],
 );
@@ -1169,17 +1166,6 @@ export const documentationSettings = pgTable("documentation_settings", {
     .notNull()
     .default({ enabled: true }),
 });
-export const mediaUploadIntents = pgTable("media_upload_intents", {
-  intentId: text("intent_id")
-    .primaryKey()
-    .$defaultFn(() => genPublicId("upload")),
-  teamId: text("team_id")
-    .notNull()
-    .references(() => teams.id, { onDelete: "cascade" }),
-  providerGroup: text("provider_group").notNull().unique(),
-  mediaLitId: text("media_lit_id"),
-  expiresAt: timestamp("expires_at").notNull(),
-});
 
 /** D3 immutable publication store. Payloads are captured at admission, never
  * reconstructed from newer drafts by a retry. Terminal reports contain codes,
@@ -1202,7 +1188,6 @@ export const documentationRevisions = pgTable(
     chunks: jsonb("chunks")
       .$type<{ heading: string | null; anchor: string | null; content: string }[]>()
       .notNull(),
-    assetIds: jsonb("asset_ids").$type<string[]>().notNull().default([]),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("documentation_revisions_team_idx").on(t.teamId)],
@@ -1309,7 +1294,7 @@ export const documentationDeliveryOutbox = pgTable("documentation_delivery_outbo
   publicationId: text("publication_id"),
   policyEpoch: integer("policy_epoch").notNull(),
   type: text("type", {
-    enum: ["activation", "policy", "purge", "media_delete"],
+    enum: ["activation", "policy", "purge"],
   }).notNull(),
   payload: jsonb("payload").$type<Record<string, any>>().notNull().default({}),
   destinations: jsonb("destinations").$type<string[]>().notNull().default(["local"]),

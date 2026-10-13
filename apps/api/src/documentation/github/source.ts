@@ -76,7 +76,6 @@ export async function validateGitManifest(
       candidates,
       documentId: candidate.documentId,
       sections,
-      fresh: true,
     });
     diagnostics.push(
       ...report.diagnostics.map((d) => ({

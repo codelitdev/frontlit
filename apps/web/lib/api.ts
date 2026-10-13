@@ -450,7 +450,6 @@ export function searchUnsplash(q?: string) {
 }
 
 export function registerMedia(input: {
-  intentId?: string;
   mediaLitId: string;
   alt?: string;
   caption?: string;
