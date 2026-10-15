@@ -584,7 +584,7 @@ describe("Git source and adoption REST/MCP domain parity", () => {
       initializeEmptyRepository: false,
       idempotencyKey: "reviewed-setup",
     };
-    const headers = { cookie: `better-auth.session_token=${sessionToken}` };
+    const headers = { cookie: `frontlit.session_token=${sessionToken}` };
     expect(
       (
         await request(
