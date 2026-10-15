@@ -228,11 +228,7 @@ export default function DomainPage() {
                             ))
                           ) : (
                             <tr className="border-b last:border-0">
-                              <td className="px-3 py-2 align-middle">
-                                {settings.verificationRecords.kind === "alias"
-                                  ? "ALIAS"
-                                  : "CNAME"}
-                              </td>
+                              <td className="px-3 py-2 align-middle">CNAME</td>
                               <td className="max-w-[14rem] break-all px-3 py-2 align-middle font-mono">
                                 {settings.customDomain.hostname}
                               </td>
