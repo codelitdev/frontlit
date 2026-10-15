@@ -14,6 +14,8 @@ export interface HeroSettings extends WidgetDefaultSettings {
   buttonAction?: string;
   secondaryButtonCaption?: string;
   secondaryButtonAction?: string;
+  /** Optional line of small print under the buttons, e.g. "No credit card required". */
+  smallPrint?: string;
   media?: Media;
   youtubeLink?: string;
   alignment?: Alignment | "right";

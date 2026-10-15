@@ -19,12 +19,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+export type SaveState = "idle" | "saving" | "saved" | "error";
+
 export function EditorToolbar({
   backHref,
   backLabel,
   status,
   statusTestId,
-  saving,
+  saveState = "idle",
   publishing,
   publishingLabel = "Publishing…",
   leading,
@@ -37,7 +39,8 @@ export function EditorToolbar({
   backLabel: string;
   status: DocumentStatus;
   statusTestId?: string;
-  saving?: boolean;
+  /** Autosave progress, shown next to the document status. */
+  saveState?: SaveState;
   publishing?: boolean;
   publishingLabel?: string;
   leading?: React.ReactNode;
@@ -60,7 +63,17 @@ export function EditorToolbar({
       <div className="flex shrink-0 items-center gap-2">
         <DocumentStatusBadge status={status} data-testid={statusTestId} />
         {extra}
-        {saving && <Badge variant="neutral">Saving…</Badge>}
+        {saveState === "saving" && <Badge variant="neutral">Saving…</Badge>}
+        {saveState === "saved" && (
+          <Badge variant="success" data-testid="save-state">
+            Draft saved
+          </Badge>
+        )}
+        {saveState === "error" && (
+          <Badge variant="destructive" data-testid="save-state">
+            Couldn’t save changes
+          </Badge>
+        )}
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button

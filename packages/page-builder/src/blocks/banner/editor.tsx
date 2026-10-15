@@ -1,8 +1,7 @@
 import React from "react";
 import type { WidgetEditorProps } from "../../models";
 import type { BannerSettings } from "./settings";
-import { Editor, emptyDoc } from "@frontlit/text-editor";
-import { FieldGroup, SelectField, TextField } from "../_shared/fields";
+import { FieldGroup, RichTextField, SelectField, TextField } from "../_shared/fields";
 
 export function BannerEditor({
   settings,
@@ -19,15 +18,13 @@ export function BannerEditor({
           value={settings.title}
           onChange={(title) => update({ title })}
         />
-        <div className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-foreground">Description</span>
-          <Editor
-            initialContent={settings.description ?? emptyDoc}
-            onChange={(description: any) => update({ description })}
-            showToolbar={false}
-            editorClassName="min-h-[80px]"
-          />
-        </div>
+        <RichTextField
+          label="Description"
+          value={settings.description}
+          onChange={(description) => update({ description })}
+          showToolbar={false}
+          minHeight={80}
+        />
       </FieldGroup>
       <FieldGroup title="Calls to action">
         <TextField

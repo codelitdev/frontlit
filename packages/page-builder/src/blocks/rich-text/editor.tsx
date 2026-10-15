@@ -1,8 +1,7 @@
 import React from "react";
 import type { WidgetEditorProps } from "../../models";
 import type { RichTextSettings } from "./settings";
-import { Editor, emptyDoc } from "@frontlit/text-editor";
-import { FieldGroup, SelectField } from "../_shared/fields";
+import { FieldGroup, RichTextField, SelectField } from "../_shared/fields";
 
 export function RichTextEditor({
   settings,
@@ -14,14 +13,12 @@ export function RichTextEditor({
   return (
     <div className="flex flex-col">
       <FieldGroup title="Content">
-        <div className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-foreground">Text</span>
-          <Editor
-            initialContent={settings.text ?? emptyDoc}
-            onChange={(text: any) => update({ text })}
-            editorClassName="min-h-[160px]"
-          />
-        </div>
+        <RichTextField
+          label="Text"
+          value={settings.text}
+          onChange={(text) => update({ text })}
+          minHeight={160}
+        />
         <SelectField
           label="Alignment"
           value={settings.alignment ?? "left"}

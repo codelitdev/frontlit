@@ -21,7 +21,7 @@ import {
   resolveEditorTheme,
   themeSnapshot,
 } from "@/lib/page-theme";
-import { EditorToolbar } from "@/components/workspace/editor-toolbar";
+import { EditorToolbar, type SaveState } from "@/components/workspace/editor-toolbar";
 import { FullScreenLoading } from "@/components/workspace/loading";
 import { SlugEditor } from "@/components/workspace/slug-editor";
 import { useEditorAccess } from "@/components/workspace/editor-access-gate";
@@ -37,7 +37,7 @@ export default function PageEditorPage({
   const [page, setPage] = useState<Page | null>(null);
   const [initialTheme, setInitialTheme] = useState<BuilderTheme | undefined>(undefined);
   const [customThemes, setCustomThemes] = useState<BuilderTheme[] | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
   const [publishing, setPublishing] = useState(false);
   // Bumped only when the draft is reset from outside the builder (discard),
   // forcing a remount so the (otherwise uncontrolled) builder re-reads the
@@ -134,7 +134,7 @@ export default function PageEditorPage({
   }, [canReadSettings, canReadThemes, pageId]);
 
   async function handleChange(state: PageBuilderState) {
-    setSaving(true);
+    setSaveState("saving");
     try {
       if (canWriteThemes) {
         await persistCustomThemes(state.customThemes, {
@@ -166,8 +166,9 @@ export default function PageEditorPage({
         appliedSiteThemeSnapshotRef.current = selectedThemeSnapshot;
       }
       setPage(updated);
-    } finally {
-      setSaving(false);
+      setSaveState("saved");
+    } catch {
+      setSaveState("error");
     }
   }
 
@@ -217,7 +218,7 @@ export default function PageEditorPage({
         backLabel="Pages"
         status={page.status}
         statusTestId="page-status-badge"
-        saving={saving}
+        saveState={saveState}
         publishing={publishing}
         leading={
           <SlugEditor

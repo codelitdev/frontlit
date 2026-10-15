@@ -1,13 +1,13 @@
 import React from "react";
 import type { WidgetEditorProps } from "../../models";
 import type { PricingSettings, PricingTier } from "./settings";
-import { Editor, emptyDoc } from "@frontlit/text-editor";
 import {
   FieldGroup,
   ListField,
   SelectField,
   TextField,
   ToggleField,
+  RichTextField,
 } from "../_shared/fields";
 
 const createTier = (): PricingTier => ({
@@ -34,15 +34,13 @@ export function PricingEditor({
           value={settings.title}
           onChange={(title) => update({ title })}
         />
-        <div className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-foreground">Description</span>
-          <Editor
-            initialContent={settings.description ?? emptyDoc}
-            onChange={(description: any) => update({ description })}
-            showToolbar={false}
-            editorClassName="min-h-[80px]"
-          />
-        </div>
+        <RichTextField
+          label="Description"
+          value={settings.description}
+          onChange={(description) => update({ description })}
+          showToolbar={false}
+          minHeight={80}
+        />
         <SelectField
           label="Header alignment"
           value={settings.headerAlignment ?? "center"}

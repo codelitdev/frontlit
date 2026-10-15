@@ -1,13 +1,13 @@
 import React from "react";
 import type { WidgetEditorProps } from "../../models";
 import type { ContentSettings } from "./settings";
-import { Editor, emptyDoc } from "@frontlit/text-editor";
 import {
   FieldGroup,
   ImageField,
   NumberField,
   SelectField,
   TextField,
+  RichTextField,
 } from "../_shared/fields";
 
 export function ContentEditor({
@@ -25,14 +25,12 @@ export function ContentEditor({
           value={settings.title}
           onChange={(title) => update({ title })}
         />
-        <div className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-foreground">Body</span>
-          <Editor
-            initialContent={settings.body ?? emptyDoc}
-            onChange={(body: any) => update({ body })}
-            editorClassName="min-h-[160px]"
-          />
-        </div>
+        <RichTextField
+          label="Body"
+          value={settings.body}
+          onChange={(body) => update({ body })}
+          minHeight={160}
+        />
       </FieldGroup>
       <FieldGroup title="Media">
         <ImageField

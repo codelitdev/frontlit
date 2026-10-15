@@ -8,6 +8,7 @@ import { isVideo } from "../../utils";
 import clsx from "clsx";
 import {
   Button,
+  Caption,
   Header1,
   Preheader,
   Subheader1,
@@ -42,6 +43,7 @@ export function HeroWidget({
     contentAlignment = "left",
     secondaryButtonAction,
     secondaryButtonCaption,
+    smallPrint,
     cssId,
     maxWidth,
     verticalPadding,
@@ -126,6 +128,7 @@ export function HeroWidget({
           </NavLink>
         )}
       </div>
+      {smallPrint && <Caption theme={overriddenTheme}>{smallPrint}</Caption>}
     </div>
   );
 

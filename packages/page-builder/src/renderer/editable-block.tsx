@@ -47,56 +47,6 @@ function ToolbarButton({
 }
 
 /**
- * Two-click delete: first click arms the button ("Sure?"), second click
- * actually deletes. Disarms after a short delay or when the pointer leaves.
- */
-function DeleteButton({ onDelete }: { onDelete?: () => void }) {
-  const [confirming, setConfirming] = React.useState(false);
-
-  React.useEffect(() => {
-    if (!confirming) return;
-    const timeout = setTimeout(() => setConfirming(false), 3000);
-    return () => clearTimeout(timeout);
-  }, [confirming]);
-
-  if (!onDelete) return null;
-
-  if (confirming) {
-    return (
-      <button
-        type="button"
-        title="Confirm delete"
-        aria-label="Confirm delete"
-        className="inline-flex h-7 items-center justify-center rounded bg-destructive px-2 text-xs font-medium text-destructive-foreground shadow-sm hover:bg-destructive/90"
-        onMouseLeave={() => setConfirming(false)}
-        onClick={(e) => {
-          e.stopPropagation();
-          setConfirming(false);
-          onDelete();
-        }}
-      >
-        Sure?
-      </button>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      title="Delete"
-      aria-label="Delete"
-      className="inline-flex h-7 w-7 items-center justify-center rounded bg-background text-foreground shadow-sm hover:bg-muted"
-      onClick={(e) => {
-        e.stopPropagation();
-        setConfirming(true);
-      }}
-    >
-      <Trash2 className="h-3.5 w-3.5" />
-    </button>
-  );
-}
-
-/**
  * Wraps a rendered block with hover/selection affordances when the page
  * builder is in editing mode. In non-editing (plain display) mode it's a
  * transparent passthrough.
@@ -145,12 +95,13 @@ export function EditableBlock({
           <ToolbarButton icon={Settings2} label="Edit settings" onClick={onSelect} />
           <ToolbarButton icon={ArrowUp} label="Move up" onClick={onMoveUp} />
           <ToolbarButton icon={ArrowDown} label="Move down" onClick={onMoveDown} />
-          <DeleteButton onDelete={onDelete} />
+          <ToolbarButton icon={Trash2} label="Delete" onClick={onDelete} />
         </div>
       </div>
       {children}
+      {/* z-30: stay above the next block's (invisible) toolbar, which overlaps this strip. */}
       {onAddBelow && (
-        <div className="pointer-events-none absolute inset-x-0 -bottom-3 z-20 flex justify-center opacity-0 transition-opacity group-hover/block:opacity-100">
+        <div className="pointer-events-none absolute inset-x-0 -bottom-3 z-30 flex justify-center opacity-0 transition-opacity group-hover/block:opacity-100">
           <button
             type="button"
             title="Add block below"

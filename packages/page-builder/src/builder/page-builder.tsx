@@ -18,6 +18,7 @@ import type { PageBuilderLinkComponent } from "../components/nav-link";
 import { BuilderTopBar, type PreviewDevice } from "./top-bar";
 import { PreviewFrame } from "./preview-frame";
 import { BlockPicker } from "./block-picker";
+import { ConfirmDialog } from "./confirm-dialog";
 import { SettingsPanel } from "./settings-panel";
 import { BlockSettings } from "./block-settings";
 import { ThemeEditor } from "./theme-editor";
@@ -99,6 +100,7 @@ export function PageBuilder({
   const [device, setDevice] = useState<PreviewDevice>("desktop");
   const [panel, setPanel] = useState<PanelState>(null);
   const [insertAfter, setInsertAfter] = useState<string | "end" | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [movedWidgetId, setMovedWidgetId] = useState<string | null>(null);
   const movedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -129,6 +131,9 @@ export function PageBuilder({
     emitChange({ layout, theme, seo, customThemes });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout, theme, seo, customThemes]);
+
+  // Hand over the last edit if the builder goes away before the debounce.
+  useEffect(() => emitChange.flush, [emitChange]);
 
   const addableBlocks = useMemo(() => getAddableBlocks(), []);
 
@@ -162,6 +167,11 @@ export function PageBuilder({
       [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
       return next;
     });
+    highlightWidget(widgetId);
+  }
+
+  /** Scrolls the block into view (via the renderer) and flashes it briefly. */
+  function highlightWidget(widgetId: string) {
     if (movedTimeoutRef.current) clearTimeout(movedTimeoutRef.current);
     setMovedWidgetId(widgetId);
     movedTimeoutRef.current = setTimeout(() => setMovedWidgetId(null), 1500);
@@ -189,7 +199,11 @@ export function PageBuilder({
         return [...prev.slice(0, footerIndex), instance, ...prev.slice(footerIndex)];
       }
       const afterIndex = prev.findIndex((w) => w.widgetId === insertAfter);
-      if (afterIndex === -1) return [...prev, instance];
+      if (afterIndex === -1 || prev[afterIndex].name === "footer") {
+        const footerIndex = prev.findIndex((w) => w.name === "footer");
+        if (footerIndex === -1) return [...prev, instance];
+        return [...prev.slice(0, footerIndex), instance, ...prev.slice(footerIndex)];
+      }
       return [
         ...prev.slice(0, afterIndex + 1),
         instance,
@@ -197,6 +211,7 @@ export function PageBuilder({
       ];
     });
     setInsertAfter(null);
+    highlightWidget(instance.widgetId);
     // Newly added blocks should immediately reveal their settings. This is
     // especially important for intentionally empty blocks such as Embed:
     // without a configured URL or snippet they have no public rendering.
@@ -239,7 +254,8 @@ export function PageBuilder({
         onDeviceChange={setDevice}
         onOpenTheme={() => setPanel({ mode: "theme" })}
         onOpenSeo={() => setPanel({ mode: "seo" })}
-        onAddBlock={() => setInsertAfter("end")}
+        // Insert after the selected block, or at the end of the page.
+        onAddBlock={() => setInsertAfter(selectedWidgetId ?? "end")}
         allowThemeEditing={allowThemeEditing}
       />
       <div className="flex min-h-0 w-full min-w-0 flex-1 gap-4 overflow-hidden bg-muted/10 p-4">
@@ -274,7 +290,7 @@ export function PageBuilder({
               onSelectWidget={(id) => setPanel({ mode: "block", widgetId: id })}
               onMoveWidgetUp={(id) => moveWidget(id, -1)}
               onMoveWidgetDown={(id) => moveWidget(id, 1)}
-              onDeleteWidget={deleteWidget}
+              onDeleteWidget={setPendingDeleteId}
               onAddWidgetBelow={(id) => setInsertAfter(id)}
               linkComponent={linkComponent}
             />
@@ -323,6 +339,21 @@ export function PageBuilder({
           </SettingsPanel>
         )}
       </div>
+      {pendingDeleteId !== null && (
+        <ConfirmDialog
+          title={`Delete ${
+            getWidget(layout.find((w) => w.widgetId === pendingDeleteId)?.name ?? "")
+              ?.metadata.displayName ?? "block"
+          }?`}
+          description="This block and its content will be removed from the page draft."
+          confirmLabel="Delete"
+          onConfirm={() => {
+            deleteWidget(pendingDeleteId);
+            setPendingDeleteId(null);
+          }}
+          onClose={() => setPendingDeleteId(null)}
+        />
+      )}
       {insertAfter !== null && (
         <BlockPicker
           blocks={addableBlocks}

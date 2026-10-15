@@ -1,8 +1,13 @@
 import React from "react";
 import type { WidgetEditorProps } from "../../models";
 import type { HeroSettings } from "./settings";
-import { Editor, emptyDoc } from "@frontlit/text-editor";
-import { FieldGroup, ImageField, SelectField, TextField } from "../_shared/fields";
+import {
+  FieldGroup,
+  ImageField,
+  RichTextField,
+  SelectField,
+  TextField,
+} from "../_shared/fields";
 
 export function HeroEditor({ settings, onChange }: WidgetEditorProps<HeroSettings>) {
   const update = (partial: Partial<HeroSettings>) =>
@@ -22,15 +27,13 @@ export function HeroEditor({ settings, onChange }: WidgetEditorProps<HeroSetting
           value={settings.title}
           onChange={(title) => update({ title })}
         />
-        <div className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-foreground">Description</span>
-          <Editor
-            initialContent={settings.description ?? emptyDoc}
-            onChange={(description: any) => update({ description })}
-            showToolbar={false}
-            editorClassName="min-h-[100px]"
-          />
-        </div>
+        <RichTextField
+          label="Description"
+          value={settings.description}
+          onChange={(description) => update({ description })}
+          showToolbar={false}
+          minHeight={100}
+        />
       </FieldGroup>
       <FieldGroup title="Media">
         <ImageField
@@ -65,6 +68,12 @@ export function HeroEditor({ settings, onChange }: WidgetEditorProps<HeroSetting
           label="Secondary button link"
           value={settings.secondaryButtonAction}
           onChange={(secondaryButtonAction) => update({ secondaryButtonAction })}
+        />
+        <TextField
+          label="Small print"
+          value={settings.smallPrint}
+          placeholder="e.g. No credit card required"
+          onChange={(smallPrint) => update({ smallPrint })}
         />
       </FieldGroup>
       <FieldGroup title="Layout">

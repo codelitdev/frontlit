@@ -1,7 +1,6 @@
 import React from "react";
 import type { WidgetEditorProps } from "../../models";
 import type { GridItem, GridSettings } from "./settings";
-import { Editor, emptyDoc } from "@frontlit/text-editor";
 import {
   FieldGroup,
   ImageField,
@@ -9,6 +8,7 @@ import {
   NumberField,
   SelectField,
   TextField,
+  RichTextField,
 } from "../_shared/fields";
 
 export function GridEditor({ settings, onChange }: WidgetEditorProps<GridSettings>) {
@@ -23,14 +23,12 @@ export function GridEditor({ settings, onChange }: WidgetEditorProps<GridSetting
           value={settings.title}
           onChange={(title) => update({ title })}
         />
-        <div className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-foreground">Description</span>
-          <Editor
-            initialContent={settings.description ?? emptyDoc}
-            onChange={(description: any) => update({ description })}
-            editorClassName="min-h-[100px]"
-          />
-        </div>
+        <RichTextField
+          label="Description"
+          value={settings.description}
+          onChange={(description) => update({ description })}
+          minHeight={100}
+        />
         <SelectField
           label="Header alignment"
           value={settings.headerAlignment ?? "center"}

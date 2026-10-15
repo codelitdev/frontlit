@@ -43,6 +43,18 @@ describe("team settings", () => {
     expect(settings.draftSharedWidgets).toEqual(settings.sharedWidgets);
   });
 
+  it("starts with the team's own header and footer, not FrontLit's sample chrome", async () => {
+    const { sharedWidgets } = await getTeamSettings(teamId);
+    const headerSettings = sharedWidgets.header.settings as Record<string, unknown>;
+    const footerSettings = sharedWidgets.footer.settings as Record<string, unknown>;
+
+    expect(headerSettings.logoText).toBe("Test Team");
+    expect(headerSettings.ctaLabel).toBe("");
+    expect(footerSettings.logoText).toBe("Test Team");
+    expect(footerSettings.copyrightText).toBe("© Test Team. All rights reserved.");
+    expect(JSON.stringify(sharedWidgets)).not.toContain("FrontLit");
+  });
+
   it("is idempotent — a second read returns the same row", async () => {
     const first = await getTeamSettings(teamId);
     const second = await getTeamSettings(teamId);

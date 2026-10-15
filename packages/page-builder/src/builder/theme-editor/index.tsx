@@ -2,7 +2,7 @@
 
 import React, { useCallback, useState } from "react";
 import {
-  ChevronDown,
+  Check,
   ChevronLeft,
   ChevronRight,
   Columns3,
@@ -246,16 +246,6 @@ export function ThemeEditor({
   onCustomThemesChange,
 }: ThemeEditorProps) {
   const [navigationStack, setNavigationStack] = useState<NavigationItem[]>([]);
-  const [collapsedCategories, setCollapsedCategories] = useState<
-    Record<string, boolean>
-  >(() => {
-    const initial: Record<string, boolean> = {};
-    typographyCategories.forEach((category) => {
-      initial[category.name] = true;
-    });
-    return initial;
-  });
-
   const navigateTo = useCallback((item: NavigationItem) => {
     setNavigationStack((prev) => [...prev, item]);
   }, []);
@@ -264,33 +254,36 @@ export function ThemeEditor({
     setNavigationStack((prev) => prev.slice(0, -1));
   }, []);
 
-  const toggleCategory = useCallback((categoryName: string) => {
-    setCollapsedCategories((prev) => ({
-      ...prev,
-      [categoryName]: !prev[categoryName],
-    }));
-  }, []);
-
   /**
-   * Applies an edited style to the theme being edited (always a custom
-   * theme — `startEditing` guarantees it) and persists it in the custom
-   * themes collection.
+   * Saves an edit to the theme being edited (always a custom theme —
+   * `startEditing` guarantees it) in the custom themes collection. The
+   * canvas follows live: an edit to the applied theme updates the site
+   * theme, an edit to any other theme is only previewed until "Use".
    */
-  const applyStyle = useCallback(
-    (style: ThemeStyle) => {
-      const updated = { ...theme, theme: style };
-      onApply(updated);
+  const commitTheme = useCallback(
+    (updated: Theme) => {
+      if (updated.id === appliedThemeId) {
+        onApply(updated);
+      } else {
+        onPreview(updated);
+      }
       onCustomThemesChange(
         customThemes.map((t) => (t.id === updated.id ? updated : t)),
       );
     },
-    [theme, customThemes, onApply, onCustomThemesChange],
+    [appliedThemeId, customThemes, onApply, onPreview, onCustomThemesChange],
+  );
+
+  const applyStyle = useCallback(
+    (style: ThemeStyle) => commitTheme({ ...theme, theme: style }),
+    [theme, commitTheme],
   );
 
   /**
    * Opens a theme for editing. System themes are copied into the custom
    * collection first ("X - Copy"), so the original stays pristine; the
-   * copy (or the custom theme itself) becomes the applied theme.
+   * copy (or the custom theme itself) is previewed on the canvas; it only
+   * becomes the site theme through "Use".
    */
   const startEditing = useCallback(
     (themeItem: Theme, isSystem: boolean) => {
@@ -304,10 +297,10 @@ export function ThemeEditor({
         };
         onCustomThemesChange([...customThemes, target]);
       }
-      onApply(target);
+      onPreview(target);
       setNavigationStack([{ id: "categories", label: target.name }]);
     },
-    [systemThemes, customThemes, onApply, onCustomThemesChange],
+    [systemThemes, customThemes, onPreview, onCustomThemesChange],
   );
 
   const renderDrillButton = (label: string, onClick: () => void) => (
@@ -452,44 +445,40 @@ export function ThemeEditor({
     );
   };
 
-  const renderTypographyList = () => (
-    <div className="space-y-1">
-      {typographyCategories.map((category) => (
-        <div key={category.name} className="mb-2">
-          <button
-            type="button"
-            className="flex w-full items-center rounded px-2 py-1.5 text-sm transition-colors hover:bg-muted"
-            onClick={() => toggleCategory(category.name)}
-          >
-            <ChevronDown
-              className={cn(
-                "mr-2 h-4 w-4 transition-transform",
-                collapsedCategories[category.name] ? "rotate-[-90deg]" : "rotate-0",
-              )}
-            />
-            <span className="text-sm font-medium text-muted-foreground">
+  const renderTypographyView = () => {
+    const updateTypography = (key: keyof ThemeStyle["typography"], value: Typography) =>
+      applyStyle({
+        ...theme.theme,
+        typography: { ...theme.theme.typography, [key]: value },
+      });
+
+    return (
+      <div className="space-y-5">
+        {typographyCategories.map((category) => (
+          <div key={category.name} className="space-y-2">
+            <div className="text-sm font-medium text-muted-foreground">
               {category.name}
-            </span>
-          </button>
-          {!collapsedCategories[category.name] && (
-            <div>
-              {category.items.map((typography) =>
-                renderDrillButton(
-                  typographyDisplayNames[typography] || capitalize(typography),
-                  () =>
-                    navigateTo({
-                      id: typography,
-                      label:
-                        typographyDisplayNames[typography] || capitalize(typography),
-                    }),
-                ),
-              )}
             </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
+            {category.items.map((typography) => {
+              const key = typography as keyof ThemeStyle["typography"];
+              if (!(key in theme.theme.typography)) return null;
+              return (
+                <AccordionSection
+                  key={typography}
+                  title={typographyDisplayNames[typography] || capitalize(typography)}
+                >
+                  <TypographySelector
+                    value={theme.theme.typography[key]}
+                    onChange={(value: Typography) => updateTypography(key, value)}
+                  />
+                </AccordionSection>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   const renderInteractivesList = () => (
     <div className="space-y-1">
@@ -529,24 +518,6 @@ export function ThemeEditor({
       return renderRootView();
     }
 
-    if (parentItem?.id === "typography" && currentItem.id in theme.theme.typography) {
-      const key = currentItem.id as keyof ThemeStyle["typography"];
-      return (
-        <TypographySelector
-          value={theme.theme.typography[key]}
-          onChange={(value: Typography) =>
-            applyStyle({
-              ...theme.theme,
-              typography: {
-                ...theme.theme.typography,
-                [key]: value,
-              },
-            })
-          }
-        />
-      );
-    }
-
     if (
       parentItem?.id === "interactives" &&
       currentItem.id in theme.theme.interactives
@@ -576,7 +547,7 @@ export function ThemeEditor({
       case "colors":
         return renderColorsView();
       case "typography":
-        return renderTypographyList();
+        return renderTypographyView();
       case "interactives":
         return renderInteractivesList();
       case "structure":
@@ -602,9 +573,38 @@ export function ThemeEditor({
               <ChevronLeft className="h-4 w-4" />
             </button>
             <span className="text-sm font-medium text-muted-foreground">
-              {navigationStack[navigationStack.length - 1].label}
+              {navigationStack.length === 1
+                ? theme.name
+                : navigationStack[navigationStack.length - 1].label}
             </span>
           </div>
+          {navigationStack.length === 1 && (
+            <div className="space-y-3 pb-2">
+              <div className="space-y-1.5">
+                <PanelLabel htmlFor="theme-name">Theme name</PanelLabel>
+                <PanelInput
+                  id="theme-name"
+                  value={theme.name}
+                  onChange={(e) => commitTheme({ ...theme, name: e.target.value })}
+                />
+              </div>
+              {theme.id === appliedThemeId ? (
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                  This is your site theme
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                  onClick={() => onApply(theme)}
+                >
+                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                  Use this theme
+                </button>
+              )}
+            </div>
+          )}
           <div className="py-2">{getCurrentView()}</div>
         </>
       )}

@@ -3,6 +3,7 @@
 import React, { useId } from "react";
 import { ImageIcon, Plus } from "lucide-react";
 import { ImageUploadDialog } from "@frontlit/media-uploader";
+import { Editor, emptyDoc } from "@frontlit/text-editor";
 import { getMediaUrl, type Media } from "../../models/media";
 import { cn } from "../../primitives/lib/utils";
 
@@ -71,6 +72,45 @@ export function TextField({
         />
       )}
     </label>
+  );
+}
+
+// Full class names so Tailwind can see them.
+const RICH_TEXT_MIN_HEIGHT = {
+  80: "min-h-[80px]",
+  100: "min-h-[100px]",
+  160: "min-h-[160px]",
+};
+
+/**
+ * Rich-text field backed by the TipTap editor. Edits reach the draft (and
+ * the canvas) almost immediately, and one still pending when the panel
+ * closes is flushed rather than dropped.
+ */
+export function RichTextField({
+  label,
+  value,
+  onChange,
+  showToolbar = true,
+  minHeight = 80,
+}: {
+  label: string;
+  value?: any;
+  onChange: (value: any) => void;
+  showToolbar?: boolean;
+  minHeight?: 80 | 100 | 160;
+}) {
+  return (
+    <div className="flex flex-col gap-1 text-sm">
+      <span className="font-medium text-foreground">{label}</span>
+      <Editor
+        initialContent={value ?? emptyDoc}
+        onChange={onChange}
+        debounceMs={150}
+        showToolbar={showToolbar}
+        editorClassName={RICH_TEXT_MIN_HEIGHT[minHeight]}
+      />
+    </div>
   );
 }
 
