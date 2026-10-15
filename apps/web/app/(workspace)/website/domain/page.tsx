@@ -198,37 +198,63 @@ export default function DomainPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          <tr className="border-b last:border-0">
-                            <td className="px-3 py-2 align-middle">
-                              {settings.verificationRecords.kind === "alias"
-                                ? "ALIAS"
-                                : "CNAME"}
-                            </td>
-                            <td className="max-w-[14rem] break-all px-3 py-2 align-middle font-mono">
-                              {settings.customDomain.hostname}
-                            </td>
-                            <td className="max-w-[16rem] break-all px-3 py-2 align-middle font-mono">
-                              {settings.verificationRecords.cnameTarget}
-                            </td>
-                            <td className="px-3 py-2 align-middle">
-                              <Badge
-                                variant={
-                                  settings.verificationRecords.routingSatisfied
-                                    ? "success"
-                                    : "warning"
-                                }
-                              >
-                                {recordState(
-                                  settings.verificationRecords.routingSatisfied,
-                                )}
-                              </Badge>
-                            </td>
-                            <td className="px-2 py-2 align-middle">
-                              <CopyValueButton
-                                value={settings.verificationRecords.cnameTarget}
-                              />
-                            </td>
-                          </tr>
+                          {settings.verificationRecords.kind === "a" ? (
+                            settings.verificationRecords.aRecords.map((ip) => (
+                              <tr key={ip} className="border-b last:border-0">
+                                <td className="px-3 py-2 align-middle">A</td>
+                                <td className="max-w-[14rem] break-all px-3 py-2 align-middle font-mono">
+                                  {settings.customDomain.hostname}
+                                </td>
+                                <td className="max-w-[16rem] break-all px-3 py-2 align-middle font-mono">
+                                  {ip}
+                                </td>
+                                <td className="px-3 py-2 align-middle">
+                                  <Badge
+                                    variant={
+                                      settings.verificationRecords.routingSatisfied
+                                        ? "success"
+                                        : "warning"
+                                    }
+                                  >
+                                    {recordState(
+                                      settings.verificationRecords.routingSatisfied,
+                                    )}
+                                  </Badge>
+                                </td>
+                                <td className="px-2 py-2 align-middle">
+                                  <CopyValueButton value={ip} />
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr className="border-b last:border-0">
+                              <td className="px-3 py-2 align-middle">CNAME</td>
+                              <td className="max-w-[14rem] break-all px-3 py-2 align-middle font-mono">
+                                {settings.customDomain.hostname}
+                              </td>
+                              <td className="max-w-[16rem] break-all px-3 py-2 align-middle font-mono">
+                                {settings.verificationRecords.cnameTarget}
+                              </td>
+                              <td className="px-3 py-2 align-middle">
+                                <Badge
+                                  variant={
+                                    settings.verificationRecords.routingSatisfied
+                                      ? "success"
+                                      : "warning"
+                                  }
+                                >
+                                  {recordState(
+                                    settings.verificationRecords.routingSatisfied,
+                                  )}
+                                </Badge>
+                              </td>
+                              <td className="px-2 py-2 align-middle">
+                                <CopyValueButton
+                                  value={settings.verificationRecords.cnameTarget}
+                                />
+                              </td>
+                            </tr>
+                          )}
                           <tr>
                             <td className="px-3 py-2 align-middle">TXT</td>
                             <td className="max-w-[14rem] break-all px-3 py-2 align-middle font-mono">

@@ -142,7 +142,9 @@ export type DomainSettings = {
     cnameTarget: string;
     txtName: string;
     txtValue: string;
-    kind: "cname" | "alias";
+    kind: "cname" | "a";
+    /** Apex only: the A records to create. */
+    aRecords: string[];
     txtSatisfied: boolean | null;
     routingSatisfied: boolean | null;
   } | null;
@@ -185,7 +187,10 @@ export async function getDomainSettings(
             cnameTarget: getCustomDomainCnameTarget(team),
             txtName: `${getCustomDomainTxtRecordName(team)}.${customDomain.hostname}`,
             txtValue: team.customDomainVerificationToken,
-            kind: isApexHostname(customDomain.hostname) ? "alias" : "cname",
+            kind: isApexHostname(customDomain.hostname) ? "a" : "cname",
+            aRecords: isApexHostname(customDomain.hostname)
+              ? getCustomDomainARecords()
+              : [],
             txtSatisfied: team.customDomainTxtSatisfied,
             routingSatisfied: team.customDomainRoutingSatisfied,
           }

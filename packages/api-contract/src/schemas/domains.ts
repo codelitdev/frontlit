@@ -21,8 +21,10 @@ export const domainVerificationRecordsSchema = z.object({
   cnameTarget: z.string(),
   txtName: z.string(),
   txtValue: z.string(),
-  /** Apex hosts use ALIAS/ANAME/CNAME-flattening; others use a CNAME. */
-  kind: z.enum(["cname", "alias"]),
+  /** Apex hosts use A records; others use a CNAME. */
+  kind: z.enum(["cname", "a"]),
+  /** Apex only: static IPs for the apex A records. */
+  aRecords: z.array(z.string()),
   /** Null until the team has run a DNS check. */
   txtSatisfied: z.boolean().nullable(),
   routingSatisfied: z.boolean().nullable(),

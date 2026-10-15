@@ -17,6 +17,7 @@ describe("domains contract", () => {
       txtName: "_frontlit-verify.www.example.com",
       txtValue: "token",
       kind: "cname",
+      aRecords: [],
       txtSatisfied: true,
       routingSatisfied: true,
     });

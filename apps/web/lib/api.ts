@@ -1456,7 +1456,8 @@ export interface DomainSettings {
     cnameTarget: string;
     txtName: string;
     txtValue: string;
-    kind: "cname" | "alias";
+    kind: "cname" | "a";
+    aRecords: string[];
     txtSatisfied: boolean | null;
     routingSatisfied: boolean | null;
   } | null;
