@@ -22,7 +22,12 @@ import { Input } from "@/components/ui/codelit/input";
 import { Label } from "@/components/ui/codelit/label";
 import { Switch } from "@/components/ui/codelit/switch";
 import { Badge, type badgeVariants } from "@/components/ui/codelit/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/codelit/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/codelit/card";
 import type { VariantProps } from "class-variance-authority";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
 
@@ -124,7 +129,8 @@ export default function DomainPage() {
 
         {!settings.subdomain && (
           <Banner variant="warning">
-            Your website is not live yet. Claim a unique subdomain below to publish it.
+            Your website is not live yet. Claim a unique subdomain below to
+            publish it.
           </Banner>
         )}
 
@@ -167,8 +173,8 @@ export default function DomainPage() {
           <CardContent>
             {!settings.subdomain ? (
               <p className="text-sm text-muted-foreground">
-                Choose your FrontLit subdomain first. You can attach a custom domain
-                afterwards.
+                Choose your FrontLit subdomain first. You can attach a custom
+                domain afterwards.
               </p>
             ) : settings.customDomain ? (
               <div className="space-y-3">
@@ -198,37 +204,73 @@ export default function DomainPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          <tr className="border-b last:border-0">
-                            <td className="px-3 py-2 align-middle">
-                              {settings.verificationRecords.kind === "alias"
-                                ? "ALIAS"
-                                : "CNAME"}
-                            </td>
-                            <td className="max-w-[14rem] break-all px-3 py-2 align-middle font-mono">
-                              {settings.customDomain.hostname}
-                            </td>
-                            <td className="max-w-[16rem] break-all px-3 py-2 align-middle font-mono">
-                              {settings.verificationRecords.cnameTarget}
-                            </td>
-                            <td className="px-3 py-2 align-middle">
-                              <Badge
-                                variant={
-                                  settings.verificationRecords.routingSatisfied
-                                    ? "success"
-                                    : "warning"
-                                }
-                              >
-                                {recordState(
-                                  settings.verificationRecords.routingSatisfied,
-                                )}
-                              </Badge>
-                            </td>
-                            <td className="px-2 py-2 align-middle">
-                              <CopyValueButton
-                                value={settings.verificationRecords.cnameTarget}
-                              />
-                            </td>
-                          </tr>
+                          {settings.verificationRecords.kind === "a" ? (
+                            settings.verificationRecords.aRecords.map((ip) => (
+                              <tr key={ip} className="border-b last:border-0">
+                                <td className="px-3 py-2 align-middle">A</td>
+                                <td className="max-w-[14rem] break-all px-3 py-2 align-middle font-mono">
+                                  {settings.customDomain.hostname}
+                                </td>
+                                <td className="max-w-[16rem] break-all px-3 py-2 align-middle font-mono">
+                                  {ip}
+                                </td>
+                                <td className="px-3 py-2 align-middle">
+                                  <Badge
+                                    variant={
+                                      settings.verificationRecords
+                                        .routingSatisfied
+                                        ? "success"
+                                        : "warning"
+                                    }
+                                  >
+                                    {recordState(
+                                      settings.verificationRecords
+                                        .routingSatisfied,
+                                    )}
+                                  </Badge>
+                                </td>
+                                <td className="px-2 py-2 align-middle">
+                                  <CopyValueButton value={ip} />
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr className="border-b last:border-0">
+                              <td className="px-3 py-2 align-middle">
+                                {settings.verificationRecords.kind === "alias"
+                                  ? "ALIAS"
+                                  : "CNAME"}
+                              </td>
+                              <td className="max-w-[14rem] break-all px-3 py-2 align-middle font-mono">
+                                {settings.customDomain.hostname}
+                              </td>
+                              <td className="max-w-[16rem] break-all px-3 py-2 align-middle font-mono">
+                                {settings.verificationRecords.cnameTarget}
+                              </td>
+                              <td className="px-3 py-2 align-middle">
+                                <Badge
+                                  variant={
+                                    settings.verificationRecords
+                                      .routingSatisfied
+                                      ? "success"
+                                      : "warning"
+                                  }
+                                >
+                                  {recordState(
+                                    settings.verificationRecords
+                                      .routingSatisfied,
+                                  )}
+                                </Badge>
+                              </td>
+                              <td className="px-2 py-2 align-middle">
+                                <CopyValueButton
+                                  value={
+                                    settings.verificationRecords.cnameTarget
+                                  }
+                                />
+                              </td>
+                            </tr>
+                          )}
                           <tr>
                             <td className="px-3 py-2 align-middle">TXT</td>
                             <td className="max-w-[14rem] break-all px-3 py-2 align-middle font-mono">
@@ -245,7 +287,9 @@ export default function DomainPage() {
                                     : "warning"
                                 }
                               >
-                                {recordState(settings.verificationRecords.txtSatisfied)}
+                                {recordState(
+                                  settings.verificationRecords.txtSatisfied,
+                                )}
                               </Badge>
                             </td>
                             <td className="px-2 py-2 align-middle">
@@ -263,8 +307,8 @@ export default function DomainPage() {
                 {settings.customDomain.status === "verified" && (
                   <div className="space-y-3">
                     <p className="text-xs text-muted-foreground">
-                      This custom domain is canonical. The FrontLit subdomain is an
-                      optional fallback.
+                      This custom domain is canonical. The FrontLit subdomain is
+                      an optional fallback.
                     </p>
                     <div className="flex items-start justify-between gap-4">
                       <div>
@@ -274,8 +318,8 @@ export default function DomainPage() {
                             `{slug}.${platformSuffix(settings)}`}
                         </Label>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Off makes the subdomain unavailable. Visitors only reach the
-                          custom domain.
+                          Off makes the subdomain unavailable. Visitors only
+                          reach the custom domain.
                         </p>
                       </div>
                       <Switch

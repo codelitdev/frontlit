@@ -1272,12 +1272,12 @@ Attach/verify flow (module `apps/api/src/domains/`):
    `pending` + a verification token.
 2. Team adds DNS records (shown in the workspace):
    `CNAME → <CUSTOM_DOMAIN_CNAME_TARGET>`
-   (or A/ALIAS for apex) and `TXT _frontlit-verify.<domain> = <token>`.
+   (or `A → <CUSTOM_DOMAIN_A_RECORDS>` for apex) and `TXT _frontlit-verify.<domain> = <token>`.
 3. `POST /domain/custom/verify` performs two independent DNS checks and
    flips the status to `verified` only when both pass (re-runnable from the
    workspace; not queued on the §10.5 outbox): ownership TXT at
    `_frontlit-verify.<hostname>` and routing (non-apex CNAME to
-   `CUSTOM_DOMAIN_CNAME_TARGET`; apex ALIAS/flattening, optionally matching
+   `CUSTOM_DOMAIN_CNAME_TARGET`; apex A records, optionally matching
    `CUSTOM_DOMAIN_A_RECORDS`). Only `verified` custom hosts and **public**
    platform subdomains are ever resolved by `apps/sites`.
 

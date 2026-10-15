@@ -131,7 +131,7 @@ describe("team website domains", () => {
     expect(settings?.verificationRecords).toMatchObject({
       cnameTarget: getCustomDomainCnameTarget(),
       txtName: `_frontlit-verify.${hostname}`,
-      kind: "alias",
+      kind: "a",
       txtSatisfied: null,
       routingSatisfied: null,
     });
@@ -321,7 +321,7 @@ describe("team website domains", () => {
     const hostname = `${crypto.randomUUID().slice(0, 8)}.com`;
     await attachCustomDomain(teamId, hostname);
     const pending = await getDomainSettings(teamId);
-    expect(pending?.verificationRecords?.kind).toBe("alias");
+    expect(pending?.verificationRecords?.kind).toBe("a");
     await mockDns({
       txt: [[pending!.verificationRecords!.txtValue]],
       cname: new Error("ENOTFOUND"),
