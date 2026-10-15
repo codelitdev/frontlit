@@ -7,6 +7,7 @@ import {
   RichTextField,
   SelectField,
   TextField,
+  TitleLevelField,
 } from "../_shared/fields";
 
 const createItem = (): FeatureItem => ({
@@ -27,9 +28,11 @@ export function FeaturedEditor({
       <FieldGroup title="Content">
         <TextField
           label="Title"
+          hint="Wrap words in *asterisks* to highlight them."
           value={settings.title}
           onChange={(title) => update({ title })}
         />
+        <TitleLevelField settings={settings} onChange={update} />
         <RichTextField
           label="Description"
           value={settings.description}

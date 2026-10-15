@@ -11,6 +11,7 @@ export const EmailForm: Widget<EmailFormSettings> = {
   metadata: emailFormMetadata,
   widget: EmailFormWidget,
   editor: EmailFormEditor,
+  titleSize: true,
   getDefaultSettings: () => emailFormDefaults,
   layouts: [
     { id: "stacked", name: "Stacked" },

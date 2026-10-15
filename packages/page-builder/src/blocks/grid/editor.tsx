@@ -9,6 +9,7 @@ import {
   SelectField,
   TextField,
   RichTextField,
+  TitleLevelField,
 } from "../_shared/fields";
 
 export function GridEditor({ settings, onChange }: WidgetEditorProps<GridSettings>) {
@@ -20,9 +21,11 @@ export function GridEditor({ settings, onChange }: WidgetEditorProps<GridSetting
       <FieldGroup title="Header">
         <TextField
           label="Title"
+          hint="Wrap words in *asterisks* to highlight them."
           value={settings.title}
           onChange={(title) => update({ title })}
         />
+        <TitleLevelField settings={settings} onChange={update} />
         <RichTextField
           label="Description"
           value={settings.description}

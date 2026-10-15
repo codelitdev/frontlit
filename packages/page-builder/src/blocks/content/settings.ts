@@ -2,10 +2,11 @@ import type {
   Alignment,
   Media,
   TextEditorContent,
+  TitleSettings,
   WidgetDefaultSettings,
 } from "../../models";
 
-export interface ContentSettings extends WidgetDefaultSettings {
+export interface ContentSettings extends WidgetDefaultSettings, TitleSettings {
   title?: string;
   body?: TextEditorContent;
   media?: Media;

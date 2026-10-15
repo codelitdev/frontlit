@@ -15,6 +15,7 @@ const systemThemeIds = new Set([
   "midnight",
   "editorial",
   "neobrutalism",
+  "terminal",
 ]);
 
 export class InvalidSiteThemeReferenceError extends Error {}

@@ -49,6 +49,13 @@ const BUILTIN_PRIMARY: Record<
     border: "#e0d5c4",
     mutedForeground: "#5c5348",
   },
+  terminal: {
+    primary: "#111111",
+    primaryForeground: "#ffffff",
+    card: "#ffffff",
+    border: "#dcdce0",
+    mutedForeground: "#5c5c66",
+  },
   midnight: {
     primary: "#61afef",
     primaryForeground: "#0b0d11",

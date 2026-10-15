@@ -94,7 +94,11 @@ export function HeaderWidget({
             borderRadius={effectiveLogoCorners}
           />
         )}
-        {logoText && <Header4 theme={overriddenTheme}>{logoText}</Header4>}
+        {logoText && (
+          <Header4 theme={overriddenTheme} as="span">
+            {logoText}
+          </Header4>
+        )}
       </div>
     </NavLink>
   );

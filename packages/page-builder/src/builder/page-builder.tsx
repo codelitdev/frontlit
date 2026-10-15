@@ -273,8 +273,11 @@ export function PageBuilder({
           <PreviewFrame
             className={cn(
               "h-full w-full max-w-full transition-[max-width] duration-300",
-              device === "mobile" && "max-w-[390px] border-x",
-              device === "tablet" && "max-w-[768px] border-x",
+              // Device width plus the 2px border and the measured scrollbar.
+              device === "mobile" &&
+                "max-w-[calc(392px_+_var(--pb-scrollbar,0px))] border-x",
+              device === "tablet" &&
+                "max-w-[calc(770px_+_var(--pb-scrollbar,0px))] border-x",
             )}
           >
             <PageRenderer

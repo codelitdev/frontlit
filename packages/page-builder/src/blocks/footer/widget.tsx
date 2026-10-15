@@ -42,7 +42,11 @@ export function FooterWidget({
     >
       {layout === "minimal" ? (
         <div className="flex w-full flex-wrap items-center justify-between gap-4">
-          {logoText && <Header4 theme={overriddenTheme}>{logoText}</Header4>}
+          {logoText && (
+            <Header4 theme={overriddenTheme} as="p">
+              {logoText}
+            </Header4>
+          )}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             {columns.flatMap((column) =>
               column.links.map((link) => (
@@ -65,7 +69,11 @@ export function FooterWidget({
       ) : layout === "centered" ? (
         <div className="flex w-full flex-col items-center gap-6 text-center">
           <div className="flex max-w-sm flex-col items-center gap-3">
-            {logoText && <Header3 theme={overriddenTheme}>{logoText}</Header3>}
+            {logoText && (
+              <Header3 theme={overriddenTheme} as="p">
+                {logoText}
+              </Header3>
+            )}
             {tagline && <Text2 theme={overriddenTheme}>{tagline}</Text2>}
           </div>
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
@@ -87,7 +95,11 @@ export function FooterWidget({
       ) : (
         <div className="flex w-full flex-col gap-8 lg:!flex-row lg:justify-between">
           <div className="flex max-w-sm flex-col gap-3">
-            {logoText && <Header3 theme={overriddenTheme}>{logoText}</Header3>}
+            {logoText && (
+              <Header3 theme={overriddenTheme} as="p">
+                {logoText}
+              </Header3>
+            )}
             {tagline && <Text2 theme={overriddenTheme}>{tagline}</Text2>}
           </div>
           <div className="flex flex-col flex-wrap gap-8 lg:!flex-row">

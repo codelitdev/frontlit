@@ -22,7 +22,7 @@ import {
   type InteractiveType,
 } from "./interactive-selector";
 import { StructureSelector, structureDisplayNames } from "./structure-selector";
-import { AccordionSection, PanelInput, PanelLabel } from "./ui";
+import { AccordionSection, PanelInput, PanelLabel, PanelSelect } from "./ui";
 
 type Section = {
   id: string;
@@ -59,6 +59,7 @@ const sections: Section[] = [
 ];
 
 const typographyDisplayNames: Record<string, string> = {
+  display: "Display (hero)",
   header1: "Header 1",
   header2: "Header 2",
   header3: "Header 3",
@@ -72,12 +73,30 @@ const typographyDisplayNames: Record<string, string> = {
   link: "Link",
   button: "Button Text",
   input: "Input Text",
+  code: "Code",
 } as const;
+
+// What CodeSnippet renders with when a theme has no Code level.
+const DEFAULT_CODE_TYPOGRAPHY: Typography = {
+  fontFamily: "font-jetbrains-mono",
+  fontSize: "text-sm",
+  fontWeight: "font-normal",
+  lineHeight: "leading-relaxed",
+};
+
+/** Levels that can scale with the screen width. */
+const fluidTypography = new Set([
+  "display",
+  "header1",
+  "header2",
+  "header3",
+  "header4",
+]);
 
 const typographyCategories: { name: string; items: string[] }[] = [
   {
     name: "Headers",
-    items: ["header1", "header2", "header3", "header4", "preheader"],
+    items: ["display", "header1", "header2", "header3", "header4", "preheader"],
   },
   {
     name: "Subheaders",
@@ -89,7 +108,7 @@ const typographyCategories: { name: string; items: string[] }[] = [
   },
   {
     name: "Interactive Elements",
-    items: ["link", "button", "input"],
+    items: ["link", "button", "input", "code"],
   },
 ];
 
@@ -454,6 +473,17 @@ export function ThemeEditor({
 
     return (
       <div className="space-y-5">
+        <PanelSelect
+          title="Highlighted title words (*like this*)"
+          value={theme.theme.highlight ?? "color"}
+          onChange={(highlight) =>
+            applyStyle({ ...theme.theme, highlight: highlight as "color" | "marker" })
+          }
+          options={[
+            { label: "Primary colour text", value: "color" },
+            { label: "Marker in primary colour", value: "marker" },
+          ]}
+        />
         {typographyCategories.map((category) => (
           <div key={category.name} className="space-y-2">
             <div className="text-sm font-medium text-muted-foreground">
@@ -461,14 +491,20 @@ export function ThemeEditor({
             </div>
             {category.items.map((typography) => {
               const key = typography as keyof ThemeStyle["typography"];
-              if (!(key in theme.theme.typography)) return null;
+              // Older themes have no Display level; it starts out as Header 1.
+              const value =
+                theme.theme.typography[key] ??
+                (key === "display" ? theme.theme.typography.header1 : undefined) ??
+                (key === "code" ? DEFAULT_CODE_TYPOGRAPHY : undefined);
+              if (!value) return null;
               return (
                 <AccordionSection
                   key={typography}
                   title={typographyDisplayNames[typography] || capitalize(typography)}
                 >
                   <TypographySelector
-                    value={theme.theme.typography[key]}
+                    value={value}
+                    allowFluid={fluidTypography.has(typography)}
                     onChange={(value: Typography) => updateTypography(key, value)}
                   />
                 </AccordionSection>

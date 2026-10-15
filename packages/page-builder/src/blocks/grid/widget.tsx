@@ -5,6 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import type { ThemeStyle, WidgetProps } from "../../models";
 import { getMediaUrl, getMediaAlt } from "../../models/media";
 import type { GridItem, GridSettings } from "./settings";
+import { renderTitle, titleProps } from "../_shared/title";
 import { Image, NavLink, TextRenderer } from "../../components";
 import {
   Button,
@@ -110,6 +111,8 @@ function GridItemCard({ item, theme }: { item: GridItem; theme: ThemeStyle }) {
 export function GridWidget({
   settings: {
     title,
+    titleLevel,
+    titleSize,
     description,
     headerAlignment = "center",
     buttonCaption,
@@ -143,7 +146,9 @@ export function GridWidget({
             headerAlignment === "center" ? "items-center text-center" : "items-start",
           )}
         >
-          <Header1 theme={overriddenTheme}>{title}</Header1>
+          <Header1 theme={overriddenTheme} {...titleProps({ titleLevel, titleSize })}>
+            {renderTitle(title, overriddenTheme)}
+          </Header1>
           {description && (
             <Subheader1 theme={overriddenTheme} component="span">
               <TextRenderer json={description} theme={overriddenTheme} />

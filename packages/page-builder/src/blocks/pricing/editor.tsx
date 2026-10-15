@@ -8,6 +8,7 @@ import {
   TextField,
   ToggleField,
   RichTextField,
+  TitleLevelField,
 } from "../_shared/fields";
 
 const createTier = (): PricingTier => ({
@@ -31,9 +32,11 @@ export function PricingEditor({
       <FieldGroup title="Content">
         <TextField
           label="Title"
+          hint="Wrap words in *asterisks* to highlight them."
           value={settings.title}
           onChange={(title) => update({ title })}
         />
+        <TitleLevelField settings={settings} onChange={update} />
         <RichTextField
           label="Description"
           value={settings.description}

@@ -1,6 +1,11 @@
-import type { Alignment, TextEditorContent, WidgetDefaultSettings } from "../../models";
+import type {
+  Alignment,
+  TextEditorContent,
+  TitleSettings,
+  WidgetDefaultSettings,
+} from "../../models";
 
-export interface BannerSettings extends WidgetDefaultSettings {
+export interface BannerSettings extends WidgetDefaultSettings, TitleSettings {
   title?: string;
   description?: TextEditorContent;
   buttonCaption?: string;

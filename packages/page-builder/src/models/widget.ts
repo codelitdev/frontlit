@@ -106,6 +106,8 @@ export interface Widget<T extends WidgetDefaultSettings = WidgetDefaultSettings>
    */
   designEditor?: ComponentType<WidgetEditorProps<T>>;
   getDefaultSettings?: () => Partial<T>;
+  /** Offer per-device title sizes (`settings.titleSize`) on the Design tab. */
+  titleSize?: boolean;
   /**
    * Alternate layouts this block can render its data in, selectable from
    * the Design tab. The widget reads `settings.layout` while rendering

@@ -5,6 +5,7 @@ import { Brush, Check, FilePenLine } from "lucide-react";
 import type { Theme, Widget, WidgetInstance } from "../models";
 import { cn } from "../primitives/lib/utils";
 import { DesignFieldGroup } from "../blocks/_shared/design-fields";
+import { FieldGroup, TitleSizeField } from "../blocks/_shared/fields";
 
 const TABS = [
   { key: "data", label: "Data" },
@@ -133,6 +134,14 @@ export function BlockSettings({
               theme={theme}
               onChange={onChange}
             />
+          )}
+          {definition.titleSize && (
+            <FieldGroup title="Title">
+              <TitleSizeField
+                settings={settings}
+                onChange={(partial) => onChange({ ...settings, ...partial })}
+              />
+            </FieldGroup>
           )}
           <DesignFieldGroup
             settings={settings as any}

@@ -8,6 +8,7 @@ import {
   SelectField,
   TextField,
   RichTextField,
+  TitleLevelField,
 } from "../_shared/fields";
 
 export function ContentEditor({
@@ -22,9 +23,11 @@ export function ContentEditor({
       <FieldGroup title="Content">
         <TextField
           label="Title"
+          hint="Wrap words in *asterisks* to highlight them."
           value={settings.title}
           onChange={(title) => update({ title })}
         />
+        <TitleLevelField settings={settings} onChange={update} />
         <RichTextField
           label="Body"
           value={settings.body}

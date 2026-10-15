@@ -91,12 +91,21 @@ const themeStyles: ThemeStyle = {
       letterSpacing: "tracking-widest",
       textTransform: "uppercase",
     },
+    display: {
+      fontFamily: "font-inter",
+      fontSize: "text-6xl",
+      fontWeight: "font-black",
+      lineHeight: "leading-tight",
+      letterSpacing: "tracking-tighter",
+      fluid: { min: 34, max: 56 },
+    },
     header1: {
       fontFamily: "font-inter",
       fontSize: "text-5xl",
       fontWeight: "font-black",
-      lineHeight: "leading-none",
+      lineHeight: "leading-tight",
       letterSpacing: "tracking-tighter",
+      fluid: { min: 28, max: 48 },
     },
     header2: {
       fontFamily: "font-inter",
@@ -104,6 +113,7 @@ const themeStyles: ThemeStyle = {
       fontWeight: "font-extrabold",
       lineHeight: "leading-tight",
       letterSpacing: "tracking-tight",
+      fluid: { min: 24, max: 36 },
     },
     header3: {
       fontFamily: "font-inter",
@@ -163,6 +173,7 @@ const themeStyles: ThemeStyle = {
       textTransform: "uppercase",
     },
   },
+  highlight: "marker",
   interactives: {
     button: {
       padding: { x: "px-6", y: "py-3" },

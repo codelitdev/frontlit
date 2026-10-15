@@ -2,6 +2,7 @@ import React from "react";
 import clsx from "clsx";
 import type { ThemeStyle, WidgetProps } from "../../models";
 import type { PricingSettings } from "./settings";
+import { renderTitle, titleProps } from "../_shared/title";
 import { NavLink, TextRenderer } from "../../components";
 import {
   Badge,
@@ -20,6 +21,8 @@ import {
 export function PricingWidget({
   settings: {
     title,
+    titleLevel,
+    titleSize,
     description,
     headerAlignment = "center",
     tiers,
@@ -51,7 +54,9 @@ export function PricingWidget({
             headerAlignment === "center" ? "items-center text-center" : "items-start",
           )}
         >
-          <Header1 theme={overriddenTheme}>{title}</Header1>
+          <Header1 theme={overriddenTheme} {...titleProps({ titleLevel, titleSize })}>
+            {renderTitle(title, overriddenTheme)}
+          </Header1>
           {description && (
             <Subheader1 theme={overriddenTheme} component="span">
               <TextRenderer json={description} theme={overriddenTheme} />

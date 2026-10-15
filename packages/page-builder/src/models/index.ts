@@ -5,6 +5,7 @@ export * from "./widget";
 export * from "./media";
 export * from "./page";
 export * from "./alignment";
+export * from "./heading";
 
 // The rich-text content type now lives alongside the editor/renderer that
 // operate on it, in @frontlit/text-editor. Re-exported here so existing

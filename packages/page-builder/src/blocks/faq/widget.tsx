@@ -5,11 +5,14 @@ import clsx from "clsx";
 import { ChevronDown } from "lucide-react";
 import type { WidgetProps, ThemeStyle } from "../../models";
 import type { FaqSettings } from "./settings";
+import { renderTitle, titleProps } from "../_shared/title";
 import { Header2, Section, Text1 } from "../../primitives";
 
 export function FaqWidget({
   settings: {
     title,
+    titleLevel,
+    titleSize,
     headerAlignment = "left",
     items = [],
     layout = "list",
@@ -45,7 +48,9 @@ export function FaqWidget({
               headerAlignment === "center" ? "items-center text-center" : "items-start",
             )}
           >
-            <Header2 theme={overriddenTheme}>{title}</Header2>
+            <Header2 theme={overriddenTheme} {...titleProps({ titleLevel, titleSize })}>
+              {renderTitle(title, overriddenTheme)}
+            </Header2>
           </div>
         )}
         {items.length > 0 &&

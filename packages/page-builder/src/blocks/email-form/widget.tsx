@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import clsx from "clsx";
 import type { PageData, ThemeStyle, WidgetProps } from "../../models";
 import type { EmailFormSettings } from "./settings";
+import { renderTitle, titleProps } from "../_shared/title";
 import { TextRenderer } from "../../components";
 import {
   Button,
@@ -52,6 +53,8 @@ async function subscribeEmail(
 export function EmailFormWidget({
   settings: {
     title,
+    titleLevel,
+    titleSize,
     description,
     buttonCaption = "Subscribe",
     successMessage = "Thanks for subscribing!",
@@ -110,8 +113,11 @@ export function EmailFormWidget({
           className="flex flex-col items-start gap-4 md:!flex-row md:items-center md:justify-between"
         >
           <div className="flex flex-col gap-1">
-            <Header1 theme={overriddenTheme} className="text-xl">
-              {title}
+            <Header1
+              theme={overriddenTheme}
+              {...titleProps({ titleLevel, titleSize }, "h2", "text-xl")}
+            >
+              {renderTitle(title, overriddenTheme)}
             </Header1>
             {description && (
               <Subheader1 theme={overriddenTheme} component="span">
@@ -169,7 +175,9 @@ export function EmailFormWidget({
             layout === "split" ? "items-start" : "contents",
           )}
         >
-          <Header1 theme={overriddenTheme}>{title}</Header1>
+          <Header1 theme={overriddenTheme} {...titleProps({ titleLevel, titleSize })}>
+            {renderTitle(title, overriddenTheme)}
+          </Header1>
           {description && (
             <Subheader1 theme={overriddenTheme} component="span">
               <TextRenderer json={description} theme={overriddenTheme} />

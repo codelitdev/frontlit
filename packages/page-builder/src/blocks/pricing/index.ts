@@ -11,6 +11,7 @@ export const Pricing: Widget<PricingSettings> = {
   metadata: pricingMetadata,
   widget: PricingWidget,
   editor: PricingEditor,
+  titleSize: true,
   getDefaultSettings: () => pricingDefaults,
   layouts: [
     { id: "grid", name: "Grid" },

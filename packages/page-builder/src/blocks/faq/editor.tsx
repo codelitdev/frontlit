@@ -2,7 +2,13 @@ import React from "react";
 import type { WidgetEditorProps } from "../../models";
 import type { FaqItem, FaqSettings } from "./settings";
 import { generateUniqueId } from "../../utils";
-import { FieldGroup, ListField, SelectField, TextField } from "../_shared/fields";
+import {
+  FieldGroup,
+  ListField,
+  SelectField,
+  TextField,
+  TitleLevelField,
+} from "../_shared/fields";
 
 export function FaqEditor({ settings, onChange }: WidgetEditorProps<FaqSettings>) {
   const update = (partial: Partial<FaqSettings>) =>
@@ -13,9 +19,11 @@ export function FaqEditor({ settings, onChange }: WidgetEditorProps<FaqSettings>
       <FieldGroup title="Header">
         <TextField
           label="Title"
+          hint="Wrap words in *asterisks* to highlight them."
           value={settings.title}
           onChange={(title) => update({ title })}
         />
+        <TitleLevelField settings={settings} onChange={update} />
         <SelectField
           label="Header alignment"
           value={settings.headerAlignment ?? "left"}

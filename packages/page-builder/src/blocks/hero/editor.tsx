@@ -7,6 +7,7 @@ import {
   RichTextField,
   SelectField,
   TextField,
+  TitleLevelField,
 } from "../_shared/fields";
 
 export function HeroEditor({ settings, onChange }: WidgetEditorProps<HeroSettings>) {
@@ -24,9 +25,11 @@ export function HeroEditor({ settings, onChange }: WidgetEditorProps<HeroSetting
         />
         <TextField
           label="Title"
+          hint="Wrap words in *asterisks* to highlight them."
           value={settings.title}
           onChange={(title) => update({ title })}
         />
+        <TitleLevelField settings={settings} defaultLevel="h1" onChange={update} />
         <RichTextField
           label="Description"
           value={settings.description}
@@ -68,6 +71,12 @@ export function HeroEditor({ settings, onChange }: WidgetEditorProps<HeroSetting
           label="Secondary button link"
           value={settings.secondaryButtonAction}
           onChange={(secondaryButtonAction) => update({ secondaryButtonAction })}
+        />
+        <TextField
+          label="Install command"
+          value={settings.command}
+          placeholder="e.g. curl -fsSL https://example.com/install.sh | sh"
+          onChange={(command) => update({ command })}
         />
         <TextField
           label="Small print"

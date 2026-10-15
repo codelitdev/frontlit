@@ -11,5 +11,6 @@ export const Grid: Widget<GridSettings> = {
   metadata: gridMetadata,
   widget: GridWidget,
   editor: GridEditor,
+  titleSize: true,
   getDefaultSettings: () => gridDefaults,
 };
