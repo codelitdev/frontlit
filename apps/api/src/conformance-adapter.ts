@@ -35,13 +35,13 @@ export function createFrontLitConformanceAdapter(
 > {
   const owner = {
     id: "owner-1",
-    sessionCookie: "better-auth.session_token=owner-token",
+    sessionCookie: "frontlit.session_token=owner-token",
     oauthToken: "owner-oauth-token",
   };
   const member = {
     ...owner,
     id: "member-1",
-    sessionCookie: "better-auth.session_token=member-token",
+    sessionCookie: "frontlit.session_token=member-token",
   };
   const tenantA = { id: "team_a", publicId: "tnt_a" };
   const tenantB = { id: "team_b", publicId: "tnt_b" };
@@ -86,7 +86,7 @@ export function createFrontLitConformanceAdapter(
       outsider: {
         ...owner,
         id: "outsider-1",
-        sessionCookie: "better-auth.session_token=outsider-token",
+        sessionCookie: "frontlit.session_token=outsider-token",
       },
       tenantA,
       tenantB,

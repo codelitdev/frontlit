@@ -132,7 +132,7 @@ describe("FrontLit auth composition", () => {
       resolveAuth(
         {
           apiKeyHeader: "fl_live_valid",
-          headers: { cookie: "better-auth.session_token=s" },
+          headers: { cookie: "frontlit.session_token=s" },
         },
         deps,
       ),

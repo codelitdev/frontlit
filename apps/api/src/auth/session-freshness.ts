@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../db/client";
 import { authSession } from "../db/schema";
+import { AUTH_COOKIE_PREFIX } from "./cookie-prefix";
 
 function headerValue(value: unknown): string | undefined {
   if (Array.isArray(value)) {
@@ -14,7 +15,9 @@ export function sessionTokenFromCookieHeader(
 ): string | undefined {
   if (!cookie) return undefined;
   const match = cookie.match(
-    /(?:^|;\s*)(?:__Secure-)?better-auth\.session_token=([^;]+)/,
+    new RegExp(
+      `(?:^|;\\s*)(?:__Secure-)?${AUTH_COOKIE_PREFIX}\\.session_token=([^;]+)`,
+    ),
   );
   if (!match?.[1]) return undefined;
   let raw = match[1];

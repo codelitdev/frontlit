@@ -55,7 +55,7 @@ describe("Git publisher credential references", () => {
   it("captures only session IDs and checks current session revocation before another write", async () => {
     const f = await fixture();
     const ref = await resolveGitPublisherCredential(f.actor, {
-      cookie: `better-auth.session_token=${f.sessionToken}.signature`,
+      cookie: `frontlit.session_token=${f.sessionToken}.signature`,
     });
     expect(ref).toMatchObject({ kind: "session", sessionId: f.sessionId });
     expect(JSON.stringify(ref)).not.toContain(f.sessionToken);
@@ -68,7 +68,7 @@ describe("Git publisher credential references", () => {
   it("cannot revive a captured proposal after membership removal and re-addition", async () => {
     const f = await fixture();
     const ref = await resolveGitPublisherCredential(f.actor, {
-      cookie: `better-auth.session_token=${f.sessionToken}`,
+      cookie: `frontlit.session_token=${f.sessionToken}`,
     });
     await db.delete(teamMembers).where(eq(teamMembers.teamId, f.team.id));
     await db

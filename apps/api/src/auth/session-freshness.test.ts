@@ -53,7 +53,7 @@ describe("session freshness", () => {
       updatedAt: createdAt,
     });
 
-    const cookie = "better-auth.session_token=session-token-1.signature";
+    const cookie = "frontlit.session_token=session-token-1.signature";
     await expect(getSessionAuthenticatedAt("user-1", { cookie })).resolves.toEqual(
       createdAt,
     );
@@ -87,7 +87,7 @@ describe("session freshness", () => {
     });
 
     const headers = {
-      cookie: "better-auth.session_token=session-token-1.sig",
+      cookie: "frontlit.session_token=session-token-1.sig",
     };
     const before = await getSessionAuthenticatedAt("user-1", headers);
     expect(before?.getTime()).toBe(old.getTime());
@@ -122,10 +122,10 @@ describe("session freshness", () => {
 
   it("parses signed Better Auth session cookies", () => {
     expect(
-      sessionTokenFromCookieHeader("foo=1; better-auth.session_token=abc.def; bar=2"),
+      sessionTokenFromCookieHeader("foo=1; frontlit.session_token=abc.def; bar=2"),
     ).toBe("abc");
     expect(
-      sessionTokenFromCookieHeader("__Secure-better-auth.session_token=tok.sig"),
+      sessionTokenFromCookieHeader("__Secure-frontlit.session_token=tok.sig"),
     ).toBe("tok");
   });
 });
@@ -157,7 +157,7 @@ describe("resolveAuth sessionAuthenticatedAt on the production path", () => {
     });
 
     const result = await resolveAuth(
-      { headers: { cookie: "better-auth.session_token=live-token.sig" } },
+      { headers: { cookie: "frontlit.session_token=live-token.sig" } },
       {
         getApiKeyBySecret: async () => null,
         resolveSession: async () => ({
