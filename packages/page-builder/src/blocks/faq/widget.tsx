@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useId } from "react";
 import clsx from "clsx";
 import { ChevronDown } from "lucide-react";
 import type { WidgetProps, ThemeStyle } from "../../models";
@@ -26,9 +26,10 @@ export function FaqWidget({
   overriddenTheme.structure.section.padding.y =
     verticalPadding || theme.theme.structure.section.padding.y;
 
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(
-    items.length > 0 ? 0 : null,
-  );
+  // Native <details> keeps every answer in the server-rendered HTML (so
+  // crawlers see it) and works without JS; a shared `name` makes them an
+  // exclusive accordion.
+  const groupName = useId();
 
   return (
     <Section
@@ -50,45 +51,33 @@ export function FaqWidget({
         )}
         {items.length > 0 &&
           (() => {
-            const renderItem = (item: (typeof items)[number], index: number) => {
-              const isOpen = expandedIndex === index;
-              return (
-                <div
-                  key={item.id}
-                  className={
-                    layout === "cards"
-                      ? "rounded-lg border border-border bg-card px-4 py-4"
-                      : layout === "columns"
-                        ? "border-b border-border py-4"
-                        : "py-4"
-                  }
-                >
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between gap-4 text-left"
-                    onClick={() => setExpandedIndex(isOpen ? null : index)}
-                    aria-expanded={isOpen}
-                  >
-                    <Text1 theme={overriddenTheme} className="font-medium">
-                      {item.question}
-                    </Text1>
-                    <ChevronDown
-                      className={clsx(
-                        "h-4 w-4 shrink-0 transition-transform",
-                        isOpen && "rotate-180",
-                      )}
-                    />
-                  </button>
-                  {isOpen && (
-                    <div className="pt-3">
-                      <Text1 theme={overriddenTheme} className="text-muted-foreground">
-                        {item.answer}
-                      </Text1>
-                    </div>
-                  )}
+            const renderItem = (item: (typeof items)[number], index: number) => (
+              <details
+                key={item.id}
+                name={groupName}
+                open={index === 0}
+                className={clsx(
+                  "group",
+                  layout === "cards"
+                    ? "rounded-lg border border-border bg-card px-4 py-4"
+                    : layout === "columns"
+                      ? "border-b border-border py-4"
+                      : "py-4",
+                )}
+              >
+                <summary className="flex w-full cursor-pointer list-none items-center justify-between gap-4 text-left [&::-webkit-details-marker]:hidden">
+                  <Text1 theme={overriddenTheme} className="font-medium">
+                    {item.question}
+                  </Text1>
+                  <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="pt-3">
+                  <Text1 theme={overriddenTheme} className="text-muted-foreground">
+                    {item.answer}
+                  </Text1>
                 </div>
-              );
-            };
+              </details>
+            );
 
             if (layout === "columns") {
               // Two side-by-side lists — the left column gets

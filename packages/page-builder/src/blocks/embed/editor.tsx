@@ -48,13 +48,19 @@ export function EmbedEditor({ settings, onChange }: WidgetEditorProps<EmbedSetti
           value={aspectRatio}
           onChange={(value) => update({ aspectRatio: value })}
           options={[
-            { label: "Default (fixed height)", value: "default" },
+            {
+              label:
+                contentType === "url"
+                  ? "Default (fixed height)"
+                  : "Default (fit content)",
+              value: "default",
+            },
             { label: "Widescreen (16:9)", value: "16:9" },
             { label: "Standard (4:3)", value: "4:3" },
             { label: "Square (1:1)", value: "1:1" },
           ]}
         />
-        {aspectRatio === "default" && (
+        {aspectRatio === "default" && contentType === "url" && (
           <NumberField
             label="Height (px)"
             value={settings.height}
