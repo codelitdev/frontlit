@@ -34,7 +34,7 @@ export async function generateMetadata(
   );
 
   return {
-    title: `${seo.title} | ${previous.title?.absolute}`,
+    title: seo.title,
     description: seo.description ?? undefined,
     alternates: {
       canonical: `https://${await getCanonicalHost()}/blog/${slug}`,

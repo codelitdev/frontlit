@@ -44,6 +44,8 @@ export async function SiteChrome({
     teamId,
     pageSlug,
     publicApiBaseUrl: API_PUBLIC_URL,
+    siteTitle: settings?.title ?? undefined,
+    siteSubtitle: settings?.subtitle ?? undefined,
   } as const;
   const dataSlots = await loadDataSlots(
     page?.layout ?? [],

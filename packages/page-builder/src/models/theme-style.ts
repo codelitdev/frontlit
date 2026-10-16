@@ -69,6 +69,11 @@ export interface Typography {
   textTransform?: TextTransform;
   textDecoration?: TextDecoration;
   textOverflow?: TextOverflow;
+  /**
+   * Fluid size in px: scales from `min` on a phone to `max` on a desktop
+   * and overrides `fontSize`. Honoured by the heading levels.
+   */
+  fluid?: { min: number; max: number };
 }
 
 export interface Border {
@@ -204,6 +209,8 @@ export interface ThemeStyle {
   };
   typography: {
     preheader: Typography;
+    /** Hero-sized headline. Optional for older themes; falls back to `header1`. */
+    display?: Typography;
     header1: Typography;
     header2: Typography;
     header3: Typography;
@@ -216,7 +223,15 @@ export interface ThemeStyle {
     button: Typography;
     input: Typography;
     caption: Typography;
+    /** Code snippets. Optional; defaults to JetBrains Mono. */
+    code?: Typography;
   };
+  /**
+   * How words wrapped in *asterisks* in a block title stand out: in the
+   * primary colour ("color", the default) or on a primary-coloured marker
+   * ("marker") for themes whose primary is close to the text colour.
+   */
+  highlight?: "color" | "marker";
   interactives: {
     button: {
       padding?: Padding;
@@ -256,6 +271,8 @@ export interface ThemeStyle {
       width: "max-w-2xl" | "max-w-3xl" | "max-w-4xl" | "max-w-5xl" | "max-w-6xl";
     };
     section: {
+      /** Draw a 1px hairline between sections. */
+      dividers?: boolean;
       padding: {
         x:
           | "px-0"

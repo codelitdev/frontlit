@@ -1,4 +1,9 @@
-import type { Alignment, TextEditorContent, WidgetDefaultSettings } from "../../models";
+import type {
+  Alignment,
+  TextEditorContent,
+  TitleSettings,
+  WidgetDefaultSettings,
+} from "../../models";
 
 export interface PricingTier {
   name: string;
@@ -11,7 +16,7 @@ export interface PricingTier {
   highlighted?: boolean;
 }
 
-export interface PricingSettings extends WidgetDefaultSettings {
+export interface PricingSettings extends WidgetDefaultSettings, TitleSettings {
   title?: string;
   description?: TextEditorContent;
   headerAlignment?: Alignment;

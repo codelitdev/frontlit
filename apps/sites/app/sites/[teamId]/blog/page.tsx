@@ -1,17 +1,13 @@
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 import { SiteChrome } from "@/components/site-chrome";
 
 interface Props {
   params: Promise<{ teamId: string }>;
 }
 
-export async function generateMetadata(
-  _props: Props,
-  parent: ResolvingMetadata,
-): Promise<Metadata> {
-  const previous = await parent;
+export function generateMetadata(): Metadata {
   return {
-    title: `Blog | ${previous.title?.absolute}`,
+    title: "Blog",
     alternates: { types: { "application/rss+xml": "/blog/rss.xml" } },
   };
 }

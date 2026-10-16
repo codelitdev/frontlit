@@ -11,6 +11,7 @@ export const SupportForm: Widget<SupportFormSettings> = {
   metadata: supportFormMetadata,
   widget: SupportFormWidget,
   editor: SupportFormEditor,
+  titleSize: true,
   getDefaultSettings: () => supportFormDefaults,
   layouts: [{ id: "stacked", name: "Stacked" }],
 };

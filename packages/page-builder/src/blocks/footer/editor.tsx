@@ -2,7 +2,7 @@ import React from "react";
 import type { WidgetEditorProps } from "../../models";
 import type { FooterColumn, FooterLink, FooterSettings } from "./settings";
 import { generateUniqueId } from "../../utils";
-import { FieldGroup, ListField, TextField } from "../_shared/fields";
+import { FieldGroup, ListField, TextField, ToggleField } from "../_shared/fields";
 
 export function FooterEditor({
   settings,
@@ -17,13 +17,15 @@ export function FooterEditor({
         <TextField
           label="Logo text"
           value={settings.logoText}
-          onChange={(logoText) => update({ logoText })}
+          hint="Leave empty to use the site title from Branding."
+          onChange={(logoText) => update({ logoText: logoText || undefined })}
         />
         <TextField
           label="Tagline"
           value={settings.tagline}
           multiline
-          onChange={(tagline) => update({ tagline })}
+          hint="Leave empty to use the subtitle from Branding."
+          onChange={(tagline) => update({ tagline: tagline || undefined })}
         />
       </FieldGroup>
       <FieldGroup title="Link columns">
@@ -92,6 +94,11 @@ export function FooterEditor({
           label="Copyright text"
           value={settings.copyrightText}
           onChange={(copyrightText) => update({ copyrightText })}
+        />
+        <ToggleField
+          label="Color mode switcher"
+          value={settings.showThemeSwitcher !== false}
+          onChange={(showThemeSwitcher) => update({ showThemeSwitcher })}
         />
       </FieldGroup>
     </div>

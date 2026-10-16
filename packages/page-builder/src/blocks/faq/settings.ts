@@ -1,4 +1,4 @@
-import type { Alignment, WidgetDefaultSettings } from "../../models";
+import type { Alignment, TitleSettings, WidgetDefaultSettings } from "../../models";
 
 export interface FaqItem {
   id: string;
@@ -6,7 +6,7 @@ export interface FaqItem {
   answer: string;
 }
 
-export interface FaqSettings extends WidgetDefaultSettings {
+export interface FaqSettings extends WidgetDefaultSettings, TitleSettings {
   title?: string;
   headerAlignment?: Alignment;
   items?: FaqItem[];

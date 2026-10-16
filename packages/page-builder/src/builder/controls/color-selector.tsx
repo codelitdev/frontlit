@@ -3,6 +3,7 @@
 import React from "react";
 import { X } from "lucide-react";
 import { cn } from "../../primitives/lib/utils";
+import { resolveThemeColor } from "../../renderer/generate-theme-styles";
 import { PageBuilderPropertyHeader } from "./page-builder-property-header";
 
 /**
@@ -38,6 +39,8 @@ export function ColorSelector({
     onChange(newValue);
   };
 
+  const invalid = Boolean(localValue) && !resolveThemeColor(localValue);
+
   // Native color inputs only accept #rrggbb; fall back to black otherwise.
   const swatchValue = /^#[0-9a-fA-F]{6}$/.test(localValue) ? localValue : "#000000";
 
@@ -60,9 +63,14 @@ export function ColorSelector({
         <input
           type="text"
           value={localValue ?? ""}
-          placeholder="#000000"
+          placeholder="#000000 or oklch(…)"
+          title="A hex colour, or a CSS colour such as oklch(0.6 0.2 30)"
+          aria-invalid={invalid || undefined}
           onChange={(e) => handleChange(e.currentTarget.value)}
-          className="h-7 w-20 min-w-0 rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring/20"
+          className={cn(
+            "h-7 w-28 min-w-0 rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring/20",
+            invalid && "border-destructive focus:ring-destructive/30",
+          )}
           aria-label={`${title} hex value`}
         />
         {allowReset && (

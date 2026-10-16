@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import type { PageData, ThemeStyle, WidgetProps } from "../../models";
 import type { SupportFormSettings } from "./settings";
+import { renderTitle, titleProps } from "../_shared/title";
 import { TextRenderer } from "../../components";
 import {
   Button,
@@ -84,6 +85,8 @@ async function submitTicket(
 export function SupportFormWidget({
   settings: {
     title,
+    titleLevel,
+    titleSize,
     description,
     buttonCaption = "Submit ticket",
     successMessage = "Thanks — we've got your ticket and will reply by email soon.",
@@ -165,7 +168,9 @@ export function SupportFormWidget({
           isCentered ? "items-center text-center" : "items-start",
         )}
       >
-        <Header1 theme={overriddenTheme}>{title}</Header1>
+        <Header1 theme={overriddenTheme} {...titleProps({ titleLevel, titleSize })}>
+          {renderTitle(title, overriddenTheme)}
+        </Header1>
         {description && (
           <Subheader1 theme={overriddenTheme} component="span">
             <TextRenderer json={description} theme={overriddenTheme} />

@@ -30,6 +30,10 @@ const THEME_FONT_VARS = [
   "--font-lato",
   "--font-pt-sans",
   "--font-quicksand",
+  "--font-archivo",
+  "--font-jetbrains-mono",
+  "--font-hanken-grotesk",
+  "--font-spline-sans-mono",
 ];
 
 function readCssVar(sourceDoc: Document, name: string): string {
@@ -94,6 +98,7 @@ export function PreviewFrame({
     if (!iframe) return;
 
     let observer: MutationObserver | undefined;
+    let resizeObserver: ResizeObserver | undefined;
 
     const init = () => {
       const doc = iframe.contentDocument;
@@ -115,6 +120,18 @@ export function PreviewFrame({
         characterData: true,
       });
       setMountNode(doc.body);
+
+      // Expose the iframe's scrollbar width so device frames can add it
+      // and keep the page itself at exactly the device width.
+      resizeObserver?.disconnect();
+      const measure = () =>
+        iframe.style.setProperty(
+          "--pb-scrollbar",
+          `${Math.max(0, iframe.clientWidth - doc.documentElement.clientWidth)}px`,
+        );
+      resizeObserver = new ResizeObserver(measure);
+      resizeObserver.observe(doc.documentElement);
+      measure();
     };
 
     // about:blank documents are usually ready synchronously, but Chrome
@@ -124,6 +141,7 @@ export function PreviewFrame({
     return () => {
       iframe.removeEventListener("load", init);
       observer?.disconnect();
+      resizeObserver?.disconnect();
     };
   }, []);
 

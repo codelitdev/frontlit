@@ -11,6 +11,7 @@ export const Banner: Widget<BannerSettings> = {
   metadata: bannerMetadata,
   widget: BannerWidget,
   editor: BannerEditor,
+  titleSize: true,
   getDefaultSettings: () => bannerDefaults,
   layouts: [
     { id: "stacked", name: "Stacked" },

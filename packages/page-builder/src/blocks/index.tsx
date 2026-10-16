@@ -13,4 +13,5 @@ export * from "./grid";
 export * from "./media";
 export * from "./marquee";
 export * from "./embed";
+export * from "./code-snippet";
 export * from "./data-slot";

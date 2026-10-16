@@ -95,12 +95,21 @@ const themeStyles: ThemeStyle = {
       letterSpacing: "tracking-widest",
       textTransform: "uppercase",
     },
+    display: {
+      fontFamily: "font-montserrat",
+      fontSize: "text-7xl",
+      fontWeight: "font-semibold",
+      lineHeight: "leading-tight",
+      letterSpacing: "tracking-tighter",
+      fluid: { min: 34, max: 60 },
+    },
     header1: {
       fontFamily: "font-montserrat",
       fontSize: "text-6xl",
       fontWeight: "font-semibold",
-      lineHeight: "leading-none",
+      lineHeight: "leading-tight",
       letterSpacing: "tracking-tighter",
+      fluid: { min: 30, max: 52 },
     },
     header2: {
       fontFamily: "font-montserrat",
@@ -108,6 +117,7 @@ const themeStyles: ThemeStyle = {
       fontWeight: "font-semibold",
       lineHeight: "leading-tight",
       letterSpacing: "tracking-tight",
+      fluid: { min: 24, max: 36 },
     },
     header3: {
       fontFamily: "font-montserrat",

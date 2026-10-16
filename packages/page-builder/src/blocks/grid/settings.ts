@@ -2,6 +2,7 @@ import type {
   Alignment,
   Media,
   TextEditorContent,
+  TitleSettings,
   WidgetDefaultSettings,
 } from "../../models";
 
@@ -22,7 +23,7 @@ export interface GridItem {
   buttonAction?: string;
 }
 
-export interface GridSettings extends WidgetDefaultSettings {
+export interface GridSettings extends WidgetDefaultSettings, TitleSettings {
   title?: string;
   description?: TextEditorContent;
   headerAlignment?: Alignment;

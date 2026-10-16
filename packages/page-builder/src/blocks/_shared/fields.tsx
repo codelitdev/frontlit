@@ -3,7 +3,9 @@
 import React, { useId } from "react";
 import { ImageIcon, Plus } from "lucide-react";
 import { ImageUploadDialog } from "@frontlit/media-uploader";
+import { Editor, emptyDoc } from "@frontlit/text-editor";
 import { getMediaUrl, type Media } from "../../models/media";
+import type { HeadingLevel, ResponsiveTextSize, TitleSettings } from "../../models";
 import { cn } from "../../primitives/lib/utils";
 
 /**
@@ -40,12 +42,15 @@ export function TextField({
   onChange,
   placeholder,
   multiline,
+  hint,
 }: {
   label: string;
   value?: string;
   onChange: (value: string) => void;
   placeholder?: string;
   multiline?: boolean;
+  /** Short help text shown under the field. */
+  hint?: string;
 }) {
   const generatedId = useId();
   const inputId = `field-${generatedId.replace(/:/g, "")}`;
@@ -70,7 +75,116 @@ export function TextField({
           onChange={(e) => onChange(e.target.value)}
         />
       )}
+      {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
     </label>
+  );
+}
+
+// Full class names so Tailwind can see them.
+const RICH_TEXT_MIN_HEIGHT = {
+  80: "min-h-[80px]",
+  100: "min-h-[100px]",
+  160: "min-h-[160px]",
+};
+
+/**
+ * Rich-text field backed by the TipTap editor. Edits reach the draft (and
+ * the canvas) almost immediately, and one still pending when the panel
+ * closes is flushed rather than dropped.
+ */
+export function RichTextField({
+  label,
+  value,
+  onChange,
+  showToolbar = true,
+  minHeight = 80,
+}: {
+  label: string;
+  value?: any;
+  onChange: (value: any) => void;
+  showToolbar?: boolean;
+  minHeight?: 80 | 100 | 160;
+}) {
+  return (
+    <div className="flex flex-col gap-1 text-sm">
+      <span className="font-medium text-foreground">{label}</span>
+      <Editor
+        initialContent={value ?? emptyDoc}
+        onChange={onChange}
+        debounceMs={150}
+        showToolbar={showToolbar}
+        editorClassName={RICH_TEXT_MIN_HEIGHT[minHeight]}
+      />
+    </div>
+  );
+}
+
+const TITLE_SIZE_FIELDS: { key: keyof ResponsiveTextSize; label: string }[] = [
+  { key: "mobile", label: "Phone" },
+  { key: "tablet", label: "Tablet" },
+  { key: "desktop", label: "Desktop" },
+];
+
+/** Heading element a block title renders as. */
+export function TitleLevelField({
+  settings,
+  defaultLevel = "h2",
+  onChange,
+}: {
+  settings: TitleSettings;
+  defaultLevel?: HeadingLevel;
+  onChange: (partial: TitleSettings) => void;
+}) {
+  return (
+    <SelectField<HeadingLevel>
+      label="Title heading level"
+      value={settings.titleLevel ?? defaultLevel}
+      onChange={(titleLevel) => onChange({ titleLevel })}
+      options={[
+        { label: "H1 — the page's main heading", value: "h1" },
+        { label: "H2 — section heading", value: "h2" },
+        { label: "H3 — sub-section heading", value: "h3" },
+      ]}
+    />
+  );
+}
+
+/** Optional per-device title size; empty fields keep the theme's size. */
+export function TitleSizeField({
+  settings,
+  onChange,
+}: {
+  settings: TitleSettings;
+  onChange: (partial: TitleSettings) => void;
+}) {
+  const size = settings.titleSize ?? {};
+  return (
+    <div className="flex flex-col gap-1.5 text-sm">
+      <span className="text-xs font-semibold text-foreground">Title size (px)</span>
+      <div className="grid grid-cols-3 gap-2">
+        {TITLE_SIZE_FIELDS.map(({ key, label }) => (
+          <label key={key} className="flex min-w-0 flex-col gap-1">
+            <span className="text-[11px] text-muted-foreground">{label}</span>
+            <input
+              type="number"
+              min={8}
+              max={200}
+              placeholder="Theme"
+              className="h-9 min-w-0 rounded-lg border border-input bg-muted/20 px-2 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-ring focus:bg-background focus:ring-2 focus:ring-ring/20"
+              value={size[key] ?? ""}
+              onChange={(e) =>
+                onChange({
+                  titleSize: {
+                    ...size,
+                    [key]: e.target.value ? Number(e.target.value) : undefined,
+                  },
+                })
+              }
+            />
+          </label>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -230,7 +344,10 @@ export function ToggleField({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border/80 bg-muted/20 px-3 py-2.5 text-sm transition-colors hover:bg-muted/50">
+    // `relative` anchors the sr-only checkbox here. Without it the checkbox
+    // is positioned against an ancestor outside the settings panel, and
+    // focusing it scrolls the whole builder out of place.
+    <label className="relative flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border/80 bg-muted/20 px-3 py-2.5 text-sm transition-colors hover:bg-muted/50">
       <span className="text-xs font-semibold text-foreground">{label}</span>
       <input
         type="checkbox"

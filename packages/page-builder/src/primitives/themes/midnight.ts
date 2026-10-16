@@ -93,12 +93,21 @@ const themeStyles: ThemeStyle = {
       letterSpacing: "tracking-widest",
       textTransform: "uppercase",
     },
+    display: {
+      fontFamily: "font-roboto",
+      fontSize: "text-6xl",
+      fontWeight: "font-medium",
+      lineHeight: "leading-tight",
+      letterSpacing: "tracking-tighter",
+      fluid: { min: 34, max: 56 },
+    },
     header1: {
       fontFamily: "font-roboto",
       fontSize: "text-5xl",
       fontWeight: "font-medium",
       lineHeight: "leading-tight",
       letterSpacing: "tracking-tighter",
+      fluid: { min: 28, max: 48 },
     },
     header2: {
       fontFamily: "font-roboto",
@@ -106,6 +115,7 @@ const themeStyles: ThemeStyle = {
       fontWeight: "font-medium",
       lineHeight: "leading-tight",
       letterSpacing: "tracking-tight",
+      fluid: { min: 24, max: 36 },
     },
     header3: {
       fontFamily: "font-roboto",

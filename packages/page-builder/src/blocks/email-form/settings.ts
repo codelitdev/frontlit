@@ -1,6 +1,11 @@
-import type { Alignment, TextEditorContent, WidgetDefaultSettings } from "../../models";
+import type {
+  Alignment,
+  TextEditorContent,
+  TitleSettings,
+  WidgetDefaultSettings,
+} from "../../models";
 
-export interface EmailFormSettings extends WidgetDefaultSettings {
+export interface EmailFormSettings extends WidgetDefaultSettings, TitleSettings {
   title?: string;
   description?: TextEditorContent;
   buttonCaption?: string;

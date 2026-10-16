@@ -15,6 +15,7 @@ import {
   MediaBlock,
   Marquee,
   Embed,
+  CodeSnippetBlock,
   DataSlot,
 } from "./blocks";
 
@@ -39,6 +40,7 @@ export const blockRegistry: Record<string, Widget<any>> = {
   media: MediaBlock,
   marquee: Marquee,
   embed: Embed,
+  "code-snippet": CodeSnippetBlock,
   "data-slot": DataSlot,
 };
 

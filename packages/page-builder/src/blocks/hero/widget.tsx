@@ -3,12 +3,15 @@ import type { WidgetProps } from "../../models";
 import type { ThemeStyle } from "../../models";
 import { getMediaUrl, getMediaAlt } from "../../models/media";
 import type { HeroSettings } from "./settings";
+import { renderTitle, titleProps } from "../_shared/title";
 import { Image, NavLink, TextRenderer, VideoWithPreview } from "../../components";
 import { isVideo } from "../../utils";
 import clsx from "clsx";
 import {
   Button,
-  Header1,
+  Caption,
+  CodeSnippet,
+  Display,
   Preheader,
   Subheader1,
   Section,
@@ -42,6 +45,10 @@ export function HeroWidget({
     contentAlignment = "left",
     secondaryButtonAction,
     secondaryButtonCaption,
+    smallPrint,
+    command,
+    titleLevel,
+    titleSize,
     cssId,
     maxWidth,
     verticalPadding,
@@ -95,7 +102,9 @@ export function HeroWidget({
           {preTitle}
         </Preheader>
       )}
-      <Header1 theme={overriddenTheme}>{title}</Header1>
+      <Display theme={overriddenTheme} {...titleProps({ titleLevel, titleSize }, "h1")}>
+        {renderTitle(title, overriddenTheme)}
+      </Display>
       {description && (
         <Subheader1 theme={overriddenTheme} component="span">
           <TextRenderer json={description} theme={overriddenTheme} />
@@ -126,6 +135,15 @@ export function HeroWidget({
           </NavLink>
         )}
       </div>
+      {command && (
+        <CodeSnippet
+          code={command}
+          prompt="$"
+          theme={overriddenTheme}
+          className="max-w-xl"
+        />
+      )}
+      {smallPrint && <Caption theme={overriddenTheme}>{smallPrint}</Caption>}
     </div>
   );
 

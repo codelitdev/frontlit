@@ -148,6 +148,7 @@ export const fontFamilyOptions = {
     { label: "Mulish", value: "font-mulish" },
     { label: "Nunito", value: "font-nunito" },
     { label: "Work Sans", value: "font-work-sans" },
+    { label: "Hanken Grotesk", value: "font-hanken-grotesk" },
   ],
   Serif: [
     { label: "Merriweather", value: "font-merriweather" },
@@ -163,10 +164,15 @@ export const fontFamilyOptions = {
     { label: "Rubik", value: "font-rubik" },
     { label: "Oswald", value: "font-oswald" },
     { label: "Bebas Neue", value: "font-bebas-neue" },
+    { label: "Archivo", value: "font-archivo" },
   ],
   Modern: [
     { label: "Lato", value: "font-lato" },
     { label: "PT Sans", value: "font-pt-sans" },
     { label: "Quicksand", value: "font-quicksand" },
+  ],
+  Mono: [
+    { label: "JetBrains Mono", value: "font-jetbrains-mono" },
+    { label: "Spline Sans Mono", value: "font-spline-sans-mono" },
   ],
 } as const;
