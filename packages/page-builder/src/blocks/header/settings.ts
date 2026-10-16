@@ -18,5 +18,4 @@ export interface HeaderSettings extends WidgetDefaultSettings {
   linkAlignment?: "left" | "center" | "right";
   layout?: "fixed" | "floating" | "centered";
   backdropBlur?: boolean;
-  showThemeSwitcher?: boolean;
 }

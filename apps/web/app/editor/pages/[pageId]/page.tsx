@@ -37,6 +37,10 @@ export default function PageEditorPage({
   const [page, setPage] = useState<Page | null>(null);
   const [initialTheme, setInitialTheme] = useState<BuilderTheme | undefined>(undefined);
   const [customThemes, setCustomThemes] = useState<BuilderTheme[] | null>(null);
+  const [branding, setBranding] = useState<{
+    siteTitle?: string;
+    siteSubtitle?: string;
+  }>({});
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [publishing, setPublishing] = useState(false);
   // Bumped only when the draft is reset from outside the builder (discard),
@@ -76,7 +80,9 @@ export default function PageEditorPage({
     Promise.all([
       getPage(pageId),
       canReadThemes ? listThemes() : Promise.resolve({ items: [] }),
-      canReadSettings ? getTeamSettings() : Promise.resolve({ themeId: null }),
+      canReadSettings
+        ? getTeamSettings()
+        : Promise.resolve({ themeId: null, title: null, subtitle: null }),
     ])
       .then(async ([loaded, savedThemes, siteSettings]) => {
         if (cancelled) return;
@@ -117,6 +123,10 @@ export default function PageEditorPage({
           : null;
         setInitialTheme(resolvedTheme);
         setCustomThemes(mappedThemes);
+        setBranding({
+          siteTitle: siteSettings.title ?? undefined,
+          siteSubtitle: siteSettings.subtitle ?? undefined,
+        });
         setPage(loaded);
       })
       .catch((error) => {
@@ -241,6 +251,7 @@ export default function PageEditorPage({
           initialLayout={page.draftLayout}
           initialTheme={initialTheme}
           themes={{ custom: customThemes }}
+          pageData={branding}
           allowThemeEditing={canWriteThemes && canWriteSettings}
           initialSeo={{
             title: page.draftTitle ?? undefined,

@@ -16,3 +16,5 @@ Page builder fixes and theme/typography features from the Grok bot editor feedba
 - Hero gets an optional small-print line under the buttons.
 - Device previews keep the page at exactly 390px/768px by accounting for the iframe scrollbar.
 - New primitives and helpers: `Display`, `createHeading`, `fluidFontSize`, `HeadingTag`, and an `as` prop on `Header1`–`Header4`. `debounce()` now returns a function with `flush()`.
+- Header and footer logo text falls back to the new `pageData.siteTitle`, and the footer tagline to `pageData.siteSubtitle`. Without a logo the header shows the FrontLit mark (new `FrontLitLogo` component), and without a title either, the FrontLit name.
+- The color mode switcher moved from the header block to the footer block (`showThemeSwitcher` is now a footer setting). In the mobile menu, header links shown as buttons are full width. The mobile menu opens inside the builder preview instead of over the whole editor.

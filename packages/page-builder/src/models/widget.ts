@@ -61,6 +61,11 @@ export interface PageData extends Record<string, unknown> {
    * own local block settings. */
   siteLogoUrl?: string;
   siteLogoAlt?: string;
+  /** Branding site title. Header and footer show it when their own logo
+   * text is left empty. */
+  siteTitle?: string;
+  /** Branding subtitle. The footer shows it when its own tagline is empty. */
+  siteSubtitle?: string;
   /** The page's team (public id) and slug, plus the base URL of FrontLit's
    * public API — threaded through so blocks that make unauthenticated
    * public calls (e.g. the email-form block's lead capture, architecture.md

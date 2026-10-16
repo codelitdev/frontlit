@@ -3,7 +3,7 @@ import clsx from "clsx";
 import { MenuIcon } from "lucide-react";
 import type { WidgetProps, ThemeStyle } from "../../models";
 import type { HeaderNavLink, HeaderSettings } from "./settings";
-import { Image, NavLink, ThemeModeSwitcher } from "../../components";
+import { FRONTLIT_NAME, FrontLitLogo, Image, NavLink } from "../../components";
 import {
   Button,
   Drawer,
@@ -16,15 +16,22 @@ function HeaderLink({
   link,
   theme,
   onClick,
+  fullWidth = false,
 }: {
   link: HeaderNavLink;
   theme?: ThemeStyle;
   onClick?: () => void;
+  /** Mobile menu: button links span the sheet, like the CTA. */
+  fullWidth?: boolean;
 }) {
   if (link.isButton) {
     return (
       <NavLink href={link.href} onClick={onClick}>
-        <Button size="sm" theme={theme}>
+        <Button
+          size={fullWidth ? undefined : "sm"}
+          theme={theme}
+          className={fullWidth ? "w-full" : undefined}
+        >
           {link.label}
         </Button>
       </NavLink>
@@ -52,7 +59,6 @@ export function HeaderWidget({
     linkAlignment = "left",
     layout = "fixed",
     backdropBlur = false,
-    showThemeSwitcher = true,
     cssId,
     maxWidth,
     verticalPadding,
@@ -61,7 +67,6 @@ export function HeaderWidget({
   state: { theme },
   pageData,
   nextTheme,
-  toggleTheme,
 }: WidgetProps<HeaderSettings>) {
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
@@ -78,7 +83,11 @@ export function HeaderWidget({
   // not the header instance. Retain the block-local image for standalone
   // renderer and builder previews where no tenant logo is supplied.
   const resolvedLogoImage = pageData.siteLogoUrl || logoImage;
-  const resolvedLogoAlt = pageData.siteLogoAlt || logoText || "";
+  // Without a logo the header shows FrontLit's mark; without a site
+  // title or logo either, FrontLit's name too.
+  const resolvedLogoText =
+    logoText || pageData.siteTitle || (resolvedLogoImage ? undefined : FRONTLIT_NAME);
+  const resolvedLogoAlt = pageData.siteLogoAlt || resolvedLogoText || "";
   const effectiveLogoCorners = logoCorners ?? logoRadius ?? 2;
 
   const logo = (
@@ -94,29 +103,18 @@ export function HeaderWidget({
             borderRadius={effectiveLogoCorners}
           />
         )}
-        {logoText && (
+        {!resolvedLogoImage && <FrontLitLogo className="h-8 w-8 shrink-0" />}
+        {resolvedLogoText && (
           <Header4 theme={overriddenTheme} as="span">
-            {logoText}
+            {resolvedLogoText}
           </Header4>
         )}
       </div>
     </NavLink>
   );
 
-  const colorModeControl =
-    showThemeSwitcher && toggleTheme ? (
-      <ThemeModeSwitcher
-        resolved={nextTheme ?? "light"}
-        onToggle={toggleTheme}
-        theme={overriddenTheme}
-        size="sm"
-        variant="outline"
-      />
-    ) : null;
-
   const ctaAndMenu = (
     <div className="flex items-center gap-3">
-      {colorModeControl}
       {buttonLinks.map((link) => (
         <div className="hidden lg:!block" key={link.id}>
           <HeaderLink link={link} theme={overriddenTheme} />
@@ -151,6 +149,7 @@ export function HeaderWidget({
                 link={link}
                 theme={overriddenTheme}
                 onClick={() => setMobileNavOpen(false)}
+                fullWidth
               />
             ))}
             {ctaLabel && ctaHref && (

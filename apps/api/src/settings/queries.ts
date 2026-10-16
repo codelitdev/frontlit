@@ -32,10 +32,11 @@ async function validateSiteThemeReference(
   if (!theme) throw new InvalidSiteThemeReferenceError("Theme not found");
 }
 
-/** Header and footer a new team starts with: its own name and links to its
- * standard pages, not FrontLit's sample navigation. The renderer fills any
- * key left unset from the block's FrontLit defaults, so every field that
- * has sample content is set explicitly here. */
+/** Header and footer a new team starts with: links to its standard pages,
+ * not FrontLit's sample navigation. The renderer fills any key left unset
+ * from the block's FrontLit defaults, so every field that has sample
+ * content is set explicitly here. Logo text stays unset so both blocks
+ * follow the Branding site title. */
 function createTeamSharedWidgets(teamName: string): SharedWidgetsRow {
   const link = (label: string, href: string) => ({ id: genId(), label, href });
   const { header, footer } = DEFAULT_SHARED_WIDGETS;
@@ -44,18 +45,16 @@ function createTeamSharedWidgets(teamName: string): SharedWidgetsRow {
       ...header,
       settings: {
         ...header.settings,
-        logoText: teamName,
         links: [link("Docs", "/docs"), link("Blog", "/blog")],
-        ctaLabel: "",
-        ctaHref: "",
+        // Every team has a help desk, so this always works.
+        ctaLabel: "Contact us",
+        ctaHref: "/help",
       },
     },
     footer: {
       ...footer,
       settings: {
         ...footer.settings,
-        logoText: teamName,
-        tagline: "",
         columns: [
           {
             id: genId(),
@@ -94,6 +93,8 @@ export async function getTeamSettings(teamId: string) {
     .insert(teamSettings)
     .values({
       teamId,
+      // Like CourseLit, a new site starts with the team name as its title.
+      title: team?.name ?? null,
       // Do not rely on the Postgres column default — local DBs keep
       // the old SQL default until migrations are reset.
       sharedWidgets,

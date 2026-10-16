@@ -30,8 +30,13 @@ export function Drawer({
   const [container, setContainer] = useState<HTMLElement | null>(null);
 
   useLayoutEffect(() => {
-    const root = triggerWrapRef.current?.closest("[data-pb-theme], .pb-theme");
-    setContainer(root instanceof HTMLElement ? root : null);
+    const root = triggerWrapRef.current?.closest<HTMLElement>(
+      "[data-pb-theme], .pb-theme",
+    );
+    // Not `instanceof HTMLElement`: inside the builder's preview iframe the
+    // root belongs to the iframe's realm, so that check always fails and the
+    // sheet would open over the whole editor instead of the preview.
+    setContainer(root ?? null);
   }, []);
 
   return (

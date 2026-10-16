@@ -54,7 +54,8 @@ describe("seedStandardPages", () => {
     );
 
     expect(home).toBeDefined();
-    expect(home?.title).toMatch(/FrontLit/);
+    // No SEO title: the homepage falls back to the Branding site title.
+    expect(home?.title).toBeNull();
     expect(home?.publishedAt).not.toBeNull();
     expect(home?.layout.map((widget) => widget.name)).toEqual([
       "header",

@@ -1,7 +1,7 @@
 import React from "react";
 import type { WidgetProps, ThemeStyle } from "../../models";
 import type { FooterSettings } from "./settings";
-import { NavLink } from "../../components";
+import { FRONTLIT_NAME, NavLink, ThemeModeSwitcher } from "../../components";
 import {
   Caption,
   Header3,
@@ -11,25 +11,55 @@ import {
   Text2,
 } from "../../primitives";
 
+const FRONTLIT_TAGLINE =
+  "Build your website, publish content, support users, and grow your audience from one dashboard.";
+
 export function FooterWidget({
   settings: {
-    logoText,
-    tagline,
+    logoText: ownLogoText,
+    tagline: ownTagline,
     columns = [],
     copyrightText,
     layout = "columns",
+    showThemeSwitcher = true,
     cssId,
     maxWidth,
     verticalPadding,
     background,
   },
   state: { theme },
+  pageData,
   nextTheme,
+  toggleTheme,
 }: WidgetProps<FooterSettings>) {
+  // Logo text and tagline follow Branding's title and subtitle. A site with
+  // no branding yet shows FrontLit's, as the header does.
+  const unbranded =
+    !ownLogoText &&
+    !pageData.siteTitle &&
+    !pageData.siteLogoUrl &&
+    !pageData.siteSubtitle;
+  const logoText =
+    ownLogoText ||
+    pageData.siteTitle ||
+    (pageData.siteLogoUrl ? undefined : FRONTLIT_NAME);
+  const tagline =
+    ownTagline || pageData.siteSubtitle || (unbranded ? FRONTLIT_TAGLINE : undefined);
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
   overriddenTheme.structure.section.padding.y =
     verticalPadding || theme.theme.structure.section.padding.y;
+
+  const colorModeControl =
+    showThemeSwitcher && toggleTheme ? (
+      <ThemeModeSwitcher
+        resolved={nextTheme ?? "light"}
+        onToggle={toggleTheme}
+        theme={overriddenTheme}
+        size="sm"
+        variant="outline"
+      />
+    ) : null;
 
   return (
     <Section
@@ -64,6 +94,7 @@ export function FooterWidget({
             {copyrightText && (
               <Caption theme={overriddenTheme}>{copyrightText}</Caption>
             )}
+            {colorModeControl}
           </div>
         </div>
       ) : layout === "centered" ? (
@@ -122,15 +153,20 @@ export function FooterWidget({
           </div>
         </div>
       )}
-      {copyrightText && layout !== "minimal" && (
+      {(copyrightText || colorModeControl) && layout !== "minimal" && (
         <div
           className={
             layout === "centered"
-              ? "mt-8 border-t pt-6 text-center"
-              : "mt-8 border-t pt-6"
+              ? "mt-8 flex flex-col items-center gap-4 border-t pt-6 text-center"
+              : "mt-8 flex items-center justify-between gap-4 border-t pt-6"
           }
         >
-          <Caption theme={overriddenTheme}>{copyrightText}</Caption>
+          {copyrightText && <Caption theme={overriddenTheme}>{copyrightText}</Caption>}
+          {colorModeControl && (
+            <div className={layout === "centered" ? undefined : "ml-auto"}>
+              {colorModeControl}
+            </div>
+          )}
         </div>
       )}
     </Section>

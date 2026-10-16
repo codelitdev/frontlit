@@ -344,7 +344,10 @@ export function ToggleField({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border/80 bg-muted/20 px-3 py-2.5 text-sm transition-colors hover:bg-muted/50">
+    // `relative` anchors the sr-only checkbox here. Without it the checkbox
+    // is positioned against an ancestor outside the settings panel, and
+    // focusing it scrolls the whole builder out of place.
+    <label className="relative flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border/80 bg-muted/20 px-3 py-2.5 text-sm transition-colors hover:bg-muted/50">
       <span className="text-xs font-semibold text-foreground">{label}</span>
       <input
         type="checkbox"

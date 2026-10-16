@@ -2,9 +2,7 @@ import type { FooterSettings } from "./settings";
 import { generateUniqueId } from "../../utils";
 
 export const footerDefaults: Partial<FooterSettings> = {
-  logoText: "FrontLit",
-  tagline:
-    "Build your website, publish content, support users, and grow your audience from one dashboard.",
+  showThemeSwitcher: true,
   columns: [
     {
       id: generateUniqueId(),
