@@ -54,11 +54,7 @@ export function VerticalPaddingSelector({
     Object.entries(PADDING_MAP).find(([_, v]) => v === (value ?? themeDefault))?.[0] ||
     "6";
 
-  const handleChange = (newValue?: number) => {
-    if (newValue === undefined) {
-      onChange();
-      return;
-    }
+  const handleChange = (newValue: number) => {
     onChange(getVerticalPaddingTWClass(newValue));
   };
 
