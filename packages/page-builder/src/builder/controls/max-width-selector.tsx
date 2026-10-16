@@ -46,11 +46,7 @@ export function MaxWidthSelector({
       ([_, v]) => v === (value ?? themeDefault),
     )?.[0] || "5";
 
-  const handleChange = (newValue?: number) => {
-    if (newValue === undefined) {
-      onChange();
-      return;
-    }
+  const handleChange = (newValue: number) => {
     onChange(getMaxWidthTWClass(newValue));
   };
 
@@ -63,7 +59,6 @@ export function MaxWidthSelector({
       value={parseInt(numericValue)}
       tooltip="Maximum width of the content"
       className={className}
-      allowsReset={true}
       unit=""
     />
   );

@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { X } from "lucide-react";
 import { cn } from "../../primitives/lib/utils";
 import { PageBuilderPropertyHeader } from "./page-builder-property-header";
 
@@ -18,17 +17,15 @@ export function PageBuilderSlider({
   onChange,
   tooltip,
   className,
-  allowsReset = false,
   unit = "px",
 }: {
   title: string;
   min: number;
   max: number;
   value: number;
-  onChange: (value?: number) => void;
+  onChange: (value: number) => void;
   tooltip?: string;
   className?: string;
-  allowsReset?: boolean;
   unit?: string;
 }) {
   return (
@@ -53,19 +50,6 @@ export function PageBuilderSlider({
             <span className="text-[10px] font-medium text-muted-foreground">
               {unit}
             </span>
-          )}
-          {allowsReset && (
-            <button
-              type="button"
-              title="Reset"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={(e) => {
-                e.preventDefault();
-                onChange();
-              }}
-            >
-              <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-            </button>
           )}
         </div>
       </div>

@@ -25,7 +25,7 @@ Verification is two independent checks. Both must pass:
 1. **Ownership** — `TXT` at `<team TXT record name>.<hostname>` equals the issued token. Standalone teams default to `_frontlit-verify`; provisioning integrations can assign a team-specific label.
 2. **Routing**
     - Non-apex (`www.example.com`): `CNAME` chain includes the team's configured target, or `CUSTOM_DOMAIN_CNAME_TARGET` when no team override is set.
-    - Apex (`example.com`): ALIAS / ANAME / CNAME-flattening to the same target. The name must resolve (flattening often surfaces as a CNAME or as A records). If `CUSTOM_DOMAIN_A_RECORDS` is set, the apex A set must match; otherwise ownership TXT plus name-resolves is enough so Cloudflare-style flattening works.
+    - Apex (`example.com`): A record(s) pointing at the IPs in `CUSTOM_DOMAIN_A_RECORDS` (ALIAS/CNAME at the apex is not offered). Verification requires the apex A set to match; if the variable is unset, ownership TXT plus name-resolves is enough.
 
 Do not put a raw CNAME at the zone apex unless the DNS host flattens it. Status flips only when the team clicks Check DNS (`POST /domain/custom/verify`).
 
