@@ -16,14 +16,16 @@ const HOISTED_LINK =
 
 /**
  * Snippets are usually written as a standalone document (they used to live in
- * an iframe). Map document-level selectors onto the shadow host, drop the
- * document wrapper tags, drop "fill the frame" heights (`100vh` is now the
- * whole browser window), and drop scripts that only synced state with
- * `window.parent`, which the shadow host handles itself.
+ * an iframe). Recreate that inside the shadow root: the host plays `html` and
+ * is a size container, a wrapper plays `body`, and viewport units and width
+ * media queries are rewritten to measure the embed (as they measured the
+ * iframe) instead of the browser window. "Fill the frame" heights are dropped,
+ * as are scripts that only synced state with `window.parent`, which the shadow
+ * host handles itself.
  */
 export function prepareEmbed(content: string) {
   const links = content.match(HOISTED_LINK)?.join("") ?? "";
-  const body = content
+  const markup = content
     .replace(HOISTED_LINK, "")
     .replace(/<!doctype[^>]*>|<\/?(?:html|head|body)\b[^>]*>/gi, "")
     .replace(
@@ -36,12 +38,19 @@ export function prepareEmbed(content: string) {
         const scoped = css
           .replace(/:root\b/g, ":host")
           .replace(/(^|[\s,{}])html\.dark\b/g, "$1:host(.dark)")
-          .replace(/(^|[\s,{}])(?:html|body)(?=[\s,{:.[>~+])/g, "$1:host")
-          .replace(/min-height\s*:\s*100d?vh/gi, "min-height:0");
+          .replace(/(^|[\s,{}])html(?=[\s,{:.[>~+])/g, "$1:host")
+          .replace(/(^|[\s,{}])body(?=[\s,{:.[>~+])/g, "$1[data-embed-body]")
+          .replace(/min-height\s*:\s*100d?vh/gi, "min-height:0")
+          .replace(/(\d*\.?\d+)vw\b/gi, "$1cqw")
+          .replace(
+            /@media\s+(?:only\s+)?(?:screen\s+and\s+)?(\([^{]*\bwidth\b[^{]*)\{/gi,
+            "@container $1{",
+          );
         return `<style${attrs}>${scoped}</style>`;
       },
     );
 
+  const body = `<style>:host{display:block;container-type:inline-size;overflow-x:clip}</style><div data-embed-body>${markup}</div>`;
   return { links, body };
 }
 
