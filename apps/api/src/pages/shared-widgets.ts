@@ -5,7 +5,7 @@ import { genId } from "../db/id";
 export const SHARED_WIDGET_NAMES = ["header", "footer"] as const;
 /** FrontLit reserves the generic core data slot for its standard content pages. */
 export const DATA_SLOT_WIDGET_NAME = "data-slot" as const;
-export const FRONTLIT_CONTENT_FEED_SLOT = "frontlit.content-feed" as const;
+export const CONTENT_FEED_SLOT = "content-feed" as const;
 export const CONTENT_FEED_SOURCES = {
   blog: "articles",
   docs: "documentation",
@@ -57,7 +57,7 @@ function frontlitContentFeedPlaceholder(
     deletable: false,
     moveable: true,
     shared: false,
-    settings: { slot: FRONTLIT_CONTENT_FEED_SLOT, source },
+    settings: { slot: CONTENT_FEED_SLOT, source },
   };
 }
 

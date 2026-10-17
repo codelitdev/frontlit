@@ -28,7 +28,7 @@ export async function generateMetadata(
   const seo = resolveSeo(
     { title: collection.name, fallbackName: collection.name },
     settings,
-    previous.title?.absolute || "FrontLit site",
+    previous.title?.absolute || "Website",
   );
 
   return {

@@ -120,7 +120,7 @@ draft state and publish state. They share:
   (`/editor/content/:type/:documentId`) built on `@frontlit/text-editor`,
 - a FrontLit-owned content-feed loader mounted through the page builder's
   generic `data-slot` block. The seeded `/blog`, `/docs`, and `/changelog`
-  pages persist the `frontlit.content-feed` slot plus `articles`,
+  pages persist the `content-feed` slot plus `articles`,
   `documentation`, or `product-updates` loader settings. `SiteChrome` invokes
   that loader server-side; the index routes no longer own collection queries
   or markup. The shared page-builder package has no FrontLit content model or

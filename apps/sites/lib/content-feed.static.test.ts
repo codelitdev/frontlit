@@ -14,10 +14,10 @@ describe("FrontLit content feed data-slot integration", () => {
     const feed = read("components/content-feed.tsx");
 
     expect(chrome).toContain("loadDataSlots");
-    expect(chrome).toContain("FRONTLIT_CONTENT_FEED_SLOT");
-    expect(chrome).toContain("frontlitContentFeedLoader");
+    expect(chrome).toContain("CONTENT_FEED_SLOT");
+    expect(chrome).toContain("contentFeedLoader");
     expect(feed).toContain("DataSlotLoader");
-    expect(feed).toContain('FRONTLIT_CONTENT_FEED_SLOT = "frontlit.content-feed"');
+    expect(feed).toContain('CONTENT_FEED_SLOT = "content-feed"');
     expect(feed).not.toMatch(/max-w-3xl|max-w-5xl/);
     expect(read("components/themed-content-feed.tsx")).toMatch(/Header1|Subheader1/);
   });
