@@ -18,4 +18,5 @@ export interface FooterSettings extends WidgetDefaultSettings {
   columns?: FooterColumn[];
   copyrightText?: string;
   layout?: "columns" | "centered" | "minimal";
+  showThemeSwitcher?: boolean;
 }

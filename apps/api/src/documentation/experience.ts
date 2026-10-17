@@ -13,7 +13,6 @@ import {
 } from "../db/schema";
 import { DraftConflict, draftReport, getDocsSettings, lockSettings } from "./authoring";
 import {
-  documentationReadAllowed,
   digest,
   DocumentationAdmissionError,
   publicationError,
@@ -35,7 +34,7 @@ export async function previewDocumentation(
       eq(documents.documentId, documentId),
     ),
   });
-  if (!row || !(await documentationReadAllowed(teamId, row, canManage))) return null;
+  if (!row) return null;
   if (row.draftVersion !== version) throw new DraftConflict(row.draftVersion);
   const settings = await getDocsSettings(teamId);
   const live = await readDocumentation(teamId);
@@ -52,7 +51,6 @@ export async function previewDocumentation(
     : null;
   // Explicit data projection. Never return shared widgets, injected scripts,
   // HTML, tokens or an administrative credential for a tenant origin.
-  if (!(await documentationReadAllowed(teamId, row, canManage))) return null;
   return {
     documentId,
     draftVersion: row.draftVersion,
@@ -107,9 +105,7 @@ export async function listPublicationHistory(
     ],
     limit: limit + 1,
   });
-  const items = await Promise.all(
-    rows.slice(0, limit).map((row) => publicationForReader(teamId, row, canManage)),
-  );
+  const items = rows.slice(0, limit).map(publicPublication);
   return {
     items,
     nextCursor: rows.length > limit ? items.at(-1)!.publicationId : null,
@@ -129,15 +125,7 @@ export async function getRetainedRevision(
       eq(documentationRevisions.revisionId, revisionId),
     ),
   });
-  if (
-    !revision ||
-    !(await documentationReadAllowed(
-      teamId,
-      { documentId, slug: revision.snapshot.draftSlug, ...revision.snapshot },
-      canManage,
-    ))
-  )
-    return null;
+  if (!revision) return null;
   // Candidates that never activated are not revision history, even with read authority.
   const retained = await db
     .select({ publicationId: documentationPublications.publicationId })
@@ -381,34 +369,4 @@ export async function getDocsUiSettings(teamId: string) {
     publishedNavigation: nav(active?.navigation ?? []),
     navigationPending: digest(nav(sections)) !== digest(nav(active?.navigation ?? [])),
   };
-}
-
-export async function publicationForReader(
-  teamId: string,
-  row: typeof documentationPublications.$inferSelect,
-  canManage = false,
-) {
-  const receipt = publicPublication(row);
-  if (canManage || !row.diagnostics.length) return receipt;
-  const candidates = await db
-    .select({
-      documentId: documentationMemberships.documentId,
-      snapshot: documentationRevisions.snapshot,
-    })
-    .from(documentationMemberships)
-    .innerJoin(
-      documentationRevisions,
-      eq(documentationMemberships.revisionId, documentationRevisions.revisionId),
-    )
-    .where(eq(documentationMemberships.publicationId, row.publicationId));
-  for (const candidate of candidates)
-    if (
-      !(await documentationReadAllowed(
-        teamId,
-        { documentId: candidate.documentId, ...candidate.snapshot },
-        false,
-      ))
-    )
-      return { ...receipt, diagnostics: [] };
-  return receipt;
 }

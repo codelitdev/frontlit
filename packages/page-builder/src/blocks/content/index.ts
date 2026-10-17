@@ -11,6 +11,7 @@ export const Content: Widget<ContentSettings> = {
   metadata: contentMetadata,
   widget: ContentWidget,
   editor: ContentEditor,
+  titleSize: true,
   getDefaultSettings: () => contentDefaults,
   layouts: [
     { id: "side", name: "Media beside" },

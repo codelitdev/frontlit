@@ -1,4 +1,3 @@
-import { documentationReadAllowed } from "../../documentation/publications";
 import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
 import {
@@ -155,21 +154,8 @@ export function registerDocumentTools(
       const teamId = getTeamId(extra);
       if (!teamId) return AUTH_ERROR;
       try {
-        let items = await listDocuments(kind, { teamId, q: args.q });
-        let total = await countDocuments(kind, { teamId, q: args.q });
-        const actor = extra.http?.authInfo?.extra;
-        if (
-          kind === "doc" &&
-          !(actor?.isOwner || actor?.permissions?.includes("documentation:manage"))
-        ) {
-          const visible = await Promise.all(
-            items.map(async (row) =>
-              (await documentationReadAllowed(teamId, row, false)) ? row : null,
-            ),
-          );
-          items = visible.filter(Boolean) as any;
-          total = items.length;
-        }
+        const items = await listDocuments(kind, { teamId, q: args.q });
+        const total = await countDocuments(kind, { teamId, q: args.q });
         return jsonResult({
           items: (await attachDocumentIndex(kind, items)).map((item) =>
             toPublicDocument(item),
@@ -199,20 +185,7 @@ export function registerDocumentTools(
       if (!teamId) return AUTH_ERROR;
       try {
         const doc = await getDocumentByDocumentId(kind, args.documentId, teamId);
-        if (
-          !doc ||
-          doc.teamId !== teamId ||
-          (kind === "doc" &&
-            !(await documentationReadAllowed(
-              teamId,
-              doc,
-              extra.http?.authInfo?.extra?.isOwner ||
-                extra.http?.authInfo?.extra?.permissions?.includes(
-                  "documentation:manage",
-                ),
-            )))
-        )
-          return NOT_FOUND;
+        if (!doc || doc.teamId !== teamId) return NOT_FOUND;
         return jsonResult(toPublicDocument(await attachOneDocumentIndex(kind, doc)));
       } catch (error) {
         return handleError(error);
@@ -252,15 +225,7 @@ export function registerDocumentTools(
         if (kind === "doc") {
           const current = await getDocumentByDocumentId(kind, args.documentId, teamId);
           const actor = extra.http?.authInfo?.extra;
-          if (
-            !current ||
-            !(await documentationReadAllowed(
-              teamId,
-              current,
-              actor?.isOwner || actor?.permissions?.includes("documentation:manage"),
-            ))
-          )
-            return NOT_FOUND;
+          if (!current) return NOT_FOUND;
         }
         const { documentId, ...patch } = args;
         const doc = await updateDocument(kind, teamId, documentId, patch);
@@ -295,15 +260,7 @@ export function registerDocumentTools(
         if (kind === "doc") {
           const current = await getDocumentByDocumentId(kind, args.documentId, teamId);
           const actor = extra.http?.authInfo?.extra;
-          if (
-            !current ||
-            !(await documentationReadAllowed(
-              teamId,
-              current,
-              actor?.isOwner || actor?.permissions?.includes("documentation:manage"),
-            ))
-          )
-            return NOT_FOUND;
+          if (!current) return NOT_FOUND;
         }
         const doc = await publishDocument(
           kind,
@@ -348,15 +305,7 @@ export function registerDocumentTools(
         if (kind === "doc") {
           const current = await getDocumentByDocumentId(kind, args.documentId, teamId);
           const actor = extra.http?.authInfo?.extra;
-          if (
-            !current ||
-            !(await documentationReadAllowed(
-              teamId,
-              current,
-              actor?.isOwner || actor?.permissions?.includes("documentation:manage"),
-            ))
-          )
-            return NOT_FOUND;
+          if (!current) return NOT_FOUND;
         }
         const doc = await discardDocumentDraft(
           kind,
@@ -397,15 +346,7 @@ export function registerDocumentTools(
         if (kind === "doc") {
           const current = await getDocumentByDocumentId(kind, args.documentId, teamId);
           const actor = extra.http?.authInfo?.extra;
-          if (
-            !current ||
-            !(await documentationReadAllowed(
-              teamId,
-              current,
-              actor?.isOwner || actor?.permissions?.includes("documentation:manage"),
-            ))
-          )
-            return NOT_FOUND;
+          if (!current) return NOT_FOUND;
         }
         const result = await deleteDocument(
           kind,

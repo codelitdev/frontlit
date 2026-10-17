@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeTestDb, seedTeam, type TestDb } from "../test/db";
 vi.mock("../media/service", () => ({
-  getMedia: vi.fn(),
   deleteMedia: vi.fn(),
-  mediaLitBindsSignedGroups: vi.fn(async () => true),
 }));
 vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 import { db as appDb } from "../db/client";
@@ -28,13 +26,9 @@ import {
   commitPurge,
 } from "./publications";
 import { eq, inArray } from "drizzle-orm";
-import { getMedia } from "../media/service";
 import { media } from "../db/schema";
 import { deleteMediaRecord } from "../media/queries";
-import {
-  reconcileDocumentationMedia,
-  documentationEvidenceAllowed,
-} from "./publications";
+import { documentationEvidenceAllowed } from "./publications";
 const db = appDb as unknown as TestDb;
 describe("D3 immutable publication and policy (DM-PUBLISH/NAV/DELIVERY/RETENTION)", () => {
   let teamId: string;
@@ -395,63 +389,15 @@ describe("D3 immutable publication and policy (DM-PUBLISH/NAV/DELIVERY/RETENTION
       )?.status,
     ).toBe("superseded");
   });
-  it("retries provider outages without activating a partially prepared candidate", async () => {
-    const [asset] = await db
-      .insert(media)
-      .values({
-        teamId,
-        mediaLitId: "ml_" + teamId,
-        url: "https://cdn.test.invalid/asset.png",
-        providerGroup: teamId,
-        access: "public",
-        verifiedAt: new Date(),
-      })
-      .returning();
-    const d = (await saveDocumentation(teamId, null, {
-      title: "Managed image",
-      content: {
-        type: "doc",
-        content: [{ type: "image", attrs: { src: asset.url, alt: "Owned" } }],
-      },
-    }))!;
-    const job = await queue([select(d)]);
-    vi.mocked(getMedia).mockRejectedValue(new Error("temporary provider outage"));
-    expect((await processPublication(teamId, job.publicationId))?.status).toBe(
-      "queued",
-    );
-    expect((await readDocumentation(teamId)).items).toEqual([]);
-    vi.mocked(getMedia).mockResolvedValue({
-      mediaId: asset.mediaLitId,
-      access: "public",
-      group: teamId,
-      file: asset.url,
-    } as any);
-    await db
-      .update(publications)
-      .set({ nextAttemptAt: new Date(0) })
-      .where(eq(publications.publicationId, job.publicationId));
-    expect((await processPublication(teamId, job.publicationId))?.status).toBe(
-      "active",
-    );
-  });
-  it("retained revisions protect media and deleting state rejects new references (V39)", async () => {
+  it("retained revisions protect media from deletion (V39)", async () => {
     const [asset] = await db
       .insert(media)
       .values({
         teamId,
         mediaLitId: "ml_" + teamId,
         url: "https://cdn.test.invalid/retained.png",
-        providerGroup: teamId,
-        access: "public",
-        verifiedAt: new Date(),
       })
       .returning();
-    vi.mocked(getMedia).mockResolvedValue({
-      mediaId: asset.mediaLitId,
-      access: "public",
-      group: teamId,
-      file: asset.url,
-    } as any);
     const d = (await saveDocumentation(teamId, null, {
       title: "Retained",
       featuredImage: { url: asset.url },
@@ -462,53 +408,9 @@ describe("D3 immutable publication and policy (DM-PUBLISH/NAV/DELIVERY/RETENTION
       featuredImage: null,
     }))!;
     await publish(edit);
-    await expect(deleteMediaRecord(teamId, asset.mediaId)).rejects.toThrow();
-    await db
-      .update(media)
-      .set({ access: "deleting" })
-      .where(eq(media.mediaId, asset.mediaId));
-    await expect(
-      saveDocumentation(teamId, null, {
-        title: "Late",
-        featuredImage: { url: asset.url },
-      }),
-    ).rejects.toThrow();
-  });
-  it("hides docs after confirmed media access loss; outage does not change availability", async () => {
-    const [asset] = await db
-      .insert(media)
-      .values({
-        teamId,
-        mediaLitId: "ml_" + teamId,
-        url: "https://cdn.test.invalid/lost.png",
-        providerGroup: teamId,
-        access: "public",
-        verifiedAt: new Date(),
-      })
-      .returning();
-    vi.mocked(getMedia).mockResolvedValue({
-      mediaId: asset.mediaLitId,
-      access: "public",
-      group: teamId,
-      file: asset.url,
-    } as any);
-    const d = (await saveDocumentation(teamId, null, {
-      title: "Loss",
-      featuredImage: { url: asset.url },
-    }))!;
-    await publish(d);
-    vi.mocked(getMedia).mockRejectedValue(Error("network unavailable"));
-    await reconcileDocumentationMedia(1000);
-    expect((await readDocumentation(teamId)).items).toHaveLength(1);
-    vi.mocked(getMedia).mockResolvedValue({
-      mediaId: asset.mediaLitId,
-      access: "private",
-      group: teamId,
-      file: asset.url,
-    } as any);
-    await reconcileDocumentationMedia(1000);
-    expect((await readDocumentation(teamId)).items).toEqual([]);
-    expect((await getDocsSettings(teamId)).policyEpoch).toBe(1);
+    await expect(deleteMediaRecord(teamId, asset.mediaId)).rejects.toMatchObject({
+      code: "MEDIA_IN_USE",
+    });
   });
   it("accepts only evidence from the current active documentation publication", async () => {
     const d = await doc();

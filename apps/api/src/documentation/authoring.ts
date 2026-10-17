@@ -35,7 +35,6 @@ import {
 } from "./content-validation";
 import { normalizeFeaturedImage } from "../documents/queries";
 import { slugify, uniqueSlug } from "../utils/slug";
-import { getMedia } from "../media/service";
 
 export class DraftConflict extends DocsContentError {
   constructor(public currentDraftVersion: number) {
@@ -188,23 +187,11 @@ function proposed(existing: any, patch: any) {
     draftMeta: { ...(existing?.draftMeta ?? {}), ...(patch.meta ?? {}) },
   };
 }
-function managedHost(url: string) {
-  const configured = (process.env.MEDIALIT_DELIVERY_HOSTS ?? "")
-    .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean);
-  if (process.env.MEDIALIT_SERVER) {
-    const host = new URL(process.env.MEDIALIT_SERVER).hostname;
-    configured.push(host, host.replace(/^api\./, "cdn."));
-  }
-  return configured.includes(new URL(url).hostname);
-}
 export async function draftReport(
   teamId: string,
   draft: any,
   options: {
     documentId?: string;
-    fresh?: boolean;
     candidates?: any[];
     publicationId?: string | null;
     sections?: any[];
@@ -274,94 +261,17 @@ export async function draftReport(
   walk(draft.draftContent, "content");
   if (!text.trim() && !imageUrls.length)
     add("EMPTY_ARTICLE", "This article is empty.", "content", true);
-  if (draft.draftFeaturedImage) {
-    const image = draft.draftFeaturedImage;
-    const providerId = image.mediaLitId;
-    const assetId =
-      typeof image.mediaId === "string" && image.mediaId.startsWith("med_")
-        ? image.mediaId
-        : undefined;
-    if (
-      (providerId || assetId) &&
-      !assets.some(
-        (x) =>
-          x.url === image.url &&
-          (!providerId || x.mediaLitId === providerId) &&
-          (!assetId || x.mediaId === assetId) &&
-          x.verifiedAt &&
-          x.access === "public",
-      )
-    )
-      throw new DocsContentError([
-        diagnostic("UNVERIFIED_MEDIA", "Invalid media reference.", {
-          fieldPath: "featuredImage",
-        }),
-      ]);
-  }
   if (draft.draftFeaturedImage?.url)
     imageUrls.push({ url: draft.draftFeaturedImage.url, path: "featuredImage.url" });
-  for (const link of links)
-    if (/^https:/i.test(link.href) && managedHost(link.href))
-      imageUrls.push({ url: link.href, path: link.path });
-  for (const { url, path } of imageUrls) {
-    const asset = assets.find((x) => x.url === url);
-    if (!asset && managedHost(url))
-      throw new DocsContentError([
-        diagnostic(
-          "UNVERIFIED_MEDIA",
-          "Select a verified public asset from this team's library.",
-          { fieldPath: path },
-        ),
-      ]);
-    if (asset && (!asset.verifiedAt || asset.access !== "public"))
-      throw new DocsContentError([
-        diagnostic(
-          "UNVERIFIED_MEDIA",
-          "This asset's public ownership has not been verified.",
-          { fieldPath: path },
-        ),
-      ]);
-    if (!asset)
+  for (const { url, path } of imageUrls)
+    if (!assets.some((x) => x.url === url))
       add(
         "EXTERNAL_MEDIA",
         "External image availability and tracking are unverified.",
         path,
         true,
       );
-    if (asset && options.fresh) {
-      try {
-        const provider = await getMedia(asset.mediaLitId);
-        if (
-          provider.mediaId !== asset.mediaLitId ||
-          provider.access.toLowerCase() !== "public" ||
-          provider.group !== asset.providerGroup ||
-          provider.file !== asset.url
-        )
-          add(
-            "UNVERIFIED_MEDIA",
-            "The provider no longer confirms this public asset.",
-            path,
-          );
-      } catch {
-        add(
-          "MEDIA_UNAVAILABLE",
-          "The provider could not verify this asset. Retry before publishing.",
-          path,
-        );
-      }
-    }
-  }
   for (const { href, path } of links) {
-    if (
-      /^https:/i.test(href) &&
-      managedHost(href) &&
-      !assets.some((x) => x.url === href && x.verifiedAt && x.access === "public")
-    )
-      throw new DocsContentError([
-        diagnostic("UNVERIFIED_MEDIA", "Invalid managed-media link reference.", {
-          fieldPath: path,
-        }),
-      ]);
     if (/^https?:|^mailto:/i.test(href)) continue;
     const base = new URL(`/docs/${route}`, "https://docs.invalid");
     const target = new URL(href, base);
@@ -601,7 +511,6 @@ export async function validateDocumentation(
           documentId: row.documentId,
           candidates,
           sections,
-          fresh: true,
           publicationId: settings.activePublicationId,
         },
       ),

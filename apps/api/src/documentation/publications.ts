@@ -20,7 +20,6 @@ const withDbTransaction = <T>(fn: (tx: any) => Promise<T>): Promise<T> =>
 import {
   documents,
   docSections,
-  media,
   documentChunks,
   documentationSettings as settingsTable,
   documentationRevisions as revisions,
@@ -79,7 +78,7 @@ async function event(
   tx: Executor,
   teamId: string,
   settings: any,
-  type: "activation" | "policy" | "purge" | "media_delete",
+  type: "activation" | "policy" | "purge",
   payload: any = {},
 ) {
   await tx.insert(outbox).values({
@@ -88,10 +87,9 @@ async function event(
     policyEpoch: settings.policyEpoch,
     type,
     payload,
-    destinations:
-      type !== "media_delete" && process.env.REVALIDATE_WEBHOOK_SECRET
-        ? ["local", "sites"]
-        : ["local"],
+    destinations: process.env.REVALIDATE_WEBHOOK_SECRET
+      ? ["local", "sites"]
+      : ["local"],
   });
 }
 
@@ -141,15 +139,6 @@ export async function captureRevision(tx: Executor, row: any, live = false) {
     ),
   });
   if (existing) return existing;
-  const assets = await tx.query.media.findMany({ where: eq(media.teamId, row.teamId) });
-  const encoded = JSON.stringify(snapshot);
-  const assetIds = assets
-    .filter(
-      (a: any) =>
-        encoded.includes(JSON.stringify(a.url)) ||
-        encoded.includes(JSON.stringify(a.mediaId)),
-    )
-    .map((a: any) => a.mediaId);
   const [revision] = await tx
     .insert(revisions)
     .values({
@@ -160,7 +149,6 @@ export async function captureRevision(tx: Executor, row: any, live = false) {
       markdown,
       headings: extractDocsHeadings(snapshot.draftContent),
       chunks: extractChunks(snapshot.draftContent),
-      assetIds,
     })
     .returning();
   return revision;
@@ -557,7 +545,6 @@ export async function preparePublication(job: typeof publications.$inferSelect) 
     const report = await draftReport(job.teamId, row.revision.snapshot, {
       documentId: row.member.documentId,
       candidates,
-      fresh: true,
       publicationId: job.basePublicationId,
       sections: job.navigation,
     });
@@ -685,18 +672,6 @@ export async function activatePublication(
       .from(memberships)
       .innerJoin(revisions, eq(memberships.revisionId, revisions.revisionId))
       .where(eq(memberships.publicationId, publicationId));
-    const assets = await tx.query.media.findMany({ where: eq(media.teamId, teamId) });
-    if (
-      rows.some((r: any) =>
-        r.revision.assetIds.some(
-          (id: string) =>
-            !assets.some(
-              (a: any) => a.mediaId === id && a.access === "public" && a.verifiedAt,
-            ),
-        ),
-      )
-    )
-      publicationError("UNVERIFIED_MEDIA", "A captured asset is no longer eligible.");
     const now = new Date();
     if (settings.activePublicationId)
       await tx
@@ -948,32 +923,23 @@ export async function readDocumentation(
     ? await getPublication(teamId, identity.publicationId)
     : null;
   const rows = publication ? await candidateRows(publication.publicationId) : [];
-  const unavailableAssets = await db.query.media.findMany({
-    where: and(eq(media.teamId, teamId), eq(media.access, "unavailable")),
-    columns: { mediaId: true },
-  });
-  const unavailableAssetIds = new Set(unavailableAssets.map((asset) => asset.mediaId));
-  const hidden = (r: (typeof rows)[number]) =>
-    r.revision.assetIds.some((id) => unavailableAssetIds.has(id));
-  const items = rows
-    .filter((r) => !hidden(r))
-    .map((r) => ({
-      ...r.revision.snapshot,
-      documentId: r.member.documentId,
-      revisionId: r.revision.revisionId,
-      revisionHash: r.revision.hash,
-      _chunks: r.revision.chunks,
-      slug: r.member.route,
-      title: r.revision.snapshot.draftTitle,
-      content: r.revision.snapshot.draftContent,
-      excerpt: r.revision.snapshot.draftExcerpt,
-      featuredImage: r.revision.snapshot.draftFeaturedImage,
-      meta: r.revision.snapshot.draftMeta,
-      publishedAt: publication!.activatedAt,
-      createdAt: r.revision.createdAt,
-      updatedAt: r.revision.createdAt,
-      ...identity,
-    }));
+  const items = rows.map((r) => ({
+    ...r.revision.snapshot,
+    documentId: r.member.documentId,
+    revisionId: r.revision.revisionId,
+    revisionHash: r.revision.hash,
+    _chunks: r.revision.chunks,
+    slug: r.member.route,
+    title: r.revision.snapshot.draftTitle,
+    content: r.revision.snapshot.draftContent,
+    excerpt: r.revision.snapshot.draftExcerpt,
+    featuredImage: r.revision.snapshot.draftFeaturedImage,
+    meta: r.revision.snapshot.draftMeta,
+    publishedAt: publication!.activatedAt,
+    createdAt: r.revision.createdAt,
+    updatedAt: r.revision.createdAt,
+    ...identity,
+  }));
   // Recheck policy after loading immutable rows; no content leaves on an epoch race.
   const final = await db.query.documentationSettings.findFirst({
     where: eq(settingsTable.teamId, teamId),
@@ -1177,7 +1143,6 @@ export async function preflightPurge(
           ),
         ),
       ],
-      assetIds: [...new Set(selected.flatMap((r: any) => r.assetIds))],
       publicationId: settings.activePublicationId,
       policyEpoch: settings.policyEpoch,
       purgeGeneration: settings.purgeGeneration,
@@ -1485,20 +1450,6 @@ export async function deliverDocumentationEvent(
     }
     if (destination !== "local")
       throw new Error("Unconfigured documentation delivery destination");
-    if (event.type === "media_delete") {
-      const { deleteMedia } = await import("../media/service.js");
-      await deleteMedia(event.payload.mediaLitId);
-      await db
-        .delete(media)
-        .where(
-          and(
-            eq(media.teamId, event.teamId),
-            eq(media.mediaId, event.payload.mediaId),
-            eq(media.access, "deleting"),
-          ),
-        );
-      return;
-    }
     const rows = await db.query.documents.findMany({
       where: and(eq(documents.teamId, event.teamId), eq(documents.kind, "doc")),
       columns: { id: true },
@@ -1625,24 +1576,6 @@ export async function searchPublishedDocumentation(
   return candidates;
 }
 
-/** Prevent ordinary readers from accessing content that embeds unavailable managed media. */
-export async function documentationReadAllowed(
-  teamId: string,
-  row: any,
-  canManage: boolean,
-  executor: Pick<typeof db, "query"> = db,
-) {
-  if (canManage) return true;
-  const unavailableAssets = await executor.query.media.findMany({
-    where: and(eq(media.teamId, teamId), eq(media.access, "unavailable")),
-  });
-  const encoded = JSON.stringify(row);
-  return !unavailableAssets.some(
-    (asset) =>
-      encoded.includes(JSON.stringify(asset.mediaId)) ||
-      encoded.includes(JSON.stringify(asset.url)),
-  );
-}
 export async function documentationEvidenceAllowed(
   teamId: string,
   evidence: {
@@ -1665,53 +1598,4 @@ export async function documentationEvidenceAllowed(
         (i) => i.documentId === e.documentId && i.revisionId === e.revisionId,
       ),
   );
-}
-
-/** Poll authoritative managed metadata. Network outages do not fabricate an
- * access-loss signal; confirmed media access changes update the serving epoch. */
-export async function reconcileDocumentationMedia(limit = 25) {
-  const assets = await db.query.media.findMany({
-    where: and(
-      sql`${media.verifiedAt} is not null`,
-      sql`${media.access} <> 'deleting'`,
-    ),
-    orderBy: media.updatedAt,
-    limit,
-  });
-  const { getMedia } = await import("../media/service.js");
-  for (const asset of assets) {
-    let unavailable = false;
-    try {
-      const provider = await getMedia(asset.mediaLitId);
-      unavailable =
-        provider.access !== "public" ||
-        provider.group !== asset.providerGroup ||
-        provider.file !== asset.url;
-    } catch (error) {
-      const status =
-        (error as any)?.status ??
-        (error as any)?.statusCode ??
-        (error as any)?.response?.status;
-      if (status !== 404) continue;
-      unavailable = true;
-    }
-    await withDbTransaction(async (tx) => {
-      const settings = await lockSettings(tx, asset.teamId);
-      const current = await tx.query.media.findFirst({ where: eq(media.id, asset.id) });
-      if (!current || current.access === "deleting") return;
-      const nextAccess = unavailable ? "unavailable" : "public";
-      if (current.access === nextAccess) return;
-      await tx
-        .update(media)
-        .set({ access: nextAccess, updatedAt: new Date() })
-        .where(eq(media.id, asset.id));
-      const [updated] = await tx
-        .update(settingsTable)
-        .set({ policyEpoch: settings.policyEpoch + 1 })
-        .where(eq(settingsTable.teamId, asset.teamId))
-        .returning();
-      await event(tx, asset.teamId, updated, "policy");
-    });
-  }
-  return assets.length;
 }

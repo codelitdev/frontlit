@@ -11,6 +11,7 @@ export const Faq: Widget<FaqSettings> = {
   metadata: faqMetadata,
   widget: FaqWidget,
   editor: FaqEditor,
+  titleSize: true,
   getDefaultSettings: () => faqDefaults,
   layouts: [
     { id: "list", name: "List" },

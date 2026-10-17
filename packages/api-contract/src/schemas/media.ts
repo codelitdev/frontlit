@@ -16,19 +16,12 @@ export const mediaSchema = z.object({
 });
 
 export const mediaUploadSignatureSchema = z.object({
-  intentId: z.string().optional(),
   signature: z.string(),
   endpoint: z.string(),
 });
 
 export const createMediaBodySchema = z.object({
-  intentId: z.string().optional(),
   mediaLitId: z.string().min(1),
-  url: z.string().url().optional(),
-  thumbnailUrl: z.string().url().optional(),
-  fileName: z.string().optional(),
-  mimeType: z.string().optional(),
-  size: z.number().int().nonnegative().optional(),
   alt: z.string().optional(),
   caption: z.string().optional(),
 });

@@ -1,4 +1,3 @@
-import { documentationReadAllowed } from "../documentation/publications";
 import { Router } from "express";
 import { createExpressEndpoints, initServer } from "@ts-rest/express";
 import { requireAuth } from "../auth/middleware";
@@ -89,7 +88,7 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
       },
       list: async ({ query, req }: any) => {
         const teamId = req.teamId;
-        let [items, total] = await Promise.all([
+        const [items, total] = await Promise.all([
           listDocuments(kind, {
             teamId,
             q: query.q,
@@ -98,21 +97,6 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
           }),
           countDocuments(kind, { teamId, q: query.q }),
         ]);
-        if (
-          kind === "doc" &&
-          !(
-            req.authz?.isOwner ||
-            req.authz?.permissions?.includes("documentation:manage")
-          )
-        ) {
-          const visible = await Promise.all(
-            items.map(async (row: any) =>
-              (await documentationReadAllowed(teamId, row, false)) ? row : null,
-            ),
-          );
-          items = visible.filter(Boolean) as any;
-          total = items.length;
-        }
         return {
           status: 200,
           body: {
@@ -125,17 +109,7 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
       },
       get: async ({ params, req }: any) => {
         const doc = await getDocumentByDocumentId(kind, params.documentId, req.teamId);
-        if (
-          !doc ||
-          doc.teamId !== req.teamId ||
-          (kind === "doc" &&
-            !(await documentationReadAllowed(
-              req.teamId,
-              doc,
-              req.authz?.isOwner ||
-                req.authz?.permissions?.includes("documentation:manage"),
-            )))
-        )
+        if (!doc || doc.teamId !== req.teamId)
           return { status: 404, body: { error: "Not found" } };
         return {
           status: 200,
@@ -150,16 +124,7 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
               params.documentId,
               req.teamId,
             );
-            if (
-              !current ||
-              !(await documentationReadAllowed(
-                req.teamId,
-                current,
-                req.authz?.isOwner ||
-                  req.authz?.permissions?.includes("documentation:manage"),
-              ))
-            )
-              return { status: 404, body: { error: "Not found" } };
+            if (!current) return { status: 404, body: { error: "Not found" } };
           }
           const doc = await updateDocument(kind, req.teamId, params.documentId, body);
           if (!doc) return { status: 404, body: { error: "Not found" } };
@@ -194,16 +159,7 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
               params.documentId,
               req.teamId,
             );
-            if (
-              !current ||
-              !(await documentationReadAllowed(
-                req.teamId,
-                current,
-                req.authz?.isOwner ||
-                  req.authz?.permissions?.includes("documentation:manage"),
-              ))
-            )
-              return { status: 404, body: { error: "Not found" } };
+            if (!current) return { status: 404, body: { error: "Not found" } };
           }
           const doc = await publishDocument(
             kind,
@@ -241,16 +197,7 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
               params.documentId,
               req.teamId,
             );
-            if (
-              !current ||
-              !(await documentationReadAllowed(
-                req.teamId,
-                current,
-                req.authz?.isOwner ||
-                  req.authz?.permissions?.includes("documentation:manage"),
-              ))
-            )
-              return { status: 404, body: { error: "Not found" } };
+            if (!current) return { status: 404, body: { error: "Not found" } };
           }
           const doc = await discardDocumentDraft(
             kind,
@@ -280,16 +227,7 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
               params.documentId,
               req.teamId,
             );
-            if (
-              !current ||
-              !(await documentationReadAllowed(
-                req.teamId,
-                current,
-                req.authz?.isOwner ||
-                  req.authz?.permissions?.includes("documentation:manage"),
-              ))
-            )
-              return { status: 404, body: { error: "Not found" } };
+            if (!current) return { status: 404, body: { error: "Not found" } };
           }
           const result = await deleteDocument(
             kind,

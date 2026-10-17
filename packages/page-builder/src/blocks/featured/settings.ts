@@ -1,4 +1,9 @@
-import type { Alignment, TextEditorContent, WidgetDefaultSettings } from "../../models";
+import type {
+  Alignment,
+  TextEditorContent,
+  TitleSettings,
+  WidgetDefaultSettings,
+} from "../../models";
 
 export interface FeatureItem {
   title: string;
@@ -7,7 +12,7 @@ export interface FeatureItem {
   icon?: string;
 }
 
-export interface FeaturedSettings extends WidgetDefaultSettings {
+export interface FeaturedSettings extends WidgetDefaultSettings, TitleSettings {
   title?: string;
   description?: TextEditorContent;
   headerAlignment?: Alignment;

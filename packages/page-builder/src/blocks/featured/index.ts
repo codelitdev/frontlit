@@ -11,6 +11,7 @@ export const Featured: Widget<FeaturedSettings> = {
   metadata: featuredMetadata,
   widget: FeaturedWidget,
   editor: FeaturedEditor,
+  titleSize: true,
   getDefaultSettings: () => featuredDefaults,
   layouts: [
     { id: "grid", name: "Grid" },

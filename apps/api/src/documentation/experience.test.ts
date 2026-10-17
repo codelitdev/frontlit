@@ -11,12 +11,10 @@ import {
   documentationMemberships,
   documentationPublications,
   teamSettings,
-  media,
 } from "../db/schema";
 import { getDocsSettings, saveDocumentation } from "./authoring";
 import {
   queuePublication,
-  documentationReadAllowed,
   processPublication,
   readDocumentation,
 } from "./publications";
@@ -148,29 +146,6 @@ describe("D4 private editor lifecycle (DM-EDITOR/DELIVERY, V01,V06,V40)", () => 
     });
     expect(restored?.draftTitle).toBe("First version");
     expect((await readDocumentation(teamId)).items[0].title).toBe("Second version");
-  });
-  it("hides documents referencing unavailable managed media from ordinary readers", async () => {
-    const [asset] = await db
-      .insert(media)
-      .values({
-        teamId,
-        mediaLitId: "url-only",
-        url: "https://media.example.test/file.png",
-        access: "unavailable",
-      })
-      .returning();
-    const row = {
-      documentId: "draft",
-      draftContent: {
-        type: "doc",
-        content: [{ type: "image", attrs: { src: asset.url } }],
-      },
-    };
-    expect(await documentationReadAllowed(teamId, row, false)).toBe(false);
-    expect(await documentationReadAllowed(teamId, row, true)).toBe(true);
-    expect(
-      await documentationReadAllowed((await seedTeam(db)).team.id, row, false),
-    ).toBe(true);
   });
   it("paginates publications sharing a timestamp without skipping receipts", async () => {
     const row = await doc();

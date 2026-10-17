@@ -27,6 +27,8 @@ export interface EditorProps {
   profile?: "default" | "documentation";
   onChange: (json: JSONContent) => void;
   onFlushChangeReady?: (flush: () => void) => void;
+  /** How long to wait after the last edit before calling `onChange`. Defaults to 1000. */
+  debounceMs?: number;
   showToolbar?: boolean;
   editable?: boolean;
   refresh?: number;
@@ -52,6 +54,7 @@ const Editor: EditorType = Object.assign(
     initialContent,
     onChange,
     onFlushChangeReady,
+    debounceMs = 1000,
     placeholder,
     children,
     showToolbar = true,
@@ -86,8 +89,11 @@ const Editor: EditorType = Object.assign(
     );
 
     const changeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pendingJsonRef = useRef<JSONContent | null>(null);
     const onChangeRef = useRef(onChange);
     onChangeRef.current = onChange;
+    const debounceMsRef = useRef(debounceMs);
+    debounceMsRef.current = debounceMs;
 
     const editor = useEditor(
       {
@@ -114,10 +120,13 @@ const Editor: EditorType = Object.assign(
             clearTimeout(changeTimeoutRef.current);
           }
 
+          pendingJsonRef.current = instance.getJSON();
           changeTimeoutRef.current = setTimeout(() => {
-            onChangeRef.current(instance.getJSON());
             changeTimeoutRef.current = null;
-          }, 1000);
+            const json = pendingJsonRef.current;
+            pendingJsonRef.current = null;
+            if (json) onChangeRef.current(json);
+          }, debounceMsRef.current);
         },
         onSelectionUpdate: ({ editor: instance }) => {
           hasInteractedRef.current = true;
@@ -130,15 +139,22 @@ const Editor: EditorType = Object.assign(
         if (!editor || !changeTimeoutRef.current) return;
         clearTimeout(changeTimeoutRef.current);
         changeTimeoutRef.current = null;
+        pendingJsonRef.current = null;
         onChangeRef.current(editor.getJSON());
       });
       return () => onFlushChangeReady?.(() => {});
     }, [editor, onFlushChangeReady]);
     useEffect(() => {
+      // Deliver an edit that is still waiting on the debounce instead of
+      // dropping it, e.g. when the panel hosting the editor is closed.
       return () => {
         if (changeTimeoutRef.current) {
           clearTimeout(changeTimeoutRef.current);
+          changeTimeoutRef.current = null;
         }
+        const json = pendingJsonRef.current;
+        pendingJsonRef.current = null;
+        if (json) onChangeRef.current(json);
       };
     }, []);
 

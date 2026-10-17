@@ -257,9 +257,10 @@ describe("pages draft/publish", () => {
     expect(secondDraft?.draftLayout.at(-1)?.settings).toMatchObject({
       copyrightText: "© Acme",
     });
-    expect(secondDraft?.layout[0].settings).toEqual(
-      DEFAULT_SHARED_WIDGETS.header.settings,
+    expect(secondDraft?.layout[0].settings).toMatchObject(
+      DEFAULT_SHARED_WIDGETS.header.settings as Record<string, unknown>,
     );
+    expect(secondDraft?.layout[0].settings).not.toHaveProperty("logoText");
 
     await publishPage(teamId, first.pageId);
     const secondPublished = await getPageByPageId(second.pageId);

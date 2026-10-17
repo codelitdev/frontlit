@@ -3,6 +3,7 @@ import clsx from "clsx";
 import type { WidgetProps, ThemeStyle } from "../../models";
 import { getMediaUrl, getMediaAlt } from "../../models/media";
 import type { ContentSettings } from "./settings";
+import { renderTitle, titleProps } from "../_shared/title";
 import { Image, TextRenderer } from "../../components";
 import { Header2, Section } from "../../primitives";
 
@@ -21,6 +22,8 @@ const roundedMap: Record<number, string> = {
 export function ContentWidget({
   settings: {
     title,
+    titleLevel,
+    titleSize,
     body,
     media,
     alignment = "left",
@@ -77,7 +80,14 @@ export function ContentWidget({
             )}
           >
             <div className="max-w-lg text-white">
-              {title && <Header2 theme={overriddenTheme}>{title}</Header2>}
+              {title && (
+                <Header2
+                  theme={overriddenTheme}
+                  {...titleProps({ titleLevel, titleSize })}
+                >
+                  {renderTitle(title, overriddenTheme)}
+                </Header2>
+              )}
               {body && <TextRenderer json={body} theme={overriddenTheme} />}
             </div>
           </div>
@@ -112,7 +122,14 @@ export function ContentWidget({
               headerAlignment === "center" ? "items-center text-center" : "items-start",
             )}
           >
-            {title && <Header2 theme={overriddenTheme}>{title}</Header2>}
+            {title && (
+              <Header2
+                theme={overriddenTheme}
+                {...titleProps({ titleLevel, titleSize })}
+              >
+                {renderTitle(title, overriddenTheme)}
+              </Header2>
+            )}
             {body && <TextRenderer json={body} theme={overriddenTheme} />}
           </div>
         </div>

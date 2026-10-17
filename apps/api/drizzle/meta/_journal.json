@@ -57,6 +57,13 @@
       "when": 1791632008498,
       "tag": "0007_docs_proposal_updates",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791863744337,
+      "tag": "0008_remove_media_provenance",
+      "breakpoints": true
     }
   ]
 }

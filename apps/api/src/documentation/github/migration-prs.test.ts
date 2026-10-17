@@ -148,7 +148,7 @@ describe("platform setup PR admission (V46–V48)", () => {
       app,
     );
     const credential = await resolveGitPublisherCredential(actor, {
-      cookie: `better-auth.session_token=${token}`,
+      cookie: `frontlit.session_token=${token}`,
     });
     const input = {
       setupId: setup.setupId,

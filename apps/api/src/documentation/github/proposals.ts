@@ -19,7 +19,7 @@ import {
 import { serializeDates } from "../../utils/public";
 import { DraftConflict, lockSettings } from "../authoring";
 import { requireDocumentationWorkCapacity } from "../admission";
-import { digest, documentationReadAllowed } from "../publications";
+import { digest } from "../publications";
 import { GitHubDocsError } from "./app";
 import { assertGitPublisherCredential, type GitPublisherCredential } from "./publisher";
 import { gitDraftSource } from "./drafts";
@@ -49,8 +49,7 @@ export async function getGitProposal(teamId: string, proposalId: string) {
         eq(documents.kind, "doc"),
       ),
     });
-    if (!doc || !(await documentationReadAllowed(teamId, doc, false)))
-      restricted = true;
+    if (!doc) restricted = true;
   }
   return {
     ...proposalProjection(row),
@@ -225,8 +224,7 @@ export async function submitGitProposal(
           eq(documents.kind, "doc"),
         ),
       });
-      if (!doc || !(await documentationReadAllowed(teamId, doc, false, tx)))
-        fail("GITHUB_PROPOSAL_UNAVAILABLE");
+      if (!doc) fail("GITHUB_PROPOSAL_UNAVAILABLE");
       if (doc.draftVersion !== selection.expectedDraftVersion)
         throw new DraftConflict(doc.draftVersion);
       const source = await gitDraftSource(tx, teamId, doc);

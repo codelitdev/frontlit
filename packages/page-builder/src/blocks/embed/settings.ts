@@ -5,6 +5,6 @@ export interface EmbedSettings extends WidgetDefaultSettings {
   content?: string;
   /** Colon-separated, matching common video-embed aspect ratio labels. */
   aspectRatio?: "16:9" | "4:3" | "1:1" | "default";
-  /** Fixed height in px, used only when `aspectRatio` is "default". */
+  /** Fixed height in px for URL embeds, used only when `aspectRatio` is "default". */
   height?: number;
 }

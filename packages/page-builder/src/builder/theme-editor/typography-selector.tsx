@@ -3,7 +3,8 @@
 import React from "react";
 import type { Typography } from "../../models";
 import { cn } from "../../primitives/lib/utils";
-import { PanelLabel, PanelSelect } from "./ui";
+import { fluidFontSize, TAILWIND_TEXT_PX } from "../../primitives/heading";
+import { PanelInput, PanelLabel, PanelSelect } from "./ui";
 import {
   fontSizeOptions,
   fontWeightOptions,
@@ -16,6 +17,14 @@ import {
 interface TypographySelectorProps {
   value: Typography;
   onChange: (value: Typography) => void;
+  /** Offer a size that scales from phone to desktop. */
+  allowFluid?: boolean;
+}
+
+/** Starting range when scaling is switched on: the fixed size on desktop, ~⅔ of it on a phone. */
+function defaultFluid(fontSize?: string) {
+  const max = TAILWIND_TEXT_PX[fontSize ?? ""] ?? 48;
+  return { min: Math.round(max * 0.66), max };
 }
 
 /**
@@ -23,8 +32,13 @@ interface TypographySelectorProps {
  * using native selects (with `<optgroup>` for font categories) instead of
  * Radix Select.
  */
-export function TypographySelector({ value, onChange }: TypographySelectorProps) {
+export function TypographySelector({
+  value,
+  onChange,
+  allowFluid,
+}: TypographySelectorProps) {
   const update = (patch: Partial<Typography>) => onChange({ ...value, ...patch });
+  const fluid = value?.fluid;
 
   return (
     <div className="space-y-6 p-2">
@@ -40,6 +54,7 @@ export function TypographySelector({ value, onChange }: TypographySelectorProps)
               value?.letterSpacing || "",
               value?.textTransform || "normal-case",
             )}
+            style={fluid ? { fontSize: fluidFontSize(fluid) } : undefined}
           >
             The quick brown fox jumps over the lazy dog
           </p>
@@ -69,9 +84,55 @@ export function TypographySelector({ value, onChange }: TypographySelectorProps)
             ))}
           </select>
         </div>
+        {allowFluid && (
+          <div className="space-y-3 rounded-md border p-2">
+            <label className="flex items-center justify-between gap-3 text-xs font-medium text-foreground">
+              Scale with screen size
+              <input
+                type="checkbox"
+                checked={Boolean(fluid)}
+                onChange={(e) =>
+                  update({
+                    fluid: e.target.checked ? defaultFluid(value.fontSize) : undefined,
+                  })
+                }
+              />
+            </label>
+            {fluid && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <PanelLabel htmlFor="fluid-min">Phone size (px)</PanelLabel>
+                  <PanelInput
+                    id="fluid-min"
+                    type="number"
+                    min={8}
+                    max={200}
+                    value={fluid.min}
+                    onChange={(e) =>
+                      update({ fluid: { ...fluid, min: Number(e.target.value) || 0 } })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <PanelLabel htmlFor="fluid-max">Desktop size (px)</PanelLabel>
+                  <PanelInput
+                    id="fluid-max"
+                    type="number"
+                    min={8}
+                    max={200}
+                    value={fluid.max}
+                    onChange={(e) =>
+                      update({ fluid: { ...fluid, max: Number(e.target.value) || 0 } })
+                    }
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <PanelSelect
-            title="Font Size"
+            title={fluid ? "Font Size (unused while scaling)" : "Font Size"}
             value={value?.fontSize || ""}
             onChange={(v) => update({ fontSize: v as Typography["fontSize"] })}
             options={fontSizeOptions}

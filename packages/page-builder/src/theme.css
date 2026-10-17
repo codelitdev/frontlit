@@ -160,6 +160,18 @@
   --font-inter:
     var(--font-inter, Inter), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
     "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-archivo:
+    var(--font-archivo, Archivo), ui-sans-serif, system-ui, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-jetbrains-mono:
+    var(--font-jetbrains-mono, "JetBrains Mono"), ui-monospace, SFMono-Regular, Menlo,
+    Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-hanken-grotesk:
+    var(--font-hanken-grotesk, "Hanken Grotesk"), ui-sans-serif, system-ui, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-spline-sans-mono:
+    var(--font-spline-sans-mono, "Spline Sans Mono"), ui-monospace, SFMono-Regular,
+    Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --font-alegreya:
     var(--font-alegreya, Alegreya), ui-serif, Georgia, Cambria, "Times New Roman",
     Times, serif;

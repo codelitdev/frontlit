@@ -1,6 +1,3 @@
-import { lockSettings } from "../documentation/authoring";
-import { withDbTransaction } from "../db/transaction";
-import { registerVerifiedMedia, MediaProvenanceError } from "./provenance";
 import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "../db/client";
 import {
@@ -9,9 +6,18 @@ import {
   pages,
   teamSettings,
   documentationRevisions,
-  documentationDeliveryOutbox,
 } from "../db/schema";
-import { deleteMedia as deleteFromMediaLit } from "./service";
+import { deleteMedia as deleteFromMediaLit, sealMedia } from "./service";
+
+export class MediaError extends Error {
+  constructor(
+    public code: string,
+    message: string,
+    public status = 422,
+  ) {
+    super(message);
+  }
+}
 
 export function isUnsplashUrl(url?: string | null): boolean {
   if (!url) return false;
@@ -25,22 +31,57 @@ export function isUnsplashUrl(url?: string | null): boolean {
   }
 }
 
-/** Seals the freshly-uploaded MediaLit object or stores provisioned
- * MediaLit media and inserts the team's library row — registration is the commit point.
- * The media library is exclusive to uploads performed on the team and backed by MediaLit integration. */
+/** Seals the freshly-uploaded MediaLit object (temp → permanent) and adds
+ * it to the team's library. File metadata comes from MediaLit, not the client. */
 export async function registerMedia(input: {
   teamId: string;
   mediaLitId: string;
-  intentId?: string;
-  url?: string;
-  thumbnailUrl?: string | null;
-  fileName?: string | null;
-  mimeType?: string | null;
-  size?: number | null;
   alt?: string | null;
   caption?: string | null;
 }) {
-  return registerVerifiedMedia(input);
+  if (!input.mediaLitId)
+    throw new MediaError("INVALID_MEDIA", "Invalid media reference.");
+  const existing = await db.query.media.findFirst({
+    where: eq(media.mediaLitId, input.mediaLitId),
+  });
+  if (existing && existing.teamId !== input.teamId)
+    throw new MediaError("INVALID_MEDIA", "Invalid media reference.");
+  const meta = {
+    ...(input.alt !== undefined ? { alt: input.alt } : {}),
+    ...(input.caption !== undefined ? { caption: input.caption } : {}),
+  };
+  if (existing) {
+    const [row] = await db
+      .update(media)
+      .set({ ...meta, updatedAt: new Date() })
+      .where(eq(media.id, existing.id))
+      .returning();
+    return row;
+  }
+  let file: Awaited<ReturnType<typeof sealMedia>>;
+  try {
+    file = await sealMedia(input.mediaLitId);
+  } catch {
+    throw new MediaError(
+      "MEDIA_PROVIDER_UNAVAILABLE",
+      "Could not save the upload. Retry registration.",
+      503,
+    );
+  }
+  const [row] = await db
+    .insert(media)
+    .values({
+      teamId: input.teamId,
+      mediaLitId: input.mediaLitId,
+      url: file.file,
+      thumbnailUrl: file.thumbnail ?? null,
+      fileName: file.originalFileName,
+      mimeType: file.mimeType,
+      size: file.size,
+      ...meta,
+    })
+    .returning();
+  return row;
 }
 
 export async function listMedia(input: {
@@ -139,12 +180,6 @@ export async function getMediaByMediaId(teamId: string, mediaId: string) {
   });
 }
 
-async function getMediaByMediaLitId(teamId: string, mediaLitId: string) {
-  return db.query.media.findFirst({
-    where: and(eq(media.teamId, teamId), eq(media.mediaLitId, mediaLitId)),
-  });
-}
-
 export async function updateMedia(
   teamId: string,
   mediaId: string,
@@ -164,31 +199,16 @@ export async function updateMedia(
 export async function deleteMediaRecord(teamId: string, mediaId: string) {
   const existing = await getMediaByMediaId(teamId, mediaId);
   if (!existing) return { ok: false as const, reason: "not_found" as const };
-
-  return withDbTransaction(async (tx) => {
-    const settings = await lockSettings(tx, teamId);
-    const counts = await countMediaReferences(teamId);
-    if (counts[mediaId])
-      throw new MediaProvenanceError(
-        "MEDIA_IN_USE",
-        "Remove this asset from saved content before deleting it.",
-        409,
-      );
-    // Commit deleting state and durable work before provider I/O. New docs
-    // references reject this state under the same authoring/publication lock.
-    await tx
-      .update(media)
-      .set({ access: "deleting", updatedAt: new Date() })
-      .where(eq(media.id, existing.id));
-    await tx.insert(documentationDeliveryOutbox).values({
-      teamId,
-      publicationId: settings.activePublicationId,
-      policyEpoch: settings.policyEpoch,
-      type: "media_delete",
-      payload: { mediaId: existing.mediaId, mediaLitId: existing.mediaLitId },
-    });
-    return { ok: true as const };
-  });
+  const counts = await countMediaReferences(teamId);
+  if (counts[mediaId])
+    throw new MediaError(
+      "MEDIA_IN_USE",
+      "Remove this asset from saved content before deleting it.",
+      409,
+    );
+  await deleteFromMediaLit(existing.mediaLitId);
+  await db.delete(media).where(eq(media.id, existing.id));
+  return { ok: true as const };
 }
 
 /** Remove externally stored MediaLit objects before the owning team row

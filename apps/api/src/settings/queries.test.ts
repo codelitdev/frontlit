@@ -23,7 +23,7 @@ describe("team settings", () => {
   it("lazily creates default settings on first read", async () => {
     const settings = await getTeamSettings(teamId);
 
-    expect(settings.title).toBeNull();
+    expect(settings.title).toBe("Test Team");
     expect(settings.codeInjectionHead).toBeNull();
     expect(settings.codeInjectionBody).toBeNull();
     expect(settings.themeId).toBeNull();
@@ -41,6 +41,20 @@ describe("team settings", () => {
       moveable: false,
     });
     expect(settings.draftSharedWidgets).toEqual(settings.sharedWidgets);
+  });
+
+  it("starts with the team's own header and footer, not FrontLit's sample chrome", async () => {
+    const { sharedWidgets } = await getTeamSettings(teamId);
+    const headerSettings = sharedWidgets.header.settings as Record<string, unknown>;
+    const footerSettings = sharedWidgets.footer.settings as Record<string, unknown>;
+
+    // Logo text is left unset so header and footer follow Branding.
+    expect(headerSettings.logoText).toBeUndefined();
+    expect(headerSettings.ctaLabel).toBe("Contact us");
+    expect(headerSettings.ctaHref).toBe("/help");
+    expect(footerSettings.logoText).toBeUndefined();
+    expect(footerSettings.copyrightText).toBe("© Test Team. All rights reserved.");
+    expect(JSON.stringify(sharedWidgets)).not.toContain("FrontLit");
   });
 
   it("is idempotent — a second read returns the same row", async () => {
@@ -90,6 +104,6 @@ describe("team settings", () => {
     const { team: other } = await seedTeam(db, { name: "Other" });
 
     const otherSettings = await getTeamSettings(other.id);
-    expect(otherSettings.title).toBeNull();
+    expect(otherSettings.title).toBe("Other");
   });
 });

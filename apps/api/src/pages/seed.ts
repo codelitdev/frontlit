@@ -242,9 +242,8 @@ export const STANDARD_PAGES: StandardPageDefinition[] = [
   {
     name: "Homepage",
     slug: "",
-    title: "FrontLit — the front office of your SaaS",
-    description:
-      "Build your website, publish content, support users, and send email from one place.",
+    // No SEO title or description: the homepage falls back to the
+    // Branding site title and subtitle.
     layout: createHomepageBody(),
   },
   { name: "Blog", slug: "blog" },

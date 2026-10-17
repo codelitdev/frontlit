@@ -11,13 +11,11 @@ import {
   deleteMediaRecord,
   getMediaByMediaId,
   listMedia,
+  MediaError,
   registerMedia,
   updateMedia,
 } from "../../media/queries";
-import {
-  createLibraryUploadIntent,
-  MediaProvenanceError,
-} from "../../media/provenance";
+import { getMediaUploadSignature } from "../../media/service";
 import { AUTH_ERROR, INTERNAL_ERROR, NOT_FOUND, jsonResult } from "./responses";
 import { getTeamId } from "./auth";
 import { omitInternal, serializeDates } from "../../utils/public";
@@ -47,10 +45,10 @@ export function registerMediaTools(server: McpToolRegistrar): void {
       const teamId = getTeamId(extra);
       if (!teamId) return AUTH_ERROR;
       try {
-        const result = await createLibraryUploadIntent(teamId);
+        const result = await getMediaUploadSignature(teamId);
         return jsonResult(result);
       } catch (error) {
-        if (error instanceof MediaProvenanceError)
+        if (error instanceof MediaError)
           return {
             ...jsonResult({ error: error.message, code: error.code }),
             isError: true,
@@ -84,7 +82,7 @@ export function registerMediaTools(server: McpToolRegistrar): void {
         if (!item) return INTERNAL_ERROR;
         return jsonResult(toPublicMedia(item));
       } catch (error) {
-        if (error instanceof MediaProvenanceError)
+        if (error instanceof MediaError)
           return {
             ...jsonResult({ error: error.message, code: error.code }),
             isError: true,
@@ -119,7 +117,7 @@ export function registerMediaTools(server: McpToolRegistrar): void {
         ]);
         return jsonResult({ items: items.map(toPublicMedia), total });
       } catch (error) {
-        if (error instanceof MediaProvenanceError)
+        if (error instanceof MediaError)
           return {
             ...jsonResult({ error: error.message, code: error.code }),
             isError: true,
@@ -149,7 +147,7 @@ export function registerMediaTools(server: McpToolRegistrar): void {
         if (!item) return NOT_FOUND;
         return jsonResult(toPublicMedia(item));
       } catch (error) {
-        if (error instanceof MediaProvenanceError)
+        if (error instanceof MediaError)
           return {
             ...jsonResult({ error: error.message, code: error.code }),
             isError: true,
@@ -184,7 +182,7 @@ export function registerMediaTools(server: McpToolRegistrar): void {
         if (!item) return NOT_FOUND;
         return jsonResult(toPublicMedia(item));
       } catch (error) {
-        if (error instanceof MediaProvenanceError)
+        if (error instanceof MediaError)
           return {
             ...jsonResult({ error: error.message, code: error.code }),
             isError: true,
@@ -214,7 +212,7 @@ export function registerMediaTools(server: McpToolRegistrar): void {
         if (!result.ok) return NOT_FOUND;
         return jsonResult({ message: "Media deleted." });
       } catch (error) {
-        if (error instanceof MediaProvenanceError)
+        if (error instanceof MediaError)
           return {
             ...jsonResult({ error: error.message, code: error.code }),
             isError: true,

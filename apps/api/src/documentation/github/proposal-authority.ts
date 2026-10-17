@@ -6,7 +6,6 @@ import {
   documents,
 } from "../../db/schema";
 import { lockSettings } from "../authoring";
-import { documentationReadAllowed } from "../publications";
 import { GitHubDocsError } from "./app";
 import { assertGitPublisherCredential } from "./publisher";
 
@@ -76,8 +75,7 @@ export async function withGitProposalAuthority<T>(
       });
       // Later draft edits are allowed, but purge of an identity blocks
       // publishing its captured private text, even if the worker already prepared it.
-      if (!doc || !(await documentationReadAllowed(input.teamId, doc, false, tx)))
-        throw new GitHubDocsError("GITHUB_PROPOSAL_UNAVAILABLE", 409);
+      if (!doc) throw new GitHubDocsError("GITHUB_PROPOSAL_UNAVAILABLE", 409);
     }
     await tx
       .update(proposals)

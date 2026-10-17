@@ -26,20 +26,24 @@ export async function generateMetadata(
   if (!page) return {};
 
   const [settings, previous] = await Promise.all([getSettings(teamId), parent]);
+  const isHomepage = page.slug === "";
   const seo = resolveSeo(
     {
       title: page.title,
       description: page.description,
       image: page.socialImage,
       robotsAllowed: page.robotsAllowed,
-      fallbackName: page.name,
+      // The homepage falls back to the site title, not "Homepage".
+      fallbackName: isHomepage ? undefined : page.name,
     },
     settings,
     previous.title?.absolute || "FrontLit site",
   );
 
   return {
-    title: page.slug === "" ? seo.title : `${seo.title} | ${previous.title?.absolute}`,
+    // The layout's template appends the site title; the homepage is the
+    // site itself, so its title stands alone.
+    title: isHomepage ? { absolute: seo.title } : seo.title,
     description: seo.description ?? undefined,
     alternates: {
       canonical: `https://${await getCanonicalHost()}/${page.slug}`,
@@ -97,6 +101,8 @@ export default async function SitePage({ params }: Props) {
           teamId,
           pageSlug: page.slug,
           publicApiBaseUrl: API_PUBLIC_URL,
+          siteTitle: settings?.title ?? undefined,
+          siteSubtitle: settings?.subtitle ?? undefined,
         }}
       />
     </>

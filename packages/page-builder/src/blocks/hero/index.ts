@@ -11,6 +11,7 @@ export const Hero: Widget<HeroSettings> = {
   metadata: heroMetadata,
   widget: HeroWidget,
   editor: HeroEditor,
+  titleSize: true,
   getDefaultSettings: () => heroDefaults,
   layouts: [
     { id: "normal", name: "Standard" },

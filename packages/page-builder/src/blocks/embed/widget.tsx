@@ -2,7 +2,7 @@ import React from "react";
 import { Code2 } from "lucide-react";
 import type { ThemeStyle, WidgetProps } from "../../models";
 import type { EmbedSettings } from "./settings";
-import { SandboxedEmbed } from "../../components";
+import { InlineEmbed } from "../../components";
 import { Section } from "../../primitives";
 
 const aspectRatioMap: Record<string, number> = {
@@ -59,17 +59,15 @@ export function EmbedWidget({
   const isScript = contentType === "script";
   const ratio = aspectRatio !== "default" ? aspectRatioMap[aspectRatio] : undefined;
 
+  // Snippets size themselves unless an aspect ratio is set; URL iframes need
+  // an explicit height.
   const containerStyle: React.CSSProperties = ratio
     ? { position: "relative", paddingTop: `${100 / ratio}%` }
-    : !isScript
-      ? { height }
-      : {};
+    : { position: "relative", height: isScript ? undefined : height };
 
-  const iframeStyle: React.CSSProperties = ratio
+  const fillStyle: React.CSSProperties = ratio
     ? { position: "absolute", inset: 0, width: "100%", height: "100%" }
-    : isScript
-      ? { width: "100%", height }
-      : { width: "100%", height: "100%" };
+    : { width: "100%", height: "100%" };
 
   return (
     <Section
@@ -80,16 +78,20 @@ export function EmbedWidget({
     >
       <div style={containerStyle}>
         {isScript ? (
-          <SandboxedEmbed content={content} style={iframeStyle} />
+          <InlineEmbed content={content} style={ratio ? fillStyle : undefined} />
         ) : (
           <iframe
             src={content}
-            style={iframeStyle}
+            style={fillStyle}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
             title="Embedded content"
           />
         )}
+        {/* Clicks inside an iframe (a URL embed, or one inside a snippet)
+            never reach the editor, so cover the embed while editing to let a
+            click select the block. */}
+        {editing && <div className="absolute inset-0" />}
       </div>
     </Section>
   );

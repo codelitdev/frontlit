@@ -450,7 +450,6 @@ export function searchUnsplash(q?: string) {
 }
 
 export function registerMedia(input: {
-  intentId?: string;
   mediaLitId: string;
   alt?: string;
   caption?: string;
@@ -1457,7 +1456,8 @@ export interface DomainSettings {
     cnameTarget: string;
     txtName: string;
     txtValue: string;
-    kind: "cname" | "alias";
+    kind: "cname" | "a";
+    aRecords: string[];
     txtSatisfied: boolean | null;
     routingSatisfied: boolean | null;
   } | null;

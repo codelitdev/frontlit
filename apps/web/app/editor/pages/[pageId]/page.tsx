@@ -21,7 +21,7 @@ import {
   resolveEditorTheme,
   themeSnapshot,
 } from "@/lib/page-theme";
-import { EditorToolbar } from "@/components/workspace/editor-toolbar";
+import { EditorToolbar, type SaveState } from "@/components/workspace/editor-toolbar";
 import { FullScreenLoading } from "@/components/workspace/loading";
 import { SlugEditor } from "@/components/workspace/slug-editor";
 import { useEditorAccess } from "@/components/workspace/editor-access-gate";
@@ -37,7 +37,11 @@ export default function PageEditorPage({
   const [page, setPage] = useState<Page | null>(null);
   const [initialTheme, setInitialTheme] = useState<BuilderTheme | undefined>(undefined);
   const [customThemes, setCustomThemes] = useState<BuilderTheme[] | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [branding, setBranding] = useState<{
+    siteTitle?: string;
+    siteSubtitle?: string;
+  }>({});
+  const [saveState, setSaveState] = useState<SaveState>("idle");
   const [publishing, setPublishing] = useState(false);
   // Bumped only when the draft is reset from outside the builder (discard),
   // forcing a remount so the (otherwise uncontrolled) builder re-reads the
@@ -76,7 +80,9 @@ export default function PageEditorPage({
     Promise.all([
       getPage(pageId),
       canReadThemes ? listThemes() : Promise.resolve({ items: [] }),
-      canReadSettings ? getTeamSettings() : Promise.resolve({ themeId: null }),
+      canReadSettings
+        ? getTeamSettings()
+        : Promise.resolve({ themeId: null, title: null, subtitle: null }),
     ])
       .then(async ([loaded, savedThemes, siteSettings]) => {
         if (cancelled) return;
@@ -117,6 +123,10 @@ export default function PageEditorPage({
           : null;
         setInitialTheme(resolvedTheme);
         setCustomThemes(mappedThemes);
+        setBranding({
+          siteTitle: siteSettings.title ?? undefined,
+          siteSubtitle: siteSettings.subtitle ?? undefined,
+        });
         setPage(loaded);
       })
       .catch((error) => {
@@ -134,7 +144,7 @@ export default function PageEditorPage({
   }, [canReadSettings, canReadThemes, pageId]);
 
   async function handleChange(state: PageBuilderState) {
-    setSaving(true);
+    setSaveState("saving");
     try {
       if (canWriteThemes) {
         await persistCustomThemes(state.customThemes, {
@@ -166,8 +176,9 @@ export default function PageEditorPage({
         appliedSiteThemeSnapshotRef.current = selectedThemeSnapshot;
       }
       setPage(updated);
-    } finally {
-      setSaving(false);
+      setSaveState("saved");
+    } catch {
+      setSaveState("error");
     }
   }
 
@@ -217,7 +228,7 @@ export default function PageEditorPage({
         backLabel="Pages"
         status={page.status}
         statusTestId="page-status-badge"
-        saving={saving}
+        saveState={saveState}
         publishing={publishing}
         leading={
           <SlugEditor
@@ -240,6 +251,7 @@ export default function PageEditorPage({
           initialLayout={page.draftLayout}
           initialTheme={initialTheme}
           themes={{ custom: customThemes }}
+          pageData={branding}
           allowThemeEditing={canWriteThemes && canWriteSettings}
           initialSeo={{
             title: page.draftTitle ?? undefined,

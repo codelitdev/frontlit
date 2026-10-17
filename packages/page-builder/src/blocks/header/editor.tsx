@@ -38,7 +38,8 @@ export function HeaderEditor({
         <TextField
           label="Logo text"
           value={settings.logoText}
-          onChange={(logoText) => update({ logoText })}
+          hint="Leave empty to use the site title from Branding."
+          onChange={(logoText) => update({ logoText: logoText || undefined })}
         />
         <ImageField
           label="Logo image"
@@ -118,11 +119,6 @@ export function HeaderEditor({
           label="Backdrop blur"
           value={settings.backdropBlur}
           onChange={(backdropBlur) => update({ backdropBlur })}
-        />
-        <ToggleField
-          label="Color mode switcher"
-          value={settings.showThemeSwitcher !== false}
-          onChange={(showThemeSwitcher) => update({ showThemeSwitcher })}
         />
       </FieldGroup>
     </div>

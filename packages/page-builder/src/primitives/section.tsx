@@ -63,7 +63,13 @@ export const Section: React.FC<SectionProps> = ({
   component = "section",
   ...props
 }) => {
-  const classes = cn("bg-background text-foreground relative", className);
+  const classes = cn(
+    "bg-background text-foreground relative",
+    component === "section" &&
+      theme?.structure?.section?.dividers &&
+      "border-t border-border",
+    className,
+  );
   const isFixed =
     background &&
     background.type !== "color" &&

@@ -269,3 +269,38 @@
   font-style: normal;
   font-display: swap;
 }
+
+@font-face {
+  font-family: Archivo;
+  src: url("../fonts/archivo/archivo-latin-variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../fonts/jetbrains-mono/jetbrains-mono-latin-variable.woff2")
+    format("woff2");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Hanken Grotesk";
+  src: url("../fonts/hanken-grotesk/hanken-grotesk-latin-variable.woff2")
+    format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Spline Sans Mono";
+  src: url("../fonts/spline-sans-mono/spline-sans-mono-latin-variable.woff2")
+    format("woff2");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}

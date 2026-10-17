@@ -78,6 +78,22 @@ export function StructureSelector({ type, theme, onChange }: StructureSelectorPr
           updatePadding({ y });
         }}
       />
+      <label className="flex items-center justify-between gap-3 text-xs font-medium text-foreground">
+        Hairline between sections
+        <input
+          type="checkbox"
+          checked={Boolean(sectionValue?.dividers)}
+          onChange={(e) =>
+            onChange({
+              ...theme,
+              structure: {
+                ...theme.structure,
+                section: { ...sectionValue, dividers: e.target.checked || undefined },
+              },
+            })
+          }
+        />
+      </label>
     </div>
   );
 }

@@ -10,6 +10,9 @@ export const openSans = localFont({
   ],
   variable: "--font-open-sans",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
 });
 
 export const montserrat = localFont({
@@ -22,6 +25,9 @@ export const montserrat = localFont({
   ],
   variable: "--font-montserrat",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
 });
 
 export const lato = localFont({
@@ -54,6 +60,9 @@ export const lato = localFont({
   ],
   variable: "--font-lato",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
 });
 
 export const poppins = localFont({
@@ -106,6 +115,9 @@ export const poppins = localFont({
   ],
   variable: "--font-poppins",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
 });
 
 export const sourceSans3 = localFont({
@@ -118,6 +130,9 @@ export const sourceSans3 = localFont({
   ],
   variable: "--font-source-sans-3",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
 });
 
 export const raleway = localFont({
@@ -130,6 +145,9 @@ export const raleway = localFont({
   ],
   variable: "--font-raleway",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
 });
 
 export const notoSans = localFont({
@@ -142,6 +160,9 @@ export const notoSans = localFont({
   ],
   variable: "--font-noto-sans",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
 });
 
 export const merriweather = localFont({
@@ -154,6 +175,10 @@ export const merriweather = localFont({
   ],
   variable: "--font-merriweather",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
+  adjustFontFallback: "Times New Roman",
 });
 
 export const inter = localFont({
@@ -166,6 +191,9 @@ export const inter = localFont({
   ],
   variable: "--font-inter",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
 });
 
 export const alegreya = localFont({
@@ -178,6 +206,10 @@ export const alegreya = localFont({
   ],
   variable: "--font-alegreya",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
+  adjustFontFallback: "Times New Roman",
 });
 
 export const roboto = localFont({
@@ -190,6 +222,9 @@ export const roboto = localFont({
   ],
   variable: "--font-roboto",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
 });
 
 export const mulish = localFont({
@@ -202,6 +237,9 @@ export const mulish = localFont({
   ],
   variable: "--font-mulish",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
 });
 
 export const nunito = localFont({
@@ -214,6 +252,9 @@ export const nunito = localFont({
   ],
   variable: "--font-nunito",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
 });
 
 export const rubik = localFont({
@@ -226,6 +267,9 @@ export const rubik = localFont({
   ],
   variable: "--font-rubik",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
 });
 
 export const playfairDisplay = localFont({
@@ -238,6 +282,10 @@ export const playfairDisplay = localFont({
   ],
   variable: "--font-playfair-display",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
+  adjustFontFallback: "Times New Roman",
 });
 
 export const oswald = localFont({
@@ -250,6 +298,9 @@ export const oswald = localFont({
   ],
   variable: "--font-oswald",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
 });
 
 export const ptSans = localFont({
@@ -267,6 +318,9 @@ export const ptSans = localFont({
   ],
   variable: "--font-pt-sans",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
 });
 
 export const workSans = localFont({
@@ -279,6 +333,9 @@ export const workSans = localFont({
   ],
   variable: "--font-work-sans",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
 });
 
 export const robotoSlab = localFont({
@@ -291,6 +348,10 @@ export const robotoSlab = localFont({
   ],
   variable: "--font-roboto-slab",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
+  adjustFontFallback: "Times New Roman",
 });
 
 export const sourceSerif4 = localFont({
@@ -303,6 +364,10 @@ export const sourceSerif4 = localFont({
   ],
   variable: "--font-source-serif-4",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
+  adjustFontFallback: "Times New Roman",
 });
 
 export const bebasNeue = localFont({
@@ -315,6 +380,9 @@ export const bebasNeue = localFont({
   ],
   variable: "--font-bebas-neue",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
 });
 
 export const quicksand = localFont({
@@ -327,4 +395,71 @@ export const quicksand = localFont({
   ],
   variable: "--font-quicksand",
   display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
+});
+
+export const archivo = localFont({
+  src: [
+    {
+      path: "../public/fonts/archivo/archivo-latin-variable.woff2",
+      weight: "100 900",
+      style: "normal",
+    },
+  ],
+  variable: "--font-archivo",
+  display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
+});
+
+export const jetbrainsMono = localFont({
+  src: [
+    {
+      path: "../public/fonts/jetbrains-mono/jetbrains-mono-latin-variable.woff2",
+      weight: "100 800",
+      style: "normal",
+    },
+  ],
+  variable: "--font-jetbrains-mono",
+  display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
+  // Arial metrics don't fit a monospace face; fall back to the mono stack.
+  adjustFontFallback: false,
+});
+
+export const hankenGroteskLocal = localFont({
+  src: [
+    {
+      path: "../public/fonts/hanken-grotesk/hanken-grotesk-latin-variable.woff2",
+      weight: "100 900",
+      style: "normal",
+    },
+  ],
+  variable: "--font-hanken-grotesk",
+  display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
+});
+
+export const splineSansMonoLocal = localFont({
+  src: [
+    {
+      path: "../public/fonts/spline-sans-mono/spline-sans-mono-latin-variable.woff2",
+      weight: "300 700",
+      style: "normal",
+    },
+  ],
+  variable: "--font-spline-sans-mono",
+  display: "swap",
+  // Theme fonts load only when a page uses them; preloading every
+  // family would download all of them on every page.
+  preload: false,
+  // Arial metrics don't fit a monospace face; fall back to the mono stack.
+  adjustFontFallback: false,
 });

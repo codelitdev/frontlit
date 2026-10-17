@@ -19,6 +19,7 @@ import {
 } from "./oauth-team-selection";
 import { MCP_SCOPES_SUPPORTED } from "../mcp/policy";
 import { fetchClientMetadataResource } from "./cimd-fetch";
+import { AUTH_COOKIE_PREFIX } from "./cookie-prefix";
 
 export const webClientUrl = process.env.WEB_CLIENT || "http://localhost:3000";
 const apiUrl = process.env.API_PUBLIC_URL || process.env.BETTER_AUTH_URL;
@@ -144,14 +145,17 @@ export const auth = betterAuth({
       );
     },
   },
-  advanced: authCookieDomain
-    ? {
-        crossSubDomainCookies: {
-          enabled: true,
-          domain: authCookieDomain,
-        },
-      }
-    : undefined,
+  advanced: {
+    cookiePrefix: AUTH_COOKIE_PREFIX,
+    ...(authCookieDomain
+      ? {
+          crossSubDomainCookies: {
+            enabled: true,
+            domain: authCookieDomain,
+          },
+        }
+      : {}),
+  },
   user: {
     modelName: "authUser",
   },

@@ -4,6 +4,7 @@ import * as Icons from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ThemeStyle, WidgetProps } from "../../models";
 import type { FeaturedSettings } from "./settings";
+import { renderTitle, titleProps } from "../_shared/title";
 import { TextRenderer } from "../../components";
 import {
   Header1,
@@ -30,6 +31,8 @@ function resolveIcon(name?: string): LucideIcon {
 export function FeaturedWidget({
   settings: {
     title,
+    titleLevel,
+    titleSize,
     description,
     headerAlignment = "center",
     items,
@@ -61,7 +64,9 @@ export function FeaturedWidget({
             headerAlignment === "center" ? "items-center text-center" : "items-start",
           )}
         >
-          <Header1 theme={overriddenTheme}>{title}</Header1>
+          <Header1 theme={overriddenTheme} {...titleProps({ titleLevel, titleSize })}>
+            {renderTitle(title, overriddenTheme)}
+          </Header1>
           {description && (
             <Subheader1 theme={overriddenTheme} component="span">
               <TextRenderer json={description} theme={overriddenTheme} />
