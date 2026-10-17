@@ -40,6 +40,8 @@ export default function PageEditorPage({
   const [branding, setBranding] = useState<{
     siteTitle?: string;
     siteSubtitle?: string;
+    siteLogoUrl?: string;
+    siteLogoAlt?: string;
   }>({});
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [publishing, setPublishing] = useState(false);
@@ -82,7 +84,7 @@ export default function PageEditorPage({
       canReadThemes ? listThemes() : Promise.resolve({ items: [] }),
       canReadSettings
         ? getTeamSettings()
-        : Promise.resolve({ themeId: null, title: null, subtitle: null }),
+        : Promise.resolve({ themeId: null, title: null, subtitle: null, logo: null }),
     ])
       .then(async ([loaded, savedThemes, siteSettings]) => {
         if (cancelled) return;
@@ -126,6 +128,16 @@ export default function PageEditorPage({
         setBranding({
           siteTitle: siteSettings.title ?? undefined,
           siteSubtitle: siteSettings.subtitle ?? undefined,
+          siteLogoUrl:
+            typeof siteSettings.logo?.url === "string"
+              ? siteSettings.logo.url
+              : undefined,
+          siteLogoAlt:
+            typeof siteSettings.logo?.alt === "string"
+              ? siteSettings.logo.alt
+              : typeof siteSettings.logo?.caption === "string"
+                ? siteSettings.logo.caption
+                : undefined,
         });
         setPage(loaded);
       })
