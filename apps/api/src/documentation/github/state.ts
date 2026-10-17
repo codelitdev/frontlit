@@ -6,6 +6,7 @@ import {
   documentationPublications as publications,
 } from "../../db/schema";
 import { lockSettings } from "../authoring";
+import { hasOpenPagesSetup } from "../../pages/git-export";
 import { requireDocumentationWorkCapacity } from "../admission";
 import { DocsGitHubApp, getDocsGitHubAppConfig, GitHubDocsError } from "./app";
 
@@ -61,7 +62,9 @@ export async function enqueueGitSync(
     if (
       !binding ||
       // Docs need the docs source on Git; a pages-only repo needs a pages folder.
-      (binding.docsEnabled ? settings.source !== "git" : !binding.pagesDirectory) ||
+      (binding.docsEnabled
+        ? settings.source !== "git"
+        : !binding.pagesDirectory && !(await hasOpenPagesSetup(teamId, tx))) ||
       binding.status !== "connected" ||
       !binding.capabilities.read ||
       (options.expectedGeneration !== undefined &&

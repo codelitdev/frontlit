@@ -5,6 +5,9 @@ import {
 } from "../content-validation";
 import { GitHubDocsError } from "./app";
 const messages: Record<string, string> = {
+  PAGES_ALREADY_SYNCED: "Pages already sync from this repository.",
+  PAGES_DIRECTORY_EXISTS:
+    "That folder already exists on the branch. Choose a new folder, or preview and sync the existing one.",
   NOTHING_TO_PROPOSE:
     "The draft matches the repository already, so there's nothing to put in a pull request.",
   PAGE_UPSTREAM_CHANGED:

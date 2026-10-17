@@ -1,0 +1,1 @@
+ALTER TABLE "page_pull_requests" ADD COLUMN "directory" text;

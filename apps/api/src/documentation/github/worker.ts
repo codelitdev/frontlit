@@ -40,6 +40,7 @@ import {
   type PagesManifest,
 } from "../../pages/git-import";
 import { refreshPagePullRequests } from "../../pages/git-pr";
+import { completeMergedPagesSetup } from "../../pages/git-export";
 
 import { cleanupGitHubDocumentation } from "./retention";
 import { gitDocumentSnapshot, validateGitManifest } from "./source";
@@ -577,10 +578,14 @@ export async function processGitSync(teamId?: string, injectedApp?: DocsGitHubAp
         sha,
       );
     };
-    const pages = binding!.pagesDirectory
-      ? await importChangedPages(job.teamId, binding!, head, await readTree(), readBlob)
+    // A merged pages setup PR turns pages sync on in this same sync.
+    const source = binding!.pagesDirectory
+      ? binding!
+      : await completeMergedPagesSetup(binding!, app);
+    const pages = source.pagesDirectory
+      ? await importChangedPages(job.teamId, source, head, await readTree(), readBlob)
       : null;
-    if (binding!.pagesDirectory) await refreshPagePullRequests(binding!, app);
+    if (source.pagesDirectory) await refreshPagePullRequests(source, app);
     if (!binding!.docsEnabled)
       return await finishWithoutDocsPublication(job, head, pages);
     const included = await includedGitProposals(binding!, head, app, access, () =>

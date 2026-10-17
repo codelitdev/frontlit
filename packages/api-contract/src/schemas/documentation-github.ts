@@ -250,6 +250,15 @@ export const documentationGitSourceSchema = z.object({
       pagesDirectory: z.string().nullable(),
       /** Errors (or warnings) from the last pages import. */
       pagesDiagnostics: z.array(documentationDiagnosticSchema).nullable(),
+      /** The latest pull request exporting builder pages to the repository. */
+      pagesSetup: z
+        .object({
+          number: z.number(),
+          url: z.string(),
+          status: z.enum(["open", "merged", "closed"]),
+          directory: z.string(),
+        })
+        .nullable(),
     })
     .nullable(),
   sync: z
@@ -450,3 +459,8 @@ export const gitPagesEnableBodySchema = z.object({
   /** The previewed commit; enabling fails if the branch moved. */
   commitSha: z.string(),
 });
+
+export const gitPagesExportSchema = z.object({ number: z.number(), url: z.string() });
+
+/** Result of turning pages sync on or off; read the source for the rest. */
+export const gitPagesStateSchema = z.object({ pagesDirectory: z.string().nullable() });

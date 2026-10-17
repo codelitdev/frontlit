@@ -7,6 +7,7 @@ import { ApiError } from "@/lib/api-client";
 import {
   disableGitPages,
   enableGitPages,
+  exportGitPages,
   previewGitPages,
   type DocumentationGitSource,
   type GitPagesPreview,
@@ -155,6 +156,48 @@ export function PagesSourceSection({
             Preview
           </Button>
         </div>
+      )}
+      {binding.pagesSetup?.status === "open" ? (
+        <Callout tone="info" title="Setup pull request is open">
+          <a
+            href={binding.pagesSetup.url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-primary hover:underline"
+          >
+            Pull request #{binding.pagesSetup.number}
+          </a>{" "}
+          adds your pages to <Mono>{binding.pagesSetup.directory}/</Mono>. Merging it
+          turns pages sync on.
+        </Callout>
+      ) : (
+        canManage &&
+        !preview && (
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-muted-foreground">
+              No pages in the repository yet? Export the current pages, header, footer
+              and theme to that folder as a pull request.
+            </p>
+            <Button
+              variant="outline"
+              disabled={busy || !directory.trim()}
+              onClick={() =>
+                void act(async () => {
+                  const pr = await exportGitPages(directory);
+                  toast.success(`Opened pull request #${pr.number}`, {
+                    action: {
+                      label: "View",
+                      onClick: () => window.open(pr.url, "_blank"),
+                    },
+                  });
+                  onChanged();
+                })
+              }
+            >
+              Export pages
+            </Button>
+          </div>
+        )
       )}
       {preview && (
         <div className="space-y-3">

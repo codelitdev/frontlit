@@ -293,6 +293,11 @@ export const REST_OPERATION_POLICIES = {
     "unsupported",
     "deny",
   ),
+  "content.documentationGithub.exportPages": teamPermission(
+    "documentation:manage",
+    "unsupported",
+    "deny",
+  ),
   "content.documentationGithub.disablePages": teamPermission(
     "documentation:manage",
     "unsupported",

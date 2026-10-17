@@ -806,6 +806,8 @@ export const pagePullRequests = pgTable(
     status: text("status", { enum: ["open", "merged", "closed"] })
       .notNull()
       .default("open"),
+    /** Setup PRs: the pages folder they create; merging turns pages sync on. */
+    directory: text("directory"),
     /** Setup PRs: the exported files' paths and canonical hashes. */
     files: jsonb("files").$type<{ path: string; hash: string }[]>(),
     createdAt: timestamp("created_at").notNull().defaultNow(),

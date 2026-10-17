@@ -21,6 +21,7 @@ import {
   enableGitPages,
   previewGitPages,
 } from "../../pages/git-source";
+import { createPagesSetupPullRequest } from "../../pages/git-export";
 import { submitGitProposal, getGitProposal, listGitProposals } from "./proposals";
 import { getGitCheck, listGitChecks } from "./check-reports";
 import { resolveGitPublisherCredential } from "./publisher";
@@ -63,6 +64,11 @@ const implementation = s.router(
         run(() => enableGitPages(req.teamId, req.authz, body)),
       disablePages: async ({ req }: any) =>
         run(() => disableGitPages(req.teamId, req.authz)),
+      exportPages: async ({ req, body }: any) =>
+        run(() => {
+          requireGitManager(req.teamId, req.authz, true);
+          return createPagesSetupPullRequest(req.teamId, body);
+        }, 201),
       getCheck: async ({ req, params }: any) =>
         run(() => getGitCheck(req.teamId, params.checkId)),
       listChecks: async ({ req, query }: any) =>
@@ -149,6 +155,7 @@ const implementation = s.router(
       previewPages: "content.documentationGithub.previewPages",
       enablePages: "content.documentationGithub.enablePages",
       disablePages: "content.documentationGithub.disablePages",
+      exportPages: "content.documentationGithub.exportPages",
       submitProposal: "content.documentationGithub.submitProposal",
       getProposal: "content.documentationGithub.getProposal",
       listProposals: "content.documentationGithub.listProposals",

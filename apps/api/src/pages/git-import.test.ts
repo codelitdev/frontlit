@@ -13,6 +13,8 @@ import {
 } from "./git-import";
 import { activateRelease, getActiveRelease } from "./releases";
 import { getPublishedPageBySlug, listPages } from "./queries";
+import { seedStandardPages } from "./seed";
+import { exportPagesFiles } from "./git-export";
 
 function repo(files: Record<string, string>) {
   const blobs = new Map<string, Uint8Array>();
@@ -177,6 +179,27 @@ describe("importPagesTree", () => {
     const rows = await listPages({ teamId });
     expect(rows.find((row) => row.slug === "later")?.status).toBe("draft");
     expect((await getActiveRelease(teamId))?.source).toBe("git");
+  });
+
+  it("re-imports exported pages byte-identically, with the same revisions", async () => {
+    await seedStandardPages(teamId);
+    const before = (await getActiveRelease(teamId))!;
+    const files = await exportPagesFiles(teamId, "frontlit/pages");
+    expect(files.map((f) => f.path)).toContain("frontlit/site.json");
+    const manifest = await importRepo(
+      teamId,
+      Object.fromEntries(files.map((file) => [file.path, file.content])),
+    );
+    const release = await createPagesRelease(teamId, manifest);
+    await activateRelease(db as any, release);
+    const after = (await getActiveRelease(teamId))!;
+    const revisions = (r: typeof before) =>
+      Object.fromEntries(r.pages.map((p) => [p.slug, p.revision.hash]));
+    expect(revisions(after)).toEqual(revisions(before));
+    expect(after.site.header).toEqual(before.site.header);
+    expect(after.site.footer).toEqual(before.site.footer);
+    // Exporting again yields the same bytes.
+    expect(await exportPagesFiles(teamId, "frontlit/pages")).toEqual(files);
   });
 
   it("keys the source by the pages tree and site.json blob", () => {

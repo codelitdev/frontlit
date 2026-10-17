@@ -1754,13 +1754,18 @@ export function previewGitPages(directory: string) {
   );
 }
 export function enableGitPages(body: GitRequest<"enablePages">["body"]) {
-  return unwrap<DocumentationGitSource>(
+  return unwrap<{ pagesDirectory: string | null }>(
     client.content.documentationGithub.enablePages({ body }),
   );
 }
 export function disableGitPages() {
-  return unwrap<DocumentationGitSource>(
+  return unwrap<{ pagesDirectory: string | null }>(
     client.content.documentationGithub.disablePages({}),
+  );
+}
+export function exportGitPages(directory: string) {
+  return unwrap<{ number: number; url: string }>(
+    client.content.documentationGithub.exportPages({ body: { directory } }),
   );
 }
 export function getDocumentationGitSource() {

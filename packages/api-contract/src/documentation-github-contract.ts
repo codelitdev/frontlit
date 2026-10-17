@@ -32,6 +32,8 @@ import {
   gitPagesPreviewBodySchema,
   gitPagesPreviewSchema,
   gitPagesEnableBodySchema,
+  gitPagesExportSchema,
+  gitPagesStateSchema,
 } from "./schemas/documentation-github";
 const c = initContract();
 const errors = {
@@ -61,16 +63,25 @@ export const documentationGithubContract = c.router(
       method: "PUT",
       path: `${prefix}/pages`,
       body: gitPagesEnableBodySchema,
-      responses: { 200: documentationGitSourceSchema, ...errors },
+      responses: { 200: gitPagesStateSchema, ...errors },
       summary: "Sync pages from the repository",
       description:
         "Makes every page and the site chrome Git-owned: each push to the branch publishes the folder's pages (plus site.json) as one release.",
+    },
+    exportPages: {
+      method: "POST",
+      path: `${prefix}/pages/export`,
+      body: gitPagesPreviewBodySchema,
+      responses: { 201: gitPagesExportSchema, ...errors },
+      summary: "Export pages to the repository",
+      description:
+        "Opens a setup pull request with every page as a canonical JSON file plus site.json. Merging it turns pages sync on for that folder.",
     },
     disablePages: {
       method: "DELETE",
       path: `${prefix}/pages`,
       body: c.noBody(),
-      responses: { 200: documentationGitSourceSchema, ...errors },
+      responses: { 200: gitPagesStateSchema, ...errors },
       summary: "Stop syncing pages",
       description:
         "Hands pages back to the builder. The last release stays live until the next publish.",

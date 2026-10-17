@@ -9,7 +9,6 @@ import {
   GitHubDocsError,
 } from "../documentation/github/app";
 import { requireGitManager } from "../documentation/github/setup";
-import { getGitHubSource } from "../documentation/github/source";
 import { enqueueGitSync, readGitBindingAccess } from "../documentation/github/state";
 import {
   importPagesTree,
@@ -119,7 +118,7 @@ export async function enableGitPages(
       tx,
     );
   });
-  return getGitHubSource(teamId, actor);
+  return { pagesDirectory: directory };
 }
 
 /** Hands pages back to the builder; the live release stays as it is. */
@@ -141,5 +140,5 @@ export async function disableGitPages(teamId: string, actor: AuthzContext) {
       })
       .where(eq(bindings.teamId, teamId));
   });
-  return getGitHubSource(teamId, actor);
+  return { pagesDirectory: null };
 }

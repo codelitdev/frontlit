@@ -25,6 +25,7 @@ import { digest } from "../publications";
 import { DocsGitHubApp, getDocsGitHubAppConfig, GitHubDocsError } from "./app";
 import { importDocumentationTree, type DocumentationGitManifest } from "./importer";
 import { authorizedSetup, requireGitManager, verifySetupRepository } from "./setup";
+import { latestPagesSetup } from "../../pages/git-export";
 import { enqueueGitSync, readGitBindingAccess, supersedeGitWork } from "./state";
 import { reserveGitValidation } from "./admission";
 
@@ -492,6 +493,7 @@ export async function getGitHubSource(teamId: string, actor?: AuthzContext) {
       docsEnabled: binding.docsEnabled,
       pagesDirectory: binding.pagesDirectory,
       pagesDiagnostics: (binding.pagesDiagnostics as any[] | null) ?? null,
+      pagesSetup: await latestPagesSetup(teamId),
     },
     sync: run
       ? {
