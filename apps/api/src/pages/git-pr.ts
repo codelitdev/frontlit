@@ -5,11 +5,13 @@ import {
   parseSiteFile,
   serializePageFile,
   serializeSiteFile,
+  type PageDocument,
   type SiteDocument,
 } from "@frontlit/page-builder/schema";
 import { db } from "../db/client";
 import {
   documentationGitBindings as bindings,
+  gitAssets,
   pagePullRequests,
   pages,
 } from "../db/schema";
@@ -20,7 +22,8 @@ import {
 } from "../documentation/github/app";
 import { readGitBindingAccess, type GitBinding } from "../documentation/github/state";
 import { getTeamSettings } from "../settings/queries";
-import { siteFilePath } from "./git-import";
+import { isRepoPath, mediaRefs, resolveRepoPath, siteFilePath } from "./git-import";
+import type { GitTreeEntry } from "../documentation/github/importer";
 import { draftDocument, getActiveRelease, pageRevisionFile } from "./releases";
 
 /** Pages are Git-owned while a connected repository syncs a pages folder. */
@@ -117,9 +120,21 @@ export async function createPagePullRequest(
   const path = pageFilePath(binding.pagesDirectory!, page.slug);
   const live = release?.pages.find((entry) => entry.pageId === page.id);
   const current = await read(path);
+  // Imports swap repo image paths for their MediaLit URLs. Map between the
+  // two so comparisons match and the PR keeps the repo's paths.
+  const assets = await repoAssetUrls(teamId, entries, path, current);
+  const swap = (doc: PageDocument, from: Map<string, string>) => {
+    const copy = JSON.parse(JSON.stringify(doc)) as PageDocument;
+    for (const ref of mediaRefs(copy, "")) {
+      const next = from.get(ref.media.url);
+      if (next) ref.media.url = next;
+    }
+    return copy;
+  };
+  const toRepo = new Map([...assets].map(([repoUrl, url]) => [url, repoUrl]));
   const canonical = (text: string) => {
     try {
-      return pageRevisionFile(parsePageFile(text)).text;
+      return pageRevisionFile(swap(parsePageFile(text), assets)).text;
     } catch {
       return text;
     }
@@ -130,12 +145,9 @@ export async function createPagePullRequest(
     canonical(current) !== pageRevisionFile(live.revision.content).text
   )
     throw new GitHubDocsError("PAGE_UPSTREAM_CHANGED", 409);
-  const pageText = serializePageFile(draftDocument(page));
-  if (
-    current === null ||
-    canonical(current) !== pageRevisionFile(draftDocument(page)).text
-  )
-    files.push({ path, content: pageText });
+  const draft = draftDocument(page);
+  if (current === null || canonical(current) !== pageRevisionFile(draft).text)
+    files.push({ path, content: serializePageFile(swap(draft, toRepo)) });
 
   const header = settings.draftSharedWidgets.header.settings ?? {};
   const footer = settings.draftSharedWidgets.footer.settings ?? {};
@@ -242,4 +254,35 @@ export async function refreshPagePullRequests(binding: GitBinding, app: DocsGitH
   } catch {
     // Retried on the next sync.
   }
+}
+
+/** Repo-relative image URLs in the current file → the MediaLit URLs the
+ * importer uploaded them to (by blob SHA). */
+async function repoAssetUrls(
+  teamId: string,
+  entries: GitTreeEntry[],
+  file: string,
+  text: string | null,
+) {
+  const map = new Map<string, string>();
+  if (!text) return map;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    return map;
+  }
+  for (const ref of mediaRefs(raw, "")) {
+    if (!isRepoPath(ref.media.url)) continue;
+    const blob = entries.find(
+      (entry) =>
+        entry.path === resolveRepoPath(file, ref.media.url) && entry.type === "blob",
+    );
+    if (!blob) continue;
+    const asset = await db.query.gitAssets.findFirst({
+      where: and(eq(gitAssets.teamId, teamId), eq(gitAssets.blobSha, blob.sha)),
+    });
+    if (asset) map.set(ref.media.url, asset.url);
+  }
+  return map;
 }

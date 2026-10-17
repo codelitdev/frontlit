@@ -299,7 +299,7 @@ const impl = s.router(contract.public, {
   },
   getSettings: {
     middleware: [publicReadLimiter],
-    handler: async ({ params }) => {
+    handler: async ({ params, query }) => {
       const team = await findTeamByPublicId(params.teamId);
       if (!team) return { status: 404, body: { error: "Team not found" } };
 
@@ -310,7 +310,10 @@ const impl = s.router(contract.public, {
         ? await getThemeByThemeId(themeId)
         : null;
       // A Git-owned site (site.json) ships its theme in the active release.
-      const release = await getActiveRelease(team.id);
+      const release =
+        query?.release && verifyPreview(query.release, query.token)
+          ? await getReleaseByReleaseId(team.id, query.release)
+          : await getActiveRelease(team.id);
       const theme =
         release?.site.theme ??
         (savedTheme?.teamId === team.id ? savedTheme.style : null);

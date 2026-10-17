@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { Badge } from "@frontlit/page-builder/primitives/server";
 import { getPreviewPage, getSettings } from "@/lib/api";
 import { API_PUBLIC_URL } from "@/lib/config";
-import { loadSiteTheme } from "@/lib/load-site-theme";
 import { resolveSiteTheme } from "@/lib/site-theme";
 import { SitePageRenderer } from "@/components/site-page-renderer";
 import { toSiteBranding } from "@frontlit/api-contract";
@@ -27,10 +26,12 @@ export default async function ReleasePreviewPage({ params, searchParams }: Props
   if (!token) notFound();
   const page = await getPreviewPage(teamId, releaseId, token, (slug ?? []).join("/"));
   if (!page) notFound();
-  const [settings, siteTheme] = await Promise.all([
-    getSettings(teamId),
-    loadSiteTheme(teamId),
-  ]);
+  // The preview's own site.json theme, if it has one.
+  const settings = await getSettings(teamId, { release: releaseId, token });
+  const siteTheme = {
+    themeId: settings?.themeId ?? null,
+    themeStyle: settings?.theme ?? null,
+  };
   const theme = resolveSiteTheme(siteTheme.themeId, siteTheme.themeStyle);
   return (
     <SitePageRenderer

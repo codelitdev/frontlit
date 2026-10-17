@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq, inArray, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import {
   parsePageFile,
   serializePageFile,
@@ -21,7 +21,10 @@ import {
 import { getTeamSettings } from "../settings/queries";
 import { createRequiredPageLayout, hydrateSharedWidgets } from "./shared-widgets";
 
-type Executor = Pick<typeof db, "select" | "insert" | "update" | "delete" | "query">;
+type Executor = Pick<
+  typeof db,
+  "select" | "insert" | "update" | "delete" | "query" | "execute"
+>;
 
 /** Canonical page file text and its sha256. The hash identifies a revision:
  * equal content from the builder or a repo maps to the same row. */
@@ -278,6 +281,11 @@ export async function publishBuilderRelease(
   // the shared connection, which would wait on the open transaction.
   const settings = await getTeamSettings(teamId);
   return db.transaction(async (tx) => {
+    // Serialize release changes per team: two publishes must not both build
+    // on the same active release and drop one another.
+    await tx.execute(
+      sql`select 1 from team_settings where team_id = ${teamId} for update`,
+    );
     const active = await getActiveRelease(teamId, tx);
     const current: ReleasePage[] = (active?.pages ?? []).map(
       ({ pageId, slug, name, revisionId }) => ({ pageId, slug, name, revisionId }),

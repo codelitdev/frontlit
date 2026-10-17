@@ -133,6 +133,9 @@ export function PagesSourceSection({
           </p>
         </div>
       </div>
+      {(binding.pagesDiagnostics?.length ?? 0) > 0 && (
+        <DiagnosticList items={binding.pagesDiagnostics!} />
+      )}
       {canManage && (
         <div className="flex items-end gap-2">
           <div className="flex-1 space-y-1.5">

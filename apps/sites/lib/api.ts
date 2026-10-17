@@ -56,11 +56,16 @@ export interface PublicSettings {
   redirects?: { from: string; to: string; permanent?: boolean }[];
 }
 
-export function getSettings(teamId: string): Promise<PublicSettings | null> {
+export function getSettings(
+  teamId: string,
+  /** A signed preview release: its theme instead of the live one (uncached). */
+  preview?: { release: string; token: string },
+): Promise<PublicSettings | null> {
   return unwrapOrNull(
     client.getSettings({
       params: { teamId },
-      fetchOptions: teamCache(teamId),
+      query: preview ?? {},
+      fetchOptions: preview ? { cache: "no-store" } : teamCache(teamId),
     }),
   );
 }

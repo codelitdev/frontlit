@@ -41,6 +41,7 @@ import {
 } from "../../pages/git-import";
 import { refreshPagePullRequests } from "../../pages/git-pr";
 import { completeMergedPagesSetup } from "../../pages/git-export";
+import { getTeamSettings } from "../../settings/queries";
 
 import { cleanupGitHubDocumentation } from "./retention";
 import { gitDocumentSnapshot, validateGitManifest } from "./source";
@@ -203,7 +204,11 @@ export async function captureGitManifest(
   manifest: DocumentationGitManifest,
   included: IncludedGitProposal[] = [],
   docsTreeSha?: string,
+  /** Pages from the same commit: their release is created with the docs
+   * publication, so it exists before that publication can activate. */
+  pages?: PagesManifest | null,
 ) {
+  const teamSettings = pages ? await getTeamSettings(job.teamId) : undefined;
   return db.transaction(async (tx) => {
     const settings = await lockSettings(tx, job.teamId);
     if (process.env.DOCS_RESTORE_PENDING === "true")
@@ -510,6 +515,12 @@ export async function captureGitManifest(
       })
       .where(eq(jobs.runId, job.runId))
       .returning();
+    if (pages)
+      await createPagesRelease(job.teamId, pages, {
+        docsPublicationId: publication.publicationId,
+        executor: tx,
+        settings: teamSettings,
+      });
     return updated;
   });
 }
@@ -636,14 +647,9 @@ export async function processGitSync(teamId?: string, injectedApp?: DocsGitHubAp
     await renew(job);
     const report = await validateGitManifest(job.teamId, manifest);
     if (!report.publishable) throw new DocsContentError(report.diagnostics);
-    const captured = await captureGitManifest(job, manifest, included, docsTreeSha);
     // Pages from the same commit go live with this docs publication
     // (`activateGitRelease`), or not at all if it fails.
-    if (pages && captured?.publicationId)
-      await createPagesRelease(job.teamId, pages, {
-        docsPublicationId: captured.publicationId,
-      });
-    return captured;
+    return await captureGitManifest(job, manifest, included, docsTreeSha, pages);
   } catch (caught) {
     const error =
       caught instanceof PagesImportError
@@ -756,7 +762,8 @@ async function finishWithoutDocsPublication(
   head: string,
   pages: PagesManifest | null,
 ) {
-  const release = pages ? await createPagesRelease(job.teamId, pages) : null;
+  const teamSettings = pages ? await getTeamSettings(job.teamId) : undefined;
+  let activated = false;
   const done = await db.transaction(async (tx) => {
     await lockSettings(tx, job.teamId);
     const binding = await tx.query.documentationGitBindings.findFirst({
@@ -771,7 +778,15 @@ async function finishWithoutDocsPublication(
       current.leaseToken !== job.leaseToken
     )
       throw new GitHubDocsError("GITHUB_SUPERSEDED", 409);
-    if (release) await activatePagesRelease(job.teamId, release, tx);
+    if (pages) {
+      // Created only after the lease check, so a superseded job writes nothing.
+      const release = await createPagesRelease(job.teamId, pages, {
+        executor: tx,
+        settings: teamSettings,
+      });
+      await activatePagesRelease(job.teamId, release, tx);
+      activated = true;
+    }
     await tx
       .update(bindings)
       .set({
@@ -798,7 +813,7 @@ async function finishWithoutDocsPublication(
       .returning();
     return row;
   });
-  if (release) await revalidatePages(job.teamId);
+  if (activated) await revalidatePages(job.teamId);
   return done;
 }
 

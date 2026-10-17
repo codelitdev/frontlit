@@ -33,6 +33,7 @@ import {
   ensureRevision,
   getActiveRelease,
   insertRelease,
+  pageRevisionFile,
   revisionDraftLayout,
   type ReleasePage,
 } from "./releases";
@@ -171,7 +172,7 @@ export function routeExists(href: string, routes: Set<string>): boolean {
 }
 
 /** Media objects (`{ url, alt? }`) anywhere in a document. */
-function mediaRefs(
+export function mediaRefs(
   value: unknown,
   pointer: string,
   out: { media: { url: string }; pointer: string }[] = [],
@@ -194,7 +195,15 @@ function mediaRefs(
   return out;
 }
 
-const isRepoPath = (url: string) =>
+/** A repo-relative media URL as a repository path: relative to the file,
+ * or to the repository root when it starts with "/". */
+export function resolveRepoPath(file: string, url: string) {
+  return url.startsWith("/")
+    ? url.slice(1)
+    : path.normalize(path.join(path.dirname(file), url));
+}
+
+export const isRepoPath = (url: string) =>
   !/^[a-z][a-z0-9+.-]*:/i.test(url) && !url.startsWith("//");
 
 const MIME: Record<string, string> = {
@@ -449,9 +458,7 @@ export async function importPagesTree(input: {
   for (const source of sources) {
     for (const ref of mediaRefs(source.target, "")) {
       if (!isRepoPath(ref.media.url)) continue;
-      const repoPath = ref.media.url.startsWith("/")
-        ? ref.media.url.slice(1)
-        : path.normalize(path.join(path.dirname(source.file), ref.media.url));
+      const repoPath = resolveRepoPath(source.file, ref.media.url);
       const blob = byPath.get(repoPath);
       const mimeType = MIME[path.extname(repoPath).toLowerCase()];
       if (!blob || blob.type !== "blob" || !mimeType) {
@@ -517,10 +524,14 @@ export async function createPagesRelease(
     docsPublicationId?: string | null;
     /** A pull request preview: no page rows or drafts are touched. */
     preview?: { number: number };
+    /** Run inside the caller's transaction; `settings` must then be read
+     * beforehand (it would wait on the open transaction otherwise). */
+    executor?: any;
+    settings?: Awaited<ReturnType<typeof getTeamSettings>>;
   } = {},
 ) {
-  const settings = await getTeamSettings(teamId);
-  return db.transaction(async (tx) => {
+  const settings = options.settings ?? (await getTeamSettings(teamId));
+  const run = async (tx: any) => {
     const active = await getActiveRelease(teamId, tx);
     const liveSite: SiteReleaseSnapshot = active?.site ?? {
       header: settings.draftSharedWidgets.header.settings ?? {},
@@ -565,8 +576,21 @@ export async function createPagesRelease(
       const existing = await tx.query.pages.findFirst({
         where: and(eq(pages.teamId, teamId), eq(pages.slug, page.slug)),
       });
+      // Only pages whose file changed take the repo's version as their
+      // draft, so builder edits on other pages survive unrelated pushes.
+      const live = active?.pages.find(
+        (entry: { slug: string }) => entry.slug === page.slug,
+      );
+      const changed =
+        !live || live.revision.hash !== pageRevisionFile(page.document).hash;
       const [row] = existing
-        ? await tx.update(pages).set(draft).where(eq(pages.id, existing.id)).returning()
+        ? changed
+          ? await tx
+              .update(pages)
+              .set(draft)
+              .where(eq(pages.id, existing.id))
+              .returning()
+          : [existing]
         : await tx
             .insert(pages)
             .values({
@@ -586,7 +610,10 @@ export async function createPagesRelease(
         revisionId: revision.id,
       });
     }
-    if (manifest.site && !options.preview) {
+    const chromeChanged =
+      JSON.stringify([site.header, site.footer]) !==
+      JSON.stringify([active?.site.header, active?.site.footer]);
+    if (manifest.site && !options.preview && chromeChanged) {
       await tx
         .update(teamSettings)
         .set({
@@ -610,7 +637,8 @@ export async function createPagesRelease(
         ? `Preview of pull request #${options.preview.number}`
         : `Synced ${manifest.commitSha.slice(0, 7)} from Git`,
     });
-  });
+  };
+  return options.executor ? run(options.executor) : db.transaction(run);
 }
 
 /** Activates a Git pages release and records what's now live. */
@@ -619,6 +647,11 @@ export async function activatePagesRelease(
   release: typeof siteReleases.$inferSelect,
   executor: any = db,
 ) {
+  // Pages were handed back to the builder while this sync was running.
+  const binding = await executor.query.documentationGitBindings.findFirst({
+    where: eq(documentationGitBindings.teamId, teamId),
+  });
+  if (!binding?.pagesDirectory) return;
   await activateRelease(executor, release);
   await executor
     .update(documentationGitBindings)

@@ -359,9 +359,12 @@ export async function receiveGitHubDelivery(
           runIds.push(checkJob.checkId);
           relevant = true;
         }
+        // Only same-repository branches: a fork's PR must not get a preview
+        // served from the team's domain (or have its images uploaded).
         if (
           current.pagesDirectory &&
           pr.head.sha &&
+          pr.head.repo?.id === data.repository!.id &&
           ["opened", "synchronize", "reopened"].includes(data.action!)
         ) {
           previews.push({

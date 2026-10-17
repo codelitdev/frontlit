@@ -165,6 +165,12 @@ describe("canonicalizeLayout", () => {
     });
   });
 
+  it("rejects unknown blocks even without settings", () => {
+    const diagnostics = diagnosticsOf(() => canonicalizeLayout([{ name: "bogus" }]));
+    expect(diagnostics[0].path).toBe("/layout/0/name");
+    expect(canonicalizeLayout([{ name: "header" }])).toEqual([{ name: "header" }]);
+  });
+
   it("rejects unknown settings with a layout pointer", () => {
     const diagnostics = diagnosticsOf(() =>
       canonicalizeLayout([{ name: "faq", settings: { items: [{ question: "Q" }] } }]),

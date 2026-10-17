@@ -1067,6 +1067,8 @@ const publicContract = c.router(
     getSettings: {
       method: "GET",
       path: "/public/:teamId/settings",
+      /** `release` + `token`: theme and redirects of a signed preview. */
+      query: z.object({ release: z.string().optional(), token: z.string().optional() }),
       responses: { 200: publicTeamSettingsSchema, 404: errorSchema },
       summary: "Get a team's public branding + code-injection settings",
       description:

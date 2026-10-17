@@ -3,7 +3,9 @@ import { makeTestDb, seedTeam } from "../test/db";
 
 vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 
+import { eq } from "drizzle-orm";
 import { db } from "../db/client";
+import { pages as pagesTable } from "../db/schema";
 import type { GitTreeEntry } from "../documentation/github/importer";
 import {
   createPagesRelease,
@@ -200,6 +202,41 @@ describe("importPagesTree", () => {
     expect(after.site.footer).toEqual(before.site.footer);
     // Exporting again yields the same bytes.
     expect(await exportPagesFiles(teamId, "frontlit/pages")).toEqual(files);
+  });
+
+  it("keeps builder drafts of pages whose files didn't change", async () => {
+    const files = {
+      "frontlit/pages/index.json": page([
+        { name: "hero", settings: { title: "Home" } },
+      ]),
+      "frontlit/pages/about.json": page([
+        { name: "hero", settings: { title: "About" } },
+      ]),
+    };
+    await activateRelease(
+      db as any,
+      await createPagesRelease(teamId, await importRepo(teamId, files)),
+    );
+    const about = (await listPages({ teamId })).find((row) => row.slug === "about")!;
+    await db
+      .update(pagesTable)
+      .set({ draftTitle: "Edited in the builder" })
+      .where(eq(pagesTable.id, about.id));
+    const next = await importRepo(teamId, {
+      ...files,
+      "frontlit/pages/index.json": page([
+        { name: "hero", settings: { title: "Home v2" } },
+      ]),
+    });
+    await activateRelease(db as any, await createPagesRelease(teamId, next));
+    const rows = await listPages({ teamId });
+    expect(rows.find((row) => row.slug === "about")?.draftTitle).toBe(
+      "Edited in the builder",
+    );
+    expect(
+      rows.find((row) => row.slug === "")?.draftLayout.find((w) => w.name === "hero")
+        ?.settings,
+    ).toEqual({ title: "Home v2" });
   });
 
   it("keys the source by the pages tree and site.json blob", () => {

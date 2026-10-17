@@ -204,6 +204,31 @@ export async function completeMergedPagesSetup(
       .set({ status: merged ? "merged" : "closed", updatedAt: new Date() })
       .where(eq(pagePullRequests.id, row.id));
     if (merged && !current.pagesDirectory) {
+      // Builder publishes after the export would be reverted by turning sync
+      // on; leave it off and say so, so someone reviews the folder first.
+      const exported = await exportPagesFiles(binding.teamId, row.directory!);
+      const now = exported.map((file) => ({
+        path: file.path,
+        hash: sha256(file.content),
+      }));
+      if (JSON.stringify(now) !== JSON.stringify(row.files)) {
+        await db
+          .update(bindings)
+          .set({
+            pagesDiagnostics: [
+              {
+                code: "PAGES_CHANGED_SINCE_EXPORT",
+                severity: "warning",
+                blocksSave: false,
+                blocksPublish: false,
+                message: `Pull request #${row.number} merged, but pages changed in FrontLit since it was opened, so pages sync stayed off. Preview ${row.directory}/ and turn sync on when the repository has the changes you want.`,
+              },
+            ],
+            updatedAt: new Date(),
+          })
+          .where(eq(bindings.teamId, binding.teamId));
+        continue;
+      }
       const [updated] = await db
         .update(bindings)
         .set({

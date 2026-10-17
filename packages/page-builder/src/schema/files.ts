@@ -165,7 +165,14 @@ export function canonicalizeSettings(
 export function canonicalizeLayout<T extends StoredBlock>(layout: T[]): T[] {
   const diagnostics: SchemaDiagnostic[] = [];
   const output = layout.map((block, index) => {
-    if (block.name === DATA_SLOT_BLOCK || block.settings === undefined) return block;
+    if (block.name === DATA_SLOT_BLOCK) return block;
+    // Settings-free chrome placeholders stay as they are; any other block,
+    // with or without settings, must be a known block.
+    if (
+      block.settings === undefined &&
+      (CHROME_BLOCK_NAMES as readonly string[]).includes(block.name)
+    )
+      return block;
     try {
       return {
         ...block,

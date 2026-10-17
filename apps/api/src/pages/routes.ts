@@ -130,7 +130,9 @@ const impl = s.router(
       activateRelease: async ({ params, req }) => {
         const teamId = (req as any).teamId;
         const release = await getReleaseByReleaseId(teamId, params.releaseId);
-        if (!release) return { status: 404, body: { error: "Release not found" } };
+        // Previews are pull request content, never something to go live.
+        if (!release || release.source === "preview")
+          return { status: 404, body: { error: "Release not found" } };
         await activateRelease(db, release);
         const team = await findTeamById(teamId);
         if (team) revalidateTeam(team.teamId).catch(() => {});
