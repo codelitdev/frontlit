@@ -1078,10 +1078,16 @@ const publicContract = c.router(
       // A `:slug` path param can't carry an empty string (the
       // homepage's slug, architecture.md §4.2), so it's a query param
       // instead of a `/pages/:slug` path segment.
-      query: z.object({ slug: z.string().optional() }),
+      query: z.object({
+        slug: z.string().optional(),
+        /** A pull request preview release, with its signed `token`. */
+        release: z.string().optional(),
+        token: z.string().optional(),
+      }),
       responses: { 200: publicPageSchema, 404: errorSchema },
       summary: "Get a team's published page layout by slug",
-      description: "Omit `slug` (or pass an empty string) to resolve the homepage.",
+      description:
+        "Omit `slug` (or pass an empty string) to resolve the homepage. `release` + `token` render a signed pull request preview instead of the live site.",
     },
     getSitemap: {
       method: "GET",

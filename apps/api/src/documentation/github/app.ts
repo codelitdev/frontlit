@@ -859,6 +859,37 @@ export class DocsGitHubApp {
       throw new GitHubDocsError("GITHUB_INVALID_RESPONSE");
     return { number: result.number, url: result.html_url };
   }
+  /** Posts the completed "FrontLit / pages preview" check for a commit. */
+  async createPagesCheckRun(
+    token: string,
+    owner: string,
+    name: string,
+    input: {
+      headSha: string;
+      conclusion: "success" | "failure";
+      detailsUrl?: string;
+      title: string;
+      summary: string;
+    },
+  ) {
+    requireSha(input.headSha);
+    if (input.detailsUrl && !/^https?:\/\//.test(input.detailsUrl))
+      throw new GitHubDocsError("GITHUB_INVALID_REQUEST");
+    await this.request<unknown>(`${repoPath(owner, name)}/check-runs`, token, {
+      method: "POST",
+      body: {
+        name: "FrontLit / pages preview",
+        head_sha: input.headSha,
+        status: "completed",
+        conclusion: input.conclusion,
+        ...(input.detailsUrl ? { details_url: input.detailsUrl } : {}),
+        output: {
+          title: input.title.slice(0, 200),
+          summary: input.summary.slice(0, 60000),
+        },
+      },
+    });
+  }
   /** The pull request for a `frontlit/pages/...` branch, if any. */
   async findPagesPullRequest(
     token: string,

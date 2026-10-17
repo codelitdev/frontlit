@@ -113,6 +113,8 @@ export const RESERVED_PAGE_SLUGS = [
   "favicon.ico",
   "openapi.json",
   "_preview",
+  "release-preview",
+  "schema",
 ] as const;
 
 export function isReservedPageSlug(slug: string): boolean {
@@ -121,7 +123,7 @@ export function isReservedPageSlug(slug: string): boolean {
 
 export const siteReleaseSchema = z.object({
   releaseId: z.string(),
-  source: z.enum(["builder", "git"]),
+  source: z.enum(["builder", "git", "preview"]),
   commitSha: z.string().nullable(),
   summary: z.string().nullable(),
   pageCount: z.number(),

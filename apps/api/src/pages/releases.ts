@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import {
   parsePageFile,
   serializePageFile,
@@ -190,7 +190,7 @@ export async function listReleases(teamId: string, limit = 50) {
     db
       .select()
       .from(siteReleases)
-      .where(eq(siteReleases.teamId, teamId))
+      .where(and(eq(siteReleases.teamId, teamId), ne(siteReleases.source, "preview")))
       .orderBy(desc(siteReleases.createdAt))
       .limit(limit),
   ]);

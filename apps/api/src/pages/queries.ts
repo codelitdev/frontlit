@@ -345,8 +345,13 @@ export async function discardPageDraft(teamId: string, pageId: string) {
 
 /** Unauthenticated, published-only read for public rendering: the page at
  * `slug` in the team's active release. */
-export async function getPublishedPageBySlug(teamId: string, slug: string) {
-  const release = await getActiveRelease(teamId);
+export async function getPublishedPageBySlug(
+  teamId: string,
+  slug: string,
+  /** Render this release instead of the active one (signed previews). */
+  releaseOverride?: LoadedRelease | null,
+) {
+  const release = releaseOverride ?? (await getActiveRelease(teamId));
   const entry = release?.pages.find((page) => page.slug === slug);
   if (!release || !entry) return null;
   const page = entry.pageId

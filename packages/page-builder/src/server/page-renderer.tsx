@@ -15,6 +15,9 @@ export interface ServerPageRendererProps {
   dataSlots?: Record<string, ReactNode>;
   /** Light/dark control for the footer; a client component owned by the host. */
   themeSwitcher?: ReactNode;
+  /** Extra content inside the themed root (e.g. a fixed "Preview" badge),
+   * so it can use the theme's colours. */
+  overlay?: ReactNode;
   className?: string;
 }
 
@@ -34,6 +37,7 @@ export function ServerPageRenderer({
   children,
   dataSlots,
   themeSwitcher,
+  overlay,
   className,
 }: ServerPageRendererProps) {
   const themeScope = `pb-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
@@ -83,6 +87,7 @@ export function ServerPageRenderer({
           : body.map(renderInstance)}
       </div>
       {footer && renderInstance(footer)}
+      {overlay}
     </div>
   );
 }

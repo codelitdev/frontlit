@@ -738,7 +738,8 @@ export type SiteReleaseSnapshot = {
   redirects?: { from: string; to: string; permanent?: boolean }[];
 };
 
-export const siteReleaseSources = ["builder", "git"] as const;
+/** "preview": built from a pull request's head; never activated. */
+export const siteReleaseSources = ["builder", "git", "preview"] as const;
 export type SiteReleaseSource = (typeof siteReleaseSources)[number];
 
 export const siteReleases = pgTable(

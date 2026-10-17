@@ -513,7 +513,11 @@ async function assetUrl(
 export async function createPagesRelease(
   teamId: string,
   manifest: PagesManifest,
-  options: { docsPublicationId?: string | null } = {},
+  options: {
+    docsPublicationId?: string | null;
+    /** A pull request preview: no page rows or drafts are touched. */
+    preview?: { number: number };
+  } = {},
 ) {
   const settings = await getTeamSettings(teamId);
   return db.transaction(async (tx) => {
@@ -547,6 +551,17 @@ export async function createPagesRelease(
         draftRobotsAllowed: page.document.robotsAllowed ?? null,
         updatedAt: new Date(),
       };
+      if (options.preview) {
+        if (!page.published) continue;
+        const revision = await ensureRevision(tx, teamId, page.document);
+        releasePages.push({
+          pageId: null,
+          slug: page.slug,
+          name: page.name,
+          revisionId: revision.id,
+        });
+        continue;
+      }
       const existing = await tx.query.pages.findFirst({
         where: and(eq(pages.teamId, teamId), eq(pages.slug, page.slug)),
       });
@@ -571,7 +586,7 @@ export async function createPagesRelease(
         revisionId: revision.id,
       });
     }
-    if (manifest.site) {
+    if (manifest.site && !options.preview) {
       await tx
         .update(teamSettings)
         .set({
@@ -585,13 +600,15 @@ export async function createPagesRelease(
     }
     return insertRelease(tx, {
       teamId,
-      source: "git",
+      source: options.preview ? "preview" : "git",
       site,
       pages: releasePages,
       commitSha: manifest.commitSha,
       sourceKey: manifest.sourceKey,
       docsPublicationId: options.docsPublicationId ?? null,
-      summary: `Synced ${manifest.commitSha.slice(0, 7)} from Git`,
+      summary: options.preview
+        ? `Preview of pull request #${options.preview.number}`
+        : `Synced ${manifest.commitSha.slice(0, 7)} from Git`,
     });
   });
 }
