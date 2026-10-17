@@ -12,7 +12,7 @@ vi.mock("../media/service", async (original) => ({
 }));
 
 import { db as testDb } from "../db/client";
-import { DEFAULT_SHARED_WIDGETS, pages } from "../db/schema";
+import { pages } from "../db/schema";
 import {
   createPage,
   deletePage,
@@ -245,27 +245,26 @@ describe("pages draft/publish", () => {
     await updatePage(teamId, first.pageId, {
       layout: pageLayout(
         [],
-        { logoText: "Acme navigation" },
+        { ctaLabel: "Acme navigation" },
         { copyrightText: "© Acme" },
       ),
     });
 
     const secondDraft = await getPageByPageId(second.pageId);
     expect(secondDraft?.draftLayout[0].settings).toMatchObject({
-      logoText: "Acme navigation",
+      ctaLabel: "Acme navigation",
     });
     expect(secondDraft?.draftLayout.at(-1)?.settings).toMatchObject({
       copyrightText: "© Acme",
     });
-    expect(secondDraft?.layout[0].settings).toMatchObject(
-      DEFAULT_SHARED_WIDGETS.header.settings as Record<string, unknown>,
-    );
-    expect(secondDraft?.layout[0].settings).not.toHaveProperty("logoText");
+    expect(secondDraft?.layout[0].settings).not.toMatchObject({
+      ctaLabel: "Acme navigation",
+    });
 
     await publishPage(teamId, first.pageId);
     const secondPublished = await getPageByPageId(second.pageId);
     expect(secondPublished?.layout[0].settings).toMatchObject({
-      logoText: "Acme navigation",
+      ctaLabel: "Acme navigation",
     });
     expect(secondPublished?.layout.at(-1)?.settings).toMatchObject({
       copyrightText: "© Acme",

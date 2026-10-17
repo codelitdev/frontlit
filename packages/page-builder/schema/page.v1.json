@@ -1,0 +1,3855 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://frontlit.app/schema/page.v1.json",
+  "title": "FrontLit page",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string",
+      "description": "Page title for search results and the browser tab."
+    },
+    "description": {
+      "type": "string",
+      "description": "Short summary for search results and link previews."
+    },
+    "socialImage": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absolute URL, or a path relative to the repo."
+        },
+        "alt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "additionalProperties": false,
+      "description": "Open Graph image."
+    },
+    "robotsAllowed": {
+      "type": "boolean",
+      "description": "false asks search engines not to index the page. Default true."
+    },
+    "published": {
+      "type": "boolean",
+      "description": "false imports the page as a draft. Default true."
+    },
+    "layout": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "const": "hero"
+              },
+              "settings": {
+                "type": "object",
+                "properties": {
+                  "cssId": {
+                    "type": "string",
+                    "description": "HTML id, used for in-page links like /#pricing."
+                  },
+                  "verticalPadding": {
+                    "type": "string",
+                    "enum": [
+                      "py-0",
+                      "py-4",
+                      "py-6",
+                      "py-8",
+                      "py-10",
+                      "py-12",
+                      "py-16",
+                      "py-20",
+                      "py-24",
+                      "py-32",
+                      "py-40",
+                      "py-48",
+                      "py-56",
+                      "py-64"
+                    ]
+                  },
+                  "maxWidth": {
+                    "type": "string",
+                    "enum": [
+                      "max-w-2xl",
+                      "max-w-3xl",
+                      "max-w-4xl",
+                      "max-w-5xl",
+                      "max-w-6xl"
+                    ]
+                  },
+                  "background": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "color",
+                          "image",
+                          "gradient"
+                        ]
+                      },
+                      "backgroundColor": {
+                        "type": "string"
+                      },
+                      "backgroundColorDark": {
+                        "type": "string"
+                      },
+                      "backgroundImage": {
+                        "type": "string"
+                      },
+                      "backgroundImageDark": {
+                        "type": "string"
+                      },
+                      "backgroundSize": {
+                        "type": "string"
+                      },
+                      "backgroundPosition": {
+                        "type": "string"
+                      },
+                      "backgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "backgroundAttachment": {
+                        "type": "string",
+                        "enum": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      "maskImage": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundSize": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundPosition": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "gradientMaskImage": {
+                        "type": "string"
+                      },
+                      "blur": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "overlay": {
+                        "type": "object",
+                        "properties": {
+                          "color": {
+                            "type": "string"
+                          },
+                          "colorDark": {
+                            "type": "string"
+                          },
+                          "blendMode": {
+                            "type": "string",
+                            "enum": [
+                              "normal",
+                              "multiply",
+                              "screen",
+                              "overlay",
+                              "darken",
+                              "lighten",
+                              "color-dodge",
+                              "color-burn",
+                              "hard-light",
+                              "soft-light",
+                              "difference",
+                              "exclusion",
+                              "hue",
+                              "saturation",
+                              "color",
+                              "luminosity"
+                            ]
+                          },
+                          "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10,
+                            "description": "0 is invisible, 10 is fully solid."
+                          }
+                        },
+                        "required": [
+                          "color",
+                          "blendMode",
+                          "opacity"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "media": {
+                        "type": "object",
+                        "properties": {
+                          "url": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Absolute URL, or a path relative to the repo."
+                          },
+                          "alt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "url"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "layout": {
+                    "type": "string",
+                    "enum": [
+                      "normal",
+                      "card",
+                      "centered",
+                      "media-below"
+                    ],
+                    "default": "normal"
+                  },
+                  "preTitle": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "Wrap words in *asterisks* to highlight them.",
+                    "default": "Run your whole business from one front office"
+                  },
+                  "titleLevel": {
+                    "type": "string",
+                    "enum": [
+                      "h1",
+                      "h2",
+                      "h3"
+                    ]
+                  },
+                  "titleSize": {
+                    "type": "object",
+                    "properties": {
+                      "mobile": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "tablet": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "desktop": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Per-breakpoint title size in px; unset breakpoints keep the theme size."
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Markdown (CommonMark + GFM)."
+                  },
+                  "buttonCaption": {
+                    "type": "string",
+                    "default": "See features"
+                  },
+                  "buttonAction": {
+                    "type": "string",
+                    "description": "A site path (\"/pricing\"), anchor (\"/#faq\") or absolute URL.",
+                    "default": "/#features"
+                  },
+                  "secondaryButtonCaption": {
+                    "type": "string",
+                    "default": "Read the docs"
+                  },
+                  "secondaryButtonAction": {
+                    "type": "string",
+                    "description": "A site path (\"/pricing\"), anchor (\"/#faq\") or absolute URL.",
+                    "default": "/docs"
+                  },
+                  "smallPrint": {
+                    "type": "string"
+                  },
+                  "command": {
+                    "type": "string"
+                  },
+                  "media": {
+                    "type": "object",
+                    "properties": {
+                      "url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Absolute URL, or a path relative to the repo."
+                      },
+                      "alt": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "url"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "youtubeLink": {
+                    "type": "string"
+                  },
+                  "alignment": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "center",
+                      "right",
+                      "top",
+                      "bottom"
+                    ],
+                    "default": "right"
+                  },
+                  "contentAlignment": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "center",
+                      "right",
+                      "top",
+                      "bottom"
+                    ],
+                    "default": "left"
+                  },
+                  "mediaRadius": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 8,
+                    "default": 3
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "const": "content"
+              },
+              "settings": {
+                "type": "object",
+                "properties": {
+                  "cssId": {
+                    "type": "string",
+                    "description": "HTML id, used for in-page links like /#pricing."
+                  },
+                  "verticalPadding": {
+                    "type": "string",
+                    "enum": [
+                      "py-0",
+                      "py-4",
+                      "py-6",
+                      "py-8",
+                      "py-10",
+                      "py-12",
+                      "py-16",
+                      "py-20",
+                      "py-24",
+                      "py-32",
+                      "py-40",
+                      "py-48",
+                      "py-56",
+                      "py-64"
+                    ]
+                  },
+                  "maxWidth": {
+                    "type": "string",
+                    "enum": [
+                      "max-w-2xl",
+                      "max-w-3xl",
+                      "max-w-4xl",
+                      "max-w-5xl",
+                      "max-w-6xl"
+                    ]
+                  },
+                  "background": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "color",
+                          "image",
+                          "gradient"
+                        ]
+                      },
+                      "backgroundColor": {
+                        "type": "string"
+                      },
+                      "backgroundColorDark": {
+                        "type": "string"
+                      },
+                      "backgroundImage": {
+                        "type": "string"
+                      },
+                      "backgroundImageDark": {
+                        "type": "string"
+                      },
+                      "backgroundSize": {
+                        "type": "string"
+                      },
+                      "backgroundPosition": {
+                        "type": "string"
+                      },
+                      "backgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "backgroundAttachment": {
+                        "type": "string",
+                        "enum": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      "maskImage": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundSize": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundPosition": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "gradientMaskImage": {
+                        "type": "string"
+                      },
+                      "blur": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "overlay": {
+                        "type": "object",
+                        "properties": {
+                          "color": {
+                            "type": "string"
+                          },
+                          "colorDark": {
+                            "type": "string"
+                          },
+                          "blendMode": {
+                            "type": "string",
+                            "enum": [
+                              "normal",
+                              "multiply",
+                              "screen",
+                              "overlay",
+                              "darken",
+                              "lighten",
+                              "color-dodge",
+                              "color-burn",
+                              "hard-light",
+                              "soft-light",
+                              "difference",
+                              "exclusion",
+                              "hue",
+                              "saturation",
+                              "color",
+                              "luminosity"
+                            ]
+                          },
+                          "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10,
+                            "description": "0 is invisible, 10 is fully solid."
+                          }
+                        },
+                        "required": [
+                          "color",
+                          "blendMode",
+                          "opacity"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "media": {
+                        "type": "object",
+                        "properties": {
+                          "url": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Absolute URL, or a path relative to the repo."
+                          },
+                          "alt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "url"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "layout": {
+                    "type": "string",
+                    "enum": [
+                      "side",
+                      "stacked",
+                      "overlay"
+                    ]
+                  },
+                  "title": {
+                    "type": "string",
+                    "default": "One dashboard, every channel"
+                  },
+                  "titleLevel": {
+                    "type": "string",
+                    "enum": [
+                      "h1",
+                      "h2",
+                      "h3"
+                    ]
+                  },
+                  "titleSize": {
+                    "type": "object",
+                    "properties": {
+                      "mobile": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "tablet": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "desktop": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Per-breakpoint title size in px; unset breakpoints keep the theme size."
+                  },
+                  "body": {
+                    "type": "string",
+                    "description": "Markdown (CommonMark + GFM).",
+                    "default": "FrontLit brings your website, content, customer support, and audience engagement into one connected front office."
+                  },
+                  "media": {
+                    "type": "object",
+                    "properties": {
+                      "url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Absolute URL, or a path relative to the repo."
+                      },
+                      "alt": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "url"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "alignment": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "right"
+                    ],
+                    "default": "left"
+                  },
+                  "headerAlignment": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "center",
+                      "right",
+                      "top",
+                      "bottom"
+                    ],
+                    "default": "left"
+                  },
+                  "mediaRadius": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 8,
+                    "default": 3
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "const": "rich-text"
+              },
+              "settings": {
+                "type": "object",
+                "properties": {
+                  "cssId": {
+                    "type": "string",
+                    "description": "HTML id, used for in-page links like /#pricing."
+                  },
+                  "verticalPadding": {
+                    "type": "string",
+                    "enum": [
+                      "py-0",
+                      "py-4",
+                      "py-6",
+                      "py-8",
+                      "py-10",
+                      "py-12",
+                      "py-16",
+                      "py-20",
+                      "py-24",
+                      "py-32",
+                      "py-40",
+                      "py-48",
+                      "py-56",
+                      "py-64"
+                    ]
+                  },
+                  "maxWidth": {
+                    "type": "string",
+                    "enum": [
+                      "max-w-2xl",
+                      "max-w-3xl",
+                      "max-w-4xl",
+                      "max-w-5xl",
+                      "max-w-6xl"
+                    ]
+                  },
+                  "background": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "color",
+                          "image",
+                          "gradient"
+                        ]
+                      },
+                      "backgroundColor": {
+                        "type": "string"
+                      },
+                      "backgroundColorDark": {
+                        "type": "string"
+                      },
+                      "backgroundImage": {
+                        "type": "string"
+                      },
+                      "backgroundImageDark": {
+                        "type": "string"
+                      },
+                      "backgroundSize": {
+                        "type": "string"
+                      },
+                      "backgroundPosition": {
+                        "type": "string"
+                      },
+                      "backgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "backgroundAttachment": {
+                        "type": "string",
+                        "enum": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      "maskImage": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundSize": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundPosition": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "gradientMaskImage": {
+                        "type": "string"
+                      },
+                      "blur": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "overlay": {
+                        "type": "object",
+                        "properties": {
+                          "color": {
+                            "type": "string"
+                          },
+                          "colorDark": {
+                            "type": "string"
+                          },
+                          "blendMode": {
+                            "type": "string",
+                            "enum": [
+                              "normal",
+                              "multiply",
+                              "screen",
+                              "overlay",
+                              "darken",
+                              "lighten",
+                              "color-dodge",
+                              "color-burn",
+                              "hard-light",
+                              "soft-light",
+                              "difference",
+                              "exclusion",
+                              "hue",
+                              "saturation",
+                              "color",
+                              "luminosity"
+                            ]
+                          },
+                          "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10,
+                            "description": "0 is invisible, 10 is fully solid."
+                          }
+                        },
+                        "required": [
+                          "color",
+                          "blendMode",
+                          "opacity"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "media": {
+                        "type": "object",
+                        "properties": {
+                          "url": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Absolute URL, or a path relative to the repo."
+                          },
+                          "alt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "url"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "text": {
+                    "type": "string",
+                    "description": "Markdown (CommonMark + GFM).",
+                    "default": "Write anything here — an announcement, a longer explanation, or a passage of prose that doesn't need a title or media."
+                  },
+                  "alignment": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "center",
+                      "right"
+                    ],
+                    "default": "left"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "const": "featured"
+              },
+              "settings": {
+                "type": "object",
+                "properties": {
+                  "cssId": {
+                    "type": "string",
+                    "description": "HTML id, used for in-page links like /#pricing."
+                  },
+                  "verticalPadding": {
+                    "type": "string",
+                    "enum": [
+                      "py-0",
+                      "py-4",
+                      "py-6",
+                      "py-8",
+                      "py-10",
+                      "py-12",
+                      "py-16",
+                      "py-20",
+                      "py-24",
+                      "py-32",
+                      "py-40",
+                      "py-48",
+                      "py-56",
+                      "py-64"
+                    ]
+                  },
+                  "maxWidth": {
+                    "type": "string",
+                    "enum": [
+                      "max-w-2xl",
+                      "max-w-3xl",
+                      "max-w-4xl",
+                      "max-w-5xl",
+                      "max-w-6xl"
+                    ]
+                  },
+                  "background": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "color",
+                          "image",
+                          "gradient"
+                        ]
+                      },
+                      "backgroundColor": {
+                        "type": "string"
+                      },
+                      "backgroundColorDark": {
+                        "type": "string"
+                      },
+                      "backgroundImage": {
+                        "type": "string"
+                      },
+                      "backgroundImageDark": {
+                        "type": "string"
+                      },
+                      "backgroundSize": {
+                        "type": "string"
+                      },
+                      "backgroundPosition": {
+                        "type": "string"
+                      },
+                      "backgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "backgroundAttachment": {
+                        "type": "string",
+                        "enum": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      "maskImage": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundSize": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundPosition": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "gradientMaskImage": {
+                        "type": "string"
+                      },
+                      "blur": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "overlay": {
+                        "type": "object",
+                        "properties": {
+                          "color": {
+                            "type": "string"
+                          },
+                          "colorDark": {
+                            "type": "string"
+                          },
+                          "blendMode": {
+                            "type": "string",
+                            "enum": [
+                              "normal",
+                              "multiply",
+                              "screen",
+                              "overlay",
+                              "darken",
+                              "lighten",
+                              "color-dodge",
+                              "color-burn",
+                              "hard-light",
+                              "soft-light",
+                              "difference",
+                              "exclusion",
+                              "hue",
+                              "saturation",
+                              "color",
+                              "luminosity"
+                            ]
+                          },
+                          "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10,
+                            "description": "0 is invisible, 10 is fully solid."
+                          }
+                        },
+                        "required": [
+                          "color",
+                          "blendMode",
+                          "opacity"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "media": {
+                        "type": "object",
+                        "properties": {
+                          "url": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Absolute URL, or a path relative to the repo."
+                          },
+                          "alt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "url"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "layout": {
+                    "type": "string",
+                    "enum": [
+                      "grid",
+                      "list",
+                      "compact",
+                      "numbered"
+                    ]
+                  },
+                  "title": {
+                    "type": "string",
+                    "default": "Everything you need to run your business online"
+                  },
+                  "titleLevel": {
+                    "type": "string",
+                    "enum": [
+                      "h1",
+                      "h2",
+                      "h3"
+                    ]
+                  },
+                  "titleSize": {
+                    "type": "object",
+                    "properties": {
+                      "mobile": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "tablet": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "desktop": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Per-breakpoint title size in px; unset breakpoints keep the theme size."
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Markdown (CommonMark + GFM)."
+                  },
+                  "headerAlignment": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "center",
+                      "right",
+                      "top",
+                      "bottom"
+                    ],
+                    "default": "center"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "title": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "icon": {
+                          "type": "string",
+                          "description": "Lucide icon name, e.g. \"Globe\"."
+                        }
+                      },
+                      "required": [
+                        "title"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "default": [
+                      {
+                        "title": "Website",
+                        "description": "Design and publish beautiful pages with a drag-and-drop editor.",
+                        "icon": "Globe"
+                      },
+                      {
+                        "title": "Content",
+                        "description": "Publish articles, documentation, and product updates from one content system.",
+                        "icon": "Newspaper"
+                      },
+                      {
+                        "title": "Support",
+                        "description": "Support customers with a shared inbox, ticketing, help center, and AI answers.",
+                        "icon": "LifeBuoy"
+                      },
+                      {
+                        "title": "Engage",
+                        "description": "Grow your audience and send email without leaving FrontLit.",
+                        "icon": "Mail"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "const": "grid"
+              },
+              "settings": {
+                "type": "object",
+                "properties": {
+                  "cssId": {
+                    "type": "string",
+                    "description": "HTML id, used for in-page links like /#pricing."
+                  },
+                  "verticalPadding": {
+                    "type": "string",
+                    "enum": [
+                      "py-0",
+                      "py-4",
+                      "py-6",
+                      "py-8",
+                      "py-10",
+                      "py-12",
+                      "py-16",
+                      "py-20",
+                      "py-24",
+                      "py-32",
+                      "py-40",
+                      "py-48",
+                      "py-56",
+                      "py-64"
+                    ]
+                  },
+                  "maxWidth": {
+                    "type": "string",
+                    "enum": [
+                      "max-w-2xl",
+                      "max-w-3xl",
+                      "max-w-4xl",
+                      "max-w-5xl",
+                      "max-w-6xl"
+                    ]
+                  },
+                  "background": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "color",
+                          "image",
+                          "gradient"
+                        ]
+                      },
+                      "backgroundColor": {
+                        "type": "string"
+                      },
+                      "backgroundColorDark": {
+                        "type": "string"
+                      },
+                      "backgroundImage": {
+                        "type": "string"
+                      },
+                      "backgroundImageDark": {
+                        "type": "string"
+                      },
+                      "backgroundSize": {
+                        "type": "string"
+                      },
+                      "backgroundPosition": {
+                        "type": "string"
+                      },
+                      "backgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "backgroundAttachment": {
+                        "type": "string",
+                        "enum": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      "maskImage": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundSize": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundPosition": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "gradientMaskImage": {
+                        "type": "string"
+                      },
+                      "blur": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "overlay": {
+                        "type": "object",
+                        "properties": {
+                          "color": {
+                            "type": "string"
+                          },
+                          "colorDark": {
+                            "type": "string"
+                          },
+                          "blendMode": {
+                            "type": "string",
+                            "enum": [
+                              "normal",
+                              "multiply",
+                              "screen",
+                              "overlay",
+                              "darken",
+                              "lighten",
+                              "color-dodge",
+                              "color-burn",
+                              "hard-light",
+                              "soft-light",
+                              "difference",
+                              "exclusion",
+                              "hue",
+                              "saturation",
+                              "color",
+                              "luminosity"
+                            ]
+                          },
+                          "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10,
+                            "description": "0 is invisible, 10 is fully solid."
+                          }
+                        },
+                        "required": [
+                          "color",
+                          "blendMode",
+                          "opacity"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "media": {
+                        "type": "object",
+                        "properties": {
+                          "url": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Absolute URL, or a path relative to the repo."
+                          },
+                          "alt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "url"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "title": {
+                    "type": "string",
+                    "default": "Everything you need, in one place"
+                  },
+                  "titleLevel": {
+                    "type": "string",
+                    "enum": [
+                      "h1",
+                      "h2",
+                      "h3"
+                    ]
+                  },
+                  "titleSize": {
+                    "type": "object",
+                    "properties": {
+                      "mobile": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "tablet": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "desktop": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Per-breakpoint title size in px; unset breakpoints keep the theme size."
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Markdown (CommonMark + GFM)."
+                  },
+                  "headerAlignment": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "center",
+                      "right",
+                      "top",
+                      "bottom"
+                    ],
+                    "default": "center"
+                  },
+                  "buttonCaption": {
+                    "type": "string"
+                  },
+                  "buttonAction": {
+                    "type": "string",
+                    "description": "A site path (\"/pricing\"), anchor (\"/#faq\") or absolute URL."
+                  },
+                  "columns": {
+                    "type": "number",
+                    "enum": [
+                      2,
+                      3
+                    ],
+                    "default": 3
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "title": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "icon": {
+                          "type": "string",
+                          "description": "Lucide icon name, e.g. \"Globe\"."
+                        },
+                        "media": {
+                          "type": "object",
+                          "properties": {
+                            "url": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Absolute URL, or a path relative to the repo."
+                            },
+                            "alt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "url"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "mediaAlignment": {
+                          "type": "string",
+                          "enum": [
+                            "top",
+                            "bottom",
+                            "overlay"
+                          ]
+                        },
+                        "buttonCaption": {
+                          "type": "string"
+                        },
+                        "buttonAction": {
+                          "type": "string",
+                          "description": "A site path (\"/pricing\"), anchor (\"/#faq\") or absolute URL."
+                        }
+                      },
+                      "required": [
+                        "title"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "default": [
+                      {
+                        "title": "Website builder",
+                        "description": "Design and publish pages with a drag-and-drop editor.",
+                        "icon": "LayoutTemplate",
+                        "mediaAlignment": "top",
+                        "buttonCaption": "See features",
+                        "buttonAction": "/#features"
+                      },
+                      {
+                        "title": "Blog",
+                        "description": "Publish articles and grow your audience.",
+                        "icon": "Newspaper",
+                        "mediaAlignment": "top",
+                        "buttonCaption": "Read articles",
+                        "buttonAction": "/blog"
+                      },
+                      {
+                        "title": "Help desk",
+                        "description": "Support your customers with a shared inbox.",
+                        "icon": "Headset",
+                        "mediaAlignment": "top",
+                        "buttonCaption": "Contact us",
+                        "buttonAction": "/help"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "const": "media"
+              },
+              "settings": {
+                "type": "object",
+                "properties": {
+                  "cssId": {
+                    "type": "string",
+                    "description": "HTML id, used for in-page links like /#pricing."
+                  },
+                  "verticalPadding": {
+                    "type": "string",
+                    "enum": [
+                      "py-0",
+                      "py-4",
+                      "py-6",
+                      "py-8",
+                      "py-10",
+                      "py-12",
+                      "py-16",
+                      "py-20",
+                      "py-24",
+                      "py-32",
+                      "py-40",
+                      "py-48",
+                      "py-56",
+                      "py-64"
+                    ]
+                  },
+                  "maxWidth": {
+                    "type": "string",
+                    "enum": [
+                      "max-w-2xl",
+                      "max-w-3xl",
+                      "max-w-4xl",
+                      "max-w-5xl",
+                      "max-w-6xl"
+                    ]
+                  },
+                  "background": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "color",
+                          "image",
+                          "gradient"
+                        ]
+                      },
+                      "backgroundColor": {
+                        "type": "string"
+                      },
+                      "backgroundColorDark": {
+                        "type": "string"
+                      },
+                      "backgroundImage": {
+                        "type": "string"
+                      },
+                      "backgroundImageDark": {
+                        "type": "string"
+                      },
+                      "backgroundSize": {
+                        "type": "string"
+                      },
+                      "backgroundPosition": {
+                        "type": "string"
+                      },
+                      "backgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "backgroundAttachment": {
+                        "type": "string",
+                        "enum": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      "maskImage": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundSize": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundPosition": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "gradientMaskImage": {
+                        "type": "string"
+                      },
+                      "blur": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "overlay": {
+                        "type": "object",
+                        "properties": {
+                          "color": {
+                            "type": "string"
+                          },
+                          "colorDark": {
+                            "type": "string"
+                          },
+                          "blendMode": {
+                            "type": "string",
+                            "enum": [
+                              "normal",
+                              "multiply",
+                              "screen",
+                              "overlay",
+                              "darken",
+                              "lighten",
+                              "color-dodge",
+                              "color-burn",
+                              "hard-light",
+                              "soft-light",
+                              "difference",
+                              "exclusion",
+                              "hue",
+                              "saturation",
+                              "color",
+                              "luminosity"
+                            ]
+                          },
+                          "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10,
+                            "description": "0 is invisible, 10 is fully solid."
+                          }
+                        },
+                        "required": [
+                          "color",
+                          "blendMode",
+                          "opacity"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "media": {
+                        "type": "object",
+                        "properties": {
+                          "url": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Absolute URL, or a path relative to the repo."
+                          },
+                          "alt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "url"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "media": {
+                    "type": "object",
+                    "properties": {
+                      "url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Absolute URL, or a path relative to the repo."
+                      },
+                      "alt": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "url"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "youtubeLink": {
+                    "type": "string"
+                  },
+                  "mediaRadius": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 8,
+                    "default": 2
+                  },
+                  "aspectRatio": {
+                    "type": "string",
+                    "description": "e.g. \"16/9\", \"4/3\", \"1/1\".",
+                    "default": "16/9"
+                  },
+                  "objectFit": {
+                    "type": "string",
+                    "enum": [
+                      "cover",
+                      "contain",
+                      "fill",
+                      "none",
+                      "scale-down"
+                    ],
+                    "default": "cover"
+                  },
+                  "hasBorder": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "playVideoInModal": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "const": "marquee"
+              },
+              "settings": {
+                "type": "object",
+                "properties": {
+                  "cssId": {
+                    "type": "string",
+                    "description": "HTML id, used for in-page links like /#pricing."
+                  },
+                  "verticalPadding": {
+                    "type": "string",
+                    "enum": [
+                      "py-0",
+                      "py-4",
+                      "py-6",
+                      "py-8",
+                      "py-10",
+                      "py-12",
+                      "py-16",
+                      "py-20",
+                      "py-24",
+                      "py-32",
+                      "py-40",
+                      "py-48",
+                      "py-56",
+                      "py-64"
+                    ]
+                  },
+                  "maxWidth": {
+                    "type": "string",
+                    "enum": [
+                      "max-w-2xl",
+                      "max-w-3xl",
+                      "max-w-4xl",
+                      "max-w-5xl",
+                      "max-w-6xl"
+                    ]
+                  },
+                  "background": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "color",
+                          "image",
+                          "gradient"
+                        ]
+                      },
+                      "backgroundColor": {
+                        "type": "string"
+                      },
+                      "backgroundColorDark": {
+                        "type": "string"
+                      },
+                      "backgroundImage": {
+                        "type": "string"
+                      },
+                      "backgroundImageDark": {
+                        "type": "string"
+                      },
+                      "backgroundSize": {
+                        "type": "string"
+                      },
+                      "backgroundPosition": {
+                        "type": "string"
+                      },
+                      "backgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "backgroundAttachment": {
+                        "type": "string",
+                        "enum": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      "maskImage": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundSize": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundPosition": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "gradientMaskImage": {
+                        "type": "string"
+                      },
+                      "blur": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "overlay": {
+                        "type": "object",
+                        "properties": {
+                          "color": {
+                            "type": "string"
+                          },
+                          "colorDark": {
+                            "type": "string"
+                          },
+                          "blendMode": {
+                            "type": "string",
+                            "enum": [
+                              "normal",
+                              "multiply",
+                              "screen",
+                              "overlay",
+                              "darken",
+                              "lighten",
+                              "color-dodge",
+                              "color-burn",
+                              "hard-light",
+                              "soft-light",
+                              "difference",
+                              "exclusion",
+                              "hue",
+                              "saturation",
+                              "color",
+                              "luminosity"
+                            ]
+                          },
+                          "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10,
+                            "description": "0 is invisible, 10 is fully solid."
+                          }
+                        },
+                        "required": [
+                          "color",
+                          "blendMode",
+                          "opacity"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "media": {
+                        "type": "object",
+                        "properties": {
+                          "url": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Absolute URL, or a path relative to the repo."
+                          },
+                          "alt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "url"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "text": {
+                          "type": "string"
+                        },
+                        "href": {
+                          "type": "string",
+                          "description": "A site path (\"/pricing\"), anchor (\"/#faq\") or absolute URL."
+                        },
+                        "icon": {
+                          "type": "string",
+                          "description": "Lucide icon name, e.g. \"Globe\"."
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "default": [
+                      {
+                        "text": "Website"
+                      },
+                      {
+                        "text": "Content"
+                      },
+                      {
+                        "text": "Support"
+                      },
+                      {
+                        "text": "Engage"
+                      }
+                    ]
+                  },
+                  "direction": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "right"
+                    ],
+                    "default": "right"
+                  },
+                  "speed": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Pixels per second.",
+                    "default": 60
+                  },
+                  "pauseOnHover": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "fadeWidth": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 50
+                  },
+                  "itemBackgroundColor": {
+                    "type": "string",
+                    "default": ""
+                  },
+                  "itemForegroundColor": {
+                    "type": "string",
+                    "default": ""
+                  },
+                  "itemBorderColor": {
+                    "type": "string",
+                    "default": ""
+                  },
+                  "itemBorderRadius": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 12
+                  },
+                  "itemBorderWidth": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 1
+                  },
+                  "itemBorderStyle": {
+                    "type": "string",
+                    "enum": [
+                      "solid",
+                      "dashed",
+                      "dotted",
+                      "double",
+                      "none"
+                    ],
+                    "default": "solid"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "const": "pricing"
+              },
+              "settings": {
+                "type": "object",
+                "properties": {
+                  "cssId": {
+                    "type": "string",
+                    "description": "HTML id, used for in-page links like /#pricing."
+                  },
+                  "verticalPadding": {
+                    "type": "string",
+                    "enum": [
+                      "py-0",
+                      "py-4",
+                      "py-6",
+                      "py-8",
+                      "py-10",
+                      "py-12",
+                      "py-16",
+                      "py-20",
+                      "py-24",
+                      "py-32",
+                      "py-40",
+                      "py-48",
+                      "py-56",
+                      "py-64"
+                    ]
+                  },
+                  "maxWidth": {
+                    "type": "string",
+                    "enum": [
+                      "max-w-2xl",
+                      "max-w-3xl",
+                      "max-w-4xl",
+                      "max-w-5xl",
+                      "max-w-6xl"
+                    ]
+                  },
+                  "background": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "color",
+                          "image",
+                          "gradient"
+                        ]
+                      },
+                      "backgroundColor": {
+                        "type": "string"
+                      },
+                      "backgroundColorDark": {
+                        "type": "string"
+                      },
+                      "backgroundImage": {
+                        "type": "string"
+                      },
+                      "backgroundImageDark": {
+                        "type": "string"
+                      },
+                      "backgroundSize": {
+                        "type": "string"
+                      },
+                      "backgroundPosition": {
+                        "type": "string"
+                      },
+                      "backgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "backgroundAttachment": {
+                        "type": "string",
+                        "enum": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      "maskImage": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundSize": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundPosition": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "gradientMaskImage": {
+                        "type": "string"
+                      },
+                      "blur": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "overlay": {
+                        "type": "object",
+                        "properties": {
+                          "color": {
+                            "type": "string"
+                          },
+                          "colorDark": {
+                            "type": "string"
+                          },
+                          "blendMode": {
+                            "type": "string",
+                            "enum": [
+                              "normal",
+                              "multiply",
+                              "screen",
+                              "overlay",
+                              "darken",
+                              "lighten",
+                              "color-dodge",
+                              "color-burn",
+                              "hard-light",
+                              "soft-light",
+                              "difference",
+                              "exclusion",
+                              "hue",
+                              "saturation",
+                              "color",
+                              "luminosity"
+                            ]
+                          },
+                          "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10,
+                            "description": "0 is invisible, 10 is fully solid."
+                          }
+                        },
+                        "required": [
+                          "color",
+                          "blendMode",
+                          "opacity"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "media": {
+                        "type": "object",
+                        "properties": {
+                          "url": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Absolute URL, or a path relative to the repo."
+                          },
+                          "alt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "url"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "layout": {
+                    "type": "string",
+                    "enum": [
+                      "grid",
+                      "stacked",
+                      "highlight"
+                    ]
+                  },
+                  "title": {
+                    "type": "string",
+                    "default": "Simple, transparent pricing"
+                  },
+                  "titleLevel": {
+                    "type": "string",
+                    "enum": [
+                      "h1",
+                      "h2",
+                      "h3"
+                    ]
+                  },
+                  "titleSize": {
+                    "type": "object",
+                    "properties": {
+                      "mobile": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "tablet": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "desktop": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Per-breakpoint title size in px; unset breakpoints keep the theme size."
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Markdown (CommonMark + GFM)."
+                  },
+                  "headerAlignment": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "center",
+                      "right",
+                      "top",
+                      "bottom"
+                    ],
+                    "default": "center"
+                  },
+                  "tiers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "price": {
+                          "type": "string",
+                          "description": "Display string, e.g. \"$29/mo\"."
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "features": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "buttonCaption": {
+                          "type": "string"
+                        },
+                        "buttonAction": {
+                          "type": "string",
+                          "description": "A site path (\"/pricing\"), anchor (\"/#faq\") or absolute URL."
+                        },
+                        "highlighted": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "price",
+                        "features"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "default": [
+                      {
+                        "name": "Starter",
+                        "price": "$0/mo",
+                        "description": "For hobby sites and side projects.",
+                        "features": [
+                          "1 website",
+                          "FrontLit branding",
+                          "Community support"
+                        ],
+                        "buttonCaption": "Get started",
+                        "buttonAction": "/help"
+                      },
+                      {
+                        "name": "Pro",
+                        "price": "$29/mo",
+                        "description": "For growing businesses that need more.",
+                        "features": [
+                          "5 websites",
+                          "Custom domain",
+                          "Blog + Email",
+                          "Priority support"
+                        ],
+                        "buttonCaption": "Talk to us",
+                        "buttonAction": "/help",
+                        "highlighted": true
+                      },
+                      {
+                        "name": "Business",
+                        "price": "$79/mo",
+                        "description": "For teams that need scale and control.",
+                        "features": [
+                          "Unlimited websites",
+                          "Help desk & chatbot",
+                          "Team seats",
+                          "Dedicated support"
+                        ],
+                        "buttonCaption": "Contact sales",
+                        "buttonAction": "/help"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "const": "faq"
+              },
+              "settings": {
+                "type": "object",
+                "properties": {
+                  "cssId": {
+                    "type": "string",
+                    "description": "HTML id, used for in-page links like /#pricing."
+                  },
+                  "verticalPadding": {
+                    "type": "string",
+                    "enum": [
+                      "py-0",
+                      "py-4",
+                      "py-6",
+                      "py-8",
+                      "py-10",
+                      "py-12",
+                      "py-16",
+                      "py-20",
+                      "py-24",
+                      "py-32",
+                      "py-40",
+                      "py-48",
+                      "py-56",
+                      "py-64"
+                    ]
+                  },
+                  "maxWidth": {
+                    "type": "string",
+                    "enum": [
+                      "max-w-2xl",
+                      "max-w-3xl",
+                      "max-w-4xl",
+                      "max-w-5xl",
+                      "max-w-6xl"
+                    ]
+                  },
+                  "background": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "color",
+                          "image",
+                          "gradient"
+                        ]
+                      },
+                      "backgroundColor": {
+                        "type": "string"
+                      },
+                      "backgroundColorDark": {
+                        "type": "string"
+                      },
+                      "backgroundImage": {
+                        "type": "string"
+                      },
+                      "backgroundImageDark": {
+                        "type": "string"
+                      },
+                      "backgroundSize": {
+                        "type": "string"
+                      },
+                      "backgroundPosition": {
+                        "type": "string"
+                      },
+                      "backgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "backgroundAttachment": {
+                        "type": "string",
+                        "enum": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      "maskImage": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundSize": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundPosition": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "gradientMaskImage": {
+                        "type": "string"
+                      },
+                      "blur": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "overlay": {
+                        "type": "object",
+                        "properties": {
+                          "color": {
+                            "type": "string"
+                          },
+                          "colorDark": {
+                            "type": "string"
+                          },
+                          "blendMode": {
+                            "type": "string",
+                            "enum": [
+                              "normal",
+                              "multiply",
+                              "screen",
+                              "overlay",
+                              "darken",
+                              "lighten",
+                              "color-dodge",
+                              "color-burn",
+                              "hard-light",
+                              "soft-light",
+                              "difference",
+                              "exclusion",
+                              "hue",
+                              "saturation",
+                              "color",
+                              "luminosity"
+                            ]
+                          },
+                          "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10,
+                            "description": "0 is invisible, 10 is fully solid."
+                          }
+                        },
+                        "required": [
+                          "color",
+                          "blendMode",
+                          "opacity"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "media": {
+                        "type": "object",
+                        "properties": {
+                          "url": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Absolute URL, or a path relative to the repo."
+                          },
+                          "alt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "url"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "layout": {
+                    "type": "string",
+                    "enum": [
+                      "list",
+                      "cards",
+                      "columns"
+                    ]
+                  },
+                  "title": {
+                    "type": "string",
+                    "default": "Frequently asked questions"
+                  },
+                  "titleLevel": {
+                    "type": "string",
+                    "enum": [
+                      "h1",
+                      "h2",
+                      "h3"
+                    ]
+                  },
+                  "titleSize": {
+                    "type": "object",
+                    "properties": {
+                      "mobile": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "tablet": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "desktop": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Per-breakpoint title size in px; unset breakpoints keep the theme size."
+                  },
+                  "headerAlignment": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "center",
+                      "right",
+                      "top",
+                      "bottom"
+                    ],
+                    "default": "left"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "question": {
+                          "type": "string"
+                        },
+                        "answer": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "question",
+                        "answer"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "default": [
+                      {
+                        "question": "What can I build with FrontLit?",
+                        "answer": "A marketing website, articles, documentation, product updates, customer support, and email — all from one connected dashboard."
+                      },
+                      {
+                        "question": "Do I need to know how to code?",
+                        "answer": "No. Every page is assembled from ready-made blocks like this one, and you can customize copy, media and layout without touching code."
+                      },
+                      {
+                        "question": "Can I use my own domain?",
+                        "answer": "Yes, every FrontLit site can be connected to a custom domain in a few clicks."
+                      },
+                      {
+                        "question": "Is there a free plan?",
+                        "answer": "Yes, you can get started for free and upgrade as your audience grows."
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "const": "banner"
+              },
+              "settings": {
+                "type": "object",
+                "properties": {
+                  "cssId": {
+                    "type": "string",
+                    "description": "HTML id, used for in-page links like /#pricing."
+                  },
+                  "verticalPadding": {
+                    "type": "string",
+                    "enum": [
+                      "py-0",
+                      "py-4",
+                      "py-6",
+                      "py-8",
+                      "py-10",
+                      "py-12",
+                      "py-16",
+                      "py-20",
+                      "py-24",
+                      "py-32",
+                      "py-40",
+                      "py-48",
+                      "py-56",
+                      "py-64"
+                    ]
+                  },
+                  "maxWidth": {
+                    "type": "string",
+                    "enum": [
+                      "max-w-2xl",
+                      "max-w-3xl",
+                      "max-w-4xl",
+                      "max-w-5xl",
+                      "max-w-6xl"
+                    ]
+                  },
+                  "background": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "color",
+                          "image",
+                          "gradient"
+                        ]
+                      },
+                      "backgroundColor": {
+                        "type": "string"
+                      },
+                      "backgroundColorDark": {
+                        "type": "string"
+                      },
+                      "backgroundImage": {
+                        "type": "string"
+                      },
+                      "backgroundImageDark": {
+                        "type": "string"
+                      },
+                      "backgroundSize": {
+                        "type": "string"
+                      },
+                      "backgroundPosition": {
+                        "type": "string"
+                      },
+                      "backgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "backgroundAttachment": {
+                        "type": "string",
+                        "enum": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      "maskImage": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundSize": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundPosition": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "gradientMaskImage": {
+                        "type": "string"
+                      },
+                      "blur": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "overlay": {
+                        "type": "object",
+                        "properties": {
+                          "color": {
+                            "type": "string"
+                          },
+                          "colorDark": {
+                            "type": "string"
+                          },
+                          "blendMode": {
+                            "type": "string",
+                            "enum": [
+                              "normal",
+                              "multiply",
+                              "screen",
+                              "overlay",
+                              "darken",
+                              "lighten",
+                              "color-dodge",
+                              "color-burn",
+                              "hard-light",
+                              "soft-light",
+                              "difference",
+                              "exclusion",
+                              "hue",
+                              "saturation",
+                              "color",
+                              "luminosity"
+                            ]
+                          },
+                          "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10,
+                            "description": "0 is invisible, 10 is fully solid."
+                          }
+                        },
+                        "required": [
+                          "color",
+                          "blendMode",
+                          "opacity"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "media": {
+                        "type": "object",
+                        "properties": {
+                          "url": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Absolute URL, or a path relative to the repo."
+                          },
+                          "alt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "url"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "layout": {
+                    "type": "string",
+                    "enum": [
+                      "stacked",
+                      "split",
+                      "boxed"
+                    ]
+                  },
+                  "title": {
+                    "type": "string",
+                    "default": "Ready to launch your site?"
+                  },
+                  "titleLevel": {
+                    "type": "string",
+                    "enum": [
+                      "h1",
+                      "h2",
+                      "h3"
+                    ]
+                  },
+                  "titleSize": {
+                    "type": "object",
+                    "properties": {
+                      "mobile": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "tablet": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "desktop": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Per-breakpoint title size in px; unset breakpoints keep the theme size."
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Markdown (CommonMark + GFM)."
+                  },
+                  "buttonCaption": {
+                    "type": "string",
+                    "default": "Contact us"
+                  },
+                  "buttonAction": {
+                    "type": "string",
+                    "description": "A site path (\"/pricing\"), anchor (\"/#faq\") or absolute URL.",
+                    "default": "/help"
+                  },
+                  "secondaryButtonCaption": {
+                    "type": "string",
+                    "default": "Read the docs"
+                  },
+                  "secondaryButtonAction": {
+                    "type": "string",
+                    "description": "A site path (\"/pricing\"), anchor (\"/#faq\") or absolute URL.",
+                    "default": "/docs"
+                  },
+                  "contentAlignment": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "center",
+                      "right",
+                      "top",
+                      "bottom"
+                    ],
+                    "default": "center"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "const": "email-form"
+              },
+              "settings": {
+                "type": "object",
+                "properties": {
+                  "cssId": {
+                    "type": "string",
+                    "description": "HTML id, used for in-page links like /#pricing."
+                  },
+                  "verticalPadding": {
+                    "type": "string",
+                    "enum": [
+                      "py-0",
+                      "py-4",
+                      "py-6",
+                      "py-8",
+                      "py-10",
+                      "py-12",
+                      "py-16",
+                      "py-20",
+                      "py-24",
+                      "py-32",
+                      "py-40",
+                      "py-48",
+                      "py-56",
+                      "py-64"
+                    ]
+                  },
+                  "maxWidth": {
+                    "type": "string",
+                    "enum": [
+                      "max-w-2xl",
+                      "max-w-3xl",
+                      "max-w-4xl",
+                      "max-w-5xl",
+                      "max-w-6xl"
+                    ]
+                  },
+                  "background": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "color",
+                          "image",
+                          "gradient"
+                        ]
+                      },
+                      "backgroundColor": {
+                        "type": "string"
+                      },
+                      "backgroundColorDark": {
+                        "type": "string"
+                      },
+                      "backgroundImage": {
+                        "type": "string"
+                      },
+                      "backgroundImageDark": {
+                        "type": "string"
+                      },
+                      "backgroundSize": {
+                        "type": "string"
+                      },
+                      "backgroundPosition": {
+                        "type": "string"
+                      },
+                      "backgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "backgroundAttachment": {
+                        "type": "string",
+                        "enum": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      "maskImage": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundSize": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundPosition": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "gradientMaskImage": {
+                        "type": "string"
+                      },
+                      "blur": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "overlay": {
+                        "type": "object",
+                        "properties": {
+                          "color": {
+                            "type": "string"
+                          },
+                          "colorDark": {
+                            "type": "string"
+                          },
+                          "blendMode": {
+                            "type": "string",
+                            "enum": [
+                              "normal",
+                              "multiply",
+                              "screen",
+                              "overlay",
+                              "darken",
+                              "lighten",
+                              "color-dodge",
+                              "color-burn",
+                              "hard-light",
+                              "soft-light",
+                              "difference",
+                              "exclusion",
+                              "hue",
+                              "saturation",
+                              "color",
+                              "luminosity"
+                            ]
+                          },
+                          "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10,
+                            "description": "0 is invisible, 10 is fully solid."
+                          }
+                        },
+                        "required": [
+                          "color",
+                          "blendMode",
+                          "opacity"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "media": {
+                        "type": "object",
+                        "properties": {
+                          "url": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Absolute URL, or a path relative to the repo."
+                          },
+                          "alt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "url"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "layout": {
+                    "type": "string",
+                    "enum": [
+                      "stacked",
+                      "split",
+                      "inline"
+                    ]
+                  },
+                  "title": {
+                    "type": "string",
+                    "default": "Get product updates in your inbox"
+                  },
+                  "titleLevel": {
+                    "type": "string",
+                    "enum": [
+                      "h1",
+                      "h2",
+                      "h3"
+                    ]
+                  },
+                  "titleSize": {
+                    "type": "object",
+                    "properties": {
+                      "mobile": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "tablet": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "desktop": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Per-breakpoint title size in px; unset breakpoints keep the theme size."
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Markdown (CommonMark + GFM)."
+                  },
+                  "buttonCaption": {
+                    "type": "string",
+                    "default": "Subscribe"
+                  },
+                  "successMessage": {
+                    "type": "string",
+                    "default": "Thanks for subscribing! Check your inbox soon."
+                  },
+                  "alignment": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "center",
+                      "right",
+                      "top",
+                      "bottom"
+                    ],
+                    "default": "left"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "const": "support-form"
+              },
+              "settings": {
+                "type": "object",
+                "properties": {
+                  "cssId": {
+                    "type": "string",
+                    "description": "HTML id, used for in-page links like /#pricing."
+                  },
+                  "verticalPadding": {
+                    "type": "string",
+                    "enum": [
+                      "py-0",
+                      "py-4",
+                      "py-6",
+                      "py-8",
+                      "py-10",
+                      "py-12",
+                      "py-16",
+                      "py-20",
+                      "py-24",
+                      "py-32",
+                      "py-40",
+                      "py-48",
+                      "py-56",
+                      "py-64"
+                    ]
+                  },
+                  "maxWidth": {
+                    "type": "string",
+                    "enum": [
+                      "max-w-2xl",
+                      "max-w-3xl",
+                      "max-w-4xl",
+                      "max-w-5xl",
+                      "max-w-6xl"
+                    ]
+                  },
+                  "background": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "color",
+                          "image",
+                          "gradient"
+                        ]
+                      },
+                      "backgroundColor": {
+                        "type": "string"
+                      },
+                      "backgroundColorDark": {
+                        "type": "string"
+                      },
+                      "backgroundImage": {
+                        "type": "string"
+                      },
+                      "backgroundImageDark": {
+                        "type": "string"
+                      },
+                      "backgroundSize": {
+                        "type": "string"
+                      },
+                      "backgroundPosition": {
+                        "type": "string"
+                      },
+                      "backgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "backgroundAttachment": {
+                        "type": "string",
+                        "enum": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      "maskImage": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundSize": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundPosition": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "gradientMaskImage": {
+                        "type": "string"
+                      },
+                      "blur": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "overlay": {
+                        "type": "object",
+                        "properties": {
+                          "color": {
+                            "type": "string"
+                          },
+                          "colorDark": {
+                            "type": "string"
+                          },
+                          "blendMode": {
+                            "type": "string",
+                            "enum": [
+                              "normal",
+                              "multiply",
+                              "screen",
+                              "overlay",
+                              "darken",
+                              "lighten",
+                              "color-dodge",
+                              "color-burn",
+                              "hard-light",
+                              "soft-light",
+                              "difference",
+                              "exclusion",
+                              "hue",
+                              "saturation",
+                              "color",
+                              "luminosity"
+                            ]
+                          },
+                          "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10,
+                            "description": "0 is invisible, 10 is fully solid."
+                          }
+                        },
+                        "required": [
+                          "color",
+                          "blendMode",
+                          "opacity"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "media": {
+                        "type": "object",
+                        "properties": {
+                          "url": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Absolute URL, or a path relative to the repo."
+                          },
+                          "alt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "url"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "layout": {
+                    "type": "string",
+                    "enum": [
+                      "stacked"
+                    ]
+                  },
+                  "title": {
+                    "type": "string",
+                    "default": "Need help?"
+                  },
+                  "titleLevel": {
+                    "type": "string",
+                    "enum": [
+                      "h1",
+                      "h2",
+                      "h3"
+                    ]
+                  },
+                  "titleSize": {
+                    "type": "object",
+                    "properties": {
+                      "mobile": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "tablet": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "desktop": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Per-breakpoint title size in px; unset breakpoints keep the theme size."
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Markdown (CommonMark + GFM)."
+                  },
+                  "buttonCaption": {
+                    "type": "string",
+                    "default": "Submit ticket"
+                  },
+                  "successMessage": {
+                    "type": "string",
+                    "default": "Thanks — we've got your ticket and will reply by email soon."
+                  },
+                  "alignment": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "center",
+                      "right",
+                      "top",
+                      "bottom"
+                    ],
+                    "default": "left"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "const": "embed"
+              },
+              "settings": {
+                "type": "object",
+                "properties": {
+                  "cssId": {
+                    "type": "string",
+                    "description": "HTML id, used for in-page links like /#pricing."
+                  },
+                  "verticalPadding": {
+                    "type": "string",
+                    "enum": [
+                      "py-0",
+                      "py-4",
+                      "py-6",
+                      "py-8",
+                      "py-10",
+                      "py-12",
+                      "py-16",
+                      "py-20",
+                      "py-24",
+                      "py-32",
+                      "py-40",
+                      "py-48",
+                      "py-56",
+                      "py-64"
+                    ]
+                  },
+                  "maxWidth": {
+                    "type": "string",
+                    "enum": [
+                      "max-w-2xl",
+                      "max-w-3xl",
+                      "max-w-4xl",
+                      "max-w-5xl",
+                      "max-w-6xl"
+                    ]
+                  },
+                  "background": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "color",
+                          "image",
+                          "gradient"
+                        ]
+                      },
+                      "backgroundColor": {
+                        "type": "string"
+                      },
+                      "backgroundColorDark": {
+                        "type": "string"
+                      },
+                      "backgroundImage": {
+                        "type": "string"
+                      },
+                      "backgroundImageDark": {
+                        "type": "string"
+                      },
+                      "backgroundSize": {
+                        "type": "string"
+                      },
+                      "backgroundPosition": {
+                        "type": "string"
+                      },
+                      "backgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "backgroundAttachment": {
+                        "type": "string",
+                        "enum": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      "maskImage": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundSize": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundPosition": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "gradientMaskImage": {
+                        "type": "string"
+                      },
+                      "blur": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "overlay": {
+                        "type": "object",
+                        "properties": {
+                          "color": {
+                            "type": "string"
+                          },
+                          "colorDark": {
+                            "type": "string"
+                          },
+                          "blendMode": {
+                            "type": "string",
+                            "enum": [
+                              "normal",
+                              "multiply",
+                              "screen",
+                              "overlay",
+                              "darken",
+                              "lighten",
+                              "color-dodge",
+                              "color-burn",
+                              "hard-light",
+                              "soft-light",
+                              "difference",
+                              "exclusion",
+                              "hue",
+                              "saturation",
+                              "color",
+                              "luminosity"
+                            ]
+                          },
+                          "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10,
+                            "description": "0 is invisible, 10 is fully solid."
+                          }
+                        },
+                        "required": [
+                          "color",
+                          "blendMode",
+                          "opacity"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "media": {
+                        "type": "object",
+                        "properties": {
+                          "url": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Absolute URL, or a path relative to the repo."
+                          },
+                          "alt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "url"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "contentType": {
+                    "type": "string",
+                    "enum": [
+                      "url",
+                      "script"
+                    ],
+                    "default": "url"
+                  },
+                  "content": {
+                    "type": "string",
+                    "description": "A URL, or an iframe/script snippet.",
+                    "default": ""
+                  },
+                  "aspectRatio": {
+                    "type": "string",
+                    "enum": [
+                      "16:9",
+                      "4:3",
+                      "1:1",
+                      "default"
+                    ],
+                    "default": "default"
+                  },
+                  "height": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Height in px when aspectRatio is \"default\".",
+                    "default": 500
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "const": "code-snippet"
+              },
+              "settings": {
+                "type": "object",
+                "properties": {
+                  "cssId": {
+                    "type": "string",
+                    "description": "HTML id, used for in-page links like /#pricing."
+                  },
+                  "verticalPadding": {
+                    "type": "string",
+                    "enum": [
+                      "py-0",
+                      "py-4",
+                      "py-6",
+                      "py-8",
+                      "py-10",
+                      "py-12",
+                      "py-16",
+                      "py-20",
+                      "py-24",
+                      "py-32",
+                      "py-40",
+                      "py-48",
+                      "py-56",
+                      "py-64"
+                    ]
+                  },
+                  "maxWidth": {
+                    "type": "string",
+                    "enum": [
+                      "max-w-2xl",
+                      "max-w-3xl",
+                      "max-w-4xl",
+                      "max-w-5xl",
+                      "max-w-6xl"
+                    ]
+                  },
+                  "background": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "color",
+                          "image",
+                          "gradient"
+                        ]
+                      },
+                      "backgroundColor": {
+                        "type": "string"
+                      },
+                      "backgroundColorDark": {
+                        "type": "string"
+                      },
+                      "backgroundImage": {
+                        "type": "string"
+                      },
+                      "backgroundImageDark": {
+                        "type": "string"
+                      },
+                      "backgroundSize": {
+                        "type": "string"
+                      },
+                      "backgroundPosition": {
+                        "type": "string"
+                      },
+                      "backgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "backgroundAttachment": {
+                        "type": "string",
+                        "enum": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      "maskImage": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundSize": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundPosition": {
+                        "type": "string"
+                      },
+                      "gradientBackgroundRepeat": {
+                        "type": "string",
+                        "enum": [
+                          "no-repeat",
+                          "repeat",
+                          "repeat-x",
+                          "repeat-y",
+                          "space",
+                          "round"
+                        ]
+                      },
+                      "gradientMaskImage": {
+                        "type": "string"
+                      },
+                      "blur": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "overlay": {
+                        "type": "object",
+                        "properties": {
+                          "color": {
+                            "type": "string"
+                          },
+                          "colorDark": {
+                            "type": "string"
+                          },
+                          "blendMode": {
+                            "type": "string",
+                            "enum": [
+                              "normal",
+                              "multiply",
+                              "screen",
+                              "overlay",
+                              "darken",
+                              "lighten",
+                              "color-dodge",
+                              "color-burn",
+                              "hard-light",
+                              "soft-light",
+                              "difference",
+                              "exclusion",
+                              "hue",
+                              "saturation",
+                              "color",
+                              "luminosity"
+                            ]
+                          },
+                          "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10,
+                            "description": "0 is invisible, 10 is fully solid."
+                          }
+                        },
+                        "required": [
+                          "color",
+                          "blendMode",
+                          "opacity"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "media": {
+                        "type": "object",
+                        "properties": {
+                          "url": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Absolute URL, or a path relative to the repo."
+                          },
+                          "alt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "url"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "code": {
+                    "type": "string",
+                    "default": "curl -fsSL https://example.com/install.sh | sh"
+                  },
+                  "showPrompt": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "caption": {
+                    "type": "string"
+                  },
+                  "contentAlignment": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "center",
+                      "right",
+                      "top",
+                      "bottom"
+                    ],
+                    "default": "center"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "const": "content-feed"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false,
+            "description": "The blog, docs or changelog feed. Only on the blog, docs and changelog pages."
+          }
+        ]
+      },
+      "description": "Blocks, top to bottom. The site header and footer come from site.json."
+    }
+  },
+  "required": [
+    "layout"
+  ],
+  "additionalProperties": false
+}

@@ -15,6 +15,7 @@ import {
   SlugConflictError,
 } from "../utils/slug";
 import {
+  canonicalPageLayout,
   createRequiredSharedWidgetPlaceholders,
   hydrateSharedWidgets,
   splitSubmittedLayout,
@@ -186,7 +187,11 @@ export async function updatePage(
   const settings = layout !== undefined ? await getTeamSettings(teamId) : null;
   const splitLayout =
     layout !== undefined && settings
-      ? splitSubmittedLayout(layout, settings.draftSharedWidgets, existing.slug)
+      ? splitSubmittedLayout(
+          canonicalPageLayout(layout),
+          settings.draftSharedWidgets,
+          existing.slug,
+        )
       : null;
 
   try {

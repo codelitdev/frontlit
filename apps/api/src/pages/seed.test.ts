@@ -10,7 +10,9 @@ vi.mock("../media/service", async (original) => ({
 
 import { db as testDb } from "../db/client";
 import { pages } from "../db/schema";
-import { createHomepageBody, seedStandardPages } from "./seed";
+import { createHomepageBody, seedStandardPages, STANDARD_PAGES } from "./seed";
+import { parsePageFile, serializePageFile } from "@frontlit/page-builder/schema";
+import { createRequiredPageLayout } from "./shared-widgets";
 
 const PUBLIC_HREF =
   /^\/(blog|docs|help|changelog|terms|privacy)$|^\/#(features|pricing)$/;
@@ -37,6 +39,19 @@ function collectedHrefs(value: unknown, acc: string[] = []): string[] {
   }
   return acc;
 }
+
+describe("standard page seeds", () => {
+  it("are canonical page files: serialize(parse(serialize(x))) === serialize(x)", () => {
+    for (const page of STANDARD_PAGES) {
+      const once = serializePageFile({
+        title: page.title ?? undefined,
+        description: page.description ?? undefined,
+        layout: createRequiredPageLayout(page.slug, page.layout),
+      });
+      expect(serializePageFile(parsePageFile(once)), page.slug).toBe(once);
+    }
+  });
+});
 
 describe("seedStandardPages", () => {
   const db = testDb as unknown as TestDb;
@@ -161,7 +176,7 @@ describe("seedStandardPages", () => {
             deletable: true,
             moveable: true,
             shared: false,
-            settings: { title: "Terms of Service" },
+            settings: { alignment: "center" },
           },
         ],
       },

@@ -109,6 +109,7 @@ export function RichTextField({
     <div className="flex flex-col gap-1 text-sm">
       <span className="font-medium text-foreground">{label}</span>
       <Editor
+        profile="documentation"
         initialContent={value ?? emptyDoc}
         onChange={onChange}
         debounceMs={150}

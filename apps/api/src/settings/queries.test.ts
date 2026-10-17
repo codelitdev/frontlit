@@ -32,7 +32,6 @@ describe("team settings", () => {
       shared: true,
       deletable: false,
       moveable: false,
-      settings: { verticalPadding: "py-4" },
     });
     expect(settings.sharedWidgets.footer).toMatchObject({
       name: "footer",
@@ -51,7 +50,8 @@ describe("team settings", () => {
     // Logo text is left unset so header and footer follow Branding.
     expect(headerSettings.logoText).toBeUndefined();
     expect(headerSettings.ctaLabel).toBe("Contact us");
-    expect(headerSettings.ctaHref).toBe("/help");
+    // "/help" is also the header block's default, so canonical settings omit it.
+    expect(headerSettings.ctaHref).toBeUndefined();
     expect(footerSettings.logoText).toBeUndefined();
     expect(footerSettings.copyrightText).toBe("© Test Team. All rights reserved.");
     expect(JSON.stringify(sharedWidgets)).not.toContain("FrontLit");

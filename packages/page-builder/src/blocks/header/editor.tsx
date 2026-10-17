@@ -111,7 +111,7 @@ export function HeaderDesignEditor({
   const update = (partial: Partial<HeaderSettings>) =>
     onChange({ ...settings, ...partial });
 
-  const logoCorners = settings.logoCorners ?? settings.logoRadius ?? 2;
+  const logoCorners = settings.logoCorners ?? 2;
 
   return (
     <div className="flex flex-col">

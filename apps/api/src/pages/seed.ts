@@ -1,7 +1,11 @@
 import { db } from "../db/client";
 import { genId } from "../db/id";
 import { pages, type WidgetInstanceRow } from "../db/schema";
-import { createRequiredPageLayout, repairStoredLayout } from "./shared-widgets";
+import {
+  canonicalPageLayout,
+  createRequiredPageLayout,
+  repairStoredLayout,
+} from "./shared-widgets";
 import {
   normalizeFeaturedImage,
   syncFeaturedImageToMediaLibrary,
@@ -334,9 +338,11 @@ export async function seedStandardPages(
       "layout" in item &&
       Array.isArray(item.layout) &&
       item.layout.length > 0;
-    const layout = hasCustomLayout
-      ? repairStoredLayout(item.layout as WidgetInstanceRow[], slug)
-      : createRequiredPageLayout(slug, standard?.layout);
+    const layout = canonicalPageLayout(
+      hasCustomLayout
+        ? repairStoredLayout(item.layout as WidgetInstanceRow[], slug)
+        : createRequiredPageLayout(slug, standard?.layout),
+    );
 
     const rawSocialImage =
       isObject && "socialImage" in item ? item.socialImage : undefined;

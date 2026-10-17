@@ -1,6 +1,9 @@
 const path = require("node:path");
 
-const GENERATED_DOCS_DIR = `${path.join("apps", "docs", ".source")}${path.sep}`;
+const GENERATED_DIRS = [
+  path.join("apps", "docs", ".source"),
+  path.join("packages", "page-builder", "schema"),
+].map((dir) => `${dir}${path.sep}`);
 const PRETTIER_EXTENSIONS = /\.(ts|tsx|js|mjs|css|md|json)$/;
 const ESLINT_EXTENSIONS = /\.(ts|tsx)$/;
 
@@ -8,7 +11,8 @@ const quote = (file) => JSON.stringify(file);
 
 module.exports = (files) => {
   const eligibleFiles = files.filter(
-    (file) => !path.relative(process.cwd(), file).startsWith(GENERATED_DOCS_DIR),
+    (file) =>
+      !GENERATED_DIRS.some((dir) => path.relative(process.cwd(), file).startsWith(dir)),
   );
 
   const biomeFiles = eligibleFiles.filter((file) => PRETTIER_EXTENSIONS.test(file));

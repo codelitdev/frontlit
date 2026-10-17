@@ -45,6 +45,7 @@
     "@codelitdev/observability": "0.1.0-alpha.0",
     "@codelitdev/platform": "0.1.0-alpha.0",
     "@frontlit/api-contract": "workspace:*",
+    "@frontlit/page-builder": "workspace:*",
     "@frontlit/text-editor": "workspace:*",
     "@modelcontextprotocol/node": "^2.0.0",
     "@modelcontextprotocol/server": "^2.0.0",
