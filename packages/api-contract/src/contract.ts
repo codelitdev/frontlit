@@ -31,6 +31,7 @@ import {
   pageSchema,
   updatePageBodySchema,
   siteReleaseSchema,
+  pagePullRequestSchema,
 } from "./schemas/pages";
 import {
   createThemeBodySchema,
@@ -451,7 +452,7 @@ const pagesContract = c.router(
       method: "POST",
       path: "/pages/:pageId/publish",
       body: c.noBody(),
-      responses: { 200: pageSchema, 404: errorSchema },
+      responses: { 200: pageSchema, 404: errorSchema, 409: errorSchema },
       summary: "Publish a page",
       description:
         "Copies the page's draft layout and SEO fields into the published fields the public site renders.",
@@ -464,6 +465,19 @@ const pagesContract = c.router(
       summary: "Discard a page's draft changes",
       description:
         "Resets the draft layout and SEO fields back to whatever is currently published.",
+    },
+    createPullRequest: {
+      method: "POST",
+      path: "/pages/:pageId/pull-request",
+      body: c.noBody(),
+      responses: {
+        201: pagePullRequestSchema,
+        404: errorSchema,
+        409: z.object({ error: z.string(), code: z.string().optional() }).passthrough(),
+      },
+      summary: "Open a pull request with a page's draft",
+      description:
+        "For Git-owned pages: commits the draft page file (and site.json when the header or footer changed) to a new branch and opens a pull request. Returns 409 UPSTREAM_CHANGED when the file changed in GitHub since the live release.",
     },
     listReleases: {
       method: "GET",

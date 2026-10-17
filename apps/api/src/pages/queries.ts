@@ -20,6 +20,7 @@ import {
   normalizeFeaturedImage,
   syncFeaturedImageToMediaLibrary,
 } from "../documents/queries";
+import { getPagesGitBinding, pageGitInfo, PageOwnedByGitError } from "./git-pr";
 import {
   draftDocument,
   draftReleasePage,
@@ -142,7 +143,7 @@ export async function getPageByPageId(pageId: string) {
   const page = await getRawPageByPageId(pageId);
   if (!page) return undefined;
   const [view] = await viewPages(page.teamId, [page]);
-  return view;
+  return { ...view, git: await pageGitInfo(page) };
 }
 
 /** Writes builder/SEO fields to draft columns. The slug is intentionally
@@ -186,6 +187,12 @@ export async function updatePage(
   }
 
   let slug: string | undefined;
+  if (
+    requestedSlug !== undefined &&
+    requestedSlug !== existing.slug &&
+    (await getPagesGitBinding(teamId))
+  )
+    throw new PageOwnedByGitError();
   if (requestedSlug !== undefined) {
     if (existing.slug === "" || !existing.deletable) {
       throw new InvalidSlugError(
@@ -273,6 +280,7 @@ export async function updatePage(
 export async function publishPage(teamId: string, pageId: string) {
   const existing = await getRawPageByPageId(pageId);
   if (!existing || existing.teamId !== teamId) return null;
+  if (await getPagesGitBinding(teamId)) throw new PageOwnedByGitError();
 
   if (existing.draftSocialImage) {
     await syncFeaturedImageToMediaLibrary(teamId, existing.draftSocialImage);
@@ -378,6 +386,7 @@ export async function deletePage(teamId: string, pageId: string) {
     return { ok: false as const, reason: "not_found" as const };
   if (!existing.deletable)
     return { ok: false as const, reason: "not_deletable" as const };
+  if (await getPagesGitBinding(teamId)) throw new PageOwnedByGitError();
   const active = await getActiveRelease(teamId);
   if (releaseEntry(active, existing)) {
     // Unpublish and delete together.

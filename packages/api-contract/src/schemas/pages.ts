@@ -55,7 +55,27 @@ export const pageSchema = z.object({
   draftRobotsAllowed: z.boolean().nullable().optional(),
   createdAt: z.string().nullable(),
   updatedAt: z.string().nullable(),
+  /** Set while pages sync from a Git repository: the page's file there. */
+  git: z
+    .object({
+      path: z.string(),
+      editUrl: z.string(),
+      repositoryUrl: z.string(),
+      branch: z.string(),
+      liveSha: z.string().nullable(),
+      pullRequest: z
+        .object({
+          number: z.number(),
+          url: z.string(),
+          status: z.enum(["open", "merged", "closed"]),
+        })
+        .nullable(),
+    })
+    .nullable()
+    .optional(),
 });
+
+export const pagePullRequestSchema = z.object({ number: z.number(), url: z.string() });
 
 export const createPageBodySchema = z.object({
   name: z.string().min(1),

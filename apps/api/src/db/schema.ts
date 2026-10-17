@@ -787,6 +787,33 @@ export const gitAssets = pgTable(
   (table) => [uniqueIndex("git_assets_team_blob_idx").on(table.teamId, table.blobSha)],
 );
 
+/** Pull requests FrontLit opened against a Git-owned pages folder: a
+ * builder draft ("page") or the export of existing pages ("setup"). */
+export const pagePullRequests = pgTable(
+  "page_pull_requests",
+  {
+    id: text("id").primaryKey().$defaultFn(genId),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["page", "setup"] }).notNull(),
+    pageId: text("page_id").references(() => pages.id, { onDelete: "set null" }),
+    branch: text("branch").notNull(),
+    baseSha: text("base_sha").notNull(),
+    commitSha: text("commit_sha").notNull(),
+    number: integer("number").notNull(),
+    url: text("url").notNull(),
+    status: text("status", { enum: ["open", "merged", "closed"] })
+      .notNull()
+      .default("open"),
+    /** Setup PRs: the exported files' paths and canonical hashes. */
+    files: jsonb("files").$type<{ path: string; hash: string }[]>(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [index("page_pull_requests_team_idx").on(table.teamId, table.createdAt)],
+);
+
 export const siteReleasePages = pgTable(
   "site_release_pages",
   {

@@ -5,6 +5,10 @@ import {
 } from "../content-validation";
 import { GitHubDocsError } from "./app";
 const messages: Record<string, string> = {
+  NOTHING_TO_PROPOSE:
+    "The draft matches the repository already, so there's nothing to put in a pull request.",
+  PAGE_UPSTREAM_CHANGED:
+    "This page changed in GitHub since FrontLit last synced it. Sync the repository, redo your edit and try again.",
   PROPOSAL_NOT_OPEN:
     "That pull request is no longer open, so it can't be updated. Create a new pull request instead.",
   PROPOSAL_ALREADY_OPEN:

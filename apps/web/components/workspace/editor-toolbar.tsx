@@ -29,6 +29,7 @@ export function EditorToolbar({
   saveState = "idle",
   publishing,
   publishingLabel = "Publishing…",
+  publishLabel = "Publish",
   leading,
   extra,
   onPublish,
@@ -43,6 +44,8 @@ export function EditorToolbar({
   saveState?: SaveState;
   publishing?: boolean;
   publishingLabel?: string;
+  /** e.g. "Create pull request" when changes go live through Git. */
+  publishLabel?: string;
   leading?: React.ReactNode;
   extra?: React.ReactNode;
   onPublish: () => void;
@@ -101,7 +104,7 @@ export function EditorToolbar({
           disabled={publishing || status === "published"}
           data-testid="publish-button"
         >
-          {publishing ? publishingLabel : "Publish"}
+          {publishing ? publishingLabel : publishLabel}
         </Button>
       </div>
     </div>

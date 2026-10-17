@@ -39,6 +39,7 @@ import {
   PagesImportError,
   type PagesManifest,
 } from "../../pages/git-import";
+import { refreshPagePullRequests } from "../../pages/git-pr";
 
 import { cleanupGitHubDocumentation } from "./retention";
 import { gitDocumentSnapshot, validateGitManifest } from "./source";
@@ -579,6 +580,7 @@ export async function processGitSync(teamId?: string, injectedApp?: DocsGitHubAp
     const pages = binding!.pagesDirectory
       ? await importChangedPages(job.teamId, binding!, head, await readTree(), readBlob)
       : null;
+    if (binding!.pagesDirectory) await refreshPagePullRequests(binding!, app);
     if (!binding!.docsEnabled)
       return await finishWithoutDocsPublication(job, head, pages);
     const included = await includedGitProposals(binding!, head, app, access, () =>

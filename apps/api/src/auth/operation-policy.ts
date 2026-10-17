@@ -165,6 +165,7 @@ export const REST_OPERATION_POLICIES = {
   "pages.remove": teamPermission("pages:write", MCP_SCOPES.pagesWrite),
   "pages.publish": teamPermission("pages:write", MCP_SCOPES.pagesWrite),
   "pages.discardDraft": teamPermission("pages:write", MCP_SCOPES.pagesWrite),
+  "pages.createPullRequest": teamPermission("pages:write", MCP_SCOPES.pagesWrite),
   "pages.listReleases": teamPermission("pages:read", MCP_SCOPES.pagesRead),
   "pages.activateRelease": teamPermission("pages:write", MCP_SCOPES.pagesWrite),
 

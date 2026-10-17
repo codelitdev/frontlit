@@ -338,6 +338,19 @@ export interface Page {
   draftRobotsAllowed?: boolean | null;
   createdAt: string | null;
   updatedAt: string | null;
+  /** Set while pages sync from GitHub: where this page's file lives. */
+  git?: {
+    path: string;
+    editUrl: string;
+    repositoryUrl: string;
+    branch: string;
+    liveSha: string | null;
+    pullRequest: {
+      number: number;
+      url: string;
+      status: "open" | "merged" | "closed";
+    } | null;
+  } | null;
 }
 
 export function listPages(
@@ -375,6 +388,12 @@ export function deletePage(pageId: string) {
 
 export function publishPage(pageId: string) {
   return unwrap<Page>(client.pages.publish({ params: { pageId } }));
+}
+
+export function createPagePullRequest(pageId: string) {
+  return unwrap<{ number: number; url: string }>(
+    client.pages.createPullRequest({ params: { pageId } }),
+  );
 }
 
 export function discardPageDraft(pageId: string) {

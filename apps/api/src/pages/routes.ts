@@ -17,6 +17,8 @@ import {
 import { omitInternal, serializeDates } from "../utils/public";
 import { db } from "../db/client";
 import { activateRelease, getReleaseByReleaseId, listReleases } from "./releases";
+import { createPagePullRequest, PageOwnedByGitError } from "./git-pr";
+import { gitHubErrorResponse } from "../documentation/github/errors";
 import { findTeamById } from "../team/queries";
 import { revalidateTeam } from "../services/revalidate";
 import { InvalidPageLayoutError } from "./shared-widgets";
@@ -93,14 +95,24 @@ const impl = s.router(
           ) {
             return { status: 400, body: { error: error.message } };
           }
-          if (error instanceof SlugConflictError) {
+          if (
+            error instanceof SlugConflictError ||
+            error instanceof PageOwnedByGitError
+          ) {
             return { status: 409, body: { error: error.message } };
           }
           throw error;
         }
       },
       publish: async ({ params, req }) => {
-        const page = await publishPage((req as any).teamId, params.pageId);
+        let page;
+        try {
+          page = await publishPage((req as any).teamId, params.pageId);
+        } catch (error) {
+          if (error instanceof PageOwnedByGitError)
+            return { status: 409, body: { error: error.message } };
+          throw error;
+        }
         if (!page) return { status: 404, body: { error: "Page not found" } };
         const team = await findTeamById((req as any).teamId);
         if (team) revalidateTeam(team.teamId).catch(() => {});
@@ -127,8 +139,26 @@ const impl = s.router(
         )!;
         return { status: 200, body: serializeDates(item) };
       },
+      createPullRequest: async ({ params, req }) => {
+        try {
+          const pr = await createPagePullRequest((req as any).teamId, params.pageId);
+          if (!pr) return { status: 404, body: { error: "Page not found" } };
+          return { status: 201, body: pr };
+        } catch (error) {
+          const response = gitHubErrorResponse(error);
+          if (response) return response as any;
+          throw error;
+        }
+      },
       remove: async ({ params, req }) => {
-        const result = await deletePage((req as any).teamId, params.pageId);
+        let result;
+        try {
+          result = await deletePage((req as any).teamId, params.pageId);
+        } catch (error) {
+          if (error instanceof PageOwnedByGitError)
+            return { status: 409, body: { error: error.message } };
+          throw error;
+        }
         if (!result.ok && result.reason === "not_found")
           return { status: 404, body: { error: "Page not found" } };
         if (!result.ok && result.reason === "not_deletable") {
@@ -151,6 +181,7 @@ const impl = s.router(
       update: "pages.update",
       publish: "pages.publish",
       discardDraft: "pages.discardDraft",
+      createPullRequest: "pages.createPullRequest",
       listReleases: "pages.listReleases",
       activateRelease: "pages.activateRelease",
       remove: "pages.remove",

@@ -21,6 +21,7 @@ import {
 import { getTeamId } from "./auth";
 import { omitInternal, serializeDates } from "../../utils/public";
 import { InvalidPageLayoutError } from "../../pages/shared-widgets";
+import { PageOwnedByGitError } from "../../pages/git-pr";
 
 function toPublicPage<T extends Record<string, unknown>>(page: T) {
   return serializeDates(omitInternal(page, "teamId"));
@@ -144,7 +145,10 @@ export function registerPageTools(server: McpToolRegistrar): void {
         if (!page) return NOT_FOUND;
         return jsonResult(toPublicPage(page));
       } catch (error) {
-        if (error instanceof InvalidPageLayoutError) {
+        if (
+          error instanceof InvalidPageLayoutError ||
+          error instanceof PageOwnedByGitError
+        ) {
           return errorResult(error.message);
         }
         return INTERNAL_ERROR;
@@ -175,7 +179,8 @@ export function registerPageTools(server: McpToolRegistrar): void {
           return errorResult("This is a standard page and can't be deleted.");
         }
         return jsonResult({ message: "Page deleted." });
-      } catch {
+      } catch (error) {
+        if (error instanceof PageOwnedByGitError) return errorResult(error.message);
         return INTERNAL_ERROR;
       }
     },
@@ -202,7 +207,8 @@ export function registerPageTools(server: McpToolRegistrar): void {
         const page = await publishPage(teamId, args.pageId);
         if (!page) return NOT_FOUND;
         return jsonResult(toPublicPage(page));
-      } catch {
+      } catch (error) {
+        if (error instanceof PageOwnedByGitError) return errorResult(error.message);
         return INTERNAL_ERROR;
       }
     },

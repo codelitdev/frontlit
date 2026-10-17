@@ -749,6 +749,127 @@ export class DocsGitHubApp {
       throw new GitHubDocsError("GITHUB_INVALID_RESPONSE");
     return branch;
   }
+  /**
+   * Pages: commits whole-file writes (JSON page files, site.json) on a new
+   * `frontlit/pages/...` branch off `parentSha`. Unrelated files are kept.
+   */
+  async createPagesBranch(
+    token: string,
+    owner: string,
+    name: string,
+    input: {
+      parentSha: string;
+      branch: string;
+      message: string;
+      files: { path: string; content: string }[];
+    },
+    beforeWrite: GitWriteGuard,
+  ) {
+    requireSha(input.parentSha);
+    if (
+      !/^frontlit\/pages(-setup)?\/[a-z0-9_-]{1,80}$/.test(input.branch) ||
+      !input.files.length ||
+      input.files.length > 500 ||
+      !input.message.trim() ||
+      input.message.length > 2000
+    )
+      throw new GitHubDocsError("GITHUB_INVALID_REQUEST");
+    let bytes = 0;
+    const paths = new Set<string>();
+    const tree = input.files.map((file) => {
+      if (
+        paths.has(file.path) ||
+        !/^[\w./-]+\.(json|png|jpe?g|gif|webp|svg|avif)$/.test(file.path) ||
+        file.path.split("/").some((part) => !part || part === "." || part === "..") ||
+        /(^|\/)\.github(\/|$)/.test(file.path)
+      )
+        throw new GitHubDocsError("GITHUB_INVALID_REQUEST");
+      paths.add(file.path);
+      bytes += Buffer.byteLength(file.content);
+      if (bytes > 10 * 1024 * 1024) throw new GitHubDocsError("GITHUB_INVALID_REQUEST");
+      return { path: file.path, mode: "100644", type: "blob", content: file.content };
+    });
+    const parent = await this.commit(token, owner, name, input.parentSha);
+    await beforeWrite();
+    const treeResult = await this.request<{ sha: string }>(
+      `${repoPath(owner, name)}/git/trees`,
+      token,
+      { method: "POST", body: { base_tree: parent.tree.sha, tree } },
+    );
+    requireResponseSha(treeResult.sha);
+    const commit = await this.request<{ sha: string }>(
+      `${repoPath(owner, name)}/git/commits`,
+      token,
+      {
+        method: "POST",
+        body: {
+          message: input.message,
+          parents: [input.parentSha],
+          tree: treeResult.sha,
+        },
+      },
+    );
+    requireResponseSha(commit.sha);
+    const ref = await this.request<{ ref: string; object: { sha: string } }>(
+      `${repoPath(owner, name)}/git/refs`,
+      token,
+      { method: "POST", body: { ref: `refs/heads/${input.branch}`, sha: commit.sha } },
+    );
+    if (ref.ref !== `refs/heads/${input.branch}` || ref.object?.sha !== commit.sha)
+      throw new GitHubDocsError("GITHUB_INVALID_RESPONSE");
+    return commit.sha;
+  }
+  /** Opens a pull request from a `frontlit/pages/...` branch. */
+  async createPagesPullRequest(
+    token: string,
+    owner: string,
+    name: string,
+    input: { branch: string; base: string; title: string; body: string },
+    beforeWrite: GitWriteGuard,
+  ) {
+    if (
+      !/^frontlit\/pages(-setup)?\//.test(input.branch) ||
+      !input.base ||
+      input.base.length > 255 ||
+      /[\x00-\x1f]/.test(input.base) ||
+      !input.title.trim() ||
+      input.title.length > 200 ||
+      /[\x00-\x1f]/.test(input.title)
+    )
+      throw new GitHubDocsError("GITHUB_INVALID_REQUEST");
+    await beforeWrite();
+    const result = await this.request<{ number: number; html_url: string }>(
+      `${repoPath(owner, name)}/pulls`,
+      token,
+      {
+        method: "POST",
+        body: {
+          title: input.title,
+          head: input.branch,
+          base: input.base,
+          body: input.body,
+        },
+      },
+    );
+    if (
+      !Number.isSafeInteger(result.number) ||
+      result.number < 1 ||
+      result.html_url !== `https://github.com/${owner}/${name}/pull/${result.number}`
+    )
+      throw new GitHubDocsError("GITHUB_INVALID_RESPONSE");
+    return { number: result.number, url: result.html_url };
+  }
+  /** The pull request for a `frontlit/pages/...` branch, if any. */
+  async findPagesPullRequest(
+    token: string,
+    owner: string,
+    name: string,
+    input: { branch: string; base: string; repositoryId: number },
+  ) {
+    if (!/^frontlit\/pages(-setup)?\//.test(input.branch))
+      throw new GitHubDocsError("GITHUB_INVALID_REQUEST");
+    return this.findCapturedPullRequest(token, owner, name, input);
+  }
   /** Check the verified parent again; GitHub's force:false also rejects races after this read. */
   async advanceBranch(
     token: string,
