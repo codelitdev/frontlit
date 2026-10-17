@@ -49,6 +49,26 @@
       "import": "./dist/builder/index.js",
       "default": "./dist/builder/index.js"
     },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "import": "./dist/server/index.js",
+      "default": "./dist/server/index.js"
+    },
+    "./primitives/server": {
+      "types": "./dist/server/primitives.d.ts",
+      "import": "./dist/server/primitives.js",
+      "default": "./dist/server/primitives.js"
+    },
+    "./islands/*": {
+      "types": "./dist/server/islands/*.d.ts",
+      "import": "./dist/server/islands/*.js",
+      "default": "./dist/server/islands/*.js"
+    },
+    "./theme": {
+      "types": "./dist/server/theme.d.ts",
+      "import": "./dist/server/theme.js",
+      "default": "./dist/server/theme.js"
+    },
     "./data-slots": {
       "types": "./dist/data-slots.d.ts",
       "import": "./dist/data-slots.js",
@@ -76,6 +96,18 @@
       ],
       "builder": [
         "dist/builder/index.d.ts"
+      ],
+      "server": [
+        "dist/server/index.d.ts"
+      ],
+      "theme": [
+        "dist/server/theme.d.ts"
+      ],
+      "primitives/server": [
+        "dist/server/primitives.d.ts"
+      ],
+      "islands/*": [
+        "dist/server/islands/*.d.ts"
       ],
       "data-slots": [
         "dist/data-slots.d.ts"
@@ -106,9 +138,9 @@
     "frontlit"
   ],
   "scripts": {
-    "build": "tsup && node scripts/add-use-client.mjs && tailwindcss -i src/styles.css -o dist/styles.css && cp src/theme.css dist/theme.css && rm -rf dist/fonts && cp -a fonts dist/fonts && node scripts/rewrite-font-urls.mjs",
+    "build": "tsup && tsup --config tsup.islands.config.ts && tsup --config tsup.server.config.ts && node scripts/add-use-client.mjs && tailwindcss -i src/styles.css -o dist/styles.css && cp src/theme.css dist/theme.css && rm -rf dist/fonts && cp -a fonts dist/fonts && node scripts/rewrite-font-urls.mjs",
     "prepublishOnly": "bun run build",
-    "dev": "tsup --watch",
+    "dev": "tsup --watch & tsup --watch --config tsup.islands.config.ts & tsup --watch --config tsup.server.config.ts & wait",
     "clean": "rimraf dist",
     "check-types": "tsc --noEmit"
   },

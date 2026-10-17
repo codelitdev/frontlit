@@ -1,7 +1,8 @@
 import React from "react";
 import type { WidgetProps, ThemeStyle } from "../../models";
 import type { FooterSettings } from "./settings";
-import { FRONTLIT_NAME, NavLink, ThemeModeSwitcher } from "../../components";
+import { FRONTLIT_NAME } from "../../components/frontlit-logo";
+import { NavLink } from "../../components/nav-link";
 import {
   Caption,
   Header3,
@@ -29,8 +30,7 @@ export function FooterWidget({
   },
   state: { theme },
   pageData,
-  nextTheme,
-  toggleTheme,
+  themeSwitcher,
 }: WidgetProps<FooterSettings>) {
   // Logo text and tagline follow Branding's title and subtitle. A site with
   // no branding yet shows FrontLit's, as the header does.
@@ -50,16 +50,7 @@ export function FooterWidget({
   overriddenTheme.structure.section.padding.y =
     verticalPadding || theme.theme.structure.section.padding.y;
 
-  const colorModeControl =
-    showThemeSwitcher && toggleTheme ? (
-      <ThemeModeSwitcher
-        resolved={nextTheme ?? "light"}
-        onToggle={toggleTheme}
-        theme={overriddenTheme}
-        size="sm"
-        variant="outline"
-      />
-    ) : null;
+  const colorModeControl = showThemeSwitcher ? themeSwitcher : null;
 
   return (
     <Section
@@ -67,7 +58,6 @@ export function FooterWidget({
       component="footer"
       id={cssId}
       background={background}
-      nextTheme={nextTheme}
       className="border-t"
     >
       {layout === "minimal" ? (

@@ -3,7 +3,8 @@ import clsx from "clsx";
 import type { ThemeStyle, WidgetProps } from "../../models";
 import type { BannerSettings } from "./settings";
 import { renderTitle, titleProps } from "../_shared/title";
-import { NavLink, TextRenderer } from "../../components";
+import { NavLink } from "../../components/nav-link";
+import { TextRenderer } from "../../components/text-renderer";
 import {
   Button,
   Header1,
@@ -31,7 +32,6 @@ export function BannerWidget({
     background,
   },
   state: { theme },
-  nextTheme,
 }: WidgetProps<BannerSettings>) {
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
@@ -102,12 +102,7 @@ export function BannerWidget({
   );
 
   return (
-    <Section
-      theme={overriddenTheme}
-      id={cssId}
-      background={background}
-      nextTheme={nextTheme}
-    >
+    <Section theme={overriddenTheme} id={cssId} background={background}>
       {isBoxed ? (
         <PageCard theme={overriddenTheme} className="mx-auto max-w-3xl">
           <PageCardContent

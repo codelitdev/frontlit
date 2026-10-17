@@ -56,6 +56,7 @@ export async function proxy(request: NextRequest) {
   // opt out of what its parent renders.
   const headers = new Headers(request.headers);
   headers.set("x-frontlit-canonical-host", resolved!.canonicalHost);
+  headers.set("x-frontlit-team-id", decision.teamId);
   if (request.nextUrl.pathname.startsWith("/embed/"))
     headers.set("x-frontlit-embed", "1");
 
@@ -64,12 +65,12 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Every request except Next's own internals and the
+    // Every request except Next's own internals, self-hosted theme fonts and the
     // signed server-to-server webhook callback (architecture.md
     // §12.4's "sole exceptions" pattern — authenticated by an HMAC
     // signature, not a tenant host, so it must never be rewritten).
     // `/favicon.ico` is intentionally included: it is resolved to the
     // requesting tenant by `app/sites/[teamId]/favicon.ico/route.ts`.
-    "/((?!_next/static|_next/image|api/webhooks).*)",
+    "/((?!_next/static|_next/image|fonts/|api/webhooks).*)",
   ],
 };

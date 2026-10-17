@@ -2,7 +2,7 @@
 
 import type { ChatSource } from "@/lib/use-visitor-chat";
 import { publicContentPath } from "@frontlit/api-contract";
-import { Caption, Text2 } from "@frontlit/page-builder/primitives";
+import { Caption, Text2 } from "@frontlit/page-builder/primitives/server";
 import { useSiteThemeStyle } from "@/lib/site-theme-context";
 
 export function CitationList({ sources }: { sources?: ChatSource[] | null }) {

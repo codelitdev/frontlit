@@ -2,7 +2,7 @@ import React from "react";
 import { Code2 } from "lucide-react";
 import type { ThemeStyle, WidgetProps } from "../../models";
 import type { EmbedSettings } from "./settings";
-import { InlineEmbed } from "../../components";
+import { InlineEmbed } from "../../components/inline-embed";
 import { Section } from "../../primitives";
 
 const aspectRatioMap: Record<string, number> = {
@@ -24,7 +24,6 @@ export function EmbedWidget({
   },
   state: { theme },
   editing,
-  nextTheme,
 }: WidgetProps<EmbedSettings>) {
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
@@ -35,12 +34,7 @@ export function EmbedWidget({
     if (!editing) return null;
 
     return (
-      <Section
-        theme={overriddenTheme}
-        id={cssId}
-        background={background}
-        nextTheme={nextTheme}
-      >
+      <Section theme={overriddenTheme} id={cssId} background={background}>
         <div className="flex min-h-48 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-6 py-12 text-center">
           <span className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
             <Code2 className="h-4 w-4" />
@@ -70,12 +64,7 @@ export function EmbedWidget({
     : { width: "100%", height: "100%" };
 
   return (
-    <Section
-      theme={overriddenTheme}
-      id={cssId}
-      background={background}
-      nextTheme={nextTheme}
-    >
+    <Section theme={overriddenTheme} id={cssId} background={background}>
       <div style={containerStyle}>
         {isScript ? (
           <InlineEmbed content={content} style={ratio ? fillStyle : undefined} />

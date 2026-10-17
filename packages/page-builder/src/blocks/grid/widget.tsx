@@ -6,7 +6,9 @@ import type { ThemeStyle, WidgetProps } from "../../models";
 import { getMediaUrl, getMediaAlt } from "../../models/media";
 import type { GridItem, GridSettings } from "./settings";
 import { renderTitle, titleProps } from "../_shared/title";
-import { Image, NavLink, TextRenderer } from "../../components";
+import { Image } from "../../components/image";
+import { NavLink } from "../../components/nav-link";
+import { TextRenderer } from "../../components/text-renderer";
 import {
   Button,
   Header1,
@@ -125,7 +127,6 @@ export function GridWidget({
     background,
   },
   state: { theme },
-  nextTheme,
 }: WidgetProps<GridSettings>) {
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
@@ -133,12 +134,7 @@ export function GridWidget({
     verticalPadding || theme.theme.structure.section.padding.y;
 
   return (
-    <Section
-      theme={overriddenTheme}
-      id={cssId}
-      background={background}
-      nextTheme={nextTheme}
-    >
+    <Section theme={overriddenTheme} id={cssId} background={background}>
       <div className="flex flex-col gap-8">
         <div
           className={clsx(

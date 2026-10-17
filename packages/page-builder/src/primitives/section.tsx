@@ -9,48 +9,61 @@ interface SectionProps extends React.HTMLAttributes<HTMLElement> {
   theme?: ThemeStyle;
   component?: "header" | "footer" | "section";
   background?: SectionBackground;
-  nextTheme?: "dark" | "light";
 }
 
-function resolveBackgroundLayerStyle(
-  background: SectionBackground,
-  nextTheme?: "dark" | "light",
-): React.CSSProperties {
-  const isDark = nextTheme === "dark";
+type CssVars = React.CSSProperties & Record<`--${string}`, string | undefined>;
+
+/**
+ * Dark-mode variants are resolved in CSS (`dark:` utilities reading custom
+ * properties) rather than in JS, so a server-rendered section paints the
+ * right palette without knowing the visitor's colour mode.
+ */
+function resolveBackgroundLayer(background: SectionBackground): {
+  className?: string;
+  style: CssVars;
+} {
   const attachment = background.backgroundAttachment || "scroll";
 
   if (background.type === "color") {
     return {
-      backgroundColor: isDark
-        ? background.backgroundColorDark || background.backgroundColor
-        : background.backgroundColor,
+      className:
+        "[background-color:var(--pb-bg)] dark:[background-color:var(--pb-bg-dark,var(--pb-bg))]",
+      style: {
+        "--pb-bg": background.backgroundColor,
+        "--pb-bg-dark": background.backgroundColorDark,
+      },
     };
   }
 
   if (background.type === "image") {
     const bgUrl = getMediaUrl(background.media);
     return {
-      backgroundImage: bgUrl ? `url(${bgUrl})` : undefined,
-      backgroundSize: background.backgroundSize || "cover",
-      backgroundPosition: background.backgroundPosition || "center",
-      backgroundRepeat: background.backgroundRepeat || "no-repeat",
-      backgroundAttachment: attachment,
-      maskImage: background.maskImage,
-      WebkitMaskImage: background.maskImage,
+      style: {
+        backgroundImage: bgUrl ? `url(${bgUrl})` : undefined,
+        backgroundSize: background.backgroundSize || "cover",
+        backgroundPosition: background.backgroundPosition || "center",
+        backgroundRepeat: background.backgroundRepeat || "no-repeat",
+        backgroundAttachment: attachment,
+        maskImage: background.maskImage,
+        WebkitMaskImage: background.maskImage,
+      },
     };
   }
 
   // Pattern / gradient
   return {
-    backgroundImage: isDark
-      ? background.backgroundImageDark || background.backgroundImage
-      : background.backgroundImage,
-    backgroundSize: background.gradientBackgroundSize || "cover",
-    backgroundPosition: background.gradientBackgroundPosition || "center",
-    backgroundRepeat: background.gradientBackgroundRepeat || "no-repeat",
-    backgroundAttachment: attachment,
-    maskImage: background.gradientMaskImage,
-    WebkitMaskImage: background.gradientMaskImage,
+    className:
+      "[background-image:var(--pb-bg-image)] dark:[background-image:var(--pb-bg-image-dark,var(--pb-bg-image))]",
+    style: {
+      "--pb-bg-image": background.backgroundImage,
+      "--pb-bg-image-dark": background.backgroundImageDark,
+      backgroundSize: background.gradientBackgroundSize || "cover",
+      backgroundPosition: background.gradientBackgroundPosition || "center",
+      backgroundRepeat: background.gradientBackgroundRepeat || "no-repeat",
+      backgroundAttachment: attachment,
+      maskImage: background.gradientMaskImage,
+      WebkitMaskImage: background.gradientMaskImage,
+    },
   };
 }
 
@@ -59,7 +72,6 @@ export const Section: React.FC<SectionProps> = ({
   className = "",
   theme,
   background,
-  nextTheme,
   component = "section",
   ...props
 }) => {
@@ -70,6 +82,7 @@ export const Section: React.FC<SectionProps> = ({
       "border-t border-border",
     className,
   );
+  const backgroundLayer = background ? resolveBackgroundLayer(background) : null;
   const isFixed =
     background &&
     background.type !== "color" &&
@@ -87,28 +100,30 @@ export const Section: React.FC<SectionProps> = ({
           ...props,
         },
         <>
-          {background && (
+          {backgroundLayer && (
             <div
-              suppressHydrationWarning
               aria-hidden
-              className="pointer-events-none absolute inset-0 z-0"
-              style={resolveBackgroundLayerStyle(background, nextTheme)}
+              className={cn(
+                "pointer-events-none absolute inset-0 z-0",
+                backgroundLayer.className,
+              )}
+              style={backgroundLayer.style}
             />
           )}
           {background && background.type === "image" && (
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-0 z-[1]"
-              style={{
-                backgroundColor:
-                  nextTheme === "dark"
-                    ? background?.overlay?.colorDark || background?.overlay?.color
-                    : background?.overlay?.color,
-                opacity: background?.overlay?.opacity
-                  ? background.overlay.opacity / 10
-                  : 0,
-                mixBlendMode: background?.overlay?.blendMode,
-              }}
+              className="pointer-events-none absolute inset-0 z-[1] [background-color:var(--pb-overlay)] dark:[background-color:var(--pb-overlay-dark,var(--pb-overlay))]"
+              style={
+                {
+                  "--pb-overlay": background?.overlay?.color,
+                  "--pb-overlay-dark": background?.overlay?.colorDark,
+                  opacity: background?.overlay?.opacity
+                    ? background.overlay.opacity / 10
+                    : 0,
+                  mixBlendMode: background?.overlay?.blendMode,
+                } as CssVars
+              }
             />
           )}
           {background && background.type === "image" && (

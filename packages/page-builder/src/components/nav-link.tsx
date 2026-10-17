@@ -18,9 +18,16 @@ export interface PageBuilderLinkProps {
  */
 export type PageBuilderLinkComponent = React.ComponentType<PageBuilderLinkProps>;
 
-const PageBuilderLinkContext = React.createContext<PageBuilderLinkComponent | null>(
-  null,
-);
+// Server-rendered pages load this module more than once (each client island is
+// bundled on its own), so the context is shared through the global registry
+// rather than created per copy. Otherwise a provider from one copy would be
+// invisible to a NavLink from another.
+const LINK_CONTEXT_KEY = Symbol.for("@frontlit/page-builder/link-context");
+const globalRegistry = globalThis as typeof globalThis & {
+  [LINK_CONTEXT_KEY]?: React.Context<PageBuilderLinkComponent | null>;
+};
+const PageBuilderLinkContext = (globalRegistry[LINK_CONTEXT_KEY] ??=
+  React.createContext<PageBuilderLinkComponent | null>(null));
 
 export function PageBuilderLinkProvider({
   component,

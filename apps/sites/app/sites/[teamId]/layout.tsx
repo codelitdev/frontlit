@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { preload } from "react-dom";
 import { getChatbotSettings, getSettings } from "@/lib/api";
 import { API_PUBLIC_URL } from "@/lib/config";
+import { themeFontPreloads } from "@/lib/font-css";
 import { loadSiteTheme } from "@/lib/load-site-theme";
+import { resolveSiteTheme } from "@/lib/site-theme";
 import { CodeInjector } from "@/components/code-injector";
 import { ChatWidget } from "@/components/chat-widget";
 
@@ -45,6 +48,12 @@ export default async function TenantLayout({
     getChatbotSettings(teamId),
     loadSiteTheme(teamId),
   ]);
+
+  // Only the fonts the active theme paints with are preloaded.
+  const { theme } = resolveSiteTheme(siteTheme.themeId, siteTheme.themeStyle);
+  for (const href of themeFontPreloads(theme)) {
+    preload(href, { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
+  }
 
   return (
     <>

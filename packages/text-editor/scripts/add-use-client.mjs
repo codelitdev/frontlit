@@ -11,6 +11,8 @@ function walk(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
+      // The renderer is built separately and must stay server-callable.
+      if (full === path.join(distDir, "renderer")) continue;
       walk(full);
     } else if (entry.name === "index.js") {
       const content = fs.readFileSync(full, "utf8");

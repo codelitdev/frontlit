@@ -1,4 +1,5 @@
 import type { Widget } from "./models";
+import { LAYOUT_BLOCK_NAMES } from "./registry-names";
 import {
   Header,
   Hero,
@@ -44,7 +45,7 @@ export const blockRegistry: Record<string, Widget<any>> = {
   "data-slot": DataSlot,
 };
 
-export const LAYOUT_BLOCK_NAMES = ["header", "footer"];
+export { LAYOUT_BLOCK_NAMES };
 export const NON_ADDABLE_BLOCK_NAMES = [...LAYOUT_BLOCK_NAMES, "data-slot"];
 
 /**

@@ -2,7 +2,8 @@ import React from "react";
 import type { ThemeStyle, WidgetProps } from "../../models";
 import { getMediaUrl, getMediaAlt } from "../../models/media";
 import type { MediaSettings } from "./settings";
-import { Image, VideoWithPreview } from "../../components";
+import { Image } from "../../components/image";
+import { VideoWithPreview } from "../../components/video-with-preview";
 import { isVideo } from "../../utils";
 import { Section } from "../../primitives";
 import { cn } from "../../primitives/lib/utils";
@@ -34,7 +35,6 @@ export function MediaWidget({
     background,
   },
   state: { theme },
-  nextTheme,
 }: WidgetProps<MediaSettings>) {
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
@@ -44,12 +44,7 @@ export function MediaWidget({
   const isVideoContent = isVideo(youtubeLink, media);
 
   return (
-    <Section
-      theme={overriddenTheme}
-      id={cssId}
-      background={background}
-      nextTheme={nextTheme}
-    >
+    <Section theme={overriddenTheme} id={cssId} background={background}>
       <div
         className={cn(
           "overflow-hidden",

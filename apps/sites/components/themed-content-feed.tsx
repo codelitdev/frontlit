@@ -1,7 +1,6 @@
-"use client";
-
 import Link from "next/link";
-import { TextRenderer, type TextEditorContent } from "@frontlit/text-editor";
+import { TextRenderer } from "@frontlit/text-editor/renderer";
+import type { TextEditorContent } from "@frontlit/text-editor";
 import {
   Badge,
   Caption,
@@ -10,11 +9,17 @@ import {
   Image,
   Subheader1,
   Text2,
-} from "@frontlit/page-builder/primitives";
-import { useSiteThemeStyle } from "@/lib/site-theme-context";
+} from "@frontlit/page-builder/primitives/server";
+import { getRequestThemeStyle } from "@/lib/request-theme";
 
-function FeedHeading({ title, subtitle }: { title: string; subtitle?: string | null }) {
-  const theme = useSiteThemeStyle();
+async function FeedHeading({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle?: string | null;
+}) {
+  const theme = await getRequestThemeStyle();
   return (
     <header className="flex flex-col gap-4">
       <Header1 theme={theme}>{title}</Header1>
@@ -35,7 +40,7 @@ function formatDate(value: string) {
   });
 }
 
-export function ThemedArticleFeed({
+export async function ThemedArticleFeed({
   title,
   subtitle,
   items,
@@ -51,7 +56,7 @@ export function ThemedArticleFeed({
     featuredImage?: Record<string, unknown> | null;
   }>;
 }) {
-  const theme = useSiteThemeStyle();
+  const theme = await getRequestThemeStyle();
   return (
     <div className="flex flex-col gap-10">
       <FeedHeading title={title} subtitle={subtitle} />
@@ -122,7 +127,7 @@ const LABEL_VARIANT: Record<
   removed: "destructive",
 };
 
-export function ThemedProductUpdatesFeed({
+export async function ThemedProductUpdatesFeed({
   title,
   subtitle,
   jsonLd,
@@ -139,7 +144,7 @@ export function ThemedProductUpdatesFeed({
     meta: { version?: string | null; labels: string[] };
   }>;
 }) {
-  const theme = useSiteThemeStyle();
+  const theme = await getRequestThemeStyle();
   return (
     <div className="flex flex-col gap-10">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />

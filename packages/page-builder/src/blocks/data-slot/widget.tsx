@@ -19,7 +19,6 @@ export function DataSlotWidget({
   editing,
   settings: { slot, cssId, maxWidth, verticalPadding, background },
   state: { theme },
-  nextTheme,
 }: WidgetProps<DataSlotSettings>) {
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
@@ -28,12 +27,7 @@ export function DataSlotWidget({
 
   if (data !== undefined) {
     return (
-      <Section
-        theme={overriddenTheme}
-        id={cssId}
-        background={background}
-        nextTheme={nextTheme}
-      >
+      <Section theme={overriddenTheme} id={cssId} background={background}>
         {data}
       </Section>
     );
@@ -45,7 +39,6 @@ export function DataSlotWidget({
       theme={overriddenTheme}
       id={cssId}
       background={background}
-      nextTheme={nextTheme}
       className="border-y border-dashed border-border bg-muted/30"
     >
       <div className="flex flex-col items-center gap-3 text-center">

@@ -4,7 +4,8 @@ import type { WidgetProps, ThemeStyle } from "../../models";
 import { getMediaUrl, getMediaAlt } from "../../models/media";
 import type { ContentSettings } from "./settings";
 import { renderTitle, titleProps } from "../_shared/title";
-import { Image, TextRenderer } from "../../components";
+import { Image } from "../../components/image";
+import { TextRenderer } from "../../components/text-renderer";
 import { Header2, Section } from "../../primitives";
 
 const roundedMap: Record<number, string> = {
@@ -36,7 +37,6 @@ export function ContentWidget({
     background,
   },
   state: { theme },
-  nextTheme,
 }: WidgetProps<ContentSettings>) {
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
@@ -55,12 +55,7 @@ export function ContentWidget({
     const textPosition =
       alignment === "right" ? "items-end text-right" : "items-start text-left";
     return (
-      <Section
-        theme={overriddenTheme}
-        id={cssId}
-        background={background}
-        nextTheme={nextTheme}
-      >
+      <Section theme={overriddenTheme} id={cssId} background={background}>
         <div className="relative min-h-[420px] w-full overflow-hidden rounded-xl">
           {hasMedia && (
             <Image
@@ -97,12 +92,7 @@ export function ContentWidget({
   }
 
   return (
-    <Section
-      theme={overriddenTheme}
-      id={cssId}
-      background={background}
-      nextTheme={nextTheme}
-    >
+    <Section theme={overriddenTheme} id={cssId} background={background}>
       <div className={clsx("flex flex-col gap-8", sideBySide && direction)}>
         {hasMedia && (
           <div className={clsx("flex w-full items-center", sideBySide && "md:w-1/2")}>

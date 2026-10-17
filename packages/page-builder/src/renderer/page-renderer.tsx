@@ -4,6 +4,7 @@ import React, { useEffect, useId, useRef } from "react";
 import type { PageData, Theme, WidgetInstance } from "../models";
 import { getWidget, LAYOUT_BLOCK_NAMES } from "../registry";
 import { EditableBlock } from "./editable-block";
+import { ThemeModeSwitcher } from "../components/theme-mode-switcher";
 import { generateThemeStyles } from "./generate-theme-styles";
 import { cn } from "../primitives/lib/utils";
 import {
@@ -21,8 +22,6 @@ export interface PageRendererProps {
   dataSlots?: Record<string, React.ReactNode>;
   /** Resolved palette currently painted (`system` is already applied). */
   nextTheme?: "light" | "dark";
-  /** Visitor or preview preference, including follow-the-OS. */
-  themeMode?: "light" | "dark" | "system";
   onThemeModeChange?: (mode: "light" | "dark" | "system") => void;
   /** When true, renders hover controls (edit/move/delete/add) for use inside the builder canvas. */
   editing?: boolean;
@@ -57,7 +56,6 @@ export function PageRenderer({
   children,
   dataSlots,
   nextTheme = "light",
-  themeMode = "light",
   onThemeModeChange,
   editing = false,
   selectedWidgetId,
@@ -90,6 +88,16 @@ export function PageRenderer({
   const header = layout.find((widget) => widget.name === "header");
   const footer = layout.find((widget) => widget.name === "footer");
   const body = layout.filter((widget) => !LAYOUT_BLOCK_NAMES.includes(widget.name));
+
+  const themeSwitcher = onThemeModeChange ? (
+    <ThemeModeSwitcher
+      resolved={nextTheme}
+      onToggle={() => onThemeModeChange(nextTheme === "dark" ? "light" : "dark")}
+      theme={theme.theme}
+      size="sm"
+      variant="outline"
+    />
+  ) : undefined;
 
   const resolvedPageData: PageData = {
     ...pageData,
@@ -153,14 +161,7 @@ export function PageRenderer({
               : undefined
           }
           editing={editing}
-          nextTheme={nextTheme}
-          themeMode={themeMode}
-          setThemeMode={onThemeModeChange}
-          toggleTheme={
-            onThemeModeChange
-              ? () => onThemeModeChange(nextTheme === "dark" ? "light" : "dark")
-              : undefined
-          }
+          themeSwitcher={themeSwitcher}
         />
       </EditableBlock>
     );

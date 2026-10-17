@@ -1,28 +1,11 @@
-"use client";
-
-import { getDefaultTheme } from "@frontlit/page-builder";
-import { generateThemeStyles } from "@frontlit/page-builder/renderer";
+import { generateThemeStyles, resolveTheme } from "@frontlit/page-builder/theme";
 import type { Theme } from "@frontlit/page-builder/models";
-import { themes } from "@frontlit/page-builder/primitives";
 
 /**
- * Site chrome (chat launcher + panel) follows the team-level FrontLit theme.
- * Falls back to Classic when the site has no explicit theme.
+ * Site chrome (page, chat launcher + panel) follows the team-level FrontLit
+ * theme. Falls back to Classic when the site has no explicit theme.
  */
-export function resolveSiteTheme(
-  themeId: string | null,
-  themeStyle: Record<string, unknown> | null,
-): Theme {
-  if (themeStyle) {
-    return {
-      id: themeId ?? "custom",
-      name: "Custom",
-      theme: themeStyle as unknown as Theme["theme"],
-    };
-  }
-
-  return themes.find((theme) => theme.id === themeId) ?? getDefaultTheme();
-}
+export const resolveSiteTheme = resolveTheme;
 
 /** Light-palette hex colors used by the floating launcher (inline styles). */
 export function siteThemePalette(theme: Theme) {
