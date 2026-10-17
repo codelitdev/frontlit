@@ -285,7 +285,6 @@ export function PageBuilder({
               theme={paintedTheme}
               pageData={pageData}
               nextTheme={resolvedMode}
-              themeMode={mode}
               onThemeModeChange={setMode}
               editing
               selectedWidgetId={selectedWidgetId ?? undefined}

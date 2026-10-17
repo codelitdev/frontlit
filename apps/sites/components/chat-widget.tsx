@@ -1,14 +1,42 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
+import { runWhenIdle } from "@/lib/idle";
 import type { ChatbotWidgetStyle, ChatbotWidgetVariant } from "@/lib/api";
-import { ChatPanel } from "@/components/chat-panel";
 import {
   resolveChatAccent,
   resolveSiteTheme,
   siteThemeStyleTag,
 } from "@/lib/site-theme";
 import { SiteThemeProvider } from "@/lib/site-theme-context";
+
+// The panel (and the upload client behind it) is only fetched once it is
+// needed, so it stays out of every page's initial JavaScript.
+const ChatPanel = dynamic(
+  () => import("@/components/chat-panel").then((module) => module.ChatPanel),
+  { ssr: false },
+);
+
+/** True once the browser is idle or the visitor first interacts with the page. */
+function useIdleOrInteraction() {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const events = ["pointerdown", "keydown", "scroll", "touchstart"] as const;
+    const start = () => setReady(true);
+    const cancelIdle = runWhenIdle(start, 4000);
+    for (const event of events) {
+      window.addEventListener(event, start, { once: true, passive: true });
+    }
+    return () => {
+      cancelIdle();
+      for (const event of events) window.removeEventListener(event, start);
+    };
+  }, []);
+
+  return ready;
+}
 
 const DEFAULT_STYLE: ChatbotWidgetStyle = {
   bubbleShape: "circle",
@@ -113,6 +141,7 @@ export function ChatWidget({
   themeStyle?: Record<string, unknown> | null;
 }) {
   const [open, setOpen] = useState(false);
+  const panelReady = useIdleOrInteraction();
   const theme = useMemo(
     () => resolveSiteTheme(themeId, themeStyle),
     [themeId, themeStyle],
@@ -150,19 +179,21 @@ export function ChatWidget({
           {}
           <style dangerouslySetInnerHTML={{ __html: themeCss }} />
           <div className="pointer-events-auto w-full max-w-[min(380px,100%)]">
-            <ChatPanel
-              apiBaseUrl={apiBaseUrl}
-              teamId={teamId}
-              name={name}
-              greeting={greeting}
-              accentColor={accentColor}
-              themeId={themeId}
-              themeStyle={themeStyle}
-              layout="docked"
-              placeholder={style.inputPlaceholder || "Ask a question…"}
-              inputRadius={style.inputRadius}
-              inputWidth={style.inputWidth}
-            />
+            {panelReady && (
+              <ChatPanel
+                apiBaseUrl={apiBaseUrl}
+                teamId={teamId}
+                name={name}
+                greeting={greeting}
+                accentColor={accentColor}
+                themeId={themeId}
+                themeStyle={themeStyle}
+                layout="docked"
+                placeholder={style.inputPlaceholder || "Ask a question…"}
+                inputRadius={style.inputRadius}
+                inputWidth={style.inputWidth}
+              />
+            )}
           </div>
         </div>
       </SiteThemeProvider>

@@ -1,11 +1,9 @@
-"use client";
-
 import React from "react";
 import * as Icons from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ThemeStyle, WidgetProps } from "../../models";
 import type { MarqueeSettings } from "./settings";
-import { NavLink } from "../../components";
+import { NavLink } from "../../components/nav-link";
 import { Section } from "../../primitives";
 import { MarqueeTrack } from "./marquee-track";
 
@@ -33,7 +31,6 @@ export function MarqueeWidget({
     background,
   },
   state: { theme },
-  nextTheme,
 }: WidgetProps<MarqueeSettings>) {
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
@@ -75,12 +72,7 @@ export function MarqueeWidget({
   };
 
   return (
-    <Section
-      theme={overriddenTheme}
-      id={cssId}
-      background={background}
-      nextTheme={nextTheme}
-    >
+    <Section theme={overriddenTheme} id={cssId} background={background}>
       <div className="relative" aria-hidden="true">
         <MarqueeTrack speed={speed} direction={direction} pauseOnHover={pauseOnHover}>
           {items.map(renderItem)}

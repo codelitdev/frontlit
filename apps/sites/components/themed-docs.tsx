@@ -1,8 +1,6 @@
-"use client";
-
 import Link from "next/link";
 import { BookOpen, ChevronRight, Folder } from "lucide-react";
-import { TextRenderer } from "@frontlit/page-builder/components";
+import { TextRenderer } from "@frontlit/text-editor/renderer";
 import type { TextEditorContent } from "@frontlit/text-editor";
 import {
   Caption,
@@ -15,13 +13,17 @@ import {
   Subheader1,
   Text1,
   Text2,
-} from "@frontlit/page-builder/primitives";
-import { useSiteThemeStyle } from "@/lib/site-theme-context";
+} from "@frontlit/page-builder/primitives/server";
+import { getRequestThemeStyle } from "@/lib/request-theme";
 import { DocsSearch } from "@/components/docs-search";
 import { collectionHref, type DocsCollection, type DocsNavItem } from "@/lib/docs-tree";
 
-function Breadcrumb({ items }: { items: Array<{ label: string; href?: string }> }) {
-  const theme = useSiteThemeStyle();
+async function Breadcrumb({
+  items,
+}: {
+  items: Array<{ label: string; href?: string }>;
+}) {
+  const theme = await getRequestThemeStyle();
   return (
     <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1">
       {items.map((item, index) => {
@@ -45,7 +47,7 @@ function Breadcrumb({ items }: { items: Array<{ label: string; href?: string }> 
   );
 }
 
-export function ThemedDocumentationFeed({
+export async function ThemedDocumentationFeed({
   title,
   subtitle,
   collections,
@@ -58,7 +60,7 @@ export function ThemedDocumentationFeed({
   teamId?: string;
   publicApiBaseUrl?: string;
 }) {
-  const theme = useSiteThemeStyle();
+  const theme = await getRequestThemeStyle();
   const hasCollections = collections.length > 0;
   return (
     <div className="flex flex-col gap-10">
@@ -140,7 +142,7 @@ export function ThemedDocumentationFeed({
   );
 }
 
-export function ThemedDocCollection({
+export async function ThemedDocCollection({
   collection,
   teamId,
   publicApiBaseUrl,
@@ -149,7 +151,7 @@ export function ThemedDocCollection({
   teamId?: string;
   publicApiBaseUrl?: string;
 }) {
-  const theme = useSiteThemeStyle();
+  const theme = await getRequestThemeStyle();
   return (
     <Section theme={theme}>
       <div className="flex flex-col gap-8">
@@ -209,14 +211,14 @@ export function ThemedDocCollection({
   );
 }
 
-function DocsSidebar({
+async function DocsSidebar({
   collections,
   currentSlug,
 }: {
   collections: DocsCollection[];
   currentSlug: string;
 }) {
-  const theme = useSiteThemeStyle();
+  const theme = await getRequestThemeStyle();
   return (
     <nav aria-label="Documentation" className="flex flex-col gap-6">
       <Link href="/docs" className="flex items-center gap-2 hover:underline">
@@ -268,7 +270,7 @@ function DocsSidebar({
   );
 }
 
-export function ThemedDocArticle({
+export async function ThemedDocArticle({
   title,
   content,
   featuredImage,
@@ -289,7 +291,7 @@ export function ThemedDocArticle({
   teamId?: string;
   publicApiBaseUrl?: string;
 }) {
-  const theme = useSiteThemeStyle();
+  const theme = await getRequestThemeStyle();
   const imageUrl =
     typeof featuredImage?.url === "string"
       ? featuredImage.url

@@ -1,10 +1,14 @@
-"use client";
+import { TextRenderer } from "@frontlit/text-editor/renderer";
+import type { TextEditorContent } from "@frontlit/text-editor";
+import {
+  Caption,
+  Header1,
+  Image,
+  Section,
+} from "@frontlit/page-builder/primitives/server";
+import { getRequestThemeStyle } from "@/lib/request-theme";
 
-import { TextRenderer, type TextEditorContent } from "@frontlit/text-editor";
-import { Caption, Header1, Image, Section } from "@frontlit/page-builder/primitives";
-import { useSiteThemeStyle } from "@/lib/site-theme-context";
-
-export function ThemedBlogPost({
+export async function ThemedBlogPost({
   title,
   publishedAt,
   content,
@@ -15,7 +19,7 @@ export function ThemedBlogPost({
   content: TextEditorContent | null;
   featuredImage?: Record<string, unknown> | null;
 }) {
-  const theme = useSiteThemeStyle();
+  const theme = await getRequestThemeStyle();
   const imageUrl =
     typeof featuredImage?.url === "string"
       ? featuredImage.url

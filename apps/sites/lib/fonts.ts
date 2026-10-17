@@ -1,465 +1,491 @@
-import localFont from "next/font/local";
+/**
+ * Self-hosted theme fonts, served from `public/fonts`.
+ *
+ * Declared by hand (rather than with `next/font`) so the font URLs are stable
+ * and `<link rel="preload">` can target just the families the active theme
+ * uses. `fallback` holds the size-adjusted local fallback face's metrics, which
+ * keeps text from shifting when the web font swaps in; monospace faces have none.
+ *
+ * A family's `id` matches the page-builder theme class `font-<id>` and the CSS
+ * variable `--font-<id>`.
+ */
+export interface FontFile {
+  url: string;
+  weight: string;
+}
 
-export const openSans = localFont({
-  src: [
-    {
-      path: "../public/fonts/open-sans/open-sans-latin-variable.woff2",
-      weight: "300 800",
-      style: "normal",
-    },
-  ],
-  variable: "--font-open-sans",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
+export interface FontFallback {
+  /** Local font the fallback face is sized against. */
+  local: string;
+  ascent: string;
+  descent: string;
+  lineGap: string;
+  sizeAdjust: string;
+}
 
-export const montserrat = localFont({
-  src: [
-    {
-      path: "../public/fonts/montserrat/montserrat-latin-variable.woff2",
-      weight: "100 900",
-      style: "normal",
-    },
-  ],
-  variable: "--font-montserrat",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
+export interface FontFamily {
+  id: string;
+  files: FontFile[];
+  fallback: FontFallback | null;
+}
 
-export const lato = localFont({
-  src: [
-    {
-      path: "../public/fonts/lato/lato-latin-100-normal.woff2",
-      weight: "100",
-      style: "normal",
-    },
-    {
-      path: "../public/fonts/lato/lato-latin-300-normal.woff2",
-      weight: "300",
-      style: "normal",
-    },
-    {
-      path: "../public/fonts/lato/lato-latin-400-normal.woff2",
-      weight: "400",
-      style: "normal",
-    },
-    {
-      path: "../public/fonts/lato/lato-latin-700-normal.woff2",
-      weight: "700",
-      style: "normal",
-    },
-    {
-      path: "../public/fonts/lato/lato-latin-900-normal.woff2",
-      weight: "900",
-      style: "normal",
-    },
-  ],
-  variable: "--font-lato",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
+export const DEFAULT_FONT_ID = "inter";
 
-export const poppins = localFont({
-  src: [
-    {
-      path: "../public/fonts/poppins/poppins-latin-100-normal.woff2",
-      weight: "100",
-      style: "normal",
+export const fontFamilies: FontFamily[] = [
+  {
+    id: "open-sans",
+    files: [
+      {
+        url: "/fonts/open-sans/open-sans-latin-variable.woff2",
+        weight: "300 800",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "101.58",
+      descent: "27.84",
+      lineGap: "0.0",
+      sizeAdjust: "105.22",
     },
-    {
-      path: "../public/fonts/poppins/poppins-latin-200-normal.woff2",
-      weight: "200",
-      style: "normal",
+  },
+  {
+    id: "montserrat",
+    files: [
+      {
+        url: "/fonts/montserrat/montserrat-latin-variable.woff2",
+        weight: "100 900",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "87.85",
+      descent: "22.78",
+      lineGap: "0.0",
+      sizeAdjust: "110.19",
     },
-    {
-      path: "../public/fonts/poppins/poppins-latin-300-normal.woff2",
-      weight: "300",
-      style: "normal",
+  },
+  {
+    id: "lato",
+    files: [
+      {
+        url: "/fonts/lato/lato-latin-100-normal.woff2",
+        weight: "100",
+      },
+      {
+        url: "/fonts/lato/lato-latin-300-normal.woff2",
+        weight: "300",
+      },
+      {
+        url: "/fonts/lato/lato-latin-400-normal.woff2",
+        weight: "400",
+      },
+      {
+        url: "/fonts/lato/lato-latin-700-normal.woff2",
+        weight: "700",
+      },
+      {
+        url: "/fonts/lato/lato-latin-900-normal.woff2",
+        weight: "900",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "100.88",
+      descent: "21.77",
+      lineGap: "0.0",
+      sizeAdjust: "97.84",
     },
-    {
-      path: "../public/fonts/poppins/poppins-latin-400-normal.woff2",
-      weight: "400",
-      style: "normal",
+  },
+  {
+    id: "poppins",
+    files: [
+      {
+        url: "/fonts/poppins/poppins-latin-100-normal.woff2",
+        weight: "100",
+      },
+      {
+        url: "/fonts/poppins/poppins-latin-200-normal.woff2",
+        weight: "200",
+      },
+      {
+        url: "/fonts/poppins/poppins-latin-300-normal.woff2",
+        weight: "300",
+      },
+      {
+        url: "/fonts/poppins/poppins-latin-400-normal.woff2",
+        weight: "400",
+      },
+      {
+        url: "/fonts/poppins/poppins-latin-500-normal.woff2",
+        weight: "500",
+      },
+      {
+        url: "/fonts/poppins/poppins-latin-600-normal.woff2",
+        weight: "600",
+      },
+      {
+        url: "/fonts/poppins/poppins-latin-700-normal.woff2",
+        weight: "700",
+      },
+      {
+        url: "/fonts/poppins/poppins-latin-800-normal.woff2",
+        weight: "800",
+      },
+      {
+        url: "/fonts/poppins/poppins-latin-900-normal.woff2",
+        weight: "900",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "92.83",
+      descent: "30.94",
+      lineGap: "8.84",
+      sizeAdjust: "113.11",
     },
-    {
-      path: "../public/fonts/poppins/poppins-latin-500-normal.woff2",
-      weight: "500",
-      style: "normal",
+  },
+  {
+    id: "source-sans-3",
+    files: [
+      {
+        url: "/fonts/source-sans-3/source-sans-3-latin-variable.woff2",
+        weight: "200 900",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "114.52",
+      descent: "44.74",
+      lineGap: "0.0",
+      sizeAdjust: "89.41",
     },
-    {
-      path: "../public/fonts/poppins/poppins-latin-600-normal.woff2",
-      weight: "600",
-      style: "normal",
+  },
+  {
+    id: "raleway",
+    files: [
+      {
+        url: "/fonts/raleway/raleway-latin-variable.woff2",
+        weight: "100 900",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "92.39",
+      descent: "23.0",
+      lineGap: "0.0",
+      sizeAdjust: "101.74",
     },
-    {
-      path: "../public/fonts/poppins/poppins-latin-700-normal.woff2",
-      weight: "700",
-      style: "normal",
+  },
+  {
+    id: "noto-sans",
+    files: [
+      {
+        url: "/fonts/noto-sans/noto-sans-latin-variable.woff2",
+        weight: "100 900",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "100.41",
+      descent: "27.52",
+      lineGap: "0.0",
+      sizeAdjust: "106.47",
     },
-    {
-      path: "../public/fonts/poppins/poppins-latin-800-normal.woff2",
-      weight: "800",
-      style: "normal",
+  },
+  {
+    id: "merriweather",
+    files: [
+      {
+        url: "/fonts/merriweather/merriweather-latin-variable.woff2",
+        weight: "300 900",
+      },
+    ],
+    fallback: {
+      local: "Times New Roman",
+      ascent: "83.68",
+      descent: "23.22",
+      lineGap: "0.0",
+      sizeAdjust: "117.59",
     },
-    {
-      path: "../public/fonts/poppins/poppins-latin-900-normal.woff2",
-      weight: "900",
-      style: "normal",
+  },
+  {
+    id: "inter",
+    files: [
+      {
+        url: "/fonts/inter/inter-latin-variable.woff2",
+        weight: "100 900",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "89.79",
+      descent: "22.36",
+      lineGap: "0.0",
+      sizeAdjust: "107.89",
     },
-  ],
-  variable: "--font-poppins",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
-
-export const sourceSans3 = localFont({
-  src: [
-    {
-      path: "../public/fonts/source-sans-3/source-sans-3-latin-variable.woff2",
-      weight: "200 900",
-      style: "normal",
+  },
+  {
+    id: "alegreya",
+    files: [
+      {
+        url: "/fonts/alegreya/alegreya-latin-variable.woff2",
+        weight: "400 900",
+      },
+    ],
+    fallback: {
+      local: "Times New Roman",
+      ascent: "101.05",
+      descent: "34.31",
+      lineGap: "0.0",
+      sizeAdjust: "100.55",
     },
-  ],
-  variable: "--font-source-sans-3",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
-
-export const raleway = localFont({
-  src: [
-    {
-      path: "../public/fonts/raleway/raleway-latin-variable.woff2",
-      weight: "100 900",
-      style: "normal",
+  },
+  {
+    id: "roboto",
+    files: [
+      {
+        url: "/fonts/roboto/roboto-latin-variable.woff2",
+        weight: "100 900",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "92.43",
+      descent: "24.32",
+      lineGap: "0.0",
+      sizeAdjust: "100.37",
     },
-  ],
-  variable: "--font-raleway",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
-
-export const notoSans = localFont({
-  src: [
-    {
-      path: "../public/fonts/noto-sans/noto-sans-latin-variable.woff2",
-      weight: "100 900",
-      style: "normal",
+  },
+  {
+    id: "mulish",
+    files: [
+      {
+        url: "/fonts/mulish/mulish-latin-variable.woff2",
+        weight: "200 900",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "98.81",
+      descent: "24.58",
+      lineGap: "0.0",
+      sizeAdjust: "101.71",
     },
-  ],
-  variable: "--font-noto-sans",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
-
-export const merriweather = localFont({
-  src: [
-    {
-      path: "../public/fonts/merriweather/merriweather-latin-variable.woff2",
-      weight: "300 900",
-      style: "normal",
+  },
+  {
+    id: "nunito",
+    files: [
+      {
+        url: "/fonts/nunito/nunito-latin-variable.woff2",
+        weight: "200 900",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "103.02",
+      descent: "35.97",
+      lineGap: "0.0",
+      sizeAdjust: "98.13",
     },
-  ],
-  variable: "--font-merriweather",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-  adjustFontFallback: "Times New Roman",
-});
-
-export const inter = localFont({
-  src: [
-    {
-      path: "../public/fonts/inter/inter-latin-variable.woff2",
-      weight: "100 900",
-      style: "normal",
+  },
+  {
+    id: "rubik",
+    files: [
+      {
+        url: "/fonts/rubik/rubik-latin-variable.woff2",
+        weight: "300 900",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "91.09",
+      descent: "24.36",
+      lineGap: "0.0",
+      sizeAdjust: "102.64",
     },
-  ],
-  variable: "--font-inter",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
-
-export const alegreya = localFont({
-  src: [
-    {
-      path: "../public/fonts/alegreya/alegreya-latin-variable.woff2",
-      weight: "400 900",
-      style: "normal",
+  },
+  {
+    id: "playfair-display",
+    files: [
+      {
+        url: "/fonts/playfair-display/playfair-display-latin-variable.woff2",
+        weight: "400 900",
+      },
+    ],
+    fallback: {
+      local: "Times New Roman",
+      ascent: "97.38",
+      descent: "22.59",
+      lineGap: "0.0",
+      sizeAdjust: "111.11",
     },
-  ],
-  variable: "--font-alegreya",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-  adjustFontFallback: "Times New Roman",
-});
-
-export const roboto = localFont({
-  src: [
-    {
-      path: "../public/fonts/roboto/roboto-latin-variable.woff2",
-      weight: "100 900",
-      style: "normal",
+  },
+  {
+    id: "oswald",
+    files: [
+      {
+        url: "/fonts/oswald/oswald-latin-variable.woff2",
+        weight: "200 700",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "146.78",
+      descent: "35.56",
+      lineGap: "0.0",
+      sizeAdjust: "81.28",
     },
-  ],
-  variable: "--font-roboto",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
-
-export const mulish = localFont({
-  src: [
-    {
-      path: "../public/fonts/mulish/mulish-latin-variable.woff2",
-      weight: "200 900",
-      style: "normal",
+  },
+  {
+    id: "pt-sans",
+    files: [
+      {
+        url: "/fonts/pt-sans/pt-sans-latin-400-normal.woff2",
+        weight: "400",
+      },
+      {
+        url: "/fonts/pt-sans/pt-sans-latin-700-normal.woff2",
+        weight: "700",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "104.75",
+      descent: "28.4",
+      lineGap: "0.0",
+      sizeAdjust: "97.18",
     },
-  ],
-  variable: "--font-mulish",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
-
-export const nunito = localFont({
-  src: [
-    {
-      path: "../public/fonts/nunito/nunito-latin-variable.woff2",
-      weight: "200 900",
-      style: "normal",
+  },
+  {
+    id: "work-sans",
+    files: [
+      {
+        url: "/fonts/work-sans/work-sans-latin-variable.woff2",
+        weight: "100 900",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "82.98",
+      descent: "21.68",
+      lineGap: "0.0",
+      sizeAdjust: "112.07",
     },
-  ],
-  variable: "--font-nunito",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
-
-export const rubik = localFont({
-  src: [
-    {
-      path: "../public/fonts/rubik/rubik-latin-variable.woff2",
-      weight: "300 900",
-      style: "normal",
+  },
+  {
+    id: "roboto-slab",
+    files: [
+      {
+        url: "/fonts/roboto-slab/roboto-slab-latin-variable.woff2",
+        weight: "100 900",
+      },
+    ],
+    fallback: {
+      local: "Times New Roman",
+      ascent: "89.03",
+      descent: "23.02",
+      lineGap: "0.0",
+      sizeAdjust: "117.7",
     },
-  ],
-  variable: "--font-rubik",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
-
-export const playfairDisplay = localFont({
-  src: [
-    {
-      path: "../public/fonts/playfair-display/playfair-display-latin-variable.woff2",
-      weight: "400 900",
-      style: "normal",
+  },
+  {
+    id: "source-serif-4",
+    files: [
+      {
+        url: "/fonts/source-serif-4/source-serif-4-latin-variable.woff2",
+        weight: "200 900",
+      },
+    ],
+    fallback: {
+      local: "Times New Roman",
+      ascent: "87.45",
+      descent: "28.28",
+      lineGap: "0.0",
+      sizeAdjust: "118.46",
     },
-  ],
-  variable: "--font-playfair-display",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-  adjustFontFallback: "Times New Roman",
-});
-
-export const oswald = localFont({
-  src: [
-    {
-      path: "../public/fonts/oswald/oswald-latin-variable.woff2",
-      weight: "200 700",
-      style: "normal",
+  },
+  {
+    id: "bebas-neue",
+    files: [
+      {
+        url: "/fonts/bebas-neue/bebas-neue-latin-400-normal.woff2",
+        weight: "400",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "116.72",
+      descent: "38.91",
+      lineGap: "0.0",
+      sizeAdjust: "77.11",
     },
-  ],
-  variable: "--font-oswald",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
-
-export const ptSans = localFont({
-  src: [
-    {
-      path: "../public/fonts/pt-sans/pt-sans-latin-400-normal.woff2",
-      weight: "400",
-      style: "normal",
+  },
+  {
+    id: "quicksand",
+    files: [
+      {
+        url: "/fonts/quicksand/quicksand-latin-variable.woff2",
+        weight: "300 700",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "96.26",
+      descent: "24.07",
+      lineGap: "0.0",
+      sizeAdjust: "103.88",
     },
-    {
-      path: "../public/fonts/pt-sans/pt-sans-latin-700-normal.woff2",
-      weight: "700",
-      style: "normal",
+  },
+  {
+    id: "archivo",
+    files: [
+      {
+        url: "/fonts/archivo/archivo-latin-variable.woff2",
+        weight: "100 900",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "85.41",
+      descent: "20.43",
+      lineGap: "0.0",
+      sizeAdjust: "102.8",
     },
-  ],
-  variable: "--font-pt-sans",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
-
-export const workSans = localFont({
-  src: [
-    {
-      path: "../public/fonts/work-sans/work-sans-latin-variable.woff2",
-      weight: "100 900",
-      style: "normal",
+  },
+  {
+    id: "jetbrains-mono",
+    files: [
+      {
+        url: "/fonts/jetbrains-mono/jetbrains-mono-latin-variable.woff2",
+        weight: "100 800",
+      },
+    ],
+    fallback: null,
+  },
+  {
+    id: "hanken-grotesk",
+    files: [
+      {
+        url: "/fonts/hanken-grotesk/hanken-grotesk-latin-variable.woff2",
+        weight: "100 900",
+      },
+    ],
+    fallback: {
+      local: "Arial",
+      ascent: "98.46",
+      descent: "29.83",
+      lineGap: "0.0",
+      sizeAdjust: "101.56",
     },
-  ],
-  variable: "--font-work-sans",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
-
-export const robotoSlab = localFont({
-  src: [
-    {
-      path: "../public/fonts/roboto-slab/roboto-slab-latin-variable.woff2",
-      weight: "100 900",
-      style: "normal",
-    },
-  ],
-  variable: "--font-roboto-slab",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-  adjustFontFallback: "Times New Roman",
-});
-
-export const sourceSerif4 = localFont({
-  src: [
-    {
-      path: "../public/fonts/source-serif-4/source-serif-4-latin-variable.woff2",
-      weight: "200 900",
-      style: "normal",
-    },
-  ],
-  variable: "--font-source-serif-4",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-  adjustFontFallback: "Times New Roman",
-});
-
-export const bebasNeue = localFont({
-  src: [
-    {
-      path: "../public/fonts/bebas-neue/bebas-neue-latin-400-normal.woff2",
-      weight: "400",
-      style: "normal",
-    },
-  ],
-  variable: "--font-bebas-neue",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
-
-export const quicksand = localFont({
-  src: [
-    {
-      path: "../public/fonts/quicksand/quicksand-latin-variable.woff2",
-      weight: "300 700",
-      style: "normal",
-    },
-  ],
-  variable: "--font-quicksand",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
-
-export const archivo = localFont({
-  src: [
-    {
-      path: "../public/fonts/archivo/archivo-latin-variable.woff2",
-      weight: "100 900",
-      style: "normal",
-    },
-  ],
-  variable: "--font-archivo",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
-
-export const jetbrainsMono = localFont({
-  src: [
-    {
-      path: "../public/fonts/jetbrains-mono/jetbrains-mono-latin-variable.woff2",
-      weight: "100 800",
-      style: "normal",
-    },
-  ],
-  variable: "--font-jetbrains-mono",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-  // Arial metrics don't fit a monospace face; fall back to the mono stack.
-  adjustFontFallback: false,
-});
-
-export const hankenGroteskLocal = localFont({
-  src: [
-    {
-      path: "../public/fonts/hanken-grotesk/hanken-grotesk-latin-variable.woff2",
-      weight: "100 900",
-      style: "normal",
-    },
-  ],
-  variable: "--font-hanken-grotesk",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-});
-
-export const splineSansMonoLocal = localFont({
-  src: [
-    {
-      path: "../public/fonts/spline-sans-mono/spline-sans-mono-latin-variable.woff2",
-      weight: "300 700",
-      style: "normal",
-    },
-  ],
-  variable: "--font-spline-sans-mono",
-  display: "swap",
-  // Theme fonts load only when a page uses them; preloading every
-  // family would download all of them on every page.
-  preload: false,
-  // Arial metrics don't fit a monospace face; fall back to the mono stack.
-  adjustFontFallback: false,
-});
+  },
+  {
+    id: "spline-sans-mono",
+    files: [
+      {
+        url: "/fonts/spline-sans-mono/spline-sans-mono-latin-variable.woff2",
+        weight: "300 700",
+      },
+    ],
+    fallback: null,
+  },
+];

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Text2, Textarea } from "@frontlit/page-builder/primitives";
+import { Button, Text2, Textarea } from "@frontlit/page-builder/primitives/server";
 import { useSiteThemeStyle } from "@/lib/site-theme-context";
 
 /**

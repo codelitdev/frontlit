@@ -7,6 +7,9 @@ import path from "node:path";
 // simply prepend the directive to every emitted JS file post-build.
 const distDir = path.resolve(process.cwd(), "dist");
 const serverSafeFiles = new Set();
+// `dist/server` is built separately (tsup.server.config.ts): its entry must
+// stay server-callable and its islands carry their own directive.
+const serverDir = path.join(distDir, "server");
 
 // `data-slots` is deliberately usable from server components. Follow its
 // emitted relative imports as tsup may move its implementation into a hashed
@@ -28,6 +31,7 @@ function walk(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
+      if (full === serverDir) continue;
       walk(full);
     } else if (entry.name.endsWith(".js")) {
       // Data-slot resolution is intentionally server-safe. Hosts invoke

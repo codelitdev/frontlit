@@ -79,6 +79,28 @@ function AppLink(props: PageBuilderLinkProps) {
 
 `PageBuilder` accepts the same `linkComponent` prop and forwards it to the live preview.
 
+### Server rendering (React Server Components)
+
+`PageRenderer` is a client component. To render published pages on the server, use `ServerPageRenderer` from `@frontlit/page-builder/server`: static blocks render on the server and ship no JavaScript; only the interactive parts (mobile menu, marquee, email/support forms, copy buttons, links) are client islands.
+
+```tsx
+import { ServerPageRenderer } from "@frontlit/page-builder/server";
+import { resolveTheme } from "@frontlit/page-builder/theme";
+
+const theme = resolveTheme(themeId, themeStyle);
+
+<ServerPageRenderer layout={layout} theme={theme} pageData={pageData} />;
+```
+
+Because nothing crosses the server/client boundary as a function, it takes no callbacks. Instead:
+
+- **Links** — wrap the page in a client component that renders `PageBuilderLinkProvider` (from `@frontlit/page-builder/islands/nav-link`) with your router's link.
+- **Light/dark control** — pass a ready client element as `themeSwitcher` (e.g. one built on `@frontlit/page-builder/islands/theme-mode-switcher`); it is shown in the footer.
+- **Images** — call `setImageAttributesResolver` once at start-up to swap an image's `src`/`srcSet` for your optimizer's URLs (the sites app uses Next's `getImageProps`).
+- **Dark mode** — section backgrounds switch with the `dark` class on an ancestor, so the server needs no colour mode.
+
+The server build is separate from the main bundle (`tsup.server.config.ts`): its client islands are listed in `tsup.islands.ts`, built on their own with a `"use client"` banner, and imported — not bundled — by the server entry. A block that needs state or effects must either live in that list or be split so only its interactive part does. The block lookup used by the server renderer is `src/server/registry.ts`; keep it in step with `src/registry.ts` when adding a block.
+
 ## What's inside
 
 | Subpath                             | What it exports                                                                                                             |
@@ -91,6 +113,10 @@ function AppLink(props: PageBuilderLinkProps) {
 | `@frontlit/page-builder/renderer`   | `PageRenderer` — renders a page's `WidgetInstance[]` layout, with an `editing` mode for use inside the builder              |
 | `@frontlit/page-builder/builder`    | `PageBuilder` — the full WYSIWYG editor (add/remove/reorder blocks, edit settings, switch themes)                           |
 | `@frontlit/page-builder/data-slots` | Server-safe helper for hosts to resolve named data slots before rendering                                                   |
+| `@frontlit/page-builder/server`     | `ServerPageRenderer`, `setImageAttributesResolver` — server-component page rendering (see above)                            |
+| `@frontlit/page-builder/theme`      | `resolveTheme`, `themes`, `generateThemeStyles` — server-callable and light enough for client components                    |
+| `@frontlit/page-builder/primitives/server` | The hook-free primitives, callable from server components                                                            |
+| `@frontlit/page-builder/islands/*`  | Small client islands (`nav-link`, `theme-mode-switcher`) hosts can import without the full client bundle                    |
 
 `createDefaultLayout()` / `getDefaultTheme()` (exported from the root) build a ready-to-render starter landing page.
 
