@@ -1,6 +1,7 @@
 "use client";
 
 import { PageBuilder } from "@frontlit/page-builder";
+import { toSiteBranding } from "@frontlit/api-contract";
 import { careersLayout, careersTheme } from "./careers-demo";
 
 // A live demo of the WYSIWYG page builder itself: add, remove, reorder and
@@ -15,7 +16,7 @@ export default function BuilderPage() {
   return (
     <div className="h-screen w-screen">
       <PageBuilder
-        pageData={{ pageType: "landing" }}
+        pageData={{ pageType: "landing", ...toSiteBranding({ title: "Datacurve" }) }}
         initialLayout={careersLayout}
         initialTheme={careersTheme}
       />

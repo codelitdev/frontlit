@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { loadDataSlots } from "@frontlit/page-builder/data-slots";
+import { toSiteBranding } from "@frontlit/api-contract";
 
 describe("generic page-builder data slots", () => {
   it("delegates each named slot to the host-owned loader", async () => {
@@ -23,7 +24,7 @@ describe("generic page-builder data slots", () => {
         },
       ],
       { "community.example-feed": loader },
-      { pageType: "site", teamId: "team-1" },
+      { pageType: "site", teamId: "team-1", ...toSiteBranding(null) },
     );
 
     expect(result).toEqual({
@@ -48,7 +49,7 @@ describe("generic page-builder data slots", () => {
           },
         ],
         {},
-        { pageType: "site" },
+        { pageType: "site", ...toSiteBranding(null) },
       ),
     ).resolves.toEqual({});
   });

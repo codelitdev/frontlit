@@ -8,7 +8,7 @@ import { FooterWidget } from "../footer/widget";
 const state = { theme: themes[0] };
 
 describe("header and footer logo text", () => {
-  it("falls back to the site title when logo text is empty", () => {
+  it("shows the Branding site title", () => {
     const pageData = { siteTitle: "Acme" };
     expect(
       renderToStaticMarkup(
@@ -34,43 +34,32 @@ describe("header and footer logo text", () => {
     expect(html).not.toContain("grow your audience");
   });
 
-  it("prefers the block's own logo text", () => {
+  it("renders the Branding logo and title in the header", () => {
     const html = renderToStaticMarkup(
-      <HeaderWidget
-        settings={{ logoText: "Acme Docs" }}
-        state={state}
-        pageData={{ siteTitle: "Acme" }}
-      />,
-    );
-    expect(html).toContain("Acme Docs");
-  });
-
-  it("shows FrontLit's mark and name until the site has branding", () => {
-    const header = renderToStaticMarkup(
-      <HeaderWidget settings={{}} state={state} pageData={{}} />,
-    );
-    expect(header).toContain("FrontLit");
-    expect(header).toContain("<svg");
-    expect(
-      renderToStaticMarkup(<FooterWidget settings={{}} state={state} pageData={{}} />),
-    ).toContain("FrontLit");
-  });
-
-  it("keeps the FrontLit mark until the site has a logo", () => {
-    const withTitle = renderToStaticMarkup(
-      <HeaderWidget settings={{}} state={state} pageData={{ siteTitle: "Acme" }} />,
-    );
-    expect(withTitle).not.toContain(">FrontLit<");
-    expect(withTitle).toContain('viewBox="0 0 64 64"');
-
-    const withLogo = renderToStaticMarkup(
       <HeaderWidget
         settings={{}}
         state={state}
-        pageData={{ siteLogoUrl: "https://example.com/logo.png" }}
+        pageData={{ siteTitle: "Acme", siteLogoUrl: "https://example.com/logo.png" }}
       />,
     );
-    expect(withLogo).not.toContain("FrontLit");
-    expect(withLogo).not.toContain('viewBox="0 0 64 64"');
+    expect(html).toContain("Acme");
+    expect(html).toContain("https://example.com/logo.png");
+  });
+
+  it("renders no FrontLit branding in the footer without branding", () => {
+    const html = renderToStaticMarkup(
+      <FooterWidget settings={{}} state={state} pageData={{}} />,
+    );
+    expect(html).not.toContain("FrontLit");
+    expect(html).not.toContain("grow your audience");
+  });
+
+  it("renders no logo or title in the header without branding", () => {
+    const html = renderToStaticMarkup(
+      <HeaderWidget settings={{}} state={state} pageData={{}} />,
+    );
+    expect(html).not.toContain("FrontLit");
+    expect(html).not.toContain("<svg viewBox");
+    expect(html).not.toContain("<img");
   });
 });

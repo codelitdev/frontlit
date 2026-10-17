@@ -7,6 +7,7 @@ import {
   getDefaultTheme,
   type WidgetInstance,
 } from "@frontlit/page-builder";
+import { toSiteBranding } from "@frontlit/api-contract";
 
 export function PageBuilderDemo() {
   const [layout] = useState<WidgetInstance[]>(() => createDefaultLayout());
@@ -20,7 +21,7 @@ export function PageBuilderDemo() {
       </div>
       <div className="page-builder-demo__body page-builder-demo__tall">
         <PageBuilder
-          pageData={{ pageType: "landing" }}
+          pageData={{ pageType: "landing", ...toSiteBranding(null) }}
           initialLayout={layout}
           initialTheme={theme}
           className="h-full"

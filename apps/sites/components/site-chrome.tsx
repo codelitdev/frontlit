@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { getPageBySlug, getSettings } from "@/lib/api";
 import { API_PUBLIC_URL } from "@/lib/config";
+import { toSiteBranding } from "@frontlit/api-contract";
 import { loadSiteTheme } from "@/lib/load-site-theme";
 import { SitePageRenderer } from "@/components/site-page-renderer";
 import { loadDataSlots } from "@frontlit/page-builder/data-slots";
@@ -30,23 +31,14 @@ export async function SiteChrome({
     getSettings(teamId),
     loadSiteTheme(teamId),
   ]);
-  const siteLogoUrl =
-    typeof settings?.logo?.url === "string" ? settings.logo.url : null;
-  const siteLogoAlt =
-    typeof settings?.logo?.alt === "string"
-      ? settings.logo.alt
-      : typeof settings?.logo?.caption === "string"
-        ? settings.logo.caption
-        : null;
   const page =
     requestedPage ?? (pageSlug ? await getPageBySlug(teamId, "") : requestedPage);
   const pageData = {
     teamId,
     pageSlug,
     publicApiBaseUrl: API_PUBLIC_URL,
-    siteTitle: settings?.title ?? undefined,
-    siteSubtitle: settings?.subtitle ?? undefined,
-  } as const;
+    ...toSiteBranding(settings),
+  };
   const dataSlots = await loadDataSlots(
     page?.layout ?? [],
     { [FRONTLIT_CONTENT_FEED_SLOT]: frontlitContentFeedLoader },
@@ -61,8 +53,6 @@ export async function SiteChrome({
       themeId={siteTheme.themeId}
       themeStyle={siteTheme.themeStyle}
       pageData={pageData}
-      siteLogoUrl={siteLogoUrl}
-      siteLogoAlt={siteLogoAlt}
       dataSlots={dataSlots}
     >
       {children}

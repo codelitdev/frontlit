@@ -3,7 +3,7 @@ import clsx from "clsx";
 import { MenuIcon } from "lucide-react";
 import type { WidgetProps, ThemeStyle } from "../../models";
 import type { HeaderNavLink, HeaderSettings } from "./settings";
-import { FRONTLIT_NAME, FrontLitLogo, Image, NavLink } from "../../components";
+import { Image, NavLink } from "../../components";
 import {
   Button,
   Drawer,
@@ -49,8 +49,6 @@ function HeaderLink({
 
 export function HeaderWidget({
   settings: {
-    logoText,
-    logoImage,
     logoCorners,
     logoRadius,
     links = [],
@@ -79,14 +77,9 @@ export function HeaderWidget({
   const isFixed = !isFloating;
   const primaryLinks = links.filter((link) => !link.isButton);
   const buttonLinks = links.filter((link) => link.isButton);
-  // On a published tenant site, branding is owned by the site settings,
-  // not the header instance. Retain the block-local image for standalone
-  // renderer and builder previews where no tenant logo is supplied.
-  const resolvedLogoImage = pageData.siteLogoUrl || logoImage;
-  // Without a logo the header shows FrontLit's mark; without a site
-  // title or logo either, FrontLit's name too.
-  const resolvedLogoText =
-    logoText || pageData.siteTitle || (resolvedLogoImage ? undefined : FRONTLIT_NAME);
+  // The logo and title always come from Branding; an unset one renders nothing.
+  const resolvedLogoImage = pageData.siteLogoUrl;
+  const resolvedLogoText = pageData.siteTitle;
   const resolvedLogoAlt = pageData.siteLogoAlt || resolvedLogoText || "";
   const effectiveLogoCorners = logoCorners ?? logoRadius ?? 2;
 
@@ -103,7 +96,6 @@ export function HeaderWidget({
             borderRadius={effectiveLogoCorners}
           />
         )}
-        {!resolvedLogoImage && <FrontLitLogo className="h-8 w-8 shrink-0" />}
         {resolvedLogoText && (
           <Header4 theme={overriddenTheme} as="span">
             {resolvedLogoText}

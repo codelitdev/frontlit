@@ -253,7 +253,6 @@ export const careersLayout: WidgetInstance[] = [
     },
   }),
   createWidgetInstance("header", {
-    logoText: "Datacurve",
     links: [
       { id: "nav-products", label: "Products", href: "#products" },
       { id: "nav-research", label: "Research", href: "#research" },
@@ -406,7 +405,6 @@ export const careersLayout: WidgetInstance[] = [
     ],
   }),
   createWidgetInstance("footer", {
-    logoText: "Datacurve",
     tagline: "Building the machinery that makes models more capable.",
   }),
 ];

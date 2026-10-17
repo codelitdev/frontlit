@@ -13,7 +13,6 @@ export interface FooterColumn {
 }
 
 export interface FooterSettings extends WidgetDefaultSettings {
-  logoText?: string;
   tagline?: string;
   columns?: FooterColumn[];
   copyrightText?: string;

@@ -117,6 +117,11 @@ export async function updateTeamSettings(
 ) {
   await validateSiteThemeReference(teamId, patch.themeId);
   const existing = await getTeamSettings(teamId);
+  if (patch.title !== undefined && !patch.title?.trim()) {
+    // A cleared title falls back to the team name, same as a new site.
+    const team = await db.query.teams.findFirst({ where: eq(teams.id, teamId) });
+    patch = { ...patch, title: team?.name ?? null };
+  }
   const [updated] = await db
     .update(teamSettings)
     .set({ ...patch, updatedAt: new Date() })

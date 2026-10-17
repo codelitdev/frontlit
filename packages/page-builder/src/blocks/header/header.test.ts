@@ -28,8 +28,6 @@ describe("header block logoCorners settings", () => {
 
   it("allows setting logoCorners from 0 to 8 in HeaderSettings", () => {
     const settings: HeaderSettings = {
-      logoText: "FrontLit",
-      logoImage: "https://example.com/logo.png",
       logoCorners: 0,
     };
     expect(settings.logoCorners).toBe(0);
