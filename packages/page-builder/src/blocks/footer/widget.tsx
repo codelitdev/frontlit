@@ -1,7 +1,7 @@
 import React from "react";
 import type { WidgetProps, ThemeStyle } from "../../models";
 import type { FooterSettings } from "./settings";
-import { FRONTLIT_NAME, NavLink, ThemeModeSwitcher } from "../../components";
+import { NavLink, ThemeModeSwitcher } from "../../components";
 import {
   Caption,
   Header3,
@@ -11,12 +11,8 @@ import {
   Text2,
 } from "../../primitives";
 
-const FRONTLIT_TAGLINE =
-  "Build your website, publish content, support users, and grow your audience from one dashboard.";
-
 export function FooterWidget({
   settings: {
-    logoText: ownLogoText,
     tagline: ownTagline,
     columns = [],
     copyrightText,
@@ -32,19 +28,10 @@ export function FooterWidget({
   nextTheme,
   toggleTheme,
 }: WidgetProps<FooterSettings>) {
-  // Logo text and tagline follow Branding's title and subtitle. A site with
-  // no branding yet shows FrontLit's, as the header does.
-  const unbranded =
-    !ownLogoText &&
-    !pageData.siteTitle &&
-    !pageData.siteLogoUrl &&
-    !pageData.siteSubtitle;
-  const logoText =
-    ownLogoText ||
-    pageData.siteTitle ||
-    (pageData.siteLogoUrl ? undefined : FRONTLIT_NAME);
-  const tagline =
-    ownTagline || pageData.siteSubtitle || (unbranded ? FRONTLIT_TAGLINE : undefined);
+  // Logo text is always Branding's title; the tagline falls back to its
+  // subtitle. Unset branding renders nothing.
+  const logoText = pageData.siteTitle;
+  const tagline = ownTagline || pageData.siteSubtitle;
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
   overriddenTheme.structure.section.padding.y =

@@ -7,6 +7,7 @@ import { organizationAndWebsiteJsonLd, serializeJsonLd } from "@/lib/json-ld";
 import { API_PUBLIC_URL } from "@/lib/config";
 import { loadSiteTheme } from "@/lib/load-site-theme";
 import { SitePageRenderer } from "@/components/site-page-renderer";
+import { toSiteBranding } from "@frontlit/api-contract";
 
 interface Props {
   params: Promise<{ teamId: string; slug?: string[] }>;
@@ -66,14 +67,6 @@ export default async function SitePage({ params }: Props) {
     getSettings(teamId),
     loadSiteTheme(teamId),
   ]);
-  const siteLogoUrl =
-    typeof settings?.logo?.url === "string" ? settings.logo.url : null;
-  const siteLogoAlt =
-    typeof settings?.logo?.alt === "string"
-      ? settings.logo.alt
-      : typeof settings?.logo?.caption === "string"
-        ? settings.logo.caption
-        : null;
 
   return (
     <>
@@ -95,14 +88,11 @@ export default async function SitePage({ params }: Props) {
         layout={page.layout}
         themeId={siteTheme.themeId}
         themeStyle={siteTheme.themeStyle}
-        siteLogoUrl={siteLogoUrl}
-        siteLogoAlt={siteLogoAlt}
         pageData={{
           teamId,
           pageSlug: page.slug,
           publicApiBaseUrl: API_PUBLIC_URL,
-          siteTitle: settings?.title ?? undefined,
-          siteSubtitle: settings?.subtitle ?? undefined,
+          ...toSiteBranding(settings),
         }}
       />
     </>

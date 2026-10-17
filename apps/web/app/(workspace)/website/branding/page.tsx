@@ -129,13 +129,14 @@ export default function BrandingPage() {
             <div className="space-y-1.5">
               <Label>Logo</Label>
               <p className="text-xs text-muted-foreground">
-                Default OG/Twitter image, JSON-LD logo, chat widget avatar and favicon.
+                Shown in the site header. Also the default OG/Twitter image, JSON-LD
+                logo, chat widget avatar and favicon.
               </p>
               <div className="flex items-center gap-3">
                 <Avatar className="size-12 rounded-md">
                   <AvatarImage src={logoUrl} alt="" />
                   <AvatarFallback className="rounded-md">
-                    {settings.title?.slice(0, 1) || "F"}
+                    {settings.title?.slice(0, 1)}
                   </AvatarFallback>
                 </Avatar>
                 <ImageUploadDialog<FrontLitImage>
@@ -148,6 +149,16 @@ export default function BrandingPage() {
                     {logoUrl ? "Change logo" : "Add logo"}
                   </Button>
                 </ImageUploadDialog>
+                {logoUrl ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setSettings({ ...settings, logo: null })}
+                    disabled={saving}
+                  >
+                    Remove logo
+                  </Button>
+                ) : null}
               </div>
             </div>
             <Button type="button" onClick={save} disabled={saving}>

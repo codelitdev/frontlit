@@ -56,16 +56,13 @@ export interface WidgetDefaultSettings {
 
 export interface PageData extends Record<string, unknown> {
   pageType?: string;
-  /** Tenant branding supplied by the host application. Layout blocks use
-   * this on published sites, while the builder can continue to use its
-   * own local block settings. */
-  siteLogoUrl?: string;
-  siteLogoAlt?: string;
-  /** Branding site title. Header and footer show it when their own logo
-   * text is left empty. */
-  siteTitle?: string;
-  /** Branding subtitle. The footer shows it when its own tagline is empty. */
-  siteSubtitle?: string;
+  /** Branding from site settings. Required so a host can't silently drop
+   * it; pass `null` for an unset one. Hosts build these with
+   * `toSiteBranding` from `@frontlit/api-contract`. */
+  siteTitle: string | null;
+  siteSubtitle: string | null;
+  siteLogoUrl: string | null;
+  siteLogoAlt: string | null;
   /** The page's team (public id) and slug, plus the base URL of FrontLit's
    * public API — threaded through so blocks that make unauthenticated
    * public calls (e.g. the email-form block's lead capture, architecture.md

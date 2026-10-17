@@ -76,6 +76,12 @@ describe("team settings", () => {
     expect(updated.codeInjectionBody).toBeNull();
   });
 
+  it("falls back to the team name when the title is cleared", async () => {
+    await updateTeamSettings(teamId, { title: "Acme" });
+    expect((await updateTeamSettings(teamId, { title: "" })).title).toBe("Test Team");
+    expect((await updateTeamSettings(teamId, { title: null })).title).toBe("Test Team");
+  });
+
   it("stores one system theme for the entire public site", async () => {
     const updated = await updateTeamSettings(teamId, {
       themeId: "midnight",
