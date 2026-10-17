@@ -40,6 +40,7 @@ import { notifyTeamOfRequesterMessage } from "../tickets/notify";
 import { resolveHost } from "../domains/queries";
 import { getTeamSettings } from "../settings/queries";
 import { getPublishedPageBySlug, listPublishedPages } from "../pages/queries";
+import { getActiveRelease } from "../pages/releases";
 import { getThemeByThemeId } from "../themes/queries";
 import { verifyCaptcha } from "../services/captcha";
 import {
@@ -307,7 +308,11 @@ const impl = s.router(contract.public, {
       const savedTheme = themeId?.startsWith("thm_")
         ? await getThemeByThemeId(themeId)
         : null;
-      const theme = savedTheme?.teamId === team.id ? savedTheme.style : null;
+      // A Git-owned site (site.json) ships its theme in the active release.
+      const release = await getActiveRelease(team.id);
+      const theme =
+        release?.site.theme ??
+        (savedTheme?.teamId === team.id ? savedTheme.style : null);
       return {
         status: 200,
         body: {

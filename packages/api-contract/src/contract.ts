@@ -30,6 +30,7 @@ import {
   listPagesQuerySchema,
   pageSchema,
   updatePageBodySchema,
+  siteReleaseSchema,
 } from "./schemas/pages";
 import {
   createThemeBodySchema,
@@ -463,6 +464,23 @@ const pagesContract = c.router(
       summary: "Discard a page's draft changes",
       description:
         "Resets the draft layout and SEO fields back to whatever is currently published.",
+    },
+    listReleases: {
+      method: "GET",
+      path: "/site/releases",
+      responses: { 200: z.object({ items: z.array(siteReleaseSchema) }) },
+      summary: "List site releases",
+      description:
+        "Newest first. A release is an immutable snapshot of every published page plus the site header and footer; exactly one is live.",
+    },
+    activateRelease: {
+      method: "POST",
+      path: "/site/releases/:releaseId/activate",
+      body: c.noBody(),
+      responses: { 200: siteReleaseSchema, 404: errorSchema },
+      summary: "Activate a site release",
+      description:
+        "Rolls the public site back (or forward) to this release. Drafts are untouched.",
     },
   },
   { metadata: { tag: "Pages" } },

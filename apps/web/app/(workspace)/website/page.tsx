@@ -4,6 +4,7 @@ import { use, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import PagesPage from "./pages/page";
 import BrandingPage from "./branding/page";
+import ReleasesPage from "./releases/page";
 import DomainPage from "./domain/page";
 import CodeInjectionPage from "./code-injection/page";
 import ChatbotPage from "./chatbot/page";
@@ -52,7 +53,9 @@ export default function WebsitePage({
   }
 
   const view =
-    selectedTab === "branding" ? (
+    selectedTab === "releases" ? (
+      <ReleasesPage />
+    ) : selectedTab === "branding" ? (
       <BrandingPage />
     ) : selectedTab === "domain" ? (
       <DomainPage />

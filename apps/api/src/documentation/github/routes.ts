@@ -16,6 +16,11 @@ import {
   changeGitHubSourceState,
 } from "./source";
 import { enqueueGitSync } from "./state";
+import {
+  disableGitPages,
+  enableGitPages,
+  previewGitPages,
+} from "../../pages/git-source";
 import { submitGitProposal, getGitProposal, listGitProposals } from "./proposals";
 import { getGitCheck, listGitChecks } from "./check-reports";
 import { resolveGitPublisherCredential } from "./publisher";
@@ -52,6 +57,12 @@ const implementation = s.router(
   contract.content.documentationGithub,
   authorizeHandlers(
     {
+      previewPages: async ({ req, body }: any) =>
+        run(() => previewGitPages(req.teamId, req.authz, body)),
+      enablePages: async ({ req, body }: any) =>
+        run(() => enableGitPages(req.teamId, req.authz, body)),
+      disablePages: async ({ req }: any) =>
+        run(() => disableGitPages(req.teamId, req.authz)),
       getCheck: async ({ req, params }: any) =>
         run(() => getGitCheck(req.teamId, params.checkId)),
       listChecks: async ({ req, query }: any) =>
@@ -135,6 +146,9 @@ const implementation = s.router(
         run(() => changeGitHubSourceState(req.teamId, req.authz, "disconnect")),
     },
     {
+      previewPages: "content.documentationGithub.previewPages",
+      enablePages: "content.documentationGithub.enablePages",
+      disablePages: "content.documentationGithub.disablePages",
       submitProposal: "content.documentationGithub.submitProposal",
       getProposal: "content.documentationGithub.getProposal",
       listProposals: "content.documentationGithub.listProposals",

@@ -8,6 +8,11 @@ export const WEBSITE_TABS = [
     accessPath: "/website/pages",
   },
   {
+    id: "releases",
+    label: "Releases",
+    accessPath: "/website/releases",
+  },
+  {
     id: "branding",
     label: "Branding",
     accessPath: "/website/branding",

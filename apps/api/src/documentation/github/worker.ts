@@ -25,7 +25,21 @@ import { lockSettings } from "../authoring";
 import { captureRevision, digest } from "../publications";
 import { captureRetrievalConfiguration } from "../retrieval";
 import { DocsGitHubApp, getDocsGitHubAppConfig, GitHubDocsError } from "./app";
-import { importDocumentationTree, type DocumentationGitManifest } from "./importer";
+import {
+  importDocumentationTree,
+  type DocumentationGitManifest,
+  type GitTreeEntry,
+} from "./importer";
+import {
+  activatePagesRelease,
+  createPagesRelease,
+  importPagesTree,
+  revalidatePages,
+  pagesSourceKey,
+  PagesImportError,
+  type PagesManifest,
+} from "../../pages/git-import";
+
 import { cleanupGitHubDocumentation } from "./retention";
 import { gitDocumentSnapshot, validateGitManifest } from "./source";
 import {
@@ -186,6 +200,7 @@ export async function captureGitManifest(
   job: SyncJob,
   manifest: DocumentationGitManifest,
   included: IncludedGitProposal[] = [],
+  docsTreeSha?: string,
 ) {
   return db.transaction(async (tx) => {
     const settings = await lockSettings(tx, job.teamId);
@@ -340,6 +355,7 @@ export async function captureGitManifest(
           proposalIds: proven
             .filter((p) => p.status === "merged")
             .map((p) => p.proposalId),
+          ...(docsTreeSha ? { docsTreeSha } : {}),
         },
       })
       .returning();
@@ -539,13 +555,58 @@ export async function processGitSync(teamId?: string, injectedApp?: DocsGitHubAp
         where: eq(jobs.runId, job.runId),
       });
     }
+    // One tree read serves every source of this commit.
+    let tree: GitTreeEntry[] | null = null;
+    const readTree = async () => {
+      await renew(job);
+      tree ??= await app.commitTree(
+        access.token,
+        access.repository.owner.login,
+        access.repository.name,
+        head,
+      );
+      return tree;
+    };
+    const readBlob = async (sha: string) => {
+      await renew(job);
+      return app.blob(
+        access.token,
+        access.repository.owner.login,
+        access.repository.name,
+        sha,
+      );
+    };
+    const pages = binding!.pagesDirectory
+      ? await importChangedPages(job.teamId, binding!, head, await readTree(), readBlob)
+      : null;
+    if (!binding!.docsEnabled)
+      return await finishWithoutDocsPublication(job, head, pages);
     const included = await includedGitProposals(binding!, head, app, access, () =>
       renew(job),
     );
     const unchanged = included.some((proposal) => proposal.apply)
       ? null
       : await finishUnchangedSync(job, head);
-    if (unchanged) return unchanged;
+    if (unchanged) {
+      if (pages)
+        await activatePagesRelease(
+          job.teamId,
+          await createPagesRelease(job.teamId, pages),
+        );
+      return unchanged;
+    }
+    // A new commit that leaves the docs folder untouched (e.g. a monorepo
+    // push elsewhere) publishes no docs; pages still go live if they changed.
+    const docsTreeSha = (await readTree()).find(
+      (entry) => entry.path === binding!.directory && entry.type === "tree",
+    )?.sha;
+    if (
+      binding!.liveSha !== head &&
+      docsTreeSha &&
+      docsTreeSha === binding!.docsSourceKey &&
+      !included.some((proposal) => proposal.apply)
+    )
+      return await finishWithoutDocsPublication(job, head, pages);
     await db
       .update(bindings)
       .set({ observedSha: head })
@@ -558,33 +619,34 @@ export async function processGitSync(teamId?: string, injectedApp?: DocsGitHubAp
     const previous = await db.query.documentationGitFiles.findFirst({
       where: eq(files.teamId, job.teamId),
     });
-    await renew(job);
-    const entries = await app.commitTree(
-      access.token,
-      access.repository.owner.login,
-      access.repository.name,
-      head,
-    );
     const manifest = await importDocumentationTree({
       commitSha: head,
       directory: binding!.directory,
-      entries,
+      entries: await readTree(),
       previouslyPopulated: !!previous,
-      readBlob: async (sha) => {
-        await renew(job);
-        return app.blob(
-          access.token,
-          access.repository.owner.login,
-          access.repository.name,
-          sha,
-        );
-      },
+      readBlob,
     });
     await renew(job);
     const report = await validateGitManifest(job.teamId, manifest);
     if (!report.publishable) throw new DocsContentError(report.diagnostics);
-    return await captureGitManifest(job, manifest, included);
-  } catch (error) {
+    const captured = await captureGitManifest(job, manifest, included, docsTreeSha);
+    // Pages from the same commit go live with this docs publication
+    // (`activateGitRelease`), or not at all if it fails.
+    if (pages && captured?.publicationId)
+      await createPagesRelease(job.teamId, pages, {
+        docsPublicationId: captured.publicationId,
+      });
+    return captured;
+  } catch (caught) {
+    const error =
+      caught instanceof PagesImportError
+        ? new DocsContentError(caught.diagnostics)
+        : caught;
+    if (caught instanceof PagesImportError)
+      await db
+        .update(bindings)
+        .set({ pagesDiagnostics: caught.diagnostics as any })
+        .where(eq(bindings.teamId, job.teamId));
     const code =
       error instanceof GitHubDocsError
         ? error.code
@@ -655,6 +717,84 @@ export async function processGitSync(teamId?: string, injectedApp?: DocsGitHubAp
     );
   }
 }
+/** Imports the pages source when its tree (or site.json) changed since the
+ * last activated pages release; null when there's nothing new. */
+async function importChangedPages(
+  teamId: string,
+  binding: GitBinding,
+  head: string,
+  entries: GitTreeEntry[],
+  readBlob: (sha: string) => Promise<Uint8Array>,
+): Promise<PagesManifest | null> {
+  const key = pagesSourceKey(entries, binding.pagesDirectory!);
+  if (key && key === binding.pagesSourceKey) return null;
+  const manifest = await importPagesTree({
+    teamId,
+    commitSha: head,
+    directory: binding.pagesDirectory!,
+    entries,
+    readBlob,
+  });
+  await db
+    .update(bindings)
+    .set({ pagesDiagnostics: manifest.diagnostics as any })
+    .where(eq(bindings.teamId, teamId));
+  return manifest;
+}
+
+/** Finishes a sync that publishes no docs (docs off, or the docs folder is
+ * unchanged), activating the pages release when pages changed. */
+async function finishWithoutDocsPublication(
+  job: SyncJob,
+  head: string,
+  pages: PagesManifest | null,
+) {
+  const release = pages ? await createPagesRelease(job.teamId, pages) : null;
+  const done = await db.transaction(async (tx) => {
+    await lockSettings(tx, job.teamId);
+    const binding = await tx.query.documentationGitBindings.findFirst({
+      where: eq(bindings.teamId, job.teamId),
+    });
+    const current = await tx.query.documentationGitJobs.findFirst({
+      where: eq(jobs.runId, job.runId),
+    });
+    if (
+      !sameGeneration(binding, job) ||
+      current?.status !== "running" ||
+      current.leaseToken !== job.leaseToken
+    )
+      throw new GitHubDocsError("GITHUB_SUPERSEDED", 409);
+    if (release) await activatePagesRelease(job.teamId, release, tx);
+    await tx
+      .update(bindings)
+      .set({
+        observedSha: head,
+        validatedSha: head,
+        liveSha: head,
+        lastSuccessfulSyncAt: new Date(),
+        lastDiagnostic: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(bindings.teamId, job.teamId));
+    const [row] = await tx
+      .update(jobs)
+      .set({
+        status: "active",
+        diagnostic: null,
+        diagnosticReport: null,
+        observedSha: head,
+        leaseToken: null,
+        leaseExpiresAt: null,
+        finishedAt: new Date(),
+      })
+      .where(eq(jobs.runId, job.runId))
+      .returning();
+    return row;
+  });
+  if (release) await revalidatePages(job.teamId);
+  return done;
+}
+
 export async function reconcileGitSources(now = new Date()) {
   const due = await db.query.documentationGitBindings.findMany({
     where: and(eq(bindings.status, "connected"), lte(bindings.nextReconcileAt, now)),

@@ -159,6 +159,8 @@ export const documentationGitSelectionSchema = z
     repositoryId: z.number().int().positive().safe(),
     branch: z.string().min(1).max(255),
     directory: z.string().min(1).max(512),
+    /** false connects the repository for pages only (docs stay in FrontLit). */
+    docsEnabled: z.boolean().optional(),
   })
   .strict();
 export const documentationGitPreflightSchema = z.union([
@@ -242,6 +244,12 @@ export const documentationGitSourceSchema = z.object({
       lastDiagnostic: z.string().nullable(),
       nextPrReconcileAt: z.string(),
       lastPrReconcileError: z.string().nullable(),
+      /** Whether this repo feeds docs (`directory`). */
+      docsEnabled: z.boolean(),
+      /** Pages folder (`frontlit/pages`); null while pages are builder-owned. */
+      pagesDirectory: z.string().nullable(),
+      /** Errors (or warnings) from the last pages import. */
+      pagesDiagnostics: z.array(documentationDiagnosticSchema).nullable(),
     })
     .nullable(),
   sync: z
@@ -411,4 +419,34 @@ export const documentationGitCheckListQuerySchema =
 export const documentationGitCheckListSchema = z.object({
   items: z.array(documentationGitCheckSchema),
   nextCursor: z.string().nullable(),
+});
+
+export const gitPagesPreviewBodySchema = z.object({
+  directory: z.string().min(1).max(200),
+});
+
+/** Dry run of a pages folder at the branch head: what would go live. */
+export const gitPagesPreviewSchema = z.object({
+  commitSha: z.string(),
+  directory: z.string(),
+  siteFile: z.string(),
+  hasSiteFile: z.boolean(),
+  publishable: z.boolean(),
+  pages: z.array(
+    z.object({
+      path: z.string(),
+      route: z.string(),
+      title: z.string().nullable(),
+      published: z.boolean(),
+    }),
+  ),
+  /** Live builder pages with no file in the folder; they go offline. */
+  removedPages: z.array(z.object({ name: z.string(), route: z.string() })),
+  diagnostics: z.array(documentationDiagnosticSchema),
+});
+
+export const gitPagesEnableBodySchema = z.object({
+  directory: z.string().min(1).max(200),
+  /** The previewed commit; enabling fails if the branch moved. */
+  commitSha: z.string(),
 });

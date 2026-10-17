@@ -5,7 +5,6 @@ import {
   countPages,
   createPage,
   deletePage,
-  derivePageStatus,
   discardPageDraft,
   getPageByPageId,
   listPages,
@@ -24,9 +23,7 @@ import { omitInternal, serializeDates } from "../../utils/public";
 import { InvalidPageLayoutError } from "../../pages/shared-widgets";
 
 function toPublicPage<T extends Record<string, unknown>>(page: T) {
-  return serializeDates(
-    omitInternal({ ...page, status: derivePageStatus(page as any) }, "teamId"),
-  );
+  return serializeDates(omitInternal(page, "teamId"));
 }
 
 export function registerPageTools(server: McpToolRegistrar): void {

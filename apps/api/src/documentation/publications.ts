@@ -1,4 +1,5 @@
 import { siteOriginForTeam } from "../utils/site-url";
+import { activateGitRelease } from "../pages/git-import";
 import {
   checkGitPublicationHead,
   enqueueGitSync,
@@ -758,6 +759,7 @@ export async function activatePublication(
         .update(gitBindings)
         .set({
           liveSha: job.gitContext.commitSha,
+          docsSourceKey: job.gitContext.docsTreeSha ?? null,
           lastSuccessfulSyncAt: now,
           lastDiagnostic: null,
         })
@@ -773,6 +775,8 @@ export async function activatePublication(
         .where(
           and(eq(gitJobs.teamId, teamId), eq(gitJobs.runId, job.gitContext.runId)),
         );
+      // Pages from the same commit go live with this publication.
+      await activateGitRelease(tx, teamId, publicationId);
     }
     return active;
   });

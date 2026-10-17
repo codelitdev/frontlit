@@ -27,23 +27,23 @@ describe("team settings", () => {
     expect(settings.codeInjectionHead).toBeNull();
     expect(settings.codeInjectionBody).toBeNull();
     expect(settings.themeId).toBeNull();
-    expect(settings.sharedWidgets.header).toMatchObject({
+    expect(settings.activeReleaseId).toBeNull();
+    expect(settings.draftSharedWidgets.header).toMatchObject({
       name: "header",
       shared: true,
       deletable: false,
       moveable: false,
     });
-    expect(settings.sharedWidgets.footer).toMatchObject({
+    expect(settings.draftSharedWidgets.footer).toMatchObject({
       name: "footer",
       shared: true,
       deletable: false,
       moveable: false,
     });
-    expect(settings.draftSharedWidgets).toEqual(settings.sharedWidgets);
   });
 
   it("starts with the team's own header and footer, not FrontLit's sample chrome", async () => {
-    const { sharedWidgets } = await getTeamSettings(teamId);
+    const { draftSharedWidgets: sharedWidgets } = await getTeamSettings(teamId);
     const headerSettings = sharedWidgets.header.settings as Record<string, unknown>;
     const footerSettings = sharedWidgets.footer.settings as Record<string, unknown>;
 

@@ -75,7 +75,7 @@ export default function IntegrationsSettingsPage() {
                 badge={connected ? "Connected" : "Not connected"}
                 description={
                   connected
-                    ? "Your docs are managed in a GitHub repository. Check the connection and sync status here."
+                    ? "Your docs or pages are managed in a GitHub repository. Check the connection and sync status here."
                     : "Keep your docs in a GitHub repository and review changes through pull requests."
                 }
               >

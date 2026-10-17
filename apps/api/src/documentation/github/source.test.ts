@@ -95,10 +95,13 @@ function provider() {
       expires_at: "2030-01-01T00:00:00Z",
     }),
     branchHead: vi.fn().mockResolvedValue(sha),
-    commitTree: vi.fn().mockResolvedValue([
-      { path: "docs", mode: "040000", type: "tree", sha },
-      { path: "docs/guide.md", mode: "100644", type: "blob", sha: blob },
-    ]),
+    // Like real Git, the folder's tree SHA changes with the commit's content.
+    commitTree: vi.fn(
+      async (_token: string, _owner: string, _name: string, commit: string) => [
+        { path: "docs", mode: "040000", type: "tree", sha: commit },
+        { path: "docs/guide.md", mode: "100644", type: "blob", sha: blob },
+      ],
+    ),
     blob: vi.fn().mockResolvedValue(Buffer.from(markdown())),
     findProposalPullRequest: vi.fn(),
     isAncestor: vi.fn().mockResolvedValue(false),
@@ -353,7 +356,7 @@ describe("reviewed source connection and generation-fenced inbound sync", () => 
     await publishSync();
     app.branchHead.mockResolvedValue("e".repeat(40));
     app.commitTree.mockResolvedValue([
-      { path: "docs", mode: "040000", type: "tree", sha: secondSha },
+      { path: "docs", mode: "040000", type: "tree", sha: "e".repeat(40) },
       { path: "docs/guide.md", mode: "100644", type: "blob", sha: "d".repeat(40) },
       { path: "docs/renamed.md", mode: "100644", type: "blob", sha: blob },
     ]);
@@ -1312,12 +1315,40 @@ describe("reviewed source connection and generation-fenced inbound sync", () => 
       }),
     ]);
   });
+  it("publishes nothing for a push that leaves the docs folder untouched", async () => {
+    await connect();
+    const first = await publishSync();
+    app.branchHead.mockResolvedValue(secondSha);
+    // Same docs tree as the live commit: only files elsewhere changed.
+    app.commitTree.mockResolvedValue([
+      { path: "docs", mode: "040000", type: "tree", sha },
+      { path: "docs/guide.md", mode: "100644", type: "blob", sha: blob },
+      { path: "packages/app.ts", mode: "100644", type: "blob", sha: "d".repeat(40) },
+    ]);
+    await gitState.enqueueGitSync(teamId);
+    const sync = await processGitSync(teamId, app as unknown as DocsGitHubApp);
+    expect(sync).toMatchObject({
+      status: "active",
+      observedSha: secondSha,
+      publicationId: null,
+    });
+    expect(
+      await db.query.documentationSettings.findFirst({
+        where: eq(settings.teamId, teamId),
+      }),
+    ).toMatchObject({ activePublicationId: first.publication.publicationId });
+    expect(
+      await db.query.documentationGitBindings.findFirst({
+        where: eq(bindings.teamId, teamId),
+      }),
+    ).toMatchObject({ liveSha: secondSha, docsSourceKey: sha });
+  });
   it("retains both conflicting files before publication creation and erases the report on purge", async () => {
     await connect();
     const first = await publishSync();
     app.branchHead.mockResolvedValue(secondSha);
     app.commitTree.mockResolvedValue([
-      { path: "docs", mode: "040000", type: "tree", sha },
+      { path: "docs", mode: "040000", type: "tree", sha: secondSha },
       { path: "docs/guide.md", mode: "100644", type: "blob", sha: blob },
       { path: "docs/conflict.md", mode: "100644", type: "blob", sha: "d".repeat(40) },
     ]);

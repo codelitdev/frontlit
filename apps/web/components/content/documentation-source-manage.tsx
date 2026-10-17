@@ -21,6 +21,7 @@ import {
   SummaryRow,
 } from "@/components/content/documentation-connect-parts";
 import type { DocumentationGitSource } from "@/lib/api";
+import { PagesSourceSection } from "@/components/content/pages-source-section";
 import { cn } from "@/lib/utils";
 
 type Binding = NonNullable<DocumentationGitSource["binding"]>;
@@ -345,10 +346,20 @@ export function ManageSource({
         <SummaryRow label="Branch">
           <Mono>{binding.branch}</Mono>
         </SummaryRow>
-        <SummaryRow label="Folder">
-          <Mono>{binding.directory ? `${binding.directory}/` : "/"}</Mono>
+        <SummaryRow label="Docs folder">
+          {binding.docsEnabled ? (
+            <Mono>{binding.directory ? `${binding.directory}/` : "/"}</Mono>
+          ) : (
+            <span className="text-muted-foreground">Not synced</span>
+          )}
         </SummaryRow>
       </SummaryCard>
+      <SectionLabel>Pages</SectionLabel>
+      <PagesSourceSection
+        binding={binding}
+        canManage={source.status === "connected"}
+        onChanged={onRefresh}
+      />
       <SectionLabel>Sync progress</SectionLabel>
       <div className="grid grid-cols-1 divide-y overflow-clip rounded-[0.625rem] border border-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         <ProgressCell

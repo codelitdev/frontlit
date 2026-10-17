@@ -381,6 +381,19 @@ export function discardPageDraft(pageId: string) {
   return unwrap<Page>(client.pages.discardDraft({ params: { pageId } }));
 }
 
+export type SiteRelease = import("@ts-rest/core").ClientInferResponseBody<
+  typeof contract.pages.activateRelease,
+  200
+>;
+
+export function listSiteReleases() {
+  return unwrap<{ items: SiteRelease[] }>(client.pages.listReleases());
+}
+
+export function activateSiteRelease(releaseId: string) {
+  return unwrap<SiteRelease>(client.pages.activateRelease({ params: { releaseId } }));
+}
+
 // ---- Themes -----------------------------------------------------------
 
 export interface Theme {
@@ -1713,6 +1726,22 @@ export function grantDocumentationGitCapabilities(
 ) {
   return unwrap<GitResponse<"capabilities">>(
     client.content.documentationGithub.capabilities({ body }),
+  );
+}
+export type GitPagesPreview = GitResponse<"previewPages">;
+export function previewGitPages(directory: string) {
+  return unwrap<GitPagesPreview>(
+    client.content.documentationGithub.previewPages({ body: { directory } }),
+  );
+}
+export function enableGitPages(body: GitRequest<"enablePages">["body"]) {
+  return unwrap<DocumentationGitSource>(
+    client.content.documentationGithub.enablePages({ body }),
+  );
+}
+export function disableGitPages() {
+  return unwrap<DocumentationGitSource>(
+    client.content.documentationGithub.disablePages({}),
   );
 }
 export function getDocumentationGitSource() {

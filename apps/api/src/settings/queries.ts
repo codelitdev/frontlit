@@ -98,7 +98,6 @@ export async function getTeamSettings(teamId: string) {
       title: team?.name ?? null,
       // Do not rely on the Postgres column default — local DBs keep
       // the old SQL default until migrations are reset.
-      sharedWidgets,
       draftSharedWidgets: sharedWidgets,
     })
     .returning();

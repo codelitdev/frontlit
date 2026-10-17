@@ -81,3 +81,30 @@ export const listPagesQuerySchema = z.object({
   offset: z.coerce.number().int().min(1).optional(),
   itemsPerPage: z.coerce.number().int().min(1).optional(),
 });
+
+/** Page slugs custom pages can't take: they're served by the public site
+ * itself (static routes, content feeds' children, previews). */
+export const RESERVED_PAGE_SLUGS = [
+  "api",
+  "embed",
+  "opengraph-image",
+  "sitemap.xml",
+  "robots.txt",
+  "favicon.ico",
+  "openapi.json",
+  "_preview",
+] as const;
+
+export function isReservedPageSlug(slug: string): boolean {
+  return (RESERVED_PAGE_SLUGS as readonly string[]).includes(slug);
+}
+
+export const siteReleaseSchema = z.object({
+  releaseId: z.string(),
+  source: z.enum(["builder", "git"]),
+  commitSha: z.string().nullable(),
+  summary: z.string().nullable(),
+  pageCount: z.number(),
+  active: z.boolean(),
+  createdAt: z.string(),
+});

@@ -8,7 +8,6 @@ import {
   countPages,
   createPage,
   deletePage,
-  derivePageStatus,
   discardPageDraft,
   getPageByPageId,
   listPages,
@@ -16,6 +15,8 @@ import {
   updatePage,
 } from "./queries";
 import { omitInternal, serializeDates } from "../utils/public";
+import { db } from "../db/client";
+import { activateRelease, getReleaseByReleaseId, listReleases } from "./releases";
 import { findTeamById } from "../team/queries";
 import { revalidateTeam } from "../services/revalidate";
 import { InvalidPageLayoutError } from "./shared-widgets";
@@ -23,13 +24,12 @@ import { InvalidSlugError, SlugConflictError } from "../utils/slug";
 
 const router = Router();
 router.use("/pages", requireAuth, requireTeam);
+router.use("/site", requireAuth, requireTeam);
 
 const s = initServer();
 
 function toPublicPage<T extends Record<string, unknown>>(page: T) {
-  return serializeDates(
-    omitInternal({ ...page, status: derivePageStatus(page as any) }, "teamId"),
-  );
+  return serializeDates(omitInternal(page, "teamId"));
 }
 
 /** Thin ts-rest adapter: every handler extracts `params`/`query`/`body`
@@ -111,6 +111,22 @@ const impl = s.router(
         if (!page) return { status: 404, body: { error: "Page not found" } };
         return { status: 200, body: toPublicPage(page) };
       },
+      listReleases: async ({ req }) => {
+        const items = await listReleases((req as any).teamId);
+        return { status: 200, body: { items: items.map(serializeDates) } };
+      },
+      activateRelease: async ({ params, req }) => {
+        const teamId = (req as any).teamId;
+        const release = await getReleaseByReleaseId(teamId, params.releaseId);
+        if (!release) return { status: 404, body: { error: "Release not found" } };
+        await activateRelease(db, release);
+        const team = await findTeamById(teamId);
+        if (team) revalidateTeam(team.teamId).catch(() => {});
+        const item = (await listReleases(teamId)).find(
+          (row) => row.releaseId === params.releaseId,
+        )!;
+        return { status: 200, body: serializeDates(item) };
+      },
       remove: async ({ params, req }) => {
         const result = await deletePage((req as any).teamId, params.pageId);
         if (!result.ok && result.reason === "not_found")
@@ -135,6 +151,8 @@ const impl = s.router(
       update: "pages.update",
       publish: "pages.publish",
       discardDraft: "pages.discardDraft",
+      listReleases: "pages.listReleases",
+      activateRelease: "pages.activateRelease",
       remove: "pages.remove",
     },
   ),

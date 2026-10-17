@@ -1,6 +1,7 @@
 import { and, eq, ne } from "drizzle-orm";
 import { db } from "../db/client";
 import { pages } from "../db/schema";
+import { isReservedPageSlug } from "@frontlit/api-contract";
 import { slugify, uniqueSlug } from "../utils/slug";
 
 export { slugify };
@@ -22,6 +23,7 @@ export async function isSlugTakenForTeam(
   slug: string,
   excludePageId?: string,
 ): Promise<boolean> {
+  if (isReservedPageSlug(slug)) return true;
   const conditions = [eq(pages.teamId, teamId), eq(pages.slug, slug)];
   if (excludePageId) conditions.push(ne(pages.id, excludePageId));
   const existing = await db.query.pages.findFirst({

@@ -54,7 +54,8 @@ export interface StoredBlock {
 export interface PageDocument {
   title?: string;
   description?: string;
-  socialImage?: { url: string; alt?: string };
+  /** `{ url, alt }`; a stored MediaLit object is accepted when serializing. */
+  socialImage?: { url: string; alt?: string } | Record<string, unknown>;
   robotsAllowed?: boolean;
   published?: boolean;
   layout: StoredBlock[];
@@ -314,7 +315,7 @@ export function serializePageFile(page: PageDocument): string {
       }
     });
   if (diagnostics.length) throw new SchemaValidationError(diagnostics);
-  const socialImage = page.socialImage?.url
+  const socialImage = page.socialImage
     ? exportKinds.media.parse(page.socialImage)
     : undefined;
   const file = {

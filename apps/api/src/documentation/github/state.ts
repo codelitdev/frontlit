@@ -60,7 +60,8 @@ export async function enqueueGitSync(
     })) as GitBinding | undefined;
     if (
       !binding ||
-      settings.source !== "git" ||
+      // Docs need the docs source on Git; a pages-only repo needs a pages folder.
+      (binding.docsEnabled ? settings.source !== "git" : !binding.pagesDirectory) ||
       binding.status !== "connected" ||
       !binding.capabilities.read ||
       (options.expectedGeneration !== undefined &&

@@ -8,7 +8,7 @@ import { omitInternal, serializeDates } from "../../utils/public";
 
 function toPublicSettings<T extends Record<string, unknown>>(settings: T) {
   return serializeDates(
-    omitInternal(settings, "teamId", "sharedWidgets", "draftSharedWidgets"),
+    omitInternal(settings, "teamId", "draftSharedWidgets", "activeReleaseId"),
   );
 }
 

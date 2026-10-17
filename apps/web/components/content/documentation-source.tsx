@@ -86,6 +86,8 @@ export function DocumentationSource({
   const [repositoryId, setRepositoryId] = useState("");
   const [branch, setBranch] = useState(""),
     [directory, setDirectory] = useState("docs");
+  /** Off connects the repository for pages only. */
+  const [docsEnabled, setDocsEnabled] = useState(true);
   const [preflight, setPreflight] = useState<DocumentationGitPreflight | null>(null);
   const [migration, setMigration] = useState<DocumentationGitMigration | null>(null);
   const [acknowledgeSetupPr, setAcknowledgeSetupPr] = useState(false);
@@ -306,13 +308,14 @@ export function DocumentationSource({
       repositoryId: Number(repositoryId),
       branch,
       directory,
+      ...(docsEnabled ? {} : { docsEnabled: false }),
     };
   }
   async function review(createSetup = false) {
     setConsents([false]);
     setDiagnostics([]);
     setVerifiedSha(null);
-    if (source?.source === "editor" && (hasCmsContent || createSetup)) {
+    if (docsEnabled && source?.source === "editor" && (hasCmsContent || createSetup)) {
       const s = await getDocumentationSettings();
       const plan = await planDocumentationGitMigration({
         ...selection(),
@@ -823,21 +826,34 @@ export function DocumentationSource({
               Merged changes on this branch go live on your docs site.
             </p>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="git-directory">Documentation folder</Label>
-            <Input
-              id="git-directory"
-              value={directory}
-              disabled={busy}
-              onChange={(e) => {
-                setDirectory(e.target.value);
-                setPreflight(null);
-              }}
-            />
-            <p className="text-muted-foreground text-xs">
-              Relative to the repository root, for example <Code>docs</Code>.
-            </p>
-          </div>
+          <ConsentRow
+            checked={docsEnabled}
+            disabled={busy}
+            onChange={(checked) => {
+              setDocsEnabled(checked);
+              setPreflight(null);
+            }}
+          >
+            Sync docs from this repository. Leave off to sync only landing pages; you
+            choose the pages folder after connecting.
+          </ConsentRow>
+          {docsEnabled && (
+            <div className="space-y-1.5">
+              <Label htmlFor="git-directory">Documentation folder</Label>
+              <Input
+                id="git-directory"
+                value={directory}
+                disabled={busy}
+                onChange={(e) => {
+                  setDirectory(e.target.value);
+                  setPreflight(null);
+                }}
+              />
+              <p className="text-muted-foreground text-xs">
+                Relative to the repository root, for example <Code>docs</Code>.
+              </p>
+            </div>
+          )}
         </div>
       </>
     );
@@ -847,7 +863,7 @@ export function DocumentationSource({
           Back
         </Button>
         <div className="flex items-center gap-2.5">
-          {!hasCmsContent && (
+          {!hasCmsContent && docsEnabled && (
             <Button
               variant="outline"
               disabled={busy || !canReview || !canPublish}
@@ -860,7 +876,7 @@ export function DocumentationSource({
             disabled={busy || !canReview || (hasCmsContent && !canPublish)}
             onClick={() => void action(() => review())}
           >
-            {hasCmsContent ? "Review setup" : "Check repository"}
+            {hasCmsContent && docsEnabled ? "Review setup" : "Check repository"}
           </Button>
         </div>
       </>
@@ -1235,12 +1251,20 @@ export function DocumentationSource({
           <SummaryRow label="Branch" action={null}>
             <Mono>{preflight.branch}</Mono>
           </SummaryRow>
-          <SummaryRow label="Folder" action={null}>
-            <Mono>{preflight.directory}/</Mono>
-          </SummaryRow>
-          <SummaryRow label="Docs" action={null}>
-            {preflight.publishedCount} public of {preflight.fileCount} files
-          </SummaryRow>
+          {docsEnabled ? (
+            <>
+              <SummaryRow label="Folder" action={null}>
+                <Mono>{preflight.directory}/</Mono>
+              </SummaryRow>
+              <SummaryRow label="Docs" action={null}>
+                {preflight.publishedCount} public of {preflight.fileCount} files
+              </SummaryRow>
+            </>
+          ) : (
+            <SummaryRow label="Docs" action={null}>
+              Stay in FrontLit. Turn on pages after connecting.
+            </SummaryRow>
+          )}
           <SummaryRow label="Commit" action={null}>
             <Mono>{preflight.commitSha.slice(0, 7)}</Mono>
           </SummaryRow>
@@ -1440,10 +1464,12 @@ export function DocumentationSource({
               icon={<Github />}
               header={
                 <DialogHeader>
-                  <DialogTitle>Documentation source</DialogTitle>
+                  <DialogTitle>
+                    {source?.binding ? "GitHub repository" : "Documentation source"}
+                  </DialogTitle>
                   <DialogDescription>
-                    {source?.source === "git"
-                      ? "Docs sync from GitHub. If sync pauses or fails, readers keep seeing the last good version."
+                    {source?.binding
+                      ? "Docs and pages sync from GitHub. If a sync fails, readers keep seeing the last good version."
                       : "Manage docs here, or connect GitHub to review changes through pull requests."}
                   </DialogDescription>
                 </DialogHeader>

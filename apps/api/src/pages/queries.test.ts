@@ -19,9 +19,12 @@ import {
   derivePageStatus,
   discardPageDraft,
   getPageByPageId,
+  getPublishedPageBySlug,
   publishPage,
   updatePage,
 } from "./queries";
+import { activateRelease, getActiveRelease, listReleases } from "./releases";
+import { getTeamSettings } from "../settings/queries";
 import { InvalidPageLayoutError } from "./shared-widgets";
 import { InvalidSlugError, SlugConflictError } from "../utils/slug";
 import { listMedia } from "../media/queries";
@@ -76,12 +79,13 @@ describe("pages draft/publish", () => {
     expect(page.slug).toBe("about-us");
     expect(page.deletable).toBe(true);
     expect(page.publishedAt).toBeNull();
-    expect(page.layout.map((widget) => widget.name)).toEqual(["header", "footer"]);
+    expect(page.layout).toEqual([]);
     expect(page.draftLayout.map((widget) => widget.name)).toEqual(["header", "footer"]);
-    expect(page.layout.every((widget) => widget.shared && !widget.deletable)).toBe(
+    expect(page.draftLayout.every((widget) => widget.shared && !widget.deletable)).toBe(
       true,
     );
-    expect(derivePageStatus(page)).toBe("draft");
+    expect(page.status).toBe("draft");
+    expect(derivePageStatus(page, null)).toBe("draft");
   });
 
   it("uniquifies slugs within a team", async () => {
@@ -174,12 +178,14 @@ describe("pages draft/publish", () => {
 
     expect(updated?.draftLayout).toHaveLength(3);
     expect(updated?.draftTitle).toBe("Welcome");
-    expect(updated?.layout.map((widget) => widget.name)).toEqual(["header", "footer"]);
+    expect(updated?.layout).toEqual([]);
     expect(updated?.title).toBeNull();
-    expect(derivePageStatus(updated!)).toBe("draft");
+    expect(updated?.publishedAt).toBeNull();
+    expect(updated?.status).toBe("draft");
+    expect(await getActiveRelease(teamId)).toBeNull();
   });
 
-  it("publish copies draft fields into published fields and stamps publishedAt", async () => {
+  it("publish puts the draft in a new active release and stamps publishedAt", async () => {
     const created = await createPage({
       teamId,
       name: "Home",
@@ -199,10 +205,20 @@ describe("pages draft/publish", () => {
 
     const published = await publishPage(teamId, created.pageId);
 
-    expect(published?.publishedAt).not.toBeNull();
-    expect(published?.layout).toEqual(published?.draftLayout);
+    const release = await getActiveRelease(teamId);
+    expect(release).not.toBeNull();
+    expect(published?.publishedAt).toEqual(release!.createdAt);
+    // Published widget ids are positional; names and order match the draft.
+    expect(published?.layout.map((widget) => widget.name)).toEqual(
+      published?.draftLayout.map((widget) => widget.name),
+    );
+    expect(published?.layout.map((widget) => widget.widgetId)).toContain("home-1");
     expect(published?.title).toBe("Welcome");
-    expect(derivePageStatus(published!)).toBe("published");
+    expect(published?.status).toBe("published");
+
+    const live = await getPublishedPageBySlug(teamId, "home");
+    expect(live?.title).toBe("Welcome");
+    expect(live?.pageId).toBe(created.pageId);
   });
 
   it("further draft edits after publish show published_with_changes", async () => {
@@ -215,7 +231,7 @@ describe("pages draft/publish", () => {
       title: "New title",
     });
 
-    expect(derivePageStatus(edited!)).toBe("published_with_changes");
+    expect(edited?.status).toBe("published_with_changes");
   });
 
   it("discard-draft resets the draft back to the published state", async () => {
@@ -230,7 +246,7 @@ describe("pages draft/publish", () => {
     const discarded = await discardPageDraft(teamId, created.pageId);
 
     expect(discarded?.draftTitle).toBe("V1");
-    expect(derivePageStatus(discarded!)).toBe("published");
+    expect(discarded?.status).toBe("published");
   });
 
   it("shares draft and published header/footer settings across every team page", async () => {
@@ -273,8 +289,12 @@ describe("pages draft/publish", () => {
     const storedSecond = await db.query.pages.findFirst({
       where: eq(pages.id, second.id),
     });
-    expect(storedSecond?.layout[0].settings).toBeUndefined();
-    expect(storedSecond?.layout.at(-1)?.settings).toBeUndefined();
+    // Chrome lives on team settings / the release, not on page rows.
+    expect(storedSecond?.draftLayout[0].settings).toBeUndefined();
+    expect(storedSecond?.draftLayout.at(-1)?.settings).toBeUndefined();
+    const release = await getActiveRelease(teamId);
+    expect(release?.site.header).toMatchObject({ ctaLabel: "Acme navigation" });
+    expect(release?.site.footer).toMatchObject({ copyrightText: "© Acme" });
   });
 
   it("rejects layouts that remove or duplicate mandatory shared blocks", async () => {
@@ -407,6 +427,93 @@ describe("pages draft/publish", () => {
     expect(await getPageByPageId(created.pageId)).not.toBeUndefined();
   });
 
+  describe("site releases", () => {
+    it("each publish activates a new release; unchanged content reuses its revision", async () => {
+      const page = await createPage({ teamId, name: "Pricing" });
+      await updatePage(teamId, page.pageId, { title: "Plans" });
+
+      await publishPage(teamId, page.pageId);
+      const first = await getActiveRelease(teamId);
+      await publishPage(teamId, page.pageId);
+      const second = await getActiveRelease(teamId);
+
+      expect(first).not.toBeNull();
+      expect(second).not.toBeNull();
+      expect(second!.id).not.toBe(first!.id);
+      expect((await getTeamSettings(teamId)).activeReleaseId).toBe(second!.id);
+
+      const firstEntry = first!.pages.find((entry) => entry.slug === "pricing");
+      const secondEntry = second!.pages.find((entry) => entry.slug === "pricing");
+      expect(secondEntry?.revisionId).toBe(firstEntry?.revisionId);
+      expect(secondEntry?.revision.hash).toBe(firstEntry?.revision.hash);
+      expect(await listReleases(teamId)).toHaveLength(2);
+    });
+
+    it("activating an older release rolls the public page back", async () => {
+      const page = await createPage({ teamId, name: "Pricing" });
+      await updatePage(teamId, page.pageId, { title: "V1" });
+      await publishPage(teamId, page.pageId);
+      const v1 = await getActiveRelease(teamId);
+      await updatePage(teamId, page.pageId, { title: "V2" });
+      await publishPage(teamId, page.pageId);
+
+      expect((await getPublishedPageBySlug(teamId, "pricing"))?.title).toBe("V2");
+
+      await activateRelease(testDb, v1!);
+
+      expect((await getPublishedPageBySlug(teamId, "pricing"))?.title).toBe("V1");
+      const view = await getPageByPageId(page.pageId);
+      expect(view?.title).toBe("V1");
+      expect(view?.draftTitle).toBe("V2");
+      expect(view?.status).toBe("published_with_changes");
+      const releases = await listReleases(teamId);
+      expect(releases.find((release) => release.active)?.releaseId).toBe(v1!.releaseId);
+    });
+
+    it("deleting a published page removes it from the active release", async () => {
+      const keep = await createPage({ teamId, name: "Keep" });
+      const scratch = await createPage({ teamId, name: "Scratch" });
+      await publishPage(teamId, keep.pageId);
+      await publishPage(teamId, scratch.pageId);
+      expect(await getPublishedPageBySlug(teamId, "scratch")).not.toBeNull();
+      const before = await getActiveRelease(teamId);
+
+      expect((await deletePage(teamId, scratch.pageId)).ok).toBe(true);
+
+      const after = await getActiveRelease(teamId);
+      expect(after!.id).not.toBe(before!.id);
+      expect(after!.pages.map((entry) => entry.slug)).toEqual(["keep"]);
+      expect(await getPublishedPageBySlug(teamId, "scratch")).toBeNull();
+      expect(await getPublishedPageBySlug(teamId, "keep")).not.toBeNull();
+    });
+
+    it("changing a published page's slug moves it in the active release", async () => {
+      const page = await createPage({ teamId, name: "Pricing" });
+      await updatePage(teamId, page.pageId, { title: "Live" });
+      await publishPage(teamId, page.pageId);
+      // An unpublished draft edit must not be published by the move.
+      await updatePage(teamId, page.pageId, { title: "Draft only" });
+
+      const moved = await updatePage(teamId, page.pageId, { slug: "plans" });
+
+      expect(moved?.slug).toBe("plans");
+      expect(await getPublishedPageBySlug(teamId, "pricing")).toBeNull();
+      const live = await getPublishedPageBySlug(teamId, "plans");
+      expect(live?.title).toBe("Live");
+      expect(live?.pageId).toBe(page.pageId);
+      expect(moved?.status).toBe("published_with_changes");
+    });
+
+    it("rejects reserved slugs", async () => {
+      const page = await createPage({ teamId, name: "Widget" });
+
+      await expect(
+        updatePage(teamId, page.pageId, { slug: "embed" }),
+      ).rejects.toBeInstanceOf(InvalidSlugError);
+      expect((await getPageByPageId(page.pageId))?.slug).toBe("widget");
+    });
+  });
+
   describe("social images and media library reflection", () => {
     it("updates page with Unsplash social image and never adds it to media library", async () => {
       const page = await createPage({ teamId, name: "Features" });
@@ -442,10 +549,9 @@ describe("pages draft/publish", () => {
       });
 
       const published = await publishPage(teamId, page.pageId);
-      expect(published?.socialImage).toMatchObject({
+      // Revision content is canonical: only url and alt are published.
+      expect(published?.socialImage).toEqual({
         url: "https://medialit.example/card.png",
-        thumbnailUrl: "https://medialit.example/thumb.png",
-        mediaLitId: "ml_page_123",
         alt: "Pricing Social Card",
       });
 

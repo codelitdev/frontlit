@@ -34,6 +34,7 @@ export type GitSourceSelection = {
   repositoryId: number;
   branch: string;
   directory: string;
+  docsEnabled?: boolean;
 };
 export function gitDocumentSnapshot(
   doc: DocumentationGitManifest["docs"][number],
@@ -147,24 +148,39 @@ export async function preflightGitHubSource(
     input.branch,
   );
   try {
-    const manifest = await importDocumentationTree({
-      commitSha: sha,
-      directory,
-      entries: await app.commitTree(
-        access.installationToken,
-        access.repository.owner.login,
-        access.repository.name,
-        sha,
-      ),
-      readBlob: (id) =>
-        app.blob(
-          access.installationToken,
-          access.repository.owner.login,
-          access.repository.name,
-          id,
-        ),
-    });
-    const report = await validateGitManifest(teamId, manifest);
+    // A pages-only connection imports no docs; pages are previewed and
+    // turned on from the connected source.
+    const manifest =
+      input.docsEnabled === false
+        ? {
+            commitSha: sha,
+            directory,
+            docs: [],
+            sections: [],
+            bytes: 0,
+            docsEnabled: false,
+          }
+        : await importDocumentationTree({
+            commitSha: sha,
+            directory,
+            entries: await app.commitTree(
+              access.installationToken,
+              access.repository.owner.login,
+              access.repository.name,
+              sha,
+            ),
+            readBlob: (id) =>
+              app.blob(
+                access.installationToken,
+                access.repository.owner.login,
+                access.repository.name,
+                id,
+              ),
+          });
+    const report =
+      input.docsEnabled === false
+        ? { publishable: true, diagnostics: [] }
+        : await validateGitManifest(teamId, manifest as DocumentationGitManifest);
     if (!report.publishable) return { preflightId: null, commitSha: sha, ...report };
     if (access.setup.expiresAt <= new Date())
       throw new GitHubDocsError("GITHUB_SETUP_EXPIRED", 409);
@@ -184,7 +200,7 @@ export async function preflightGitHubSource(
         commitSha: sha,
         docsDraftVersion: settings.draftVersion,
         manifestHash: digest(manifest),
-        manifest,
+        manifest: manifest as DocumentationGitManifest,
         expiresAt: access.setup.expiresAt,
       })
       .returning();
@@ -292,7 +308,11 @@ export async function connectGitHubSource(
       ),
     });
     if (pending) throw new GitHubDocsError("PUBLICATION_PENDING", 409);
-    if (settings.source === "editor") {
+    const docsEnabled =
+      (preflight.manifest as { docsEnabled?: boolean }).docsEnabled !== false;
+    if (!docsEnabled) {
+      // Pages only: docs stay wherever they are.
+    } else if (settings.source === "editor") {
       const docs = await tx.query.documents.findFirst({
         where: and(eq(documents.teamId, teamId), eq(documents.kind, "doc")),
       });
@@ -336,21 +356,27 @@ export async function connectGitHubSource(
       capabilities: { read: true, proposals: false, directCommit: false },
       grantedAt: new Date(),
       lastDiagnostic: null,
+      docsEnabled,
       updatedAt: new Date(),
     };
     await tx
       .insert(bindings)
       .values(value)
       .onConflictDoUpdate({ target: bindings.teamId, set: value });
-    await tx
-      .update(settingsTable)
-      .set({ source: "git", draftVersion: settings.draftVersion + 1 })
-      .where(eq(settingsTable.teamId, teamId));
-    const run = await enqueueGitSync(
-      teamId,
-      { reviewedSha: input.commitSha, trigger: "connect" },
-      tx,
-    );
+    if (docsEnabled)
+      await tx
+        .update(settingsTable)
+        .set({ source: "git", draftVersion: settings.draftVersion + 1 })
+        .where(eq(settingsTable.teamId, teamId));
+    // A pages-only connection has nothing to sync until pages are turned on.
+    const run =
+      docsEnabled || binding?.pagesDirectory
+        ? await enqueueGitSync(
+            teamId,
+            { reviewedSha: input.commitSha, trigger: "connect" },
+            tx,
+          )
+        : { runId: "none" };
     await tx
       .update(bindings)
       .set({
@@ -463,6 +489,9 @@ export async function getGitHubSource(teamId: string, actor?: AuthzContext) {
       lastDiagnostic: binding.lastDiagnostic,
       nextPrReconcileAt: binding.nextPrReconcileAt,
       lastPrReconcileError: binding.lastPrReconcileError,
+      docsEnabled: binding.docsEnabled,
+      pagesDirectory: binding.pagesDirectory,
+      pagesDiagnostics: (binding.pagesDiagnostics as any[] | null) ?? null,
     },
     sync: run
       ? {

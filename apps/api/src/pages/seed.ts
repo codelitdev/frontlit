@@ -1,6 +1,7 @@
 import { db } from "../db/client";
 import { genId } from "../db/id";
 import { pages, type WidgetInstanceRow } from "../db/schema";
+import { draftReleasePage, publishBuilderRelease } from "./releases";
 import {
   canonicalPageLayout,
   createRequiredPageLayout,
@@ -297,7 +298,7 @@ export function getStandardPageBySlug(
  * - If `requestedPages` is omitted, seeds all 7 default standard non-deletable pages.
  * - If `requestedPages` is an array (including empty []), seeds only the requested pages.
  *   Matches standard page templates for standard slugs, and supports custom pages.
- * Published immediately so the site renders something from day one instead of 404ing. */
+ * Published immediately (one release) so the site renders from day one. */
 export async function seedStandardPages(
   teamId: string,
   requestedPages?: import("@frontlit/api-contract").ProvisionPageItem[],
@@ -305,7 +306,6 @@ export async function seedStandardPages(
   const pagesToSeed = requestedPages ?? STANDARD_PAGES;
   if (pagesToSeed.length === 0) return;
 
-  const now = new Date();
   const seenSlugs = new Set<string>();
   const values = [];
 
@@ -356,19 +356,22 @@ export async function seedStandardPages(
       name,
       slug,
       deletable,
-      title,
-      description,
-      socialImage,
       draftSocialImage: socialImage,
-      layout,
       draftLayout: layout,
       draftTitle: title,
       draftDescription: description,
-      publishedAt: now,
     });
   }
 
-  if (values.length > 0) {
-    await db.insert(pages).values(values);
-  }
+  if (values.length === 0) return;
+  const seeded = await db.insert(pages).values(values).returning();
+  await publishBuilderRelease(
+    teamId,
+    { summary: "Published the starter site", publishChrome: true },
+    async (entries, tx) => {
+      const added = await Promise.all(seeded.map((page) => draftReleasePage(tx, page)));
+      const slugs = new Set(added.map((entry) => entry.slug));
+      return [...entries.filter((entry) => !slugs.has(entry.slug)), ...added];
+    },
+  );
 }
