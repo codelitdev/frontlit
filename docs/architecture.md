@@ -1317,9 +1317,13 @@ canonical host to the rewritten request for SEO.
 | `/blog/rss.xml`, `/changelog/rss.xml` | RSS feeds (§12.3)                                                   |
 | `/embed/chat`, `/embed/chat.js`       | chatbot iframe + loader                                             |
 
-All public pages are statically cached (ISR, tagged per team) and
-revalidated on publish and on domain changes via a signed webhook from the
-API — crawlers always receive fully server-rendered HTML. SEO is a
+All public pages, docs included, are cached inside FrontLit (Next.js
+Cache Components, with separate shell and content tags per team, shared
+through Redis when several replicas run) and invalidated on publish and on
+domain changes through outbox-delivered, signed webhooks from the API. A
+CDN or HTTP cache in front is optional and vendor-neutral. Crawlers always
+receive fully server-rendered HTML. The full caching, invalidation and
+page-weight design is in [`site-delivery.md`](site-delivery.md). SEO is a
 first-class concern of this app; see §12.3.
 
 ### 12.3 SEO
@@ -1600,7 +1604,7 @@ exhaust another's budget:
 
 | endpoint class                            | key                                         | default limit                                                                                              | on breach                        |
 | ----------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| Public reads (pages/content/sitemap)      | IP                                          | generous (≈300/min) — mostly absorbed by ISR anyway                                                        | 429                              |
+| Public reads (pages/content/sitemap)      | IP                                          | generous (≈300/min) — mostly absorbed by site cache                                                        | 429                              |
 | Lead capture, ticket submission           | IP+team **and** team-global                 | strict (≈5/min/IP, ≈100/day/team-global)                                                                   | 429 + CAPTCHA escalation (§13.3) |
 | Ticket thread reads/replies (magic token) | token+IP                                    | moderate (≈30/min)                                                                                         | 429                              |
 | Chat (`POST /public/:teamId/chat`)        | IP+team **and** per-team daily token budget | ≈10 msg/min/IP; team budget caps LLM spend (tracked in a `usage_counters` table, checked before each call) | 429 / "budget exhausted" event   |
@@ -1682,11 +1686,13 @@ users may write from anywhere) but tags the ticket for review.
 
 What keeps the design boring under load, and the known ceilings:
 
-- **Reads scale in `apps/sites`**: ISR + tag revalidation means public
-  traffic mostly never reaches the API; the API's public reads are also
-  CDN-cacheable (`Cache-Control` + `ETag`). The hot non-cacheable paths
-  are chat and search, which are rate-limited and budget-capped by
-  design (§13.2).
+- **Reads scale in `apps/sites`**: the built-in page and data cache
+  (tag-invalidated on publish, shared through Redis across replicas)
+  means public traffic mostly never reaches the API, with or without a
+  CDN. An optional edge cache adds `stale-if-error`, so sites stay up
+  through API or database outages ([`site-delivery.md`](site-delivery.md)).
+  The hot uncacheable paths are chat and search, which are rate-limited
+  and budget-capped by design (§13.2).
 - **The Postgres outbox** (§10.5) is the only job queue: two SendLit
   job types, claimed by an in-process poller with compare-and-set (not
   `FOR UPDATE SKIP LOCKED`). Multiple API instances will not double-
@@ -1700,9 +1706,10 @@ What keeps the design boring under load, and the known ceilings:
   hit, the escape hatches are partial indexes per large tenant or
   IVFFlat — schema unchanged.
 - **Host resolution** is one indexed lookup, cached in `apps/sites` with
-  short TTL + event invalidation; a stampede on cache expiry collapses
-  into one upstream call per host (request coalescing in the middleware
-  helper).
+  short TTL + event invalidation (in Redis when `REDIS_URL` is set, so
+  invalidation reaches every replica); a stampede on cache expiry
+  collapses into one upstream call per host (request coalescing in the
+  middleware helper).
 - **Postgres growth**: `document_chunks` and `ticket_messages` are the
   only unbounded-ish tables; both are team-scoped and prunable
   (chunks are regenerable derived data; closed-ticket retention is a
