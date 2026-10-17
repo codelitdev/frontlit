@@ -38,7 +38,7 @@ export async function generateMetadata(
       fallbackName: isHomepage ? undefined : page.name,
     },
     settings,
-    previous.title?.absolute || "FrontLit site",
+    previous.title?.absolute || "Website",
   );
 
   return {

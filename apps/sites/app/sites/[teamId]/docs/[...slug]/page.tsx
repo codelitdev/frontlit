@@ -34,7 +34,7 @@ export async function generateMetadata(
       image: doc.featuredImage,
     },
     settings,
-    previous.title?.absolute || "FrontLit site",
+    previous.title?.absolute || "Website",
   );
 
   return {

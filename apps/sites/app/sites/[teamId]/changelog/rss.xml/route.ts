@@ -13,7 +13,7 @@ export async function GET(
     getCanonicalHost(),
   ]);
 
-  const siteName = settings?.title || "FrontLit site";
+  const siteName = settings?.title || "Website";
   const xml = buildRssFeed({
     title: `${siteName} Changelog`,
     description: settings?.subtitle ?? null,

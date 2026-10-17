@@ -30,7 +30,7 @@ export async function generateMetadata(
       image: post.featuredImage,
     },
     settings,
-    previous.title?.absolute || "FrontLit site",
+    previous.title?.absolute || "Website",
   );
 
   return {

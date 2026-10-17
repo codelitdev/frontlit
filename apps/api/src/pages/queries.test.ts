@@ -347,7 +347,7 @@ describe("pages draft/publish", () => {
       moveable: true,
       shared: false,
       settings: {
-        slot: "frontlit.content-feed",
+        slot: "content-feed",
         source: "documentation",
       },
     });

@@ -5,10 +5,7 @@ import { toSiteBranding } from "@frontlit/api-contract";
 import { loadSiteTheme } from "@/lib/load-site-theme";
 import { SitePageRenderer } from "@/components/site-page-renderer";
 import { loadDataSlots } from "@frontlit/page-builder/data-slots";
-import {
-  FRONTLIT_CONTENT_FEED_SLOT,
-  frontlitContentFeedLoader,
-} from "@/components/content-feed";
+import { CONTENT_FEED_SLOT, contentFeedLoader } from "@/components/content-feed";
 
 /**
  * Wraps built-in content pages in the team's published shared site chrome.
@@ -41,7 +38,7 @@ export async function SiteChrome({
   };
   const dataSlots = await loadDataSlots(
     page?.layout ?? [],
-    { [FRONTLIT_CONTENT_FEED_SLOT]: frontlitContentFeedLoader },
+    { [CONTENT_FEED_SLOT]: contentFeedLoader },
     pageData,
   );
 
