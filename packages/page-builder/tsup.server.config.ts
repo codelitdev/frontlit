@@ -16,7 +16,6 @@ export default defineConfig({
     index: "src/server/index.ts",
     theme: "src/theme/index.ts",
     primitives: "src/server/primitives.ts",
-    schema: "src/schema/index.ts",
   },
   outDir: "dist/server",
   format: ["esm"],
