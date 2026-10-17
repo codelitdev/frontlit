@@ -176,6 +176,10 @@ export function PageRenderer({
           className,
         )}
       >
+        {/* Emitted first so the variables exist before any content paints. */}
+        {injectThemeStyles && (
+          <style>{generateThemeStyles(theme, themeSelector)}</style>
+        )}
         {header &&
           renderInstance(header, {
             allowUp: false,
@@ -203,9 +207,6 @@ export function PageRenderer({
             locked: true,
             allowAddBelow: false,
           })}
-        {injectThemeStyles && (
-          <style>{generateThemeStyles(theme, themeSelector)}</style>
-        )}
       </div>
     </PageBuilderLinkProvider>
   );
