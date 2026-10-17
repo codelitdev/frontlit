@@ -9,21 +9,28 @@ interface SectionProps extends React.HTMLAttributes<HTMLElement> {
   theme?: ThemeStyle;
   component?: "header" | "footer" | "section";
   background?: SectionBackground;
+  /** @deprecated Unused: light/dark is resolved in CSS so SSR matches the visitor's mode. */
   nextTheme?: "dark" | "light";
 }
 
-function resolveBackgroundLayerStyle(
-  background: SectionBackground,
-  nextTheme?: "dark" | "light",
-): React.CSSProperties {
-  const isDark = nextTheme === "dark";
+type CssVars = React.CSSProperties & Record<`--pb-${string}`, string | undefined>;
+
+// Both variants are emitted as CSS variables and picked by the `dark` class
+// (set on <html> before paint), so server HTML never paints the wrong mode.
+const COLOR_LAYER_CLASS =
+  "[background-color:var(--pb-bg)] dark:[background-color:var(--pb-bg-dark,var(--pb-bg))]";
+const GRADIENT_LAYER_CLASS =
+  "[background-image:var(--pb-bg-image)] dark:[background-image:var(--pb-bg-image-dark,var(--pb-bg-image))]";
+const OVERLAY_CLASS =
+  "[background-color:var(--pb-overlay)] dark:[background-color:var(--pb-overlay-dark,var(--pb-overlay))]";
+
+function resolveBackgroundLayerStyle(background: SectionBackground): CssVars {
   const attachment = background.backgroundAttachment || "scroll";
 
   if (background.type === "color") {
     return {
-      backgroundColor: isDark
-        ? background.backgroundColorDark || background.backgroundColor
-        : background.backgroundColor,
+      "--pb-bg": background.backgroundColor,
+      "--pb-bg-dark": background.backgroundColorDark,
     };
   }
 
@@ -42,9 +49,8 @@ function resolveBackgroundLayerStyle(
 
   // Pattern / gradient
   return {
-    backgroundImage: isDark
-      ? background.backgroundImageDark || background.backgroundImage
-      : background.backgroundImage,
+    "--pb-bg-image": background.backgroundImage,
+    "--pb-bg-image-dark": background.backgroundImageDark,
     backgroundSize: background.gradientBackgroundSize || "cover",
     backgroundPosition: background.gradientBackgroundPosition || "center",
     backgroundRepeat: background.gradientBackgroundRepeat || "no-repeat",
@@ -59,7 +65,7 @@ export const Section: React.FC<SectionProps> = ({
   className = "",
   theme,
   background,
-  nextTheme,
+  nextTheme: _nextTheme,
   component = "section",
   ...props
 }) => {
@@ -89,26 +95,32 @@ export const Section: React.FC<SectionProps> = ({
         <>
           {background && (
             <div
-              suppressHydrationWarning
               aria-hidden
-              className="pointer-events-none absolute inset-0 z-0"
-              style={resolveBackgroundLayerStyle(background, nextTheme)}
+              className={cn(
+                "pointer-events-none absolute inset-0 z-0",
+                background.type === "color" && COLOR_LAYER_CLASS,
+                background.type === "gradient" && GRADIENT_LAYER_CLASS,
+              )}
+              style={resolveBackgroundLayerStyle(background)}
             />
           )}
           {background && background.type === "image" && (
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-0 z-[1]"
-              style={{
-                backgroundColor:
-                  nextTheme === "dark"
-                    ? background?.overlay?.colorDark || background?.overlay?.color
-                    : background?.overlay?.color,
-                opacity: background?.overlay?.opacity
-                  ? background.overlay.opacity / 10
-                  : 0,
-                mixBlendMode: background?.overlay?.blendMode,
-              }}
+              className={cn(
+                "pointer-events-none absolute inset-0 z-[1]",
+                OVERLAY_CLASS,
+              )}
+              style={
+                {
+                  "--pb-overlay": background?.overlay?.color,
+                  "--pb-overlay-dark": background?.overlay?.colorDark,
+                  opacity: background?.overlay?.opacity
+                    ? background.overlay.opacity / 10
+                    : 0,
+                  mixBlendMode: background?.overlay?.blendMode,
+                } as CssVars
+              }
             />
           )}
           {background && background.type === "image" && (
