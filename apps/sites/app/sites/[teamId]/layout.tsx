@@ -16,14 +16,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { teamId } = await params;
   const settings = await getSettings(teamId);
-  const siteTitle = settings?.title || "FrontLit site";
+  const siteTitle = settings?.title || "Website";
   const logoUrl = (settings?.logo?.url as string | undefined) ?? null;
 
   return {
     title: { template: `%s | ${siteTitle}`, default: siteTitle },
     description: settings?.subtitle ?? undefined,
-    applicationName: "FrontLit",
-    generator: "FrontLit",
     icons: logoUrl ? { icon: logoUrl } : undefined,
     openGraph: {
       siteName: siteTitle,

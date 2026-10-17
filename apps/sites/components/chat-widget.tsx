@@ -147,7 +147,7 @@ export function ChatWidget({
     [themeId, themeStyle],
   );
   const themeCss = useMemo(
-    () => siteThemeStyleTag(theme, "[data-frontlit-chat-launcher]"),
+    () => siteThemeStyleTag(theme, "[data-chat-launcher]"),
     [theme],
   );
   const color = resolveChatAccent(accentColor, theme);
@@ -173,7 +173,7 @@ export function ChatWidget({
     return (
       <SiteThemeProvider theme={theme}>
         <div
-          data-frontlit-chat-launcher
+          data-chat-launcher
           className="pb-theme fl-chat-launcher pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col items-center px-4 pb-4"
         >
           {}
@@ -203,7 +203,7 @@ export function ChatWidget({
   return (
     <SiteThemeProvider theme={theme}>
       <div
-        data-frontlit-chat-launcher
+        data-chat-launcher
         className="pb-theme fl-chat-launcher fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3"
       >
         {}

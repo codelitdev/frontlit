@@ -86,7 +86,7 @@ export function useVisitorChat({
   const [pendingFiles, setPendingFiles] = useState<ChatAttachment[]>([]);
   const [attaching, setAttaching] = useState(false);
   const storageKey = useMemo(
-    () => `frontlit:chat:${apiBaseUrl}:${teamId}`,
+    () => `chat:${apiBaseUrl}:${teamId}`,
     [apiBaseUrl, teamId],
   );
 

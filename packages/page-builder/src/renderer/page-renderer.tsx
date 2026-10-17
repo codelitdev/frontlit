@@ -15,7 +15,7 @@ import {
 export interface PageRendererProps {
   layout: WidgetInstance[];
   theme: Theme;
-  pageData?: PageData;
+  pageData: PageData;
   /** Optional content rendered between the shared header and footer. */
   children?: React.ReactNode;
   /** Host-resolved data keyed by a generic data-slot's configured name. */
@@ -177,6 +177,10 @@ export function PageRenderer({
           className,
         )}
       >
+        {/* Emitted first so the variables exist before any content paints. */}
+        {injectThemeStyles && (
+          <style>{generateThemeStyles(theme, themeSelector)}</style>
+        )}
         {header &&
           renderInstance(header, {
             allowUp: false,
@@ -204,9 +208,6 @@ export function PageRenderer({
             locked: true,
             allowAddBelow: false,
           })}
-        {injectThemeStyles && (
-          <style>{generateThemeStyles(theme, themeSelector)}</style>
-        )}
       </div>
     </PageBuilderLinkProvider>
   );

@@ -1,4 +1,4 @@
-export const COLOR_MODE_STORAGE_KEY = "frontlit-color-mode";
+export const COLOR_MODE_STORAGE_KEY = "color-mode";
 
 export type ColorMode = "light" | "dark" | "system";
 

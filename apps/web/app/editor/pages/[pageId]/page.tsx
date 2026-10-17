@@ -26,6 +26,7 @@ import { FullScreenLoading } from "@/components/workspace/loading";
 import { SlugEditor } from "@/components/workspace/slug-editor";
 import { useEditorAccess } from "@/components/workspace/editor-access-gate";
 import { ApiError } from "@/lib/api-client";
+import { toSiteBranding, type SiteBranding } from "@frontlit/api-contract";
 
 export default function PageEditorPage({
   params,
@@ -37,10 +38,7 @@ export default function PageEditorPage({
   const [page, setPage] = useState<Page | null>(null);
   const [initialTheme, setInitialTheme] = useState<BuilderTheme | undefined>(undefined);
   const [customThemes, setCustomThemes] = useState<BuilderTheme[] | null>(null);
-  const [branding, setBranding] = useState<{
-    siteTitle?: string;
-    siteSubtitle?: string;
-  }>({});
+  const [branding, setBranding] = useState<SiteBranding>(toSiteBranding(null));
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [publishing, setPublishing] = useState(false);
   // Bumped only when the draft is reset from outside the builder (discard),
@@ -80,9 +78,7 @@ export default function PageEditorPage({
     Promise.all([
       getPage(pageId),
       canReadThemes ? listThemes() : Promise.resolve({ items: [] }),
-      canReadSettings
-        ? getTeamSettings()
-        : Promise.resolve({ themeId: null, title: null, subtitle: null }),
+      canReadSettings ? getTeamSettings() : Promise.resolve(null),
     ])
       .then(async ([loaded, savedThemes, siteSettings]) => {
         if (cancelled) return;
@@ -101,7 +97,7 @@ export default function PageEditorPage({
         );
         const resolvedTheme = await resolveEditorTheme(
           canReadSettings && canReadThemes
-            ? (siteSettings.themeId ?? "classic")
+            ? (siteSettings?.themeId ?? "classic")
             : "classic",
           async (themeId) => {
             const loadedTheme = savedThemes.items.find(
@@ -116,17 +112,14 @@ export default function PageEditorPage({
         );
         appliedSiteThemeIdRef.current =
           canReadSettings && canReadThemes
-            ? (siteSettings.themeId ?? "classic")
+            ? (siteSettings?.themeId ?? "classic")
             : "classic";
         appliedSiteThemeSnapshotRef.current = resolvedTheme
           ? themeSnapshot(resolvedTheme)
           : null;
         setInitialTheme(resolvedTheme);
         setCustomThemes(mappedThemes);
-        setBranding({
-          siteTitle: siteSettings.title ?? undefined,
-          siteSubtitle: siteSettings.subtitle ?? undefined,
-        });
+        setBranding(toSiteBranding(siteSettings));
         setPage(loaded);
       })
       .catch((error) => {
@@ -251,7 +244,7 @@ export default function PageEditorPage({
           initialLayout={page.draftLayout}
           initialTheme={initialTheme}
           themes={{ custom: customThemes }}
-          pageData={branding}
+          pageData={{ ...branding }}
           allowThemeEditing={canWriteThemes && canWriteSettings}
           initialSeo={{
             title: page.draftTitle ?? undefined,

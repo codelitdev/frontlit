@@ -15,8 +15,6 @@ export function SitePageRenderer({
   themeId,
   themeStyle,
   pageData,
-  siteLogoUrl,
-  siteLogoAlt,
   children,
   dataSlots,
 }: {
@@ -24,8 +22,6 @@ export function SitePageRenderer({
   themeId: string | null;
   themeStyle: Record<string, unknown> | null;
   pageData: PageData;
-  siteLogoUrl?: string | null;
-  siteLogoAlt?: string | null;
   children?: React.ReactNode;
   dataSlots?: Record<string, React.ReactNode>;
 }) {
@@ -36,11 +32,7 @@ export function SitePageRenderer({
       <ServerPageRenderer
         layout={layout}
         theme={theme}
-        pageData={{
-          ...pageData,
-          ...(siteLogoUrl ? { siteLogoUrl } : {}),
-          ...(siteLogoAlt ? { siteLogoAlt } : {}),
-        }}
+        pageData={pageData}
         dataSlots={dataSlots}
         themeSwitcher={<SiteThemeSwitcher />}
       >

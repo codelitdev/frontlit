@@ -15,12 +15,6 @@ export function FooterEditor({
     <div className="flex flex-col">
       <FieldGroup title="Brand">
         <TextField
-          label="Logo text"
-          value={settings.logoText}
-          hint="Leave empty to use the site title from Branding."
-          onChange={(logoText) => update({ logoText: logoText || undefined })}
-        />
-        <TextField
           label="Tagline"
           value={settings.tagline}
           multiline

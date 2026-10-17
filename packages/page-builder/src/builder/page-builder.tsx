@@ -44,7 +44,7 @@ export interface PageBuilderProps {
    * which flows back to the host via `onChange`.
    */
   themes?: { system?: Theme[]; custom?: Theme[] };
-  pageData?: PageData;
+  pageData: PageData;
   onChange?: (state: PageBuilderState) => void;
   /** Whether the editor may alter team-wide theme data. */
   allowThemeEditing?: boolean;

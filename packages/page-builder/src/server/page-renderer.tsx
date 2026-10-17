@@ -8,7 +8,7 @@ import { serverBlockRegistry } from "./registry";
 export interface ServerPageRendererProps {
   layout: WidgetInstance[];
   theme: Theme;
-  pageData?: PageData;
+  pageData: PageData;
   /** Content rendered between the shared header and footer. */
   children?: ReactNode;
   /** Host-resolved data keyed by a generic data-slot's configured name. */
@@ -41,7 +41,6 @@ export function ServerPageRenderer({
   const header = layout.find((widget) => widget.name === "header");
   const footer = layout.find((widget) => widget.name === "footer");
   const body = layout.filter((widget) => !LAYOUT_BLOCK_NAMES.includes(widget.name));
-  const resolvedPageData: PageData = { ...pageData };
 
   function renderInstance(instance: WidgetInstance) {
     const definition = serverBlockRegistry[instance.name];
@@ -55,7 +54,7 @@ export function ServerPageRenderer({
         key={instance.widgetId}
         settings={settings}
         state={{ theme }}
-        pageData={resolvedPageData}
+        pageData={pageData}
         data={
           instance.name === "data-slot"
             ? dataSlots?.[String(settings.slot ?? "")]
@@ -74,6 +73,8 @@ export function ServerPageRenderer({
         className,
       )}
     >
+      {/* Emitted first so the variables exist before any content paints. */}
+      <style>{generateThemeStyles(theme, `[data-pb-theme="${themeScope}"]`)}</style>
       {header && renderInstance(header)}
       <div className="flex flex-1 flex-col">
         {children !== undefined &&
@@ -82,7 +83,6 @@ export function ServerPageRenderer({
           : body.map(renderInstance)}
       </div>
       {footer && renderInstance(footer)}
-      <style>{generateThemeStyles(theme, `[data-pb-theme="${themeScope}"]`)}</style>
     </div>
   );
 }

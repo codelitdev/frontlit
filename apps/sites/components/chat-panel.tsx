@@ -147,7 +147,7 @@ export function ChatPanel({
     [themeId, themeStyle],
   );
   const themeCss = useMemo(
-    () => siteThemeStyleTag(theme, "[data-frontlit-chat-panel]"),
+    () => siteThemeStyleTag(theme, "[data-chat-panel]"),
     [theme],
   );
   const color = resolveChatAccent(accentColor, theme);
@@ -202,7 +202,7 @@ export function ChatPanel({
   useEffect(() => {
     if (layout !== "docked") return;
     const height = showSheet ? Math.min(560, Math.round(window.innerHeight * 0.7)) : 72;
-    window.parent?.postMessage({ type: "frontlit-chat-resize", height }, "*");
+    window.parent?.postMessage({ type: "chat-resize", height }, "*");
   }, [layout, showSheet]);
 
   useEffect(() => {
@@ -248,7 +248,7 @@ export function ChatPanel({
     return (
       <SiteThemeProvider theme={theme}>
         <div
-          data-frontlit-chat-panel
+          data-chat-panel
           className="pb-theme fl-chat flex max-h-[min(560px,70vh)] min-h-0 w-full flex-col items-center justify-end gap-3 bg-transparent p-0 text-foreground [&>form]:mx-auto"
         >
           {}
@@ -400,7 +400,7 @@ export function ChatPanel({
   return (
     <SiteThemeProvider theme={theme}>
       <div
-        data-frontlit-chat-panel
+        data-chat-panel
         className="pb-theme fl-chat flex h-full min-h-0 flex-col bg-background text-foreground"
       >
         {}
