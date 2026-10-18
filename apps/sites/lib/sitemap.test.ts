@@ -23,4 +23,10 @@ describe("buildRobotsTxt", () => {
     expect(txt).toContain("Disallow: /embed/");
     expect(txt).toContain("Sitemap: https://acme.frontlit.app/sitemap.xml");
   });
+
+  it("blocks every crawler while the site is hidden from search", () => {
+    expect(buildRobotsTxt("acme.frontlit.app", true)).toBe(
+      "User-agent: *\nDisallow: /\n",
+    );
+  });
 });

@@ -70,6 +70,8 @@ describe("public critical paths", () => {
         teamId: teamPublicId,
         canonicalHost: subdomainHost,
         redirect: false,
+        // New sites start hidden from search engines.
+        hideFromSearch: true,
       });
 
       const missing = await fetch(
@@ -116,6 +118,7 @@ describe("public critical paths", () => {
         teamId: teamPublicId,
         canonicalHost: "frolik.com",
         redirect: true,
+        hideFromSearch: true,
       });
 
       const unknown = await fetch(

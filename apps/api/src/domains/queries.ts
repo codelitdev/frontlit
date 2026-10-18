@@ -187,6 +187,7 @@ export type DomainSettings = {
   } | null;
   canonicalHost: string | null;
   redirectSubdomain: boolean;
+  hideFromSearch: boolean;
   platformDomain: string;
 };
 
@@ -232,6 +233,7 @@ export async function getDomainSettings(
         : null,
     canonicalHost: canonicalHostFor(team, hosts),
     redirectSubdomain: team.redirectSubdomain,
+    hideFromSearch: team.hideFromSearch,
     platformDomain: getPlatformSiteDomain(),
   };
 }
@@ -380,6 +382,17 @@ export async function setRedirectSubdomain(
     .where(eq(teams.id, teamId));
 }
 
+/** Hides the whole site from search engines (pre-launch) or exposes it. */
+export async function setHideFromSearch(
+  teamId: string,
+  hideFromSearch: boolean,
+): Promise<void> {
+  await db
+    .update(teams)
+    .set({ hideFromSearch, updatedAt: new Date() })
+    .where(eq(teams.id, teamId));
+}
+
 /** Looks up the TXT record a team was asked to create
  * (`_frontlit-verify.<domain>`) and checks it matches the issued token. */
 export async function verifyDnsTxtRecord(
@@ -464,9 +477,12 @@ export async function verifyCustomDomain(teamId: string): Promise<boolean> {
   );
   const target = getCustomDomainCnameTarget(team);
   const now = new Date();
+  const wasLive = hosts.some((host) => host.status === "verified");
+  let isLive = false;
   for (const host of hosts) {
     const routingSatisfied = await verifyDnsRouting(host.hostname, target);
     const verified = txtSatisfied && routingSatisfied;
+    isLive ||= verified;
     await db
       .update(customDomains)
       .set({
@@ -479,7 +495,12 @@ export async function verifyCustomDomain(teamId: string): Promise<boolean> {
   }
   await db
     .update(teams)
-    .set({ customDomainTxtSatisfied: txtSatisfied, updatedAt: now })
+    .set({
+      customDomainTxtSatisfied: txtSatisfied,
+      // The first verified custom domain is the launch: open the site to search.
+      ...(isLive && !wasLive ? { hideFromSearch: false } : {}),
+      updatedAt: now,
+    })
     .where(eq(teams.id, teamId));
   return true;
 }
@@ -489,6 +510,8 @@ export type ResolvedHost = {
   canonicalHost: string;
   /** True when this host should 301 to `canonicalHost`. */
   redirect: boolean;
+  /** Team-wide pre-launch switch: noindex everywhere, robots disallow all. */
+  hideFromSearch: boolean;
 };
 
 /** Resolves an incoming host to exactly one team website.
@@ -528,5 +551,6 @@ export async function resolveHost(requestHost: string): Promise<ResolvedHost | n
     teamId: team.id,
     canonicalHost,
     redirect: hostname !== canonicalHost && !(subdomain && !team.redirectSubdomain),
+    hideFromSearch: team.hideFromSearch,
   };
 }

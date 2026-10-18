@@ -24,6 +24,7 @@ describe("decideHost", () => {
       teamId: "team_abc",
       canonicalHost: "acme.frontlit.app",
       redirect: false,
+      hideFromSearch: false,
     };
     expect(decideHost(resolved, url)).toEqual({
       action: "rewrite",
@@ -36,6 +37,7 @@ describe("decideHost", () => {
       teamId: "team_abc",
       canonicalHost: "sendlit.app",
       redirect: true,
+      hideFromSearch: false,
     };
     expect(
       decideHost(resolved, { ...url, pathname: "/pricing", search: "?x=1" }),
@@ -47,6 +49,7 @@ describe("decideHost", () => {
       teamId: "team_abc",
       canonicalHost: "example.test",
       redirect: true,
+      hideFromSearch: false,
     };
     expect(decideHost(resolved, { ...url, protocol: "http:", port: "3002" })).toEqual({
       action: "redirect",
@@ -71,6 +74,7 @@ describe("createHostCache", () => {
       teamId: "team_abc",
       canonicalHost: "acme.frontlit.app",
       redirect: false,
+      hideFromSearch: false,
     });
     cache.set("nowhere.example", null);
 
@@ -78,6 +82,7 @@ describe("createHostCache", () => {
       teamId: "team_abc",
       canonicalHost: "acme.frontlit.app",
       redirect: false,
+      hideFromSearch: false,
     });
     expect(cache.get("nowhere.example")).toBeNull();
   });
@@ -90,6 +95,7 @@ describe("createHostCache", () => {
         teamId: "team_abc",
         canonicalHost: "acme.frontlit.app",
         redirect: false,
+        hideFromSearch: false,
       });
       vi.advanceTimersByTime(1_001);
       expect(cache.get("acme.frontlit.app")).toBeUndefined();
@@ -103,11 +109,13 @@ describe("createHostCache", () => {
       teamId: "team_abc",
       canonicalHost: "www.example.com",
       redirect: false,
+      hideFromSearch: false,
     });
     hostCache.set("www.example.com", {
       teamId: "team_abc",
       canonicalHost: "www.example.com",
       redirect: false,
+      hideFromSearch: false,
     });
     invalidateCachedHosts(["Acme.Localhost:3002", "www.example.com"]);
     expect(hostCache.get("acme.localhost")).toBeUndefined();

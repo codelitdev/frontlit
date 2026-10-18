@@ -1461,6 +1461,7 @@ export interface DomainSettings {
   } | null;
   canonicalHost: string | null;
   redirectSubdomain: boolean;
+  hideFromSearch: boolean;
   platformDomain: string;
 }
 
@@ -1489,6 +1490,12 @@ export function removeCustomDomain() {
 export function setPrimaryCustomDomain(hostname: string) {
   return unwrap<DomainSettings>(
     client.domains.setPrimaryCustomDomain({ body: { hostname } }),
+  );
+}
+
+export function setHideFromSearch(hideFromSearch: boolean) {
+  return unwrap<DomainSettings>(
+    client.domains.setHideFromSearch({ body: { hideFromSearch } }),
   );
 }
 

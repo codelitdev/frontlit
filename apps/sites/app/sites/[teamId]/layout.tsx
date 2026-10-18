@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { preload } from "react-dom";
 import { getChatbotSettings, getSettings } from "@/lib/api";
 import { API_PUBLIC_URL } from "@/lib/config";
+import { isNoindex } from "@/lib/request-host";
 import { themeFontPreloads } from "@/lib/font-css";
 import { loadSiteTheme } from "@/lib/load-site-theme";
 import { resolveSiteTheme } from "@/lib/site-theme";
@@ -23,6 +24,8 @@ export async function generateMetadata({
     title: { template: `%s | ${siteTitle}`, default: siteTitle },
     description: settings?.subtitle ?? undefined,
     icons: logoUrl ? { icon: logoUrl } : undefined,
+    // Pages that set their own robots repeat this check (child metadata wins).
+    robots: (await isNoindex()) ? { index: false, follow: false } : undefined,
     openGraph: {
       siteName: siteTitle,
       images: logoUrl ? [{ url: logoUrl }] : undefined,

@@ -8161,6 +8161,13 @@
           "notNull": true,
           "default": true
         },
+        "hide_from_search": {
+          "name": "hide_from_search",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
         "custom_domain_cname_target": {
           "name": "custom_domain_cname_target",
           "type": "text",

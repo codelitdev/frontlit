@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, ExternalLink } from "lucide-react";
 import {
   attachCustomDomain,
   getDomainSettings,
   removeCustomDomain,
+  setHideFromSearch,
   setPrimaryCustomDomain,
   setRedirectSubdomain,
   setTeamSubdomain,
@@ -26,6 +27,7 @@ import { Badge, type badgeVariants } from "@/components/ui/codelit/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/codelit/card";
 import type { VariantProps } from "class-variance-authority";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
+import { siteUrl } from "@/lib/site-url";
 
 const STATUS_VARIANT: Record<
   string,
@@ -170,6 +172,14 @@ export default function DomainPage() {
           </Banner>
         )}
 
+        {settings.subdomain && settings.hideFromSearch && (
+          <Banner variant="warning">
+            Your site is hidden from search engines. Every page is marked noindex and
+            crawlers are blocked. It turns off automatically when a custom domain is
+            verified, or you can turn it off under Search engines below.
+          </Banner>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">Default subdomain</CardTitle>
@@ -194,11 +204,22 @@ export default function DomainPage() {
                 Save
               </Button>
             </form>
-            <p className="text-xs text-muted-foreground">
-              {settings.subdomain
-                ? settings.subdomain.hostname
-                : "Choose a subdomain to create your public address."}
-            </p>
+            {settings.subdomain ? (
+              <a
+                href={siteUrl(settings.subdomain.hostname)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              >
+                {settings.subdomain.hostname}
+                <ExternalLink className="size-3" aria-hidden="true" />
+                <span className="sr-only">(opens in a new tab)</span>
+              </a>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Choose a subdomain to create your public address.
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -375,6 +396,30 @@ export default function DomainPage() {
                 </Button>
               </form>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Search engines</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Label htmlFor="hide-from-search">Hide from search engines</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Keeps a site that hasn&apos;t launched out of search results: every
+                  page is marked noindex, robots.txt blocks all crawlers and the sitemap
+                  is empty.
+                </p>
+              </div>
+              <Switch
+                id="hide-from-search"
+                checked={settings.hideFromSearch}
+                disabled={busy}
+                onCheckedChange={(checked) => run(() => setHideFromSearch(checked))}
+              />
+            </div>
           </CardContent>
         </Card>
 

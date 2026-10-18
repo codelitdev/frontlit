@@ -75,12 +75,22 @@ export async function proxy(request: NextRequest) {
   // a header instead of restructuring routes, since a nested layout can't
   // opt out of what its parent renders.
   const headers = new Headers(request.headers);
+  // Search visibility: a hidden (pre-launch) site is noindex everywhere; a
+  // non-canonical host that still serves (subdomain with redirect off) is
+  // noindex so it never competes with the canonical host.
+  const hidden = resolved!.hideFromSearch;
+  const noindex = hidden || host !== resolved!.canonicalHost;
   headers.set("x-frontlit-canonical-host", resolved!.canonicalHost);
   headers.set("x-frontlit-team-id", decision.teamId);
+  headers.set("x-frontlit-hidden", hidden ? "1" : "0");
+  headers.set("x-frontlit-noindex", noindex ? "1" : "0");
   if (request.nextUrl.pathname.startsWith("/embed/"))
     headers.set("x-frontlit-embed", "1");
 
-  return uncached(NextResponse.rewrite(url, { request: { headers } }));
+  const response = NextResponse.rewrite(url, { request: { headers } });
+  // Covers non-HTML responses too (feeds, images) that carry no meta tag.
+  if (noindex) response.headers.set("X-Robots-Tag", "noindex");
+  return uncached(response);
 }
 
 export const config = {

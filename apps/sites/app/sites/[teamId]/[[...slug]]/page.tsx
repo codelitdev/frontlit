@@ -2,7 +2,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 import { notFound } from "next/navigation";
 import { getPageBySlug, getSettings } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
-import { getCanonicalHost } from "@/lib/request-host";
+import { getCanonicalHost, isNoindex } from "@/lib/request-host";
 import { organizationAndWebsiteJsonLd, serializeJsonLd } from "@/lib/json-ld";
 import { API_PUBLIC_URL } from "@/lib/config";
 import { loadSiteTheme } from "@/lib/load-site-theme";
@@ -42,6 +42,7 @@ export async function generateMetadata(
   );
 
   const url = `https://${await getCanonicalHost()}/${page.slug}`;
+  const index = seo.robotsIndex && !(await isNoindex());
   return {
     // The layout's template appends the site title; the homepage is the
     // site itself, so its title stands alone.
@@ -54,7 +55,7 @@ export async function generateMetadata(
       description: seo.description ?? undefined,
       images: seo.imageUrl ? [{ url: seo.imageUrl }] : undefined,
     },
-    robots: { index: seo.robotsIndex, follow: seo.robotsIndex },
+    robots: { index, follow: index },
   };
 }
 

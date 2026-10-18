@@ -1222,7 +1222,7 @@ The **canonical host** is the verified primary custom host, else the other
 verified custom host, else the subdomain. Every other known host
 301-redirects there, keeping path and query. The team can opt out of the
 subdomain redirect (`redirectSubdomain = false`) so the subdomain keeps
-serving with canonical tags pointing at the custom host.
+serving with canonical tags pointing at the custom host and `noindex`.
 
 | Custom domain           | Subdomain host                 | Custom hosts                   | Canonical          |
 | ----------------------- | ------------------------------ | ------------------------------ | ------------------ |
@@ -1239,6 +1239,7 @@ Schema — the TXT token lives on `teams`; each host is a `custom_domains` row:
 // teams
 subdomain: text("subdomain").unique(), // null until setup; then <subdomain>.<PLATFORM_SITE_DOMAIN>
 redirectSubdomain: boolean("redirect_subdomain").notNull().default(true),
+hideFromSearch: boolean("hide_from_search").notNull().default(true), // pre-launch, see §12.3
 customDomainVerificationToken: text("custom_domain_verification_token"), // shared by the pair
 customDomainTxtSatisfied: boolean("custom_domain_txt_satisfied"),
 
@@ -1287,7 +1288,9 @@ Attach/verify flow (module `apps/api/src/domains/`):
    and the workspace shows a warning while the verified host serves.
 4. `PATCH /domain/custom/primary { hostname }` picks the canonical host;
    `PATCH /domain/subdomain-redirect { redirectSubdomain }` keeps the
-   subdomain serving instead of redirecting.
+   subdomain serving instead of redirecting;
+   `PATCH /domain/search-visibility { hideFromSearch }` hides the site from
+   search engines (§12.3). The first verified custom domain turns that off.
 
 TLS: terminate at the edge with on-demand certificates (Caddy on-demand TLS
 or the hosting platform's domains API, e.g. Vercel). The on-demand `ask`
@@ -1431,6 +1434,17 @@ Sitemap: https://<canonical-host>/sitemap.xml
 
 It is served on every host that does not redirect; the sitemap itself
 always lists canonical URLs.
+
+**Search visibility** — `resolve-host` returns the team's `hideFromSearch`
+flag and the proxy marks each request:
+
+- **Hidden** (pre-launch; on for new sites, off once a custom domain is
+  first verified or when the team turns it off): every response is
+  `noindex` (meta tag + `X-Robots-Tag`), robots.txt is
+  `User-agent: *` / `Disallow: /` and the sitemap is empty.
+- **Non-canonical host that serves** (the subdomain with
+  `redirectSubdomain` off): `noindex` with canonical tags pointing at the
+  canonical host; robots.txt and sitemap stay as above.
 
 **JSON-LD** — a small `JsonLd` server component renders
 `<script type="application/ld+json">` (serialized with `<` escaped to

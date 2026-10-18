@@ -292,6 +292,7 @@ const impl = s.router(contract.public, {
           teamId: team.teamId,
           canonicalHost: resolved.canonicalHost,
           redirect: resolved.redirect,
+          hideFromSearch: resolved.hideFromSearch,
         },
       };
     },

@@ -17,7 +17,9 @@ The canonical host is the verified primary, else the other verified custom host,
 | one host verified       | 301, or serves when `redirectSubdomain` off | verified serves, other 301s | the verified host |
 | both verified           | 301, or serves when `redirectSubdomain` off | primary serves, other 301s  | primary           |
 
-`redirectSubdomain` defaults to true. Turning it off keeps the subdomain serving; its canonical tags still point at the custom host. Removing the custom domain makes the subdomain canonical again.
+`redirectSubdomain` defaults to true. Turning it off keeps the subdomain serving with `noindex`; its canonical tags still point at the custom host. Removing the custom domain makes the subdomain canonical again.
+
+New sites start hidden from search engines (`hideFromSearch`): every page is `noindex`, robots.txt disallows everything and the sitemap is empty. The first verified custom domain turns it off; the team can also toggle it under Search engines on the Domain page.
 
 A pending half of a pair resolves (and redirects) as soon as its sibling is verified. The shared TXT already proves the zone belongs to the team, so `www` starts working the moment its CNAME exists. The workspace still shows it as pending with a warning until Check DNS passes.
 

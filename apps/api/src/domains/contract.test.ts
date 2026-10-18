@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   contract,
   domainSettingsSchema,
+  setHideFromSearchBodySchema,
   setPrimaryCustomDomainBodySchema,
   setRedirectSubdomainBodySchema,
 } from "@frontlit/api-contract";
@@ -42,11 +43,16 @@ describe("domains contract", () => {
       },
       canonicalHost: "example.com",
       redirectSubdomain: true,
+      hideFromSearch: false,
       platformDomain: "frontlit.app",
     });
     expect(settings.customDomains).toHaveLength(2);
     expect(setRedirectSubdomainBodySchema.parse({ redirectSubdomain: false })).toEqual({
       redirectSubdomain: false,
+    });
+    expect(contract.domains.setHideFromSearch.path).toBe("/domain/search-visibility");
+    expect(setHideFromSearchBodySchema.parse({ hideFromSearch: true })).toEqual({
+      hideFromSearch: true,
     });
     expect(
       setPrimaryCustomDomainBodySchema.parse({ hostname: "WWW.Example.com" }),

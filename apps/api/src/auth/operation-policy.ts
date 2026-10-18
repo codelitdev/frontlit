@@ -477,6 +477,7 @@ export const REST_OPERATION_POLICIES = {
     "domains:write",
     MCP_SCOPES.domainsWrite,
   ),
+  "domains.setHideFromSearch": teamPermission("domains:write", MCP_SCOPES.domainsWrite),
   "domains.attachCustomDomain": teamPermission(
     "domains:write",
     MCP_SCOPES.domainsWrite,

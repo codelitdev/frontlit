@@ -87,6 +87,10 @@ export const teams = pgTable(
     externalId: text("external_id").unique(),
     subdomain: text("subdomain").unique(),
     redirectSubdomain: boolean("redirect_subdomain").notNull().default(true),
+    /** Pre-launch: every host serves `noindex`, robots.txt disallows all and
+     * the sitemap is empty. On for new sites; cleared when a custom domain is
+     * first verified. */
+    hideFromSearch: boolean("hide_from_search").notNull().default(true),
     customDomainCnameTarget: text("custom_domain_cname_target"),
     customDomainTxtRecordName: text("custom_domain_txt_record_name"),
     /** One ownership TXT token shared by every host in `customDomains`. */

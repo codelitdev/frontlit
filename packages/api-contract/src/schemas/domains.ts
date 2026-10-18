@@ -47,6 +47,10 @@ export const domainSettingsSchema = z.object({
    * subdomain, 301-redirects to the canonical host. When false the
    * subdomain keeps serving the site. */
   redirectSubdomain: z.boolean(),
+  /** Pre-launch: the whole site is hidden from search engines (`noindex`,
+   * robots.txt disallows all, empty sitemap). On for new sites; turned off
+   * automatically when a custom domain is first verified. */
+  hideFromSearch: z.boolean(),
   /** `PLATFORM_SITE_DOMAIN` — used to render `.{suffix}` before a slug
    * is claimed. */
   platformDomain: z.string(),
@@ -68,6 +72,10 @@ export const setTeamSubdomainBodySchema = z.object({
 
 export const setRedirectSubdomainBodySchema = z.object({
   redirectSubdomain: z.boolean(),
+});
+
+export const setHideFromSearchBodySchema = z.object({
+  hideFromSearch: z.boolean(),
 });
 
 export const attachCustomDomainBodySchema = z.object({
@@ -100,4 +108,7 @@ export const resolveHostResponseSchema = z.object({
   canonicalHost: z.string(),
   /** True when the requested host should 301 to `canonicalHost`. */
   redirect: z.boolean(),
+  /** Team-wide pre-launch switch: every host serves `noindex`, robots.txt
+   * disallows everything and the sitemap is empty. */
+  hideFromSearch: z.boolean(),
 });

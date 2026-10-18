@@ -41,6 +41,7 @@ export interface ResolvedHost {
   canonicalHost: string;
   /** True when this host should 301 to `canonicalHost`. */
   redirect: boolean;
+  hideFromSearch: boolean;
 }
 
 export function resolveHost(host: string): Promise<ResolvedHost | null> {

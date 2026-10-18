@@ -24,6 +24,7 @@ import {
   pairedHostname,
   removeCustomDomain,
   resolveHost,
+  setHideFromSearch,
   setPrimaryCustomDomain,
   setRedirectSubdomain,
   setTeamSubdomain,
@@ -253,17 +254,39 @@ describe("team website domains", () => {
       teamId,
       canonicalHost: apex,
       redirect: false,
+      hideFromSearch: false,
     });
     expect(await resolveHost(`WWW.${apex}`)).toEqual({
       teamId,
       canonicalHost: apex,
       redirect: true,
+      hideFromSearch: false,
     });
     expect(await resolveHost(`${settings!.subdomain!.hostname}:3002`)).toEqual({
       teamId,
       canonicalHost: apex,
       redirect: true,
+      hideFromSearch: false,
     });
+  });
+
+  it("starts hidden from search and opens on the first verified custom domain", async () => {
+    const subdomainHost = (await getDomainSettings(teamId))!.subdomain!.hostname;
+    expect((await getDomainSettings(teamId))?.hideFromSearch).toBe(true);
+    expect(await resolveHost(subdomainHost)).toMatchObject({ hideFromSearch: true });
+
+    const apex = `${crypto.randomUUID().slice(0, 8)}.com`;
+    await attachAndPassAllChecks(teamId, apex);
+    expect((await getDomainSettings(teamId))?.hideFromSearch).toBe(false);
+    expect(await resolveHost(apex)).toMatchObject({ hideFromSearch: false });
+
+    // Re-checking an already live domain leaves a deliberate choice alone.
+    await setHideFromSearch(teamId, true);
+    expect(await verifyCustomDomain(teamId)).toBe(true);
+    expect((await getDomainSettings(teamId))?.hideFromSearch).toBe(true);
+
+    await setHideFromSearch(teamId, false);
+    expect((await getDomainSettings(teamId))?.hideFromSearch).toBe(false);
   });
 
   it("switches the primary host", async () => {
@@ -292,6 +315,7 @@ describe("team website domains", () => {
       teamId,
       canonicalHost: apex,
       redirect: false,
+      hideFromSearch: false,
     });
     // The other half of the pair still redirects.
     expect(await resolveHost(`www.${apex}`)).toMatchObject({ redirect: true });
@@ -356,6 +380,7 @@ describe("team website domains", () => {
       teamId,
       canonicalHost: settings!.subdomain!.hostname,
       redirect: false,
+      hideFromSearch: false,
     });
     expect(await resolveHost(apex)).toBeNull();
   });
@@ -395,6 +420,7 @@ describe("team website domains", () => {
       teamId,
       canonicalHost: hostname,
       redirect: false,
+      hideFromSearch: false,
     });
   });
 

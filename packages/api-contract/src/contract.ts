@@ -159,6 +159,7 @@ import {
   resolveHostQuerySchema,
   resolveHostResponseSchema,
   setRedirectSubdomainBodySchema,
+  setHideFromSearchBodySchema,
   setPrimaryCustomDomainBodySchema,
   setTeamSubdomainBodySchema,
 } from "./schemas/domains";
@@ -1461,6 +1462,15 @@ const domainsContract = c.router(
       summary: "Choose whether the FrontLit subdomain redirects to the custom domain",
       description:
         "Only applies while a custom host is verified. On (default) the subdomain 301-redirects to the canonical host; off keeps it serving the site with canonical tags pointing at the custom host.",
+    },
+    setHideFromSearch: {
+      method: "PATCH",
+      path: "/domain/search-visibility",
+      body: setHideFromSearchBodySchema,
+      responses: { 200: domainSettingsSchema },
+      summary: "Hide the website from search engines, or expose it",
+      description:
+        "While hidden every page serves `noindex`, robots.txt disallows all crawling and the sitemap is empty. New sites start hidden; verifying the first custom domain turns it off.",
     },
     attachCustomDomain: {
       method: "POST",

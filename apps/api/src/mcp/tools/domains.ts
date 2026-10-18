@@ -7,6 +7,7 @@ import {
   removeCustomDomain,
   setPrimaryCustomDomain,
   setRedirectSubdomain,
+  setHideFromSearch,
   setTeamSubdomain,
   verifyCustomDomain,
 } from "../../domains/queries";
@@ -108,6 +109,32 @@ export function registerDomainTools(server: McpToolRegistrar): void {
       if (!teamId) return AUTH_ERROR;
       try {
         await setRedirectSubdomain(teamId, args.redirectSubdomain);
+        await revalidateAfterDomainChange(teamId);
+        return jsonResult(toPublicSettings((await getDomainSettings(teamId))!));
+      } catch {
+        return INTERNAL_ERROR;
+      }
+    },
+  );
+
+  server.registerTool(
+    "set_search_visibility",
+    {
+      description:
+        "Hides the current team's website from search engines (hideFromSearch true: every page noindex, robots.txt disallows all, empty sitemap) or exposes it. New sites start hidden; verifying the first custom domain turns it off.",
+      inputSchema: { hideFromSearch: z.boolean() },
+      outputSchema: domainSettingsSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async (args: any, extra: any) => {
+      const teamId = getTeamId(extra);
+      if (!teamId) return AUTH_ERROR;
+      try {
+        await setHideFromSearch(teamId, args.hideFromSearch);
         await revalidateAfterDomainChange(teamId);
         return jsonResult(toPublicSettings((await getDomainSettings(teamId))!));
       } catch {
