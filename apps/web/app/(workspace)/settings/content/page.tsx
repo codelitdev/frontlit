@@ -94,15 +94,7 @@ export default function ContentSettingsPage() {
   useEffect(() => {
     if (!canRead) return;
     void getDomainSettings()
-      .then((domain) =>
-        setLiveHost(
-          domain.customDomain?.status === "verified"
-            ? domain.customDomain.hostname
-            : domain.subdomainPublic
-              ? (domain.subdomain?.hostname ?? null)
-              : null,
-        ),
-      )
+      .then((domain) => setLiveHost(domain.canonicalHost))
       .catch(() => setLiveHost(undefined));
     setLoading(true);
     setError(null);

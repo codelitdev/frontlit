@@ -39,6 +39,9 @@ async function unwrapOrNull<T>(
 export interface ResolvedHost {
   teamId: string;
   canonicalHost: string;
+  /** True when this host should 301 to `canonicalHost`. */
+  redirect: boolean;
+  hideFromSearch: boolean;
 }
 
 export function resolveHost(host: string): Promise<ResolvedHost | null> {

@@ -1,8 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { promises as dns } from "node:dns";
-import { and, eq } from "drizzle-orm";
+import { eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "../db/client";
-import { teams, type CustomDomainStatus } from "../db/schema";
+import { supportsRowLocks, withDbTransaction } from "../db/transaction";
+import { customDomains, teams, type CustomDomainStatus } from "../db/schema";
 
 /** Labels that must never be claimed as a team slug. */
 export const RESERVED_SUBDOMAIN_LABELS = new Set([
@@ -130,27 +131,75 @@ function subdomainFromHost(hostname: string): string | null {
   return subdomain.includes(".") ? null : subdomain;
 }
 
+/** The other half of an apex/www pair: `example.com` <-> `www.example.com`.
+ * Any other host (`docs.example.com`) has no pair. */
+export function pairedHostname(hostname: string): string | null {
+  if (isApexHostname(hostname)) return `www.${hostname}`;
+  if (hostname.startsWith("www.") && isApexHostname(hostname.slice(4)))
+    return hostname.slice(4);
+  return null;
+}
+
+/** A pair shares one ownership TXT record, placed on the apex. */
+function ownershipHostname(hostname: string): string {
+  const paired = pairedHostname(hostname);
+  return paired && isApexHostname(paired) ? paired : hostname;
+}
+
+type TeamRow = typeof teams.$inferSelect;
+type CustomDomainRow = typeof customDomains.$inferSelect;
+
+/** The verified primary, else the other verified host of the pair, else
+ * the FrontLit subdomain. Unverified hosts are never canonical. */
+function canonicalHostFor(
+  team: Pick<TeamRow, "subdomain">,
+  hosts: CustomDomainRow[],
+): string | null {
+  const verified = hosts.filter((host) => host.status === "verified");
+  const custom = verified.find((host) => host.primary) ?? verified[0];
+  if (custom) return custom.hostname;
+  return team.subdomain ? getSubdomainHost(team.subdomain) : null;
+}
+
+function listCustomDomains(teamId: string): Promise<CustomDomainRow[]> {
+  return db.query.customDomains.findMany({
+    where: eq(customDomains.teamId, teamId),
+    orderBy: (table, { desc, asc }) => [desc(table.primary), asc(table.hostname)],
+  });
+}
+
 export type DomainSettings = {
   subdomain: { name: string; hostname: string } | null;
-  customDomain: {
+  customDomains: {
     hostname: string;
+    primary: boolean;
     status: CustomDomainStatus;
     verifiedAt: Date | null;
-  } | null;
-  canonicalHost: string | null;
-  verificationRecords: {
-    cnameTarget: string;
+    /** The routing record to create for this host. Apex hosts get one A
+     * record per IP in `CUSTOM_DOMAIN_A_RECORDS` (none when unset). */
+    record: { type: "A" | "CNAME"; values: string[] };
+    routingSatisfied: boolean | null;
+  }[];
+  /** Ownership TXT record shared by every custom host. */
+  verification: {
     txtName: string;
     txtValue: string;
-    kind: "cname" | "a";
-    /** Apex only: the A records to create. */
-    aRecords: string[];
     txtSatisfied: boolean | null;
-    routingSatisfied: boolean | null;
   } | null;
-  subdomainPublic: boolean;
+  canonicalHost: string | null;
+  redirectSubdomain: boolean;
+  hideFromSearch: boolean;
   platformDomain: string;
 };
+
+function routingRecord(
+  team: TeamRow,
+  hostname: string,
+): DomainSettings["customDomains"][number]["record"] {
+  return isApexHostname(hostname)
+    ? { type: "A", values: getCustomDomainARecords() }
+    : { type: "CNAME", values: [getCustomDomainCnameTarget(team)] };
+}
 
 /** Returns the one website's domain configuration. A null subdomain means
  * the team has not deliberately made its public site live yet. */
@@ -161,41 +210,31 @@ export async function getDomainSettings(
     where: eq(teams.id, teamId),
   });
   if (!team) return null;
-
-  const customDomain = team.customDomain
-    ? {
-        hostname: team.customDomain,
-        status: team.customDomainStatus!,
-        verifiedAt: team.customDomainVerifiedAt,
-      }
-    : null;
-  const subdomain = team.subdomain
-    ? { name: team.subdomain, hostname: getSubdomainHost(team.subdomain) }
-    : null;
-  const canonicalHost =
-    customDomain?.status === "verified"
-      ? customDomain.hostname
-      : (subdomain?.hostname ?? null);
+  const hosts = await listCustomDomains(teamId);
 
   return {
-    subdomain,
-    customDomain,
-    canonicalHost,
-    verificationRecords:
-      customDomain && team.customDomainVerificationToken
+    subdomain: team.subdomain
+      ? { name: team.subdomain, hostname: getSubdomainHost(team.subdomain) }
+      : null,
+    customDomains: hosts.map((host) => ({
+      hostname: host.hostname,
+      primary: host.primary,
+      status: host.status,
+      verifiedAt: host.verifiedAt,
+      record: routingRecord(team, host.hostname),
+      routingSatisfied: host.routingSatisfied,
+    })),
+    verification:
+      hosts.length > 0 && team.customDomainVerificationToken
         ? {
-            cnameTarget: getCustomDomainCnameTarget(team),
-            txtName: `${getCustomDomainTxtRecordName(team)}.${customDomain.hostname}`,
+            txtName: `${getCustomDomainTxtRecordName(team)}.${ownershipHostname(hosts[0]!.hostname)}`,
             txtValue: team.customDomainVerificationToken,
-            kind: isApexHostname(customDomain.hostname) ? "a" : "cname",
-            aRecords: isApexHostname(customDomain.hostname)
-              ? getCustomDomainARecords()
-              : [],
             txtSatisfied: team.customDomainTxtSatisfied,
-            routingSatisfied: team.customDomainRoutingSatisfied,
           }
         : null,
-    subdomainPublic: team.subdomainPublic,
+    canonicalHost: canonicalHostFor(team, hosts),
+    redirectSubdomain: team.redirectSubdomain,
+    hideFromSearch: team.hideFromSearch,
     platformDomain: getPlatformSiteDomain(),
   };
 }
@@ -223,17 +262,20 @@ export async function setTeamSubdomain(
       .where(eq(teams.id, teamId));
     return { ok: true };
   } catch (error) {
-    // The pre-check gives a fast friendly response, while the unique
-    // constraint remains authoritative if two teams claim the same name
-    // concurrently.
-    let cause: unknown = error;
-    while (cause && typeof cause === "object") {
-      if ("code" in cause && cause.code === "23505")
-        return { ok: false, reason: "taken" };
-      cause = "cause" in cause ? cause.cause : null;
-    }
+    if (isUniqueViolation(error)) return { ok: false, reason: "taken" };
     throw error;
   }
+}
+
+/** The pre-checks give a fast friendly response, while unique constraints
+ * remain authoritative if two teams claim the same name concurrently. */
+function isUniqueViolation(error: unknown): boolean {
+  let cause: unknown = error;
+  while (cause && typeof cause === "object") {
+    if ("code" in cause && cause.code === "23505") return true;
+    cause = "cause" in cause ? cause.cause : null;
+  }
+  return false;
 }
 
 export type AttachCustomDomainResult =
@@ -243,91 +285,123 @@ export type AttachCustomDomainResult =
       reason: "subdomain_required" | "reserved" | "already_attached" | "taken";
     };
 
-/** One website has one optional custom domain. A verified custom domain
- * becomes canonical automatically; the FrontLit subdomain stays public
- * until the team hides it. */
+/** One website has one optional custom domain. Attaching an apex or `www.`
+ * host also attaches its pair; the typed host starts as primary. */
 export async function attachCustomDomain(
   teamId: string,
   value: string,
 ): Promise<AttachCustomDomainResult> {
   const hostname = normalizeHost(value);
-  if (hostname === getPlatformSiteDomain() || isPlatformHost(hostname))
+  const paired = pairedHostname(hostname);
+  const hostnames = paired ? [hostname, paired] : [hostname];
+  const platform = getPlatformSiteDomain();
+  if (hostnames.some((host) => host === platform || isPlatformHost(host)))
     return { ok: false, reason: "reserved" };
 
-  const team = await db.query.teams.findFirst({
-    where: eq(teams.id, teamId),
-  });
-  if (!team) return { ok: false, reason: "already_attached" };
-  if (!team.subdomain) return { ok: false, reason: "subdomain_required" };
-  if (team.customDomain) return { ok: false, reason: "already_attached" };
+  try {
+    // The team row lock serializes concurrent attaches, keeping one pair
+    // (and one shared token) per team.
+    return await withDbTransaction(async (tx): Promise<AttachCustomDomainResult> => {
+      const query = tx.select().from(teams).where(eq(teams.id, teamId));
+      const [team] = supportsRowLocks(tx) ? await query.for("update") : await query;
+      if (!team) return { ok: false, reason: "already_attached" };
+      if (!team.subdomain) return { ok: false, reason: "subdomain_required" };
 
-  const taken = await db.query.teams.findFirst({
-    where: eq(teams.customDomain, hostname),
-  });
-  if (taken) return { ok: false, reason: "taken" };
+      const existing = await tx
+        .select({ hostname: customDomains.hostname, teamId: customDomains.teamId })
+        .from(customDomains)
+        .where(
+          or(
+            eq(customDomains.teamId, teamId),
+            inArray(customDomains.hostname, hostnames),
+          ),
+        );
+      if (existing.some((row) => row.teamId === teamId))
+        return { ok: false, reason: "already_attached" };
+      if (existing.length > 0) return { ok: false, reason: "taken" };
 
-  await db
-    .update(teams)
-    .set({
-      customDomain: hostname,
-      customDomainStatus: "pending",
-      customDomainVerificationToken: randomBytes(16).toString("hex"),
-      customDomainVerifiedAt: null,
-      customDomainTxtSatisfied: null,
-      customDomainRoutingSatisfied: null,
-      subdomainPublic: true,
-      updatedAt: new Date(),
-    })
-    .where(eq(teams.id, teamId));
-  return { ok: true };
+      await tx.insert(customDomains).values(
+        hostnames.map((host) => ({
+          teamId,
+          hostname: host,
+          primary: host === hostname,
+        })),
+      );
+      await tx
+        .update(teams)
+        .set({
+          customDomainVerificationToken: randomBytes(16).toString("hex"),
+          customDomainTxtSatisfied: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(teams.id, teamId));
+      return { ok: true };
+    });
+  } catch (error) {
+    // Another team claimed the host between the check and the insert.
+    if (isUniqueViolation(error)) return { ok: false, reason: "taken" };
+    throw error;
+  }
 }
 
 export async function removeCustomDomain(teamId: string): Promise<boolean> {
-  const team = await db.query.teams.findFirst({
-    where: eq(teams.id, teamId),
-  });
-  if (!team?.customDomain) return false;
+  const removed = await db
+    .delete(customDomains)
+    .where(eq(customDomains.teamId, teamId))
+    .returning({ id: customDomains.id });
+  if (removed.length === 0) return false;
 
   await db
     .update(teams)
     .set({
-      customDomain: null,
-      customDomainStatus: null,
       customDomainVerificationToken: null,
-      customDomainVerifiedAt: null,
       customDomainTxtSatisfied: null,
-      customDomainRoutingSatisfied: null,
-      subdomainPublic: true,
       updatedAt: new Date(),
     })
     .where(eq(teams.id, teamId));
   return true;
 }
 
-export type SetSubdomainPublicResult =
-  | { ok: true }
-  | { ok: false; reason: "custom_domain_required" };
-
-export async function setSubdomainPublic(
+/** Picks which host of the pair is canonical once verified. */
+export async function setPrimaryCustomDomain(
   teamId: string,
-  subdomainPublic: boolean,
-): Promise<SetSubdomainPublicResult> {
-  const team = await db.query.teams.findFirst({
-    where: eq(teams.id, teamId),
-  });
-  if (!team) return { ok: false, reason: "custom_domain_required" };
-  if (
-    !subdomainPublic &&
-    (team.customDomainStatus !== "verified" || !team.customDomain)
-  ) {
-    return { ok: false, reason: "custom_domain_required" };
-  }
+  value: string,
+): Promise<boolean> {
+  const hostname = normalizeHost(value);
+  const hosts = await listCustomDomains(teamId);
+  if (!hosts.some((host) => host.hostname === hostname)) return false;
 
   await db
+    .update(customDomains)
+    .set({
+      primary: sql`${customDomains.hostname} = ${hostname}`,
+      updatedAt: new Date(),
+    })
+    .where(eq(customDomains.teamId, teamId));
+  return true;
+}
+
+/** Off keeps the FrontLit subdomain serving the site (with canonical tags
+ * pointing at the custom host) instead of 301-redirecting to it. */
+export async function setRedirectSubdomain(
+  teamId: string,
+  redirectSubdomain: boolean,
+): Promise<void> {
+  await db
     .update(teams)
-    .set({ subdomainPublic, updatedAt: new Date() })
+    .set({ redirectSubdomain, updatedAt: new Date() })
     .where(eq(teams.id, teamId));
-  return { ok: true };
+}
+
+/** Hides the whole site from search engines (pre-launch) or exposes it. */
+export async function setHideFromSearch(
+  teamId: string,
+  hideFromSearch: boolean,
+): Promise<void> {
+  await db
+    .update(teams)
+    .set({ hideFromSearch, updatedAt: new Date() })
+    .where(eq(teams.id, teamId));
 }
 
 /** Looks up the TXT record a team was asked to create
@@ -396,68 +470,98 @@ export async function verifyDnsRouting(
   );
 }
 
-export async function verifyCustomDomain(
-  teamId: string,
-): Promise<CustomDomainStatus | null> {
+/** Checks the shared ownership TXT once and each host's routing record
+ * independently. A host is verified when both pass, so one half of a pair
+ * can be live while the other is still pending. Returns false when no
+ * custom domain is attached. */
+export async function verifyCustomDomain(teamId: string): Promise<boolean> {
   const team = await db.query.teams.findFirst({
     where: eq(teams.id, teamId),
   });
-  if (!team?.customDomain || !team.customDomainVerificationToken) return null;
+  const hosts = await listCustomDomains(teamId);
+  if (!team?.customDomainVerificationToken || hosts.length === 0) return false;
 
   const txtSatisfied = await verifyDnsTxtRecord(
-    team.customDomain,
+    ownershipHostname(hosts[0]!.hostname),
     team.customDomainVerificationToken,
     getCustomDomainTxtRecordName(team),
   );
-  const routingSatisfied = await verifyDnsRouting(
-    team.customDomain,
-    getCustomDomainCnameTarget(team),
-  );
-  const verified = txtSatisfied && routingSatisfied;
-  const status: CustomDomainStatus = verified ? "verified" : "failed";
+  const target = getCustomDomainCnameTarget(team);
+  const now = new Date();
+  const wasLive = hosts.some((host) => host.status === "verified");
+  let isLive = false;
+  for (const host of hosts) {
+    const routingSatisfied = await verifyDnsRouting(host.hostname, target);
+    const verified = txtSatisfied && routingSatisfied;
+    isLive ||= verified;
+    await db
+      .update(customDomains)
+      .set({
+        status: verified ? "verified" : "failed",
+        verifiedAt: verified ? now : host.verifiedAt,
+        routingSatisfied,
+        updatedAt: now,
+      })
+      .where(eq(customDomains.id, host.id));
+  }
   await db
     .update(teams)
     .set({
-      customDomainStatus: status,
-      customDomainVerifiedAt: verified ? new Date() : team.customDomainVerifiedAt,
       customDomainTxtSatisfied: txtSatisfied,
-      customDomainRoutingSatisfied: routingSatisfied,
-      // A failed re-check cannot leave the only working host hidden.
-      subdomainPublic: verified ? team.subdomainPublic : true,
-      updatedAt: new Date(),
+      // The first verified custom domain is the launch: open the site to search.
+      ...(isLive && !wasLive ? { hideFromSearch: false } : {}),
+      updatedAt: now,
     })
     .where(eq(teams.id, teamId));
-  return status;
+  return true;
 }
 
-export type ResolvedHost = { teamId: string; canonicalHost: string };
+export type ResolvedHost = {
+  teamId: string;
+  canonicalHost: string;
+  /** True when this host should 301 to `canonicalHost`. */
+  redirect: boolean;
+  /** Team-wide pre-launch switch: noindex everywhere, robots disallow all. */
+  hideFromSearch: boolean;
+};
 
-/** Resolves an incoming host to exactly one team website. A public
- * subdomain and a verified custom domain serve the site; only the latter
- * changes the canonical host. A hidden platform subdomain is unknown. */
+/** Resolves an incoming host to exactly one team website.
+ *
+ * - The FrontLit subdomain always resolves. Once a custom host is
+ *   verified it redirects there, unless the team turned `redirectSubdomain`
+ *   off.
+ * - A custom host resolves once any host of its pair is verified (the
+ *   shared TXT proves the zone is the team's). A pending half of a pair
+ *   that already receives traffic just redirects to the canonical host.
+ * - Every non-canonical custom host redirects. */
 export async function resolveHost(requestHost: string): Promise<ResolvedHost | null> {
   const hostname = normalizeHost(requestHost);
   if (!hostname) return null;
 
   const subdomain = subdomainFromHost(hostname);
-  const team = subdomain
-    ? await db.query.teams.findFirst({
-        where: eq(teams.subdomain, subdomain),
-      })
-    : await db.query.teams.findFirst({
-        where: and(
-          eq(teams.customDomain, hostname),
-          eq(teams.customDomainStatus, "verified"),
-        ),
-      });
-  if (!team) return null;
-  if (subdomain && !team.subdomainPublic) return null;
+  let team: TeamRow | undefined;
+  if (subdomain) {
+    team = await db.query.teams.findFirst({
+      where: eq(teams.subdomain, subdomain),
+    });
+  } else {
+    const host = await db.query.customDomains.findFirst({
+      where: eq(customDomains.hostname, hostname),
+    });
+    team = host
+      ? await db.query.teams.findFirst({ where: eq(teams.id, host.teamId) })
+      : undefined;
+  }
+  if (!team?.subdomain) return null;
 
+  const hosts = await listCustomDomains(team.id);
+  if (!subdomain && !hosts.some((host) => host.status === "verified")) return null;
+
+  const canonicalHost = canonicalHostFor(team, hosts)!;
   return {
     teamId: team.id,
-    canonicalHost:
-      team.customDomainStatus === "verified" && team.customDomain
-        ? team.customDomain
-        : getSubdomainHost(team.subdomain!),
+    canonicalHost,
+    redirect: hostname !== canonicalHost && !(subdomain && !team.redirectSubdomain),
+    hideFromSearch: team.hideFromSearch,
   };
 }

@@ -158,7 +158,9 @@ import {
   domainSettingsSchema,
   resolveHostQuerySchema,
   resolveHostResponseSchema,
-  setSubdomainPublicBodySchema,
+  setRedirectSubdomainBodySchema,
+  setHideFromSearchBodySchema,
+  setPrimaryCustomDomainBodySchema,
   setTeamSubdomainBodySchema,
 } from "./schemas/domains";
 import {
@@ -1030,7 +1032,7 @@ const publicContract = c.router(
       summary:
         'Resolve a request Host to a team (apps/sites tenant middleware + TLS "ask")',
       description:
-        "Answers 200 only for a public claimed `<slug>.<PLATFORM_SITE_DOMAIN>` subdomain or a verified custom host (architecture.md §12.1/§12.2). A hidden platform subdomain is the same as an unknown host (404).",
+        "Answers 200 only for a claimed `<slug>.<PLATFORM_SITE_DOMAIN>` subdomain or a host of a verified custom domain (architecture.md §12.1/§12.2). `redirect` is true for every host other than `canonicalHost` — the other half of an apex/www pair, and the subdomain unless the team keeps it serving.",
     },
     getSettings: {
       method: "GET",
@@ -1452,15 +1454,23 @@ const domainsContract = c.router(
       responses: { 200: domainSettingsSchema, 409: errorSchema },
       summary: "Change the team's default subdomain slug",
     },
-    setSubdomainPublic: {
+    setRedirectSubdomain: {
       method: "PATCH",
-      path: "/domain/subdomain-public",
-      body: setSubdomainPublicBodySchema,
-      responses: { 200: domainSettingsSchema, 409: errorSchema },
-      summary:
-        "Show or hide the team's FrontLit subdomain after a custom domain is verified",
+      path: "/domain/subdomain-redirect",
+      body: setRedirectSubdomainBodySchema,
+      responses: { 200: domainSettingsSchema },
+      summary: "Choose whether the FrontLit subdomain redirects to the custom domain",
       description:
-        "Hiding is not a redirect: resolve-host returns 404 for the platform subdomain. Requires a verified custom domain.",
+        "Only applies while a custom host is verified. On (default) the subdomain 301-redirects to the canonical host; off keeps it serving the site with canonical tags pointing at the custom host.",
+    },
+    setHideFromSearch: {
+      method: "PATCH",
+      path: "/domain/search-visibility",
+      body: setHideFromSearchBodySchema,
+      responses: { 200: domainSettingsSchema },
+      summary: "Hide the website from search engines, or expose it",
+      description:
+        "While hidden every page serves `noindex`, robots.txt disallows all crawling and the sitemap is empty. New sites start hidden; verifying the first custom domain turns it off.",
     },
     attachCustomDomain: {
       method: "POST",
@@ -1468,6 +1478,16 @@ const domainsContract = c.router(
       body: attachCustomDomainBodySchema,
       responses: { 200: domainSettingsSchema, 409: errorSchema },
       summary: "Attach a custom domain (starts DNS verification)",
+      description:
+        "Attaching an apex (`example.com`) or `www.` host also attaches the other half of the pair. The typed host starts as primary.",
+    },
+    setPrimaryCustomDomain: {
+      method: "PATCH",
+      path: "/domain/custom/primary",
+      body: setPrimaryCustomDomainBodySchema,
+      responses: { 200: domainSettingsSchema, 404: errorSchema },
+      summary: "Choose which custom host is canonical",
+      description: "Every other host 301-redirects to the primary once it is verified.",
     },
     verifyCustomDomain: {
       method: "POST",
@@ -1476,7 +1496,7 @@ const domainsContract = c.router(
       responses: { 200: domainSettingsSchema, 404: errorSchema },
       summary: "Re-check DNS for the attached custom domain",
       description:
-        "Looks up the ownership TXT record and the routing CNAME/apex records. Status becomes verified only when both pass. Re-runnable.",
+        "Looks up the shared ownership TXT record and each host's routing record. A host becomes verified when the TXT and its own routing record pass, so one half of a pair can verify before the other. Re-runnable.",
     },
     removeCustomDomain: {
       method: "DELETE",

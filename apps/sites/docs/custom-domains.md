@@ -3,31 +3,34 @@
 A team's public site (`apps/sites`) is served from:
 
 1. **Default:** the claimed platform subdomain after the slug is claimed.
-2. **Optional:** a verified custom hostname the team attaches.
-3. **Optional:** the FrontLit subdomain can be turned **off** once the custom domain is verified. Off means the host is unknown (404), not a redirect.
+2. **Optional:** one custom domain. Attaching `example.com` or `www.example.com` attaches **both** as a pair; any other host (`docs.example.com`) is attached alone. The team picks which host is **primary** (defaults to the one typed).
 
-The API is the only host authority. `apps/sites` asks `GET /public/resolve-host?host=` and rewrites known hosts to `/sites/[teamId]/…`. Canonical URLs automatically use the verified custom host when present.
+The API is the only host authority. `apps/sites` asks `GET /public/resolve-host?host=` and gets `{ teamId, canonicalHost, redirect }`. It 301-redirects when `redirect` is true (keeping path and query), otherwise rewrites to `/sites/[teamId]/…`.
 
 ## Serving
 
-| Custom domain           | subdomainPublic | Subdomain host     | Custom host | Canonical       |
-| ----------------------- | --------------- | ------------------ | ----------- | --------------- |
-| none / pending / failed | true (forced)   | serves             | 404         | subdomain       |
-| verified                | true (default)  | serves             | serves      | custom hostname |
-| verified                | false           | 404 / unknown host | serves      | custom hostname |
+The canonical host is the verified primary, else the other verified custom host, else the subdomain. Every other host 301s to it.
 
-The slug stays reserved when hidden. Removing the custom domain always re-enables the subdomain so the site cannot go dark.
+| Custom domain           | Subdomain                                  | Custom hosts                | Canonical         |
+| ----------------------- | ------------------------------------------ | --------------------------- | ----------------- |
+| none / pending / failed | serves                                     | 404                         | subdomain         |
+| one host verified       | 301, or serves when `redirectSubdomain` off | verified serves, other 301s | the verified host |
+| both verified           | 301, or serves when `redirectSubdomain` off | primary serves, other 301s  | primary           |
+
+`redirectSubdomain` defaults to true. Turning it off keeps the subdomain serving with `noindex`; its canonical tags still point at the custom host. Removing the custom domain makes the subdomain canonical again.
+
+New sites start hidden from search engines (`hideFromSearch`): every page is `noindex`, robots.txt disallows everything and the sitemap is empty. The first verified custom domain turns it off; the team can also toggle it under Search engines on the Domain page.
+
+A pending half of a pair resolves (and redirects) as soon as its sibling is verified. The shared TXT already proves the zone belongs to the team, so `www` starts working the moment its CNAME exists. The workspace still shows it as pending with a warning until Check DNS passes.
 
 ## DNS
 
-Verification is two independent checks. Both must pass:
-
-1. **Ownership** — `TXT` at `<team TXT record name>.<hostname>` equals the issued token. Standalone teams default to `_frontlit-verify`; provisioning integrations can assign a team-specific label.
-2. **Routing**
+1. **Ownership** — one `TXT` at `<team TXT record name>.<apex>` (or `.<hostname>` for an unpaired host) equals the issued token. Shared by both hosts of a pair. Standalone teams default to `_frontlit-verify`; provisioning integrations can assign a team-specific label.
+2. **Routing**, per host:
     - Non-apex (`www.example.com`): `CNAME` chain includes the team's configured target, or `CUSTOM_DOMAIN_CNAME_TARGET` when no team override is set.
-    - Apex (`example.com`): A record(s) pointing at the IPs in `CUSTOM_DOMAIN_A_RECORDS` (ALIAS/CNAME at the apex is not offered). Verification requires the apex A set to match; if the variable is unset, ownership TXT plus name-resolves is enough.
+    - Apex (`example.com`): A record(s) pointing at the IPs in `CUSTOM_DOMAIN_A_RECORDS`. If the variable is unset, no A rows are shown and verification only requires the name to resolve.
 
-Do not put a raw CNAME at the zone apex unless the DNS host flattens it. Status flips only when the team clicks Check DNS (`POST /domain/custom/verify`).
+A host is verified when the TXT and its own routing record pass. Status flips only when the team clicks Check DNS (`POST /domain/custom/verify`).
 
 ## TLS ask
 
@@ -42,10 +45,10 @@ GET /public/tls-ask?domain=<hostname>
 Caddy's `ask` protocol always sends `domain`. The handler is the same host
 authority as `GET /public/resolve-host?host=`:
 
-- **200** — issue or serve a certificate. Public claimed subdomain or
-  verified custom host.
-- **404** — refuse. Unknown host, unverified custom domain, or a hidden
-  platform subdomain.
+- **200** — issue or serve a certificate. Claimed subdomain or any host of
+  a custom domain with at least one verified host. Redirecting hosts need a
+  certificate too, since the 301 is served over HTTPS.
+- **404** — refuse. Unknown host or a custom domain with no verified host.
 
 `apps/sites` does not terminate TLS. The cluster Caddyfile catch-all
 `https://` site obtains the cert and reverse-proxies to `frontlit-sites`.
@@ -65,16 +68,15 @@ authority as `GET /public/resolve-host?host=`:
 ## Local testing
 
 1. Claim a slug in the workspace (`/website/domain`). The site is at `<slug>.localhost:3002` when `PLATFORM_SITE_DOMAIN=localhost`.
-2. Attach a test hostname. Point `/etc/hosts` at the sites process, for example:
+2. Attach a test apex hostname, for example `example.test`; `www.example.test` is added automatically. Point `/etc/hosts` at the sites process:
 
     ```
-    127.0.0.1 www.example.test
-    127.0.0.1 acme.localhost
+    127.0.0.1 example.test www.example.test
     ```
 
-3. Mock or publish the configured TXT + CNAME (or apex flattening) records, then Check DNS.
-4. Toggle **Also serve this site on {slug}.{platform}**. With it off, `<slug>.localhost:3002` is an unknown host; the custom host still renders.
+3. Mock or publish the TXT + routing records, then Check DNS (or set the `custom_domains` rows to `verified` directly in a dev database).
+4. `http://www.example.test:3002/pricing?x=1` → 301 → `http://example.test:3002/pricing?x=1`, and `<slug>.localhost:3002/…` → 301 → `example.test:3002/…`. Redirects keep the request's scheme (`X-Forwarded-Proto` behind the edge) and port.
 
 ## Workspace
 
-`/website/domain` has two cards: the FrontLit subdomain and the custom domain. After verify the DNS table stays visible (with satisfied state) so records can be re-copied. The custom host is canonical; the subdomain switch is an optional fallback.
+`/website/domain` has two cards: the FrontLit subdomain and the custom domain. The custom domain card lists both hosts with their status, a **Make primary** action, the DNS table (one routing record per host plus the shared TXT), a warning while only one host is verified, and the **Redirect subdomain** switch once a host is verified.

@@ -45,6 +45,7 @@ import {
   getDocumentationRevision,
   validateDocumentationPublication,
 } from "@/lib/api";
+import { siteUrl } from "@/lib/site-url";
 
 type Props = {
   tab?: "history" | "publish";
@@ -66,10 +67,8 @@ type Review = {
 };
 
 export function liveDocumentationUrl(hostname: string, slug: string): string {
-  const local = hostname === "localhost" || hostname.endsWith(".localhost");
-  const origin = `${local ? "http" : "https"}://${hostname}${local ? ":3002" : ""}`;
   const route = slug.split("/").map(encodeURIComponent).join("/");
-  return `${origin}/docs/${route}`;
+  return `${siteUrl(hostname)}/docs/${route}`;
 }
 
 function VersionView({
@@ -189,13 +188,7 @@ export function DocumentationTools({
     getDomainSettings()
       .then((settings) => {
         if (!active) return;
-        setLiveHost(
-          settings.customDomain?.status === "verified"
-            ? settings.customDomain.hostname
-            : settings.subdomainPublic
-              ? (settings.subdomain?.hostname ?? null)
-              : null,
-        );
+        setLiveHost(settings.canonicalHost);
       })
       .catch(() => {
         if (active) setLiveHost(undefined);

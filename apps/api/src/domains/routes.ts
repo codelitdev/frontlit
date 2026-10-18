@@ -8,7 +8,9 @@ import {
   attachCustomDomain,
   getDomainSettings,
   removeCustomDomain,
-  setSubdomainPublic,
+  setPrimaryCustomDomain,
+  setRedirectSubdomain,
+  setHideFromSearch,
   setTeamSubdomain,
   verifyCustomDomain,
 } from "./queries";
@@ -24,12 +26,10 @@ function toPublicSettings(
 ) {
   return {
     ...settings,
-    customDomain: settings.customDomain
-      ? {
-          ...settings.customDomain,
-          verifiedAt: settings.customDomain.verifiedAt?.toISOString() ?? null,
-        }
-      : null,
+    customDomains: settings.customDomains.map((host) => ({
+      ...host,
+      verifiedAt: host.verifiedAt?.toISOString() ?? null,
+    })),
   };
 }
 
@@ -63,19 +63,16 @@ const impl = s.router(
           body: toPublicSettings((await getDomainSettings((req as any).teamId))!),
         };
       },
-      setSubdomainPublic: async ({ body, req }) => {
-        const result = await setSubdomainPublic(
-          (req as any).teamId,
-          body.subdomainPublic,
-        );
-        if (!result.ok)
-          return {
-            status: 409,
-            body: {
-              error:
-                "A verified custom domain is required to hide the FrontLit subdomain",
-            },
-          };
+      setRedirectSubdomain: async ({ body, req }) => {
+        await setRedirectSubdomain((req as any).teamId, body.redirectSubdomain);
+        await revalidateAfterDomainChange((req as any).teamId);
+        return {
+          status: 200,
+          body: toPublicSettings((await getDomainSettings((req as any).teamId))!),
+        };
+      },
+      setHideFromSearch: async ({ body, req }) => {
+        await setHideFromSearch((req as any).teamId, body.hideFromSearch);
         await revalidateAfterDomainChange((req as any).teamId);
         return {
           status: 200,
@@ -92,7 +89,8 @@ const impl = s.router(
             reserved: "That hostname is reserved for default team subdomains",
             already_attached:
               "This team already has a custom domain attached — remove it first",
-            taken: "That domain is already attached to another team",
+            taken:
+              "That domain (or its www/apex pair) is already attached to another team",
           };
           return {
             status: 409,
@@ -101,8 +99,24 @@ const impl = s.router(
         }
         await revalidateAfterDomainChange(
           (req as any).teamId,
-          previous?.customDomain ? [previous.customDomain.hostname] : [],
+          previous?.customDomains.map((host) => host.hostname) ?? [],
         );
+        return {
+          status: 200,
+          body: toPublicSettings((await getDomainSettings((req as any).teamId))!),
+        };
+      },
+      setPrimaryCustomDomain: async ({ body, req }) => {
+        const updated = await setPrimaryCustomDomain(
+          (req as any).teamId,
+          body.hostname,
+        );
+        if (!updated)
+          return {
+            status: 404,
+            body: { error: "That host is not attached to this team" },
+          };
+        await revalidateAfterDomainChange((req as any).teamId);
         return {
           status: 200,
           body: toPublicSettings((await getDomainSettings((req as any).teamId))!),
@@ -131,7 +145,7 @@ const impl = s.router(
           };
         await revalidateAfterDomainChange(
           (req as any).teamId,
-          previous?.customDomain ? [previous.customDomain.hostname] : [],
+          previous?.customDomains.map((host) => host.hostname) ?? [],
         );
         return {
           status: 200,
@@ -142,8 +156,10 @@ const impl = s.router(
     {
       get: "domains.get",
       setSubdomain: "domains.setSubdomain",
-      setSubdomainPublic: "domains.setSubdomainPublic",
+      setRedirectSubdomain: "domains.setRedirectSubdomain",
+      setHideFromSearch: "domains.setHideFromSearch",
       attachCustomDomain: "domains.attachCustomDomain",
+      setPrimaryCustomDomain: "domains.setPrimaryCustomDomain",
       verifyCustomDomain: "domains.verifyCustomDomain",
       removeCustomDomain: "domains.removeCustomDomain",
     },

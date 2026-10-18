@@ -473,11 +473,16 @@ export const REST_OPERATION_POLICIES = {
 
   "domains.get": teamPermission("domains:read", MCP_SCOPES.domainsRead),
   "domains.setSubdomain": teamPermission("domains:write", MCP_SCOPES.domainsWrite),
-  "domains.setSubdomainPublic": teamPermission(
+  "domains.setRedirectSubdomain": teamPermission(
     "domains:write",
     MCP_SCOPES.domainsWrite,
   ),
+  "domains.setHideFromSearch": teamPermission("domains:write", MCP_SCOPES.domainsWrite),
   "domains.attachCustomDomain": teamPermission(
+    "domains:write",
+    MCP_SCOPES.domainsWrite,
+  ),
+  "domains.setPrimaryCustomDomain": teamPermission(
     "domains:write",
     MCP_SCOPES.domainsWrite,
   ),

@@ -2,46 +2,60 @@ import { describe, expect, it } from "vitest";
 import {
   contract,
   domainSettingsSchema,
-  domainVerificationRecordsSchema,
-  setSubdomainPublicBodySchema,
+  setHideFromSearchBodySchema,
+  setPrimaryCustomDomainBodySchema,
+  setRedirectSubdomainBodySchema,
 } from "@frontlit/api-contract";
 
 describe("domains contract", () => {
-  it("exposes subdomainPublic, expanded records, and a dedicated hide/show write", () => {
-    expect(contract.domains.setSubdomainPublic.method).toBe("PATCH");
-    expect(contract.domains.setSubdomainPublic.path).toBe("/domain/subdomain-public");
-    expect(contract.public.resolveHost.description).toMatch(/public claimed/i);
-
-    const records = domainVerificationRecordsSchema.parse({
-      cnameTarget: "sites.frontlit.app",
-      txtName: "_frontlit-verify.www.example.com",
-      txtValue: "token",
-      kind: "cname",
-      aRecords: [],
-      txtSatisfied: true,
-      routingSatisfied: true,
-    });
-    expect(records.txtSatisfied).toBe(true);
-    expect(records.routingSatisfied).toBe(true);
+  it("exposes per-host records, a primary write and a subdomain redirect write", () => {
+    expect(contract.domains.setRedirectSubdomain.method).toBe("PATCH");
+    expect(contract.domains.setRedirectSubdomain.path).toBe(
+      "/domain/subdomain-redirect",
+    );
+    expect(contract.domains.setPrimaryCustomDomain.path).toBe("/domain/custom/primary");
+    expect(contract.public.resolveHost.description).toMatch(/redirect/i);
 
     const settings = domainSettingsSchema.parse({
-      subdomain: {
-        name: "acme",
-        hostname: "acme.frontlit.app",
+      subdomain: { name: "acme", hostname: "acme.frontlit.app" },
+      customDomains: [
+        {
+          hostname: "example.com",
+          primary: true,
+          status: "verified",
+          verifiedAt: "2026-01-01T00:00:00.000Z",
+          record: { type: "A", values: ["198.51.100.10"] },
+          routingSatisfied: true,
+        },
+        {
+          hostname: "www.example.com",
+          primary: false,
+          status: "pending",
+          verifiedAt: null,
+          record: { type: "CNAME", values: ["sites.frontlit.app"] },
+          routingSatisfied: null,
+        },
+      ],
+      verification: {
+        txtName: "_frontlit-verify.example.com",
+        txtValue: "token",
+        txtSatisfied: true,
       },
-      customDomain: {
-        hostname: "www.example.com",
-        status: "verified",
-        verifiedAt: "2026-01-01T00:00:00.000Z",
-      },
-      canonicalHost: "www.example.com",
-      verificationRecords: records,
-      subdomainPublic: false,
+      canonicalHost: "example.com",
+      redirectSubdomain: true,
+      hideFromSearch: false,
       platformDomain: "frontlit.app",
     });
-    expect(settings.subdomainPublic).toBe(false);
-    expect(setSubdomainPublicBodySchema.parse({ subdomainPublic: false })).toEqual({
-      subdomainPublic: false,
+    expect(settings.customDomains).toHaveLength(2);
+    expect(setRedirectSubdomainBodySchema.parse({ redirectSubdomain: false })).toEqual({
+      redirectSubdomain: false,
     });
+    expect(contract.domains.setHideFromSearch.path).toBe("/domain/search-visibility");
+    expect(setHideFromSearchBodySchema.parse({ hideFromSearch: true })).toEqual({
+      hideFromSearch: true,
+    });
+    expect(
+      setPrimaryCustomDomainBodySchema.parse({ hostname: "WWW.Example.com" }),
+    ).toEqual({ hostname: "www.example.com" });
   });
 });

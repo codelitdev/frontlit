@@ -21,9 +21,12 @@ import {
   getDomainSettings,
   getSubdomainHost,
   normalizeHost,
+  pairedHostname,
   removeCustomDomain,
   resolveHost,
-  setSubdomainPublic,
+  setHideFromSearch,
+  setPrimaryCustomDomain,
+  setRedirectSubdomain,
   setTeamSubdomain,
   verifyCustomDomain,
 } from "./queries";
@@ -56,15 +59,25 @@ describe("team website domains", () => {
     else vi.mocked(dns.resolve4).mockRejectedValue(new Error("ENOTFOUND"));
   }
 
-  async function attachAndPassBothChecks(id: string, hostname: string): Promise<void> {
+  async function txtValue(id: string): Promise<string> {
+    return (await getDomainSettings(id))!.verification!.txtValue;
+  }
+
+  async function hostStatus(id: string, hostname: string) {
+    return (await getDomainSettings(id))!.customDomains.find(
+      (host) => host.hostname === hostname,
+    )?.status;
+  }
+
+  /** Attaches and passes every DNS check (TXT, apex A and www CNAME). */
+  async function attachAndPassAllChecks(id: string, hostname: string): Promise<void> {
     expect(await attachCustomDomain(id, hostname)).toEqual({ ok: true });
-    const pending = await getDomainSettings(id);
     await mockDns({
-      txt: [[pending!.verificationRecords!.txtValue]],
+      txt: [[await txtValue(id)]],
       cname: [getCustomDomainCnameTarget()],
       a: ["203.0.113.10"],
     });
-    expect(await verifyCustomDomain(id)).toBe("verified");
+    expect(await verifyCustomDomain(id)).toBe(true);
   }
 
   beforeEach(async () => {
@@ -81,9 +94,9 @@ describe("team website domains", () => {
     expect(settings?.subdomain?.hostname).toBe(
       getSubdomainHost(settings!.subdomain!.name),
     );
-    expect(settings?.customDomain).toBeNull();
+    expect(settings?.customDomains).toEqual([]);
     expect(settings?.canonicalHost).toBe(settings?.subdomain?.hostname);
-    expect(settings?.subdomainPublic).toBe(true);
+    expect(settings?.redirectSubdomain).toBe(true);
     expect(settings?.platformDomain).toBe(getPlatformSiteDomain());
   });
 
@@ -116,30 +129,71 @@ describe("team website domains", () => {
     });
   });
 
-  it("attaches a pending custom domain and exposes verification records", async () => {
-    const hostname = `${crypto.randomUUID().slice(0, 8)}.com`;
-    expect(await attachCustomDomain(teamId, hostname)).toEqual({
-      ok: true,
-    });
+  it("pairs an apex and www host", () => {
+    expect(pairedHostname("example.com")).toBe("www.example.com");
+    expect(pairedHostname("www.example.com")).toBe("example.com");
+    expect(pairedHostname("docs.example.com")).toBeNull();
+  });
+
+  it("attaches both halves of an apex/www pair with one shared TXT on the apex", async () => {
+    const apex = `${crypto.randomUUID().slice(0, 8)}.com`;
+    expect(await attachCustomDomain(teamId, `www.${apex}`)).toEqual({ ok: true });
 
     const settings = await getDomainSettings(teamId);
-    expect(settings?.customDomain).toMatchObject({
-      hostname,
-      status: "pending",
-      verifiedAt: null,
-    });
-    expect(settings?.verificationRecords).toMatchObject({
-      cnameTarget: getCustomDomainCnameTarget(),
-      txtName: `_frontlit-verify.${hostname}`,
-      kind: "a",
+    expect(settings?.customDomains).toEqual([
+      {
+        hostname: `www.${apex}`,
+        primary: true,
+        status: "pending",
+        verifiedAt: null,
+        record: { type: "CNAME", values: [getCustomDomainCnameTarget()] },
+        routingSatisfied: null,
+      },
+      {
+        hostname: apex,
+        primary: false,
+        status: "pending",
+        verifiedAt: null,
+        record: { type: "A", values: [] },
+        routingSatisfied: null,
+      },
+    ]);
+    expect(settings?.verification).toMatchObject({
+      txtName: `_frontlit-verify.${apex}`,
       txtSatisfied: null,
-      routingSatisfied: null,
     });
-    expect(settings?.subdomainPublic).toBe(true);
+    // Still the subdomain until something verifies.
+    expect(settings?.canonicalHost).toBe(settings?.subdomain?.hostname);
+  });
+
+  it("asks for the configured A set on the apex", async () => {
+    const previous = process.env.CUSTOM_DOMAIN_A_RECORDS;
+    process.env.CUSTOM_DOMAIN_A_RECORDS = "198.51.100.10,198.51.100.11";
+    try {
+      const apex = `${crypto.randomUUID().slice(0, 8)}.com`;
+      await attachCustomDomain(teamId, apex);
+      const [primary] = (await getDomainSettings(teamId))!.customDomains;
+      expect(primary).toMatchObject({
+        hostname: apex,
+        primary: true,
+        record: { type: "A", values: ["198.51.100.10", "198.51.100.11"] },
+      });
+    } finally {
+      if (previous === undefined) delete process.env.CUSTOM_DOMAIN_A_RECORDS;
+      else process.env.CUSTOM_DOMAIN_A_RECORDS = previous;
+    }
+  });
+
+  it("attaches a non-www subdomain host alone", async () => {
+    const hostname = `docs.${crypto.randomUUID().slice(0, 8)}.com`;
+    await attachCustomDomain(teamId, hostname);
+    const settings = await getDomainSettings(teamId);
+    expect(settings?.customDomains.map((host) => host.hostname)).toEqual([hostname]);
+    expect(settings?.verification?.txtName).toBe(`_frontlit-verify.${hostname}`);
   });
 
   it("uses the team's provisioned DNS target and TXT label for instructions and checks", async () => {
-    const hostname = `www.${crypto.randomUUID().slice(0, 8)}.com`;
+    const hostname = `docs.${crypto.randomUUID().slice(0, 8)}.com`;
     await db
       .update(teams)
       .set({
@@ -150,23 +204,24 @@ describe("team website domains", () => {
 
     expect(await attachCustomDomain(teamId, hostname)).toEqual({ ok: true });
     const pending = await getDomainSettings(teamId);
-    expect(pending?.verificationRecords).toMatchObject({
-      cnameTarget: "domains.courselit.example",
-      txtName: `_courselit-verification.${hostname}`,
-    });
+    expect(pending?.customDomains[0]?.record.values).toEqual([
+      "domains.courselit.example",
+    ]);
+    expect(pending?.verification?.txtName).toBe(`_courselit-verification.${hostname}`);
 
     await mockDns({
-      txt: [[pending!.verificationRecords!.txtValue]],
+      txt: [[pending!.verification!.txtValue]],
       cname: ["domains.courselit.example"],
     });
-    expect(await verifyCustomDomain(teamId)).toBe("verified");
+    await verifyCustomDomain(teamId);
+    expect(await hostStatus(teamId, hostname)).toBe("verified");
     expect(dns.resolveTxt).toHaveBeenCalledWith(`_courselit-verification.${hostname}`);
     expect(dns.resolveCname).toHaveBeenCalledWith(hostname);
   });
 
-  it("rejects a platform host, a second custom domain, and an already-claimed custom domain", async () => {
-    const hostname = `${crypto.randomUUID().slice(0, 8)}.com`;
-    await attachCustomDomain(teamId, hostname);
+  it("rejects a platform host, a second custom domain, and a claimed host or its pair", async () => {
+    const apex = `${crypto.randomUUID().slice(0, 8)}.com`;
+    await attachCustomDomain(teamId, apex);
     expect(await attachCustomDomain(teamId, `foo.${getPlatformSiteDomain()}`)).toEqual({
       ok: false,
       reason: "reserved",
@@ -177,179 +232,232 @@ describe("team website domains", () => {
     });
 
     const { team: other } = await seedTeam(db, { name: "Other" });
-    expect(await attachCustomDomain(other.id, hostname)).toEqual({
-      ok: false,
-      reason: "taken",
+    for (const hostname of [apex, `www.${apex}`]) {
+      expect(await attachCustomDomain(other.id, hostname)).toEqual({
+        ok: false,
+        reason: "taken",
+      });
+    }
+  });
+
+  it("makes the verified primary canonical and redirects every other host to it", async () => {
+    const apex = `${crypto.randomUUID().slice(0, 8)}.com`;
+    await attachAndPassAllChecks(teamId, apex);
+
+    const settings = await getDomainSettings(teamId);
+    expect(settings?.canonicalHost).toBe(apex);
+    expect(settings?.verification?.txtSatisfied).toBe(true);
+    expect(settings?.customDomains.every((host) => host.status === "verified")).toBe(
+      true,
+    );
+    expect(await resolveHost(apex)).toEqual({
+      teamId,
+      canonicalHost: apex,
+      redirect: false,
+      hideFromSearch: false,
+    });
+    expect(await resolveHost(`WWW.${apex}`)).toEqual({
+      teamId,
+      canonicalHost: apex,
+      redirect: true,
+      hideFromSearch: false,
+    });
+    expect(await resolveHost(`${settings!.subdomain!.hostname}:3002`)).toEqual({
+      teamId,
+      canonicalHost: apex,
+      redirect: true,
+      hideFromSearch: false,
     });
   });
 
-  it("makes a verified custom domain canonical while both hosts resolve", async () => {
-    const hostname = `www.${crypto.randomUUID().slice(0, 8)}.com`;
-    await attachAndPassBothChecks(teamId, hostname);
+  it("starts hidden from search and opens on the first verified custom domain", async () => {
+    const subdomainHost = (await getDomainSettings(teamId))!.subdomain!.hostname;
+    expect((await getDomainSettings(teamId))?.hideFromSearch).toBe(true);
+    expect(await resolveHost(subdomainHost)).toMatchObject({ hideFromSearch: true });
+
+    const apex = `${crypto.randomUUID().slice(0, 8)}.com`;
+    await attachAndPassAllChecks(teamId, apex);
+    expect((await getDomainSettings(teamId))?.hideFromSearch).toBe(false);
+    expect(await resolveHost(apex)).toMatchObject({ hideFromSearch: false });
+
+    // Re-checking an already live domain leaves a deliberate choice alone.
+    await setHideFromSearch(teamId, true);
+    expect(await verifyCustomDomain(teamId)).toBe(true);
+    expect((await getDomainSettings(teamId))?.hideFromSearch).toBe(true);
+
+    await setHideFromSearch(teamId, false);
+    expect((await getDomainSettings(teamId))?.hideFromSearch).toBe(false);
+  });
+
+  it("switches the primary host", async () => {
+    const apex = `${crypto.randomUUID().slice(0, 8)}.com`;
+    await attachAndPassAllChecks(teamId, apex);
+    expect(await setPrimaryCustomDomain(teamId, `www.${apex}`)).toBe(true);
 
     const settings = await getDomainSettings(teamId);
-    expect(settings?.canonicalHost).toBe(hostname);
-    expect(settings?.subdomainPublic).toBe(true);
-    expect(settings?.verificationRecords).toMatchObject({
-      kind: "cname",
-      txtSatisfied: true,
-      routingSatisfied: true,
-      txtName: `_frontlit-verify.${hostname}`,
+    expect(settings?.canonicalHost).toBe(`www.${apex}`);
+    expect(settings?.customDomains.filter((host) => host.primary)).toHaveLength(1);
+    expect(await resolveHost(apex)).toMatchObject({
+      canonicalHost: `www.${apex}`,
+      redirect: true,
     });
-    expect(settings?.verificationRecords?.txtValue).toBeTruthy();
-    expect(await resolveHost(`${settings!.subdomain!.hostname}:3002`)).toEqual({
+    expect(await setPrimaryCustomDomain(teamId, "unrelated.com")).toBe(false);
+  });
+
+  it("keeps the subdomain serving when the team turns its redirect off", async () => {
+    const apex = `${crypto.randomUUID().slice(0, 8)}.com`;
+    await attachAndPassAllChecks(teamId, apex);
+    await setRedirectSubdomain(teamId, false);
+
+    const settings = await getDomainSettings(teamId);
+    expect(settings?.redirectSubdomain).toBe(false);
+    expect(await resolveHost(settings!.subdomain!.hostname)).toEqual({
       teamId,
-      canonicalHost: hostname,
+      canonicalHost: apex,
+      redirect: false,
+      hideFromSearch: false,
     });
-    expect(await resolveHost(hostname)).toEqual({
-      teamId,
-      canonicalHost: hostname,
+    // The other half of the pair still redirects.
+    expect(await resolveHost(`www.${apex}`)).toMatchObject({ redirect: true });
+  });
+
+  it("verifies each host of a pair independently and serves the verified one meanwhile", async () => {
+    const apex = `${crypto.randomUUID().slice(0, 8)}.com`;
+    // The team typed www (primary) but only configured the apex A record.
+    await attachCustomDomain(teamId, `www.${apex}`);
+    await mockDns({
+      txt: [[await txtValue(teamId)]],
+      cname: new Error("ENOTFOUND"),
+      a: ["203.0.113.10"],
     });
+    await verifyCustomDomain(teamId);
+
+    const settings = await getDomainSettings(teamId);
+    expect(await hostStatus(teamId, apex)).toBe("verified");
+    expect(await hostStatus(teamId, `www.${apex}`)).toBe("failed");
+    // An unverified primary is never canonical.
+    expect(settings?.canonicalHost).toBe(apex);
+    expect(await resolveHost(apex)).toMatchObject({ redirect: false });
+    // The pending half resolves (the shared TXT proves the zone) and redirects.
+    expect(await resolveHost(`www.${apex}`)).toMatchObject({
+      canonicalHost: apex,
+      redirect: true,
+    });
+
+    await mockDns({
+      txt: [[await txtValue(teamId)]],
+      cname: [getCustomDomainCnameTarget()],
+      a: ["203.0.113.10"],
+    });
+    await verifyCustomDomain(teamId);
+    expect((await getDomainSettings(teamId))?.canonicalHost).toBe(`www.${apex}`);
+    expect(await resolveHost(apex)).toMatchObject({ redirect: true });
   });
 
   it("does not resolve an unverified custom domain and clears all custom-domain state on removal", async () => {
-    const hostname = `${crypto.randomUUID().slice(0, 8)}.com`;
-    await attachCustomDomain(teamId, hostname);
-    expect(await resolveHost(hostname)).toBeNull();
+    const apex = `${crypto.randomUUID().slice(0, 8)}.com`;
+    await attachCustomDomain(teamId, apex);
+    expect(await resolveHost(apex)).toBeNull();
+    expect(await resolveHost(`www.${apex}`)).toBeNull();
+    const subdomainHost = (await getDomainSettings(teamId))!.subdomain!.hostname;
+    expect(await resolveHost(subdomainHost)).toMatchObject({ redirect: false });
+
     expect(await removeCustomDomain(teamId)).toBe(true);
     const settings = await getDomainSettings(teamId);
-    expect(settings?.customDomain).toBeNull();
-    expect(settings?.verificationRecords).toBeNull();
+    expect(settings?.customDomains).toEqual([]);
+    expect(settings?.verification).toBeNull();
     expect(settings?.canonicalHost).toBe(settings?.subdomain?.hostname);
+    expect(await removeCustomDomain(teamId)).toBe(false);
+  });
+
+  it("stops redirecting the subdomain once the custom domain is removed", async () => {
+    const apex = `${crypto.randomUUID().slice(0, 8)}.com`;
+    await attachAndPassAllChecks(teamId, apex);
+    expect(await removeCustomDomain(teamId)).toBe(true);
+
+    const settings = await getDomainSettings(teamId);
+    expect(await resolveHost(settings!.subdomain!.hostname)).toEqual({
+      teamId,
+      canonicalHost: settings!.subdomain!.hostname,
+      redirect: false,
+      hideFromSearch: false,
+    });
+    expect(await resolveHost(apex)).toBeNull();
   });
 
   it("normalizes ports and casing in host headers", () => {
     expect(normalizeHost("CoDeLiT.Localhost:3002")).toBe("codelit.localhost");
   });
 
-  it("rejects hide without a verified custom domain", async () => {
-    expect(await setSubdomainPublic(teamId, false)).toEqual({
-      ok: false,
-      reason: "custom_domain_required",
-    });
-
-    const hostname = `www.${crypto.randomUUID().slice(0, 8)}.com`;
+  it("requires both ownership TXT and routing before a host is verified", async () => {
+    const hostname = `docs.${crypto.randomUUID().slice(0, 8)}.com`;
     await attachCustomDomain(teamId, hostname);
-    expect(await setSubdomainPublic(teamId, false)).toEqual({
-      ok: false,
-      reason: "custom_domain_required",
-    });
-    expect((await getDomainSettings(teamId))?.subdomainPublic).toBe(true);
-  });
+    const token = await txtValue(teamId);
 
-  it("hides the platform subdomain without a redirect while the custom host still resolves", async () => {
-    const hostname = `www.${crypto.randomUUID().slice(0, 8)}.com`;
-    await attachAndPassBothChecks(teamId, hostname);
-    expect(await setSubdomainPublic(teamId, false)).toEqual({ ok: true });
-
-    const settings = await getDomainSettings(teamId);
-    expect(settings?.subdomainPublic).toBe(false);
-    expect(settings?.canonicalHost).toBe(hostname);
-    expect(await resolveHost(settings!.subdomain!.hostname)).toBeNull();
-    expect(await resolveHost(hostname)).toEqual({
-      teamId,
-      canonicalHost: hostname,
-    });
-  });
-
-  it("re-enables the subdomain when the custom domain is removed", async () => {
-    const hostname = `www.${crypto.randomUUID().slice(0, 8)}.com`;
-    await attachAndPassBothChecks(teamId, hostname);
-    await setSubdomainPublic(teamId, false);
-    expect(await removeCustomDomain(teamId)).toBe(true);
-
-    const settings = await getDomainSettings(teamId);
-    expect(settings?.subdomainPublic).toBe(true);
-    expect(settings?.customDomain).toBeNull();
-    expect(settings?.verificationRecords).toBeNull();
-    expect(await resolveHost(settings!.subdomain!.hostname)).toEqual({
-      teamId,
-      canonicalHost: settings!.subdomain!.hostname,
-    });
-    expect(await resolveHost(hostname)).toBeNull();
-  });
-
-  it("requires both ownership TXT and routing before a domain is verified", async () => {
-    const hostname = `www.${crypto.randomUUID().slice(0, 8)}.com`;
-    await attachCustomDomain(teamId, hostname);
-    const pending = await getDomainSettings(teamId);
-    const token = pending!.verificationRecords!.txtValue;
-
-    await mockDns({
-      txt: [[token]],
-      cname: new Error("ENOTFOUND"),
-    });
-    expect(await verifyCustomDomain(teamId)).toBe("failed");
+    await mockDns({ txt: [[token]], cname: new Error("ENOTFOUND") });
+    await verifyCustomDomain(teamId);
     let settings = await getDomainSettings(teamId);
-    expect(settings?.customDomain?.status).toBe("failed");
-    expect(settings?.verificationRecords).toMatchObject({
-      txtSatisfied: true,
+    expect(settings?.customDomains[0]).toMatchObject({
+      status: "failed",
       routingSatisfied: false,
     });
+    expect(settings?.verification?.txtSatisfied).toBe(true);
     expect(await resolveHost(hostname)).toBeNull();
 
-    await mockDns({
-      txt: [["wrong-token"]],
-      cname: [getCustomDomainCnameTarget()],
-    });
-    expect(await verifyCustomDomain(teamId)).toBe("failed");
+    await mockDns({ txt: [["wrong-token"]], cname: [getCustomDomainCnameTarget()] });
+    await verifyCustomDomain(teamId);
     settings = await getDomainSettings(teamId);
-    expect(settings?.customDomain?.status).toBe("failed");
-    expect(settings?.verificationRecords).toMatchObject({
-      txtSatisfied: false,
+    expect(settings?.customDomains[0]).toMatchObject({
+      status: "failed",
       routingSatisfied: true,
     });
+    expect(settings?.verification?.txtSatisfied).toBe(false);
 
-    await mockDns({
-      txt: [[token]],
-      cname: [getCustomDomainCnameTarget()],
-    });
-    expect(await verifyCustomDomain(teamId)).toBe("verified");
-    settings = await getDomainSettings(teamId);
-    expect(settings?.verificationRecords).toMatchObject({
-      kind: "cname",
-      txtSatisfied: true,
-      routingSatisfied: true,
-    });
+    await mockDns({ txt: [[token]], cname: [getCustomDomainCnameTarget()] });
+    await verifyCustomDomain(teamId);
+    expect(await hostStatus(teamId, hostname)).toBe("verified");
     expect(await resolveHost(hostname)).toEqual({
       teamId,
       canonicalHost: hostname,
+      redirect: false,
+      hideFromSearch: false,
     });
   });
 
   it("accepts apex flattening when the name resolves and no A set is configured", async () => {
-    const hostname = `${crypto.randomUUID().slice(0, 8)}.com`;
-    await attachCustomDomain(teamId, hostname);
-    const pending = await getDomainSettings(teamId);
-    expect(pending?.verificationRecords?.kind).toBe("a");
+    const apex = `${crypto.randomUUID().slice(0, 8)}.com`;
+    await attachCustomDomain(teamId, apex);
     await mockDns({
-      txt: [[pending!.verificationRecords!.txtValue]],
+      txt: [[await txtValue(teamId)]],
       cname: new Error("ENOTFOUND"),
       a: ["198.51.100.20"],
     });
-    expect(await verifyCustomDomain(teamId)).toBe("verified");
+    await verifyCustomDomain(teamId);
+    expect(await hostStatus(teamId, apex)).toBe("verified");
   });
 
   it("requires the configured apex A set to match when CUSTOM_DOMAIN_A_RECORDS is set", async () => {
     const previous = process.env.CUSTOM_DOMAIN_A_RECORDS;
     process.env.CUSTOM_DOMAIN_A_RECORDS = "198.51.100.10,198.51.100.11";
     try {
-      const hostname = `${crypto.randomUUID().slice(0, 8)}.com`;
-      await attachCustomDomain(teamId, hostname);
-      const pending = await getDomainSettings(teamId);
+      const apex = `${crypto.randomUUID().slice(0, 8)}.com`;
+      await attachCustomDomain(teamId, apex);
+      const token = await txtValue(teamId);
       await mockDns({
-        txt: [[pending!.verificationRecords!.txtValue]],
+        txt: [[token]],
         cname: new Error("ENOTFOUND"),
         a: ["198.51.100.99"],
       });
-      expect(await verifyCustomDomain(teamId)).toBe("failed");
+      await verifyCustomDomain(teamId);
+      expect(await hostStatus(teamId, apex)).toBe("failed");
 
       await mockDns({
-        txt: [[pending!.verificationRecords!.txtValue]],
+        txt: [[token]],
         cname: new Error("ENOTFOUND"),
         a: ["198.51.100.11", "198.51.100.10"],
       });
-      expect(await verifyCustomDomain(teamId)).toBe("verified");
+      await verifyCustomDomain(teamId);
+      expect(await hostStatus(teamId, apex)).toBe("verified");
     } finally {
       if (previous === undefined) delete process.env.CUSTOM_DOMAIN_A_RECORDS;
       else process.env.CUSTOM_DOMAIN_A_RECORDS = previous;
@@ -365,17 +473,5 @@ describe("team website domains", () => {
     }
     const allowed = `ok-${crypto.randomUUID().slice(0, 8)}`;
     expect(await setTeamSubdomain(teamId, allowed)).toEqual({ ok: true });
-  });
-
-  it("still allows renaming a hidden slug", async () => {
-    const hostname = `www.${crypto.randomUUID().slice(0, 8)}.com`;
-    await attachAndPassBothChecks(teamId, hostname);
-    await setSubdomainPublic(teamId, false);
-    const renamed = `renamed-${crypto.randomUUID().slice(0, 8)}`;
-    expect(await setTeamSubdomain(teamId, renamed)).toEqual({ ok: true });
-    const settings = await getDomainSettings(teamId);
-    expect(settings?.subdomain?.name).toBe(renamed);
-    expect(settings?.subdomainPublic).toBe(false);
-    expect(await resolveHost(settings!.subdomain!.hostname)).toBeNull();
   });
 });

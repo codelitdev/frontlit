@@ -42,7 +42,7 @@ describe("createTeam", () => {
     });
 
     expect(team.subdomain).toBeNull();
-    expect(team.customDomain).toBeNull();
+    expect(team.customDomainVerificationToken).toBeNull();
   });
 
   it("persists provisioned DNS settings and only fills missing values on retries", async () => {

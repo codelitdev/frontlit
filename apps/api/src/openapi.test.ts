@@ -64,12 +64,14 @@ describe("OpenAPI authentication", () => {
       put: { summary: "Create or update the team's default SendLit ESP" },
       delete: { summary: "Remove the team's default SendLit ESP" },
     });
-    expect(openApiDocument.paths["/domain/subdomain-public"]?.patch).toMatchObject({
-      summary:
-        "Show or hide the team's FrontLit subdomain after a custom domain is verified",
+    expect(openApiDocument.paths["/domain/subdomain-redirect"]?.patch).toMatchObject({
+      summary: "Choose whether the FrontLit subdomain redirects to the custom domain",
+    });
+    expect(openApiDocument.paths["/domain/custom/primary"]?.patch).toMatchObject({
+      summary: "Choose which custom host is canonical",
     });
     expect(JSON.stringify(openApiDocument.paths["/domain"])).toContain(
-      "subdomainPublic",
+      "redirectSubdomain",
     );
 
     expect(openApiDocument.paths["/settings/esp/test"]?.post).toMatchObject({
