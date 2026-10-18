@@ -37,14 +37,20 @@ export async function proxy(request: NextRequest) {
   // Behind the TLS edge the app itself only sees plain HTTP; the edge's
   // forwarded scheme is what the visitor used. The port comes from the raw
   // Host header so local `*.localhost:3002` redirects stay on the dev port.
+  // Only a bare scheme is trusted: anything else could steer the redirect
+  // to another origin.
   const forwardedProto = request.headers
     .get("x-forwarded-proto")
     ?.split(",")[0]
-    ?.trim();
+    ?.trim()
+    .toLowerCase();
   const decision = decideHost(resolved, {
     pathname: request.nextUrl.pathname,
     search: request.nextUrl.search,
-    protocol: forwardedProto ? `${forwardedProto}:` : request.nextUrl.protocol,
+    protocol:
+      forwardedProto === "http" || forwardedProto === "https"
+        ? `${forwardedProto}:`
+        : request.nextUrl.protocol,
     port:
       requestHost
         .split(",")[0]

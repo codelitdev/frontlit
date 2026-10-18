@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { promises as dns } from "node:dns";
-import { eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "../db/client";
+import { supportsRowLocks, withDbTransaction } from "../db/transaction";
 import { customDomains, teams, type CustomDomainStatus } from "../db/schema";
 
 /** Labels that must never be claimed as a team slug. */
@@ -297,40 +298,50 @@ export async function attachCustomDomain(
   if (hostnames.some((host) => host === platform || isPlatformHost(host)))
     return { ok: false, reason: "reserved" };
 
-  const team = await db.query.teams.findFirst({
-    where: eq(teams.id, teamId),
-  });
-  if (!team) return { ok: false, reason: "already_attached" };
-  if (!team.subdomain) return { ok: false, reason: "subdomain_required" };
-  if ((await listCustomDomains(teamId)).length > 0)
-    return { ok: false, reason: "already_attached" };
-
-  const taken = await db.query.customDomains.findFirst({
-    where: inArray(customDomains.hostname, hostnames),
-  });
-  if (taken) return { ok: false, reason: "taken" };
-
   try {
-    await db.insert(customDomains).values(
-      hostnames.map((host) => ({
-        teamId,
-        hostname: host,
-        primary: host === hostname,
-      })),
-    );
+    // The team row lock serializes concurrent attaches, keeping one pair
+    // (and one shared token) per team.
+    return await withDbTransaction(async (tx): Promise<AttachCustomDomainResult> => {
+      const query = tx.select().from(teams).where(eq(teams.id, teamId));
+      const [team] = supportsRowLocks(tx) ? await query.for("update") : await query;
+      if (!team) return { ok: false, reason: "already_attached" };
+      if (!team.subdomain) return { ok: false, reason: "subdomain_required" };
+
+      const existing = await tx
+        .select({ hostname: customDomains.hostname, teamId: customDomains.teamId })
+        .from(customDomains)
+        .where(
+          or(
+            eq(customDomains.teamId, teamId),
+            inArray(customDomains.hostname, hostnames),
+          ),
+        );
+      if (existing.some((row) => row.teamId === teamId))
+        return { ok: false, reason: "already_attached" };
+      if (existing.length > 0) return { ok: false, reason: "taken" };
+
+      await tx.insert(customDomains).values(
+        hostnames.map((host) => ({
+          teamId,
+          hostname: host,
+          primary: host === hostname,
+        })),
+      );
+      await tx
+        .update(teams)
+        .set({
+          customDomainVerificationToken: randomBytes(16).toString("hex"),
+          customDomainTxtSatisfied: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(teams.id, teamId));
+      return { ok: true };
+    });
   } catch (error) {
+    // Another team claimed the host between the check and the insert.
     if (isUniqueViolation(error)) return { ok: false, reason: "taken" };
     throw error;
   }
-  await db
-    .update(teams)
-    .set({
-      customDomainVerificationToken: randomBytes(16).toString("hex"),
-      customDomainTxtSatisfied: null,
-      updatedAt: new Date(),
-    })
-    .where(eq(teams.id, teamId));
-  return { ok: true };
 }
 
 export async function removeCustomDomain(teamId: string): Promise<boolean> {

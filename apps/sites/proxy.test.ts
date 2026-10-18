@@ -80,6 +80,29 @@ describe("proxy middleware", () => {
     expect(response.headers.get("location")).toBe("https://sendlit.app/pricing?x=1");
     expect(response.headers.get("cache-control")).toBe("public, max-age=3600");
   });
+  it("ignores a forwarded protocol that is not a bare scheme", async () => {
+    (
+      api.resolveHost as unknown as {
+        mockResolvedValueOnce: (val: unknown) => void;
+      }
+    ).mockResolvedValueOnce({
+      teamId: "team_abc",
+      canonicalHost: "sendlit.app",
+      redirect: true,
+      hideFromSearch: false,
+    });
+    // A host no other test has cached, so this mock is the one consumed.
+    const request = new NextRequest("http://shop.sendlit.app/pricing", {
+      headers: {
+        host: "shop.sendlit.app",
+        "x-forwarded-proto": "https://attacker.example/",
+      },
+    });
+    const response = await proxy(request);
+    expect(response.status).toBe(301);
+    expect(response.headers.get("location")).toBe("http://sendlit.app/pricing");
+  });
+
   describe("search visibility", () => {
     async function visit(host: string, resolved: Record<string, unknown>) {
       (
