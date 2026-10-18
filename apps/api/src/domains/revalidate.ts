@@ -6,7 +6,7 @@ export async function teamSiteHosts(internalTeamId: string): Promise<string[]> {
   const settings = await getDomainSettings(internalTeamId);
   const hosts: string[] = [];
   if (settings?.subdomain) hosts.push(settings.subdomain.hostname);
-  if (settings?.customDomain) hosts.push(settings.customDomain.hostname);
+  for (const host of settings?.customDomains ?? []) hosts.push(host.hostname);
   return hosts;
 }
 

@@ -189,13 +189,7 @@ export function DocumentationTools({
     getDomainSettings()
       .then((settings) => {
         if (!active) return;
-        setLiveHost(
-          settings.customDomain?.status === "verified"
-            ? settings.customDomain.hostname
-            : settings.subdomainPublic
-              ? (settings.subdomain?.hostname ?? null)
-              : null,
-        );
+        setLiveHost(settings.canonicalHost);
       })
       .catch(() => {
         if (active) setLiveHost(undefined);

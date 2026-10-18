@@ -41,15 +41,15 @@ export async function generateMetadata(
     previous.title?.absolute || "Website",
   );
 
+  const url = `https://${await getCanonicalHost()}/${page.slug}`;
   return {
     // The layout's template appends the site title; the homepage is the
     // site itself, so its title stands alone.
     title: isHomepage ? { absolute: seo.title } : seo.title,
     description: seo.description ?? undefined,
-    alternates: {
-      canonical: `https://${await getCanonicalHost()}/${page.slug}`,
-    },
+    alternates: { canonical: url },
     openGraph: {
+      url,
       title: seo.title,
       description: seo.description ?? undefined,
       images: seo.imageUrl ? [{ url: seo.imageUrl }] : undefined,

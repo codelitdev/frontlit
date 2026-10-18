@@ -34,15 +34,35 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // Behind the TLS edge the app itself only sees plain HTTP; the edge's
+  // forwarded scheme is what the visitor used. The port comes from the raw
+  // Host header so local `*.localhost:3002` redirects stay on the dev port.
+  const forwardedProto = request.headers
+    .get("x-forwarded-proto")
+    ?.split(",")[0]
+    ?.trim();
   const decision = decideHost(resolved, {
     pathname: request.nextUrl.pathname,
     search: request.nextUrl.search,
-    protocol: request.nextUrl.protocol,
+    protocol: forwardedProto ? `${forwardedProto}:` : request.nextUrl.protocol,
+    port:
+      requestHost
+        .split(",")[0]
+        ?.trim()
+        .match(/:(\d+)$/)?.[1] ?? "",
   });
 
   // Unknown hosts do not map to any tenant site; refuse rather than falling through.
   if (decision.action === "unknown") {
     return uncached(new NextResponse(null, { status: 404 }));
+  }
+
+  if (decision.action === "redirect") {
+    // Browsers keep an uncached 301 indefinitely; cap it so a redirect from
+    // a stale host lookup or a later primary-host change clears within an hour.
+    const response = NextResponse.redirect(decision.location, 301);
+    response.headers.set("Cache-Control", "public, max-age=3600");
+    return response;
   }
 
   const url = request.nextUrl.clone();

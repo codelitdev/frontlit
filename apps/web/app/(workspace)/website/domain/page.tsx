@@ -6,7 +6,8 @@ import {
   attachCustomDomain,
   getDomainSettings,
   removeCustomDomain,
-  setSubdomainPublic,
+  setPrimaryCustomDomain,
+  setRedirectSubdomain,
   setTeamSubdomain,
   verifyCustomDomain,
   type DomainSettings,
@@ -44,6 +45,40 @@ function platformSuffix(settings: DomainSettings): string {
 function recordState(value: boolean | null): string {
   if (value === null) return "not checked";
   return value ? "satisfied" : "unsatisfied";
+}
+
+function RecordStateBadge({ value }: { value: boolean | null }) {
+  return <Badge variant={value ? "success" : "warning"}>{recordState(value)}</Badge>;
+}
+
+function DnsRecordRow({
+  type,
+  name,
+  value,
+  satisfied,
+}: {
+  type: string;
+  name: string;
+  value: string;
+  satisfied: boolean | null;
+}) {
+  return (
+    <tr className="border-b last:border-0">
+      <td className="px-3 py-2 align-middle">{type}</td>
+      <td className="max-w-[14rem] break-all px-3 py-2 align-middle font-mono">
+        {name}
+      </td>
+      <td className="max-w-[16rem] break-all px-3 py-2 align-middle font-mono">
+        {value}
+      </td>
+      <td className="px-3 py-2 align-middle">
+        <RecordStateBadge value={satisfied} />
+      </td>
+      <td className="px-2 py-2 align-middle">
+        <CopyValueButton value={value} />
+      </td>
+    </tr>
+  );
 }
 
 function CopyValueButton({ value }: { value: string }) {
@@ -114,12 +149,19 @@ export default function DomainPage() {
     );
   }
 
+  const verifiedHosts = settings.customDomains.filter(
+    (host) => host.status === "verified",
+  );
+  const pendingHosts = settings.customDomains.filter(
+    (host) => host.status !== "verified",
+  );
+
   return (
     <ScrollablePage>
       <div className="max-w-3xl space-y-8">
         <PageHeader
           title="Domain"
-          description="Claim a FrontLit subdomain to publish this site, then optionally attach a verified custom domain. The custom host becomes canonical; the subdomain can stay as a fallback or be turned off."
+          description="Claim a FrontLit subdomain to publish this site, then optionally attach a custom domain. Attaching example.com or www.example.com adds both; once verified, the primary one becomes canonical and your other addresses redirect to it."
         />
 
         {!settings.subdomain && (
@@ -170,16 +212,48 @@ export default function DomainPage() {
                 Choose your FrontLit subdomain first. You can attach a custom domain
                 afterwards.
               </p>
-            ) : settings.customDomain ? (
-              <div className="space-y-3">
-                <p className="flex items-center gap-2 text-sm">
-                  {settings.customDomain.hostname}
-                  <Badge variant={STATUS_VARIANT[settings.customDomain.status]}>
-                    {settings.customDomain.status}
-                  </Badge>
-                </p>
+            ) : settings.customDomains.length > 0 ? (
+              <div className="space-y-4">
+                <ul className="space-y-2">
+                  {settings.customDomains.map((host) => (
+                    <li
+                      key={host.hostname}
+                      className="flex items-center justify-between gap-3"
+                    >
+                      <span className="flex items-center gap-2 text-sm">
+                        {host.hostname}
+                        <Badge variant={STATUS_VARIANT[host.status]}>
+                          {host.status}
+                        </Badge>
+                        {host.primary && <Badge variant="neutral">primary</Badge>}
+                      </span>
+                      {!host.primary && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() =>
+                            run(() => setPrimaryCustomDomain(host.hostname))
+                          }
+                        >
+                          Make primary
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
 
-                {settings.verificationRecords && (
+                {pendingHosts.length > 0 && verifiedHosts.length > 0 && (
+                  <Banner variant="warning">
+                    {pendingHosts.map((host) => host.hostname).join(", ")} is not
+                    verified yet. {settings.canonicalHost} keeps serving your site. Add
+                    the missing DNS record below, then check DNS so visitors on both
+                    addresses reach it.
+                  </Banner>
+                )}
+
+                {settings.verification && (
                   <div className="space-y-2">
                     <p className="text-xs font-medium">
                       Add these DNS records, then verify:
@@ -198,118 +272,54 @@ export default function DomainPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {settings.verificationRecords.kind === "a" ? (
-                            settings.verificationRecords.aRecords.map((ip) => (
-                              <tr key={ip} className="border-b last:border-0">
-                                <td className="px-3 py-2 align-middle">A</td>
-                                <td className="max-w-[14rem] break-all px-3 py-2 align-middle font-mono">
-                                  {settings.customDomain.hostname}
-                                </td>
-                                <td className="max-w-[16rem] break-all px-3 py-2 align-middle font-mono">
-                                  {ip}
-                                </td>
-                                <td className="px-3 py-2 align-middle">
-                                  <Badge
-                                    variant={
-                                      settings.verificationRecords.routingSatisfied
-                                        ? "success"
-                                        : "warning"
-                                    }
-                                  >
-                                    {recordState(
-                                      settings.verificationRecords.routingSatisfied,
-                                    )}
-                                  </Badge>
-                                </td>
-                                <td className="px-2 py-2 align-middle">
-                                  <CopyValueButton value={ip} />
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr className="border-b last:border-0">
-                              <td className="px-3 py-2 align-middle">CNAME</td>
-                              <td className="max-w-[14rem] break-all px-3 py-2 align-middle font-mono">
-                                {settings.customDomain.hostname}
-                              </td>
-                              <td className="max-w-[16rem] break-all px-3 py-2 align-middle font-mono">
-                                {settings.verificationRecords.cnameTarget}
-                              </td>
-                              <td className="px-3 py-2 align-middle">
-                                <Badge
-                                  variant={
-                                    settings.verificationRecords.routingSatisfied
-                                      ? "success"
-                                      : "warning"
-                                  }
-                                >
-                                  {recordState(
-                                    settings.verificationRecords.routingSatisfied,
-                                  )}
-                                </Badge>
-                              </td>
-                              <td className="px-2 py-2 align-middle">
-                                <CopyValueButton
-                                  value={settings.verificationRecords.cnameTarget}
-                                />
-                              </td>
-                            </tr>
-                          )}
-                          <tr>
-                            <td className="px-3 py-2 align-middle">TXT</td>
-                            <td className="max-w-[14rem] break-all px-3 py-2 align-middle font-mono">
-                              {settings.verificationRecords.txtName}
-                            </td>
-                            <td className="max-w-[16rem] break-all px-3 py-2 align-middle font-mono">
-                              {settings.verificationRecords.txtValue}
-                            </td>
-                            <td className="px-3 py-2 align-middle">
-                              <Badge
-                                variant={
-                                  settings.verificationRecords.txtSatisfied
-                                    ? "success"
-                                    : "warning"
-                                }
-                              >
-                                {recordState(settings.verificationRecords.txtSatisfied)}
-                              </Badge>
-                            </td>
-                            <td className="px-2 py-2 align-middle">
-                              <CopyValueButton
-                                value={settings.verificationRecords.txtValue}
+                          {settings.customDomains.flatMap((host) =>
+                            host.record.values.map((value) => (
+                              <DnsRecordRow
+                                key={`${host.hostname}-${value}`}
+                                type={host.record.type}
+                                name={host.hostname}
+                                value={value}
+                                satisfied={host.routingSatisfied}
                               />
-                            </td>
-                          </tr>
+                            )),
+                          )}
+                          <DnsRecordRow
+                            type="TXT"
+                            name={settings.verification.txtName}
+                            value={settings.verification.txtValue}
+                            satisfied={settings.verification.txtSatisfied}
+                          />
                         </tbody>
                       </table>
                     </div>
                   </div>
                 )}
 
-                {settings.customDomain.status === "verified" && (
+                {verifiedHosts.length > 0 && (
                   <div className="space-y-3">
                     <p className="text-xs text-muted-foreground">
-                      This custom domain is canonical. The FrontLit subdomain is an
-                      optional fallback.
+                      {settings.canonicalHost} is canonical. Visitors on your other
+                      addresses are permanently redirected to it.
                     </p>
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <Label htmlFor="subdomain-public">
-                          Also serve this site on{" "}
+                        <Label htmlFor="redirect-subdomain">
+                          Redirect{" "}
                           {settings.subdomain?.hostname ??
-                            `{slug}.${platformSuffix(settings)}`}
+                            `{slug}.${platformSuffix(settings)}`}{" "}
+                          to {settings.canonicalHost}
                         </Label>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Off makes the subdomain unavailable. Visitors only reach the
-                          custom domain.
+                          Off keeps the FrontLit subdomain serving your site. Search
+                          engines are still pointed at {settings.canonicalHost}.
                         </p>
                       </div>
                       <Switch
-                        id="subdomain-public"
-                        checked={settings.subdomainPublic}
+                        id="redirect-subdomain"
+                        checked={settings.redirectSubdomain}
                         disabled={busy}
                         onCheckedChange={(checked) =>
-                          run(() => setSubdomainPublic(checked))
+                          run(() => setRedirectSubdomain(checked))
                         }
                       />
                     </div>
@@ -327,7 +337,7 @@ export default function DomainPage() {
                   </Button>
                   <DeleteConfirm
                     title="Remove custom domain?"
-                    description={`Remove ${settings.customDomain.hostname} from this team? Visitors will no longer be able to reach your site at this domain.`}
+                    description={`Remove ${settings.customDomains.map((host) => host.hostname).join(" and ")} from this team? Visitors will no longer be able to reach your site at ${settings.customDomains.length > 1 ? "these addresses" : "this domain"}.`}
                     onConfirm={() => run(removeCustomDomain)}
                     disabled={busy}
                     trigger={
@@ -357,7 +367,7 @@ export default function DomainPage() {
                 <Input
                   value={newDomain}
                   onChange={(e) => setNewDomain(e.target.value)}
-                  placeholder="www.example.com"
+                  placeholder="example.com"
                   className="flex-1"
                 />
                 <Button type="submit" disabled={busy}>

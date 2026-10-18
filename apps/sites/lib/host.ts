@@ -2,23 +2,32 @@ import type { ResolvedHost } from "./api";
 
 export type HostDecision =
   | { action: "unknown" }
+  | { action: "redirect"; location: string }
   | { action: "rewrite"; teamId: string };
 
 /**
  * Pure decision logic for the tenant-resolution middleware (architecture.md
  * §12.2): given what `resolve-host` returned for the request's `Host`
  * header, decide whether to pass through untouched (unknown host — let
- * Next's normal 404 handle it), or rewrite to the tenant's
- * `/sites/[teamId]/...` segment. A public FrontLit subdomain and a
- * verified custom domain serve the website; `canonicalHost` is used for
- * SEO, not redirects. Kept host-effect-free (no
+ * Next's normal 404 handle it), permanently redirect to the canonical host
+ * (the other half of an apex/www pair, or the FrontLit subdomain once a
+ * custom domain is verified), or rewrite to the tenant's
+ * `/sites/[teamId]/...` segment. The redirect keeps the path, query,
+ * scheme and port of the request. Kept host-effect-free (no
  * `NextResponse`, no `fetch`) so it's unit-testable without a request.
  */
 export function decideHost(
   resolved: ResolvedHost | null,
-  _requestUrl: { pathname: string; search: string; protocol: string },
+  requestUrl: { pathname: string; search: string; protocol: string; port: string },
 ): HostDecision {
   if (!resolved) return { action: "unknown" };
+  if (resolved.redirect) {
+    const port = requestUrl.port ? `:${requestUrl.port}` : "";
+    return {
+      action: "redirect",
+      location: `${requestUrl.protocol}//${resolved.canonicalHost}${port}${requestUrl.pathname}${requestUrl.search}`,
+    };
+  }
   return { action: "rewrite", teamId: resolved.teamId };
 }
 
@@ -61,8 +70,13 @@ export function createHostCache(ttlMs = 60_000) {
 }
 
 /** Process-wide cache used by `proxy.ts`. Domain mutations delete keys via
- * the revalidate webhook so hide/show does not leak for the TTL. */
-export const hostCache = createHostCache();
+ * the revalidate webhook so hide/show does not leak for the TTL. Next.js
+ * bundles the proxy and the webhook route separately, each with its own copy
+ * of this module, so the Map lives on `globalThis` to be shared by both. */
+type HostCache = ReturnType<typeof createHostCache>;
+export const hostCache: HostCache = ((
+  globalThis as { __frontlitHostCache?: HostCache }
+).__frontlitHostCache ??= createHostCache());
 
 export function invalidateCachedHosts(hosts: string[] | undefined): void {
   if (!hosts) return;

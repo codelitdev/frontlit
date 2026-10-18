@@ -291,6 +291,7 @@ const impl = s.router(contract.public, {
         body: {
           teamId: team.teamId,
           canonicalHost: resolved.canonicalHost,
+          redirect: resolved.redirect,
         },
       };
     },
@@ -980,7 +981,9 @@ createExpressEndpoints(contract.public, impl, router);
 
 /** Caddy on-demand TLS `ask` adapter. Caddy sends `GET ?domain=` and
  * issues a certificate only when this returns 200. Same host authority as
- * `GET /public/resolve-host`. */
+ * `GET /public/resolve-host`, so redirecting hosts (the other half of a
+ * verified apex/www pair, a redirected subdomain) get certificates too —
+ * an HTTPS 301 needs one. */
 router.get("/public/tls-ask", publicReadLimiter, async (req, res) => {
   const domain = String(req.query.domain ?? req.query.host ?? "");
   const resolved = await resolveHost(domain);

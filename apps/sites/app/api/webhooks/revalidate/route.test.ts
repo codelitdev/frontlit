@@ -30,14 +30,17 @@ describe("revalidate webhook host-cache invalidation", () => {
     hostCache.set("acme.localhost", {
       teamId: "team_abc",
       canonicalHost: "www.example.com",
+      redirect: false,
     });
     hostCache.set("www.example.com", {
       teamId: "team_abc",
       canonicalHost: "www.example.com",
+      redirect: false,
     });
     hostCache.set("other.localhost", {
       teamId: "team_other",
       canonicalHost: "other.localhost",
+      redirect: false,
     });
 
     const body = JSON.stringify({
@@ -67,6 +70,7 @@ describe("revalidate webhook host-cache invalidation", () => {
     expect(hostCache.get("other.localhost")).toEqual({
       teamId: "team_other",
       canonicalHost: "other.localhost",
+      redirect: false,
     });
   });
 });

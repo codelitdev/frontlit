@@ -184,8 +184,9 @@ const toolScopes = {
 
   get_domain_settings: MCP_SCOPES.domainsRead,
   set_team_subdomain: MCP_SCOPES.domainsWrite,
-  set_subdomain_public: MCP_SCOPES.domainsWrite,
+  set_subdomain_redirect: MCP_SCOPES.domainsWrite,
   attach_custom_domain: MCP_SCOPES.domainsWrite,
+  set_primary_custom_domain: MCP_SCOPES.domainsWrite,
   verify_custom_domain: MCP_SCOPES.domainsWrite,
   remove_custom_domain: MCP_SCOPES.domainsWrite,
 

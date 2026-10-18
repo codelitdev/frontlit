@@ -37,13 +37,13 @@ export async function generateMetadata(
     previous.title?.absolute || "Website",
   );
 
+  const url = `https://${await getCanonicalHost()}/docs/${slug}`;
   return {
     title: seo.title,
     description: seo.description ?? undefined,
-    alternates: {
-      canonical: `https://${await getCanonicalHost()}/docs/${slug}`,
-    },
+    alternates: { canonical: url },
     openGraph: {
+      url,
       title: seo.title,
       description: seo.description ?? undefined,
       images: seo.imageUrl ? [{ url: seo.imageUrl }] : undefined,
