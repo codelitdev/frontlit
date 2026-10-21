@@ -59,6 +59,11 @@ import {
 } from "@/lib/api";
 import { PagesPreviewDetails } from "@/components/content/pages-source-section";
 
+function currentWriteAccess(source: DocumentationGitSource) {
+  const caps = source.binding?.capabilities;
+  return [Boolean(caps?.proposals), Boolean(caps?.directCommit)];
+}
+
 export function DocumentationSource({
   workspaceKey,
   hasCmsContent,
@@ -170,7 +175,10 @@ export function DocumentationSource({
         setRepositories(result);
         if (result.installationId) setInstallationId(String(result.installationId));
         const upgrade = sessionStorage.getItem(upgradeStorageKey);
-        if (upgrade) setGrantReview(JSON.parse(upgrade));
+        if (upgrade) {
+          setGrantReview(JSON.parse(upgrade));
+          setWriteConsents(currentWriteAccess(current));
+        }
       } catch (error) {
         if (!(error instanceof ApiError) || error.code !== "GITHUB_SETUP_EXPIRED")
           throw error;
@@ -206,8 +214,10 @@ export function DocumentationSource({
         const upgrade = sessionStorage.getItem(upgradeStorageKey);
         if (upgrade) {
           setGrantReview(JSON.parse(upgrade));
-          setWriteConsents([false, false]);
-          setSource(await getDocumentationGitSource());
+          const current = await getDocumentationGitSource();
+          setSource(current);
+          // Start from what's granted now, so confirming keeps it.
+          setWriteConsents(currentWriteAccess(current));
           if (!returned)
             throw new Error("GitHub permission review was not completed. Restart it.");
           return;
