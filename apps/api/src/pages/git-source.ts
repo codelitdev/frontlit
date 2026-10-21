@@ -16,6 +16,7 @@ import {
   PagesImportError,
   siteFilePath,
 } from "./git-import";
+import type { GitTreeEntry } from "../documentation/github/importer";
 import { getActiveRelease } from "./releases";
 
 async function connectedBinding(teamId: string) {
@@ -27,38 +28,32 @@ async function connectedBinding(teamId: string) {
   return binding;
 }
 
-/** Dry run: imports the folder at the branch head without changing anything
- * (repo images aren't uploaded). */
-export async function previewGitPages(
+/** Dry run: imports the folder at `commitSha` without changing anything
+ * (repo images aren't uploaded). `missing` means the folder doesn't exist. */
+export async function previewPagesTree(
   teamId: string,
-  actor: AuthzContext,
-  input: { directory: string },
-  app = new DocsGitHubApp(getDocsGitHubAppConfig()),
+  input: {
+    commitSha: string;
+    directory: string;
+    entries: GitTreeEntry[];
+    readBlob: (sha: string) => Promise<Uint8Array>;
+  },
 ) {
-  requireGitManager(teamId, actor);
-  const binding = await connectedBinding(teamId);
   const directory = normalizePagesDirectory(input.directory);
-  const access = await readGitBindingAccess(binding, app);
-  const { owner, name } = {
-    owner: access.repository.owner.login,
-    name: access.repository.name,
-  };
-  const commitSha = await app.branchHead(access.token, owner, name, binding.branch);
-  const entries = await app.commitTree(access.token, owner, name, commitSha);
   const base = {
-    commitSha,
+    commitSha: input.commitSha,
     directory,
     siteFile: siteFilePath(directory),
-    hasSiteFile: entries.some((entry) => entry.path === siteFilePath(directory)),
+    hasSiteFile: input.entries.some((entry) => entry.path === siteFilePath(directory)),
   };
   const active = await getActiveRelease(teamId);
   try {
     const manifest = await importPagesTree({
       teamId,
-      commitSha,
+      commitSha: input.commitSha,
       directory,
-      entries,
-      readBlob: (sha) => app.blob(access.token, owner, name, sha),
+      entries: input.entries,
+      readBlob: input.readBlob,
       dryRun: true,
     });
     const slugs = new Set(
@@ -67,6 +62,7 @@ export async function previewGitPages(
     return {
       ...base,
       publishable: true,
+      missing: false,
       pages: manifest.pages.map((page) => ({
         path: page.path,
         route: `/${page.slug}`,
@@ -83,11 +79,32 @@ export async function previewGitPages(
     return {
       ...base,
       publishable: false,
+      missing: error.diagnostics.some((d) => d.code === "PAGES_DIRECTORY_MISSING"),
       pages: [],
       removedPages: [],
       diagnostics: error.diagnostics,
     };
   }
+}
+
+export async function previewGitPages(
+  teamId: string,
+  actor: AuthzContext,
+  input: { directory: string },
+  app = new DocsGitHubApp(getDocsGitHubAppConfig()),
+) {
+  requireGitManager(teamId, actor);
+  const binding = await connectedBinding(teamId);
+  const access = await readGitBindingAccess(binding, app);
+  const owner = access.repository.owner.login;
+  const name = access.repository.name;
+  const commitSha = await app.branchHead(access.token, owner, name, binding.branch);
+  return previewPagesTree(teamId, {
+    commitSha,
+    directory: input.directory,
+    entries: await app.commitTree(access.token, owner, name, commitSha),
+    readBlob: (sha) => app.blob(access.token, owner, name, sha),
+  });
 }
 
 /** Turns the pages source on and syncs right away. */

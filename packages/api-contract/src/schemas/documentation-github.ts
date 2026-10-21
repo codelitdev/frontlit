@@ -152,6 +152,28 @@ export const documentationGitRepositoriesSchema = z.object({
   nextPage: z.number().int().positive().nullable(),
   installUrl: z.string().url().nullable(),
 });
+/** Dry run of a pages folder at the branch head: what would go live. */
+export const gitPagesPreviewSchema = z.object({
+  commitSha: z.string(),
+  directory: z.string(),
+  siteFile: z.string(),
+  hasSiteFile: z.boolean(),
+  publishable: z.boolean(),
+  /** The folder doesn't exist on the branch yet. */
+  missing: z.boolean(),
+  pages: z.array(
+    z.object({
+      path: z.string(),
+      route: z.string(),
+      title: z.string().nullable(),
+      published: z.boolean(),
+    }),
+  ),
+  /** Live builder pages with no file in the folder; they go offline. */
+  removedPages: z.array(z.object({ name: z.string(), route: z.string() })),
+  diagnostics: z.array(documentationDiagnosticSchema),
+});
+
 export const documentationGitSelectionSchema = z
   .object({
     setupId: z.string().min(1).max(100),
@@ -161,6 +183,8 @@ export const documentationGitSelectionSchema = z
     directory: z.string().min(1).max(512),
     /** false connects the repository for pages only (docs stay in FrontLit). */
     docsEnabled: z.boolean().optional(),
+    /** Also sync landing pages from this folder. */
+    pagesDirectory: z.string().min(1).max(200).optional(),
   })
   .strict();
 export const documentationGitPreflightSchema = z.union([
@@ -188,6 +212,8 @@ export const documentationGitPreflightSchema = z.union([
       z.object({ folder: z.string(), name: z.string(), order: z.number().int() }),
     ),
     routes: z.array(z.object({ path: z.string(), route: z.string() })),
+    /** Dry run of the pages folder, when pages were chosen. */
+    pages: gitPagesPreviewSchema.nullable(),
     publishedDefaultsToTrue: z.literal(true),
     selectedDocsWillBePublic: z.literal(true),
     publishable: z.literal(true),
@@ -432,26 +458,6 @@ export const documentationGitCheckListSchema = z.object({
 
 export const gitPagesPreviewBodySchema = z.object({
   directory: z.string().min(1).max(200),
-});
-
-/** Dry run of a pages folder at the branch head: what would go live. */
-export const gitPagesPreviewSchema = z.object({
-  commitSha: z.string(),
-  directory: z.string(),
-  siteFile: z.string(),
-  hasSiteFile: z.boolean(),
-  publishable: z.boolean(),
-  pages: z.array(
-    z.object({
-      path: z.string(),
-      route: z.string(),
-      title: z.string().nullable(),
-      published: z.boolean(),
-    }),
-  ),
-  /** Live builder pages with no file in the folder; they go offline. */
-  removedPages: z.array(z.object({ name: z.string(), route: z.string() })),
-  diagnostics: z.array(documentationDiagnosticSchema),
 });
 
 export const gitPagesEnableBodySchema = z.object({

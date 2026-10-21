@@ -131,7 +131,9 @@ describe("reviewed source connection and generation-fenced inbound sync", () => 
       actualCheck(job, app as unknown as DocsGitHubApp),
     );
   });
-  async function preflight(extra: { docsEnabled?: boolean } = {}) {
+  async function preflight(
+    extra: { docsEnabled?: boolean; pagesDirectory?: string } = {},
+  ) {
     const setup = await startGitHubSetup(teamId, actor, {}, config);
     await completeGitHubSetup(
       new URL(setup.authorizationUrl).searchParams.get("state")!,
@@ -1319,7 +1321,16 @@ describe("reviewed source connection and generation-fenced inbound sync", () => 
     ]);
   });
   it("connects a repository for pages only and publishes its pages folder", async () => {
-    await connect(await preflight({ docsEnabled: false }));
+    await expect(preflight({ docsEnabled: false })).rejects.toMatchObject({
+      code: "GITHUB_NOTHING_TO_SYNC",
+    });
+    // The folder doesn't exist yet: connect without pages, export or add them later.
+    const report = await preflight({
+      docsEnabled: false,
+      pagesDirectory: "frontlit/pages",
+    });
+    expect(report).toMatchObject({ pages: { missing: true } });
+    await connect(report);
     expect(
       await db.query.documentationGitBindings.findFirst({
         where: eq(bindings.teamId, teamId),
@@ -1366,6 +1377,58 @@ describe("reviewed source connection and generation-fenced inbound sync", () => 
     const live = await getPublishedPageBySlug(teamId, "");
     expect(live?.layout.find((widget) => widget.name === "hero")?.settings).toEqual({
       title: "Pages only",
+    });
+  });
+  it("connects docs and pages together after previewing the pages folder", async () => {
+    const tree = (pageSha: string) => [
+      { path: "docs", mode: "040000", type: "tree", sha },
+      { path: "docs/guide.md", mode: "100644", type: "blob", sha: blob },
+      { path: "frontlit", mode: "040000", type: "tree", sha: "a".repeat(40) },
+      { path: "frontlit/pages", mode: "040000", type: "tree", sha: pageSha },
+      {
+        path: "frontlit/pages/index.json",
+        mode: "100644",
+        type: "blob",
+        sha: "e".repeat(40),
+      },
+    ];
+    const page = JSON.stringify({
+      title: "Home",
+      description: "From Git",
+      layout: [{ name: "hero", settings: { title: "Connected with docs" } }],
+    });
+    app.commitTree.mockResolvedValue(tree("b".repeat(40)));
+    app.blob.mockImplementation(
+      async (_token: string, _o: string, _n: string, id: string) =>
+        Buffer.from(id === "e".repeat(40) ? "{ broken" : markdown()),
+    );
+    expect(await preflight({ pagesDirectory: "frontlit/pages" })).toMatchObject({
+      preflightId: null,
+      publishable: false,
+      diagnostics: expect.arrayContaining([
+        expect.objectContaining({ file: "frontlit/pages/index.json" }),
+      ]),
+    });
+
+    app.blob.mockImplementation(
+      async (_token: string, _o: string, _n: string, id: string) =>
+        Buffer.from(id === "e".repeat(40) ? page : markdown()),
+    );
+    const report = await preflight({ pagesDirectory: "frontlit/pages/" });
+    expect(report).toMatchObject({
+      publishable: true,
+      pages: { missing: false, directory: "frontlit/pages", pages: [{ route: "/" }] },
+    });
+    await connect(report);
+    expect(
+      await db.query.documentationGitBindings.findFirst({
+        where: eq(bindings.teamId, teamId),
+      }),
+    ).toMatchObject({ docsEnabled: true, pagesDirectory: "frontlit/pages" });
+    await publishSync();
+    const live = await getPublishedPageBySlug(teamId, "");
+    expect(live?.layout.find((widget) => widget.name === "hero")?.settings).toEqual({
+      title: "Connected with docs",
     });
   });
   it("publishes nothing for a push that leaves the docs folder untouched", async () => {

@@ -10,7 +10,7 @@ import { useWorkspaceAccess } from "@/components/workspace/workspace-access";
 import { Card } from "@/components/ui/codelit/card";
 import { DocumentationSource } from "@/components/content/documentation-source";
 import {
-  getDocumentationSettings,
+  getDocumentationGitSource,
   listAllDocumentationPages,
   listDocumentationSections,
 } from "@/lib/api";
@@ -19,7 +19,7 @@ export default function IntegrationsSettingsPage() {
   useSetBreadcrumb([{ label: "Settings" }, { label: "Integrations" }]);
   const { currentTeam } = useWorkspaceAccess();
   const [hasCmsContent, setHasCmsContent] = useState(false);
-  const [source, setSource] = useState<"editor" | "git">("editor");
+  const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const permissions = currentTeam?.effectivePermissions ?? [];
@@ -31,13 +31,14 @@ export default function IntegrationsSettingsPage() {
   );
 
   const refresh = useCallback(async () => {
-    const [pages, sections, settings] = await Promise.all([
+    const [pages, sections, git] = await Promise.all([
       listAllDocumentationPages(),
       listDocumentationSections(),
-      getDocumentationSettings(),
+      getDocumentationGitSource(),
     ]);
     setHasCmsContent(Boolean(pages.length || sections.items.length));
-    setSource(settings.source);
+    // Docs, pages or both can be connected; docs may still live in FrontLit.
+    setConnected(Boolean(git.binding) && git.status !== "disconnected");
   }, []);
 
   useEffect(() => {
@@ -50,8 +51,6 @@ export default function IntegrationsSettingsPage() {
       )
       .finally(() => setLoading(false));
   }, [currentTeam?.teamId, canManage, refresh]);
-
-  const connected = source === "git";
 
   return (
     <ScrollablePage>
@@ -76,7 +75,7 @@ export default function IntegrationsSettingsPage() {
                 description={
                   connected
                     ? "Your docs or pages are managed in a GitHub repository. Check the connection and sync status here."
-                    : "Keep your docs in a GitHub repository and review changes through pull requests."
+                    : "Keep your docs and landing pages in a GitHub repository and review changes through pull requests."
                 }
               >
                 <DocumentationSource

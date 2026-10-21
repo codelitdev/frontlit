@@ -50,11 +50,14 @@ import {
   activateDocumentationGitMigration,
   cancelDocumentationGitMigration,
   grantDocumentationGitCapabilities,
+  previewGitPages,
+  enableGitPages,
   type DocumentationGitSource,
   type DocumentationGitRepositories,
   type DocumentationGitPreflight,
   type DocumentationGitMigration,
 } from "@/lib/api";
+import { PagesPreviewDetails } from "@/components/content/pages-source-section";
 
 export function DocumentationSource({
   workspaceKey,
@@ -88,6 +91,8 @@ export function DocumentationSource({
     [directory, setDirectory] = useState("docs");
   /** Off connects the repository for pages only. */
   const [docsEnabled, setDocsEnabled] = useState(true);
+  const [pagesEnabled, setPagesEnabled] = useState(false),
+    [pagesDirectory, setPagesDirectory] = useState("frontlit/pages");
   const [preflight, setPreflight] = useState<DocumentationGitPreflight | null>(null);
   const [migration, setMigration] = useState<DocumentationGitMigration | null>(null);
   const [acknowledgeSetupPr, setAcknowledgeSetupPr] = useState(false);
@@ -102,6 +107,9 @@ export function DocumentationSource({
     repository: string;
     branch: string;
     directory: string;
+    docs: boolean;
+    /** Folder pages now sync from, or why they don't yet. */
+    pages: { directory: string; synced: boolean } | null;
   } | null>(null);
   const storageKey = `documentation-git-plan:${workspaceKey}`;
   const setupStorageKey = `documentation-git-setup:${workspaceKey}`;
@@ -309,6 +317,7 @@ export function DocumentationSource({
       branch,
       directory,
       ...(docsEnabled ? {} : { docsEnabled: false }),
+      ...(pagesEnabled ? { pagesDirectory } : {}),
     };
   }
   async function review(createSetup = false) {
@@ -398,10 +407,32 @@ export function DocumentationSource({
         consent,
       });
     } else return;
+    let pages: { directory: string; synced: boolean } | null = null;
+    if (preflight?.publishable && preflight.pages) {
+      pages = {
+        directory: preflight.pages.directory,
+        synced: preflight.pages.publishable,
+      };
+    } else if (pagesEnabled) {
+      // The docs setup PR connected the repository; pages are checked now.
+      const check = await previewGitPages(pagesDirectory).catch(() => null);
+      if (check?.publishable)
+        await enableGitPages({
+          directory: check.directory,
+          commitSha: check.commitSha,
+        });
+      pages = {
+        directory: check?.directory ?? pagesDirectory,
+        synced: Boolean(check?.publishable),
+      };
+      result = await getDocumentationGitSource();
+    }
     setConnectedInfo({
       repository: migration?.repositoryName ?? repositoryName ?? "your repository",
       branch,
       directory,
+      docs: docsEnabled,
+      pages,
     });
     setSource(result);
     setPreflight(null);
@@ -412,7 +443,13 @@ export function DocumentationSource({
     await onChanged();
   }
   const canReview = Boolean(
-    setupId && installationId && repositoryId && branch.trim() && directory.trim(),
+    setupId &&
+      installationId &&
+      repositoryId &&
+      branch.trim() &&
+      (docsEnabled || pagesEnabled) &&
+      (!docsEnabled || directory.trim()) &&
+      (!pagesEnabled || pagesDirectory.trim()),
   );
   const repositoryName = repositories?.repositories.find(
     (repository) => String(repository.repositoryId) === repositoryId,
@@ -424,8 +461,13 @@ export function DocumentationSource({
     diagnostics.some((diagnostic) => diagnostic.blocksPublish);
   const pullRequestStatus = migration?.pullRequest?.status ?? "";
   const setupStopped = ["canceled", "expired"].includes(migration?.status ?? "");
+  // A pages-only connection keeps docs in the editor but is still connected.
   const wizardMode = Boolean(
-    connectedInfo || (source?.configured && source.source === "editor" && !grantReview),
+    connectedInfo ||
+      (source?.configured &&
+        source.source === "editor" &&
+        (!source.binding || source.status === "disconnected") &&
+        !grantReview),
   );
   type View =
     | "connect"
@@ -597,10 +639,18 @@ export function DocumentationSource({
       </div>
     </Disclosure>
   );
+  const publishNow = [
+    docsEnabled && "docs",
+    pagesEnabled && !(preflight?.publishable && preflight.pages?.missing) && "pages",
+  ]
+    .filter(Boolean)
+    .join(" and ");
   const consentRows = (
     <div className="space-y-3">
       {[
-        `Publish the selected docs now, and automatically publish valid updates merged or pushed to ${branch}/${directory}.`,
+        publishNow
+          ? `Publish the selected ${publishNow} now, and automatically publish valid updates merged or pushed to ${branch}.`
+          : `Automatically publish valid updates merged or pushed to ${branch}.`,
       ].map((label, i) => (
         <ConsentRow
           key={label}
@@ -651,7 +701,7 @@ export function DocumentationSource({
       <>
         <StepIntro
           title="Connect your GitHub account"
-          lead="FrontLit reads and proposes changes through a GitHub App. You'll choose the repository for your docs next."
+          lead="FrontLit reads and proposes changes through a GitHub App. You'll choose the repository next."
         />
         {installationReturned && (
           <Callout tone="info" title="You're back from GitHub">
@@ -674,7 +724,7 @@ export function DocumentationSource({
       <>
         <StepIntro
           title="Choose a repository"
-          lead="Pick the GitHub account and repository that will hold your docs."
+          lead="Pick the GitHub account and repository that will hold your docs or pages."
         />
         {!repositories && <p className="text-muted-foreground text-sm">Loading…</p>}
         {repositories?.installUrl && (
@@ -799,14 +849,14 @@ export function DocumentationSource({
     wizardBody = (
       <>
         <StepIntro
-          title="Choose where docs live"
+          title="Choose what to sync"
           lead={
             <>
-              FrontLit publishes from one branch and one folder in{" "}
+              FrontLit publishes from one branch in{" "}
               <b className="font-medium text-foreground">
                 {repositoryName ?? "the repository"}
               </b>
-              .
+              : docs, landing pages or both.
             </>
           }
         />
@@ -823,7 +873,7 @@ export function DocumentationSource({
               }}
             />
             <p className="text-muted-foreground text-xs">
-              Merged changes on this branch go live on your docs site.
+              Merged changes on this branch go live on your site.
             </p>
           </div>
           <ConsentRow
@@ -834,8 +884,10 @@ export function DocumentationSource({
               setPreflight(null);
             }}
           >
-            Sync docs from this repository. Leave off to sync only landing pages; you
-            choose the pages folder after connecting.
+            <b className="font-medium">Docs</b>
+            <span className="block text-muted-foreground">
+              Markdown files in a folder publish to <Mono>/docs</Mono>.
+            </span>
           </ConsentRow>
           {docsEnabled && (
             <div className="space-y-1.5">
@@ -851,6 +903,39 @@ export function DocumentationSource({
               />
               <p className="text-muted-foreground text-xs">
                 Relative to the repository root, for example <Code>docs</Code>.
+              </p>
+            </div>
+          )}
+          <ConsentRow
+            checked={pagesEnabled}
+            disabled={busy}
+            onChange={(checked) => {
+              setPagesEnabled(checked);
+              setPreflight(null);
+            }}
+          >
+            <b className="font-medium">Landing pages</b>
+            <span className="block text-muted-foreground">
+              JSON files in a folder (<Mono>pricing.json</Mono> → <Mono>/pricing</Mono>)
+              replace the pages, header and footer you edit in the builder.
+            </span>
+          </ConsentRow>
+          {pagesEnabled && (
+            <div className="space-y-1.5">
+              <Label htmlFor="git-pages-directory">Pages folder</Label>
+              <Input
+                id="git-pages-directory"
+                value={pagesDirectory}
+                disabled={busy}
+                onChange={(e) => {
+                  setPagesDirectory(e.target.value);
+                  setPreflight(null);
+                }}
+              />
+              <p className="text-muted-foreground text-xs">
+                <Code>site.json</Code> beside the folder holds the header, footer and
+                theme. If the folder doesn&apos;t exist yet, you can export your current
+                pages to it after connecting.
               </p>
             </div>
           )}
@@ -1236,11 +1321,11 @@ export function DocumentationSource({
     wizardBody = (
       <>
         <StepIntro
-          title="Review your repository's docs"
+          title="Review what goes live"
           lead={
             preflight.repositoryPrivate
-              ? "Published docs found in this folder become public on your docs site."
-              : "This repository is public, and published docs in this folder become public on your docs site."
+              ? "Published files in the chosen folders become public on your site."
+              : "This repository is public, and published files in the chosen folders become public on your site."
           }
         />
         <SummaryCard>
@@ -1253,7 +1338,7 @@ export function DocumentationSource({
           </SummaryRow>
           {docsEnabled ? (
             <>
-              <SummaryRow label="Folder" action={null}>
+              <SummaryRow label="Docs folder" action={null}>
                 <Mono>{preflight.directory}/</Mono>
               </SummaryRow>
               <SummaryRow label="Docs" action={null}>
@@ -1262,7 +1347,23 @@ export function DocumentationSource({
             </>
           ) : (
             <SummaryRow label="Docs" action={null}>
-              Stay in FrontLit. Turn on pages after connecting.
+              Stay in FrontLit
+            </SummaryRow>
+          )}
+          {preflight.pages && (
+            <SummaryRow label="Pages" action={null}>
+              {preflight.pages.missing ? (
+                <>
+                  <Mono>{preflight.pages.directory}/</Mono> doesn&apos;t exist yet
+                </>
+              ) : (
+                <>
+                  <Mono>{preflight.pages.directory}/</Mono> ·{" "}
+                  {preflight.pages.pages.length === 1
+                    ? "1 page"
+                    : `${preflight.pages.pages.length} pages`}
+                </>
+              )}
             </SummaryRow>
           )}
           <SummaryRow label="Commit" action={null}>
@@ -1276,15 +1377,30 @@ export function DocumentationSource({
             public publication.
           </p>
         )}
-        <Disclosure label="Pages that will go live">
-          <ul className="space-y-1">
-            {preflight.routes.map((r) => (
-              <li key={r.path} className="font-mono">
-                {r.path} → /docs/{r.route}
-              </li>
-            ))}
-          </ul>
-        </Disclosure>
+        {docsEnabled && (
+          <Disclosure label="Docs that will go live">
+            <ul className="space-y-1">
+              {preflight.routes.map((r) => (
+                <li key={r.path} className="font-mono">
+                  {r.path} → /docs/{r.route}
+                </li>
+              ))}
+            </ul>
+          </Disclosure>
+        )}
+        {preflight.pages?.missing ? (
+          <Callout tone="info" title="No pages folder yet">
+            Connect now, then export your current pages to{" "}
+            <Mono>{preflight.pages.directory}/</Mono> from the repository dialog.
+            Merging that pull request turns pages sync on.
+          </Callout>
+        ) : (
+          preflight.pages && (
+            <div className="space-y-3 rounded-[0.625rem] border border-border px-4 py-3.5 text-sm">
+              <PagesPreviewDetails preview={preflight.pages} />
+            </div>
+          )
+        )}
         {consentRows}
       </>
     );
@@ -1315,23 +1431,32 @@ export function DocumentationSource({
           <span className="grid size-16 place-items-center rounded-full bg-[var(--success-soft)] text-[var(--success)]">
             <Check className="size-[30px]" strokeWidth={2.4} />
           </span>
-          <h3 className="font-semibold text-lg">Documentation connected</h3>
+          <h3 className="font-semibold text-lg">Repository connected</h3>
           <p className="max-w-[440px] text-muted-foreground text-sm">
-            FrontLit now publishes your docs from{" "}
-            <Mono>{connectedInfo.directory}/</Mono> on{" "}
-            <Mono>{connectedInfo.branch}</Mono> in {connectedInfo.repository}. Merge
-            changes there and they show up on your site.
+            Merge changes on <Mono>{connectedInfo.branch}</Mono> in{" "}
+            {connectedInfo.repository} and they show up on your site.
           </p>
         </div>
         <SummaryCard>
           <SummaryRow label="Repository">
             <b className="font-medium">{connectedInfo.repository}</b>
           </SummaryRow>
-          <SummaryRow label="Source">
-            <Mono>
-              {connectedInfo.branch} · {connectedInfo.directory}/
-            </Mono>
-          </SummaryRow>
+          {connectedInfo.docs && (
+            <SummaryRow label="Docs">
+              <Mono>{connectedInfo.directory}/</Mono>
+            </SummaryRow>
+          )}
+          {connectedInfo.pages && (
+            <SummaryRow label="Pages">
+              <Mono>{connectedInfo.pages.directory}/</Mono>
+              {connectedInfo.pages.synced ? null : (
+                <span className="text-muted-foreground">
+                  {" "}
+                  · not synced yet; set it up from the repository dialog
+                </span>
+              )}
+            </SummaryRow>
+          )}
         </SummaryCard>
       </>
     );
@@ -1432,9 +1557,10 @@ export function DocumentationSource({
               finished={view === "done"}
               header={
                 <DialogHeader>
-                  <DialogTitle>Connect documentation source</DialogTitle>
+                  <DialogTitle>Connect GitHub repository</DialogTitle>
                   <DialogDescription>
-                    Sync docs from GitHub. Your live docs stay up the whole time.
+                    Sync docs and landing pages from GitHub. Your live site stays up the
+                    whole time.
                   </DialogDescription>
                 </DialogHeader>
               }

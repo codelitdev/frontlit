@@ -6,6 +6,8 @@ import {
 import { GitHubDocsError } from "./app";
 const messages: Record<string, string> = {
   PAGES_ALREADY_SYNCED: "Pages already sync from this repository.",
+  GITHUB_NOTHING_TO_SYNC:
+    "Choose docs, landing pages or both to sync from the repository.",
   PAGES_DIRECTORY_EXISTS:
     "That folder already exists on the branch. Choose a new folder, or preview and sync the existing one.",
   NOTHING_TO_PROPOSE:

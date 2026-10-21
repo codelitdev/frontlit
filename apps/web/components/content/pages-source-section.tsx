@@ -45,6 +45,49 @@ function DiagnosticList({ items }: { items: Diagnostic[] }) {
   );
 }
 
+/** What a pages folder would publish: routes, problems, pages going offline. */
+export function PagesPreviewDetails({ preview }: { preview: GitPagesPreview }) {
+  return (
+    <>
+      <p>
+        At <Mono>{preview.commitSha.slice(0, 7)}</Mono>:{" "}
+        {preview.pages.length === 1 ? "1 page" : `${preview.pages.length} pages`}
+        {preview.hasSiteFile ? (
+          <>
+            {" "}
+            and <Mono>{preview.siteFile}</Mono>
+          </>
+        ) : (
+          <>
+            , no <Mono>{preview.siteFile}</Mono> (the current header and footer stay)
+          </>
+        )}
+        .
+      </p>
+      {preview.pages.length > 0 && (
+        <ul className="space-y-1" aria-label="Pages in the folder">
+          {preview.pages.map((page) => (
+            <li key={page.path} className="flex items-center gap-2">
+              <Mono>{page.route}</Mono>
+              <span className="text-muted-foreground">{page.title ?? page.path}</span>
+              {!page.published && <Badge variant="neutral">Draft</Badge>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {preview.diagnostics.length > 0 && <DiagnosticList items={preview.diagnostics} />}
+      {preview.removedPages.length > 0 && (
+        <Callout tone="warning" title="These live pages have no file and go offline">
+          {preview.removedPages
+            .map((page) => `${page.name} (${page.route})`)
+            .join(", ")}
+          . Export them to the repository first to keep them.
+        </Callout>
+      )}
+    </>
+  );
+}
+
 /**
  * Pages from Git, inside the connected-repository dialog. Turning it on
  * previews the folder (routes, problems, pages that go offline) and asks
@@ -204,49 +247,7 @@ export function PagesSourceSection({
       )}
       {preview && (
         <div className="space-y-3">
-          <p>
-            At <Mono>{preview.commitSha.slice(0, 7)}</Mono>:{" "}
-            {preview.pages.length === 1 ? "1 page" : `${preview.pages.length} pages`}
-            {preview.hasSiteFile ? (
-              <>
-                {" "}
-                and <Mono>{preview.siteFile}</Mono>
-              </>
-            ) : (
-              <>
-                , no <Mono>{preview.siteFile}</Mono> (the current header and footer
-                stay)
-              </>
-            )}
-            .
-          </p>
-          {preview.pages.length > 0 && (
-            <ul className="space-y-1" aria-label="Pages in the folder">
-              {preview.pages.map((page) => (
-                <li key={page.path} className="flex items-center gap-2">
-                  <Mono>{page.route}</Mono>
-                  <span className="text-muted-foreground">
-                    {page.title ?? page.path}
-                  </span>
-                  {!page.published && <Badge variant="neutral">Draft</Badge>}
-                </li>
-              ))}
-            </ul>
-          )}
-          {preview.diagnostics.length > 0 && (
-            <DiagnosticList items={preview.diagnostics} />
-          )}
-          {preview.removedPages.length > 0 && (
-            <Callout
-              tone="warning"
-              title="These live pages have no file and go offline"
-            >
-              {preview.removedPages
-                .map((page) => `${page.name} (${page.route})`)
-                .join(", ")}
-              . Export them to the repository first to keep them.
-            </Callout>
-          )}
+          <PagesPreviewDetails preview={preview} />
           {preview.publishable ? (
             <div className="flex justify-end gap-2">
               <Button

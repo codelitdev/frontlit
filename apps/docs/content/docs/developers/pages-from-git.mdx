@@ -9,14 +9,19 @@ folder on every push to your publishing branch.
 
 ## Turn it on
 
-1. Connect GitHub in **Settings → Integrations**. Untick **Sync docs from this
-   repository** if your docs live elsewhere.
-2. Open the connected repository and, under **Pages**, either:
-   - **Export pages** to open a pull request that adds your current pages, header,
-     footer and theme to a folder (default `frontlit/pages`). Merging it turns
-     pages sync on. Exported files re-import byte for byte.
-   - **Preview** a folder that already has page files, review the routes and
-     problems, then **Sync pages from Git**.
+Connect GitHub in **Settings → Integrations** and, on the folder step, tick
+**Landing pages** (untick **Docs** if your docs live elsewhere). Then:
+
+- If the pages folder (default `frontlit/pages`) already has page files,
+  **Check repository** previews the routes, problems and any builder pages that
+  would go offline. **Finish setup** connects and publishes them in one step.
+- If the folder doesn't exist yet, connect anyway, then open the repository
+  dialog and **Export pages**. That opens a pull request adding your current
+  pages, header, footer and theme to the folder. Merging it turns pages sync
+  on. Exported files re-import byte for byte.
+
+An already-connected repository can turn pages on later from the **Pages**
+section of the same dialog.
 
 From then on every page and the site chrome are owned by the repository. In the
 page builder, drafts stay editable and **Publish** becomes **Create pull request**.
