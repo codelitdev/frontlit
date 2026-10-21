@@ -259,14 +259,19 @@ export function ManageSource({
             lead={
               <>
                 Choose what workspace publishers can do in <Mono>{repo}</Mono> (
-                <Mono>{binding.branch}</Mono>, <Mono>{binding.directory}/</Mono>). App
-                permission on GitHub alone doesn&apos;t grant this.
+                <Mono>{binding.branch}</Mono>
+                {binding.docsEnabled && (
+                  <>
+                    , <Mono>{binding.directory}/</Mono>
+                  </>
+                )}
+                ). App permission on GitHub alone doesn&apos;t grant this.
               </>
             }
           />
           <div className="space-y-3">
             {[
-              "Allow workspace publishers to open documentation pull requests",
+              "Allow workspace publishers to open pull requests",
               "Allow workspace publishers to commit directly to the publishing branch",
             ].map((label, i) => (
               <ConsentRow
@@ -285,8 +290,8 @@ export function ManageSource({
           </div>
           <p className="text-muted-foreground text-sm">
             Pull requests still need review in GitHub; direct commits still pass
-            documentation validation before going live. Leave both unchecked to remove
-            write access. Existing pull requests are kept.
+            validation before going live. Leave both unchecked to remove write access.
+            Existing pull requests are kept.
           </p>
         </>
       ),

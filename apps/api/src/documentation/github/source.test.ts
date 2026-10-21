@@ -578,6 +578,22 @@ describe("reviewed source connection and generation-fenced inbound sync", () => 
     suspended_at: null,
     permissions: { contents: "write", pull_requests: "write", checks: "write" },
   });
+  it("grants write access to a pages-only connection", async () => {
+    await connect(
+      await preflight({ docsEnabled: false, pagesDirectory: "frontlit/pages" }),
+    );
+    app.installation.mockResolvedValue(approveWrites());
+    const result = await changeGitHubCapabilities(
+      teamId,
+      actor,
+      await upgradeInput(),
+      config,
+      app as unknown as DocsGitHubApp,
+    );
+    expect(result).toMatchObject({
+      capabilities: { read: true, proposals: true, directCommit: false },
+    });
+  });
   it("keeps upgraded installation rights read-only until original-account interactive workspace consent, and records PR-only delegation", async () => {
     await connect();
     app.installation.mockResolvedValue(approveWrites());

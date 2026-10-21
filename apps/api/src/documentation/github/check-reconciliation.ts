@@ -19,6 +19,8 @@ export async function reconcileGitPrChecks(
 ) {
   const due = and(
     eq(bindings.status, "connected"),
+    // Docs PR checks only; a pages-only connection has none.
+    eq(bindings.docsEnabled, true),
     lte(bindings.nextPrReconcileAt, sql`now()`),
     teamId ? eq(bindings.teamId, teamId) : undefined,
   );

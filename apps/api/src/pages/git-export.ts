@@ -206,12 +206,18 @@ export async function completeMergedPagesSetup(
     if (merged && !current.pagesDirectory) {
       // Builder publishes after the export would be reverted by turning sync
       // on; leave it off and say so, so someone reviews the folder first.
+      // Compared as sorted `path:hash` lines: jsonb doesn't keep key order.
+      const fingerprint = (files: { path: string; hash: string }[]) =>
+        files
+          .map((file) => `${file.path}:${file.hash}`)
+          .sort()
+          .join("\n");
       const exported = await exportPagesFiles(binding.teamId, row.directory!);
       const now = exported.map((file) => ({
         path: file.path,
         hash: sha256(file.content),
       }));
-      if (JSON.stringify(now) !== JSON.stringify(row.files)) {
+      if (fingerprint(now) !== fingerprint(row.files ?? [])) {
         await db
           .update(bindings)
           .set({

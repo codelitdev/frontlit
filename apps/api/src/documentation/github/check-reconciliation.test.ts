@@ -99,6 +99,15 @@ describe("missed-event PR check reconciliation", () => {
     expect(f.app.openPullRequestCandidates).toHaveBeenCalledTimes(1);
     expect(f.app.installationToken).toHaveBeenLastCalledWith(7, 9, "review");
   });
+  it("skips pages-only connections, which have no docs PR checks", async () => {
+    const f = await fixture();
+    await db
+      .update(bindings)
+      .set({ docsEnabled: false })
+      .where(eq(bindings.teamId, f.teamId));
+    expect(await f.process()).toEqual({ sources: 0, queued: 0, failures: 0 });
+    expect(f.app.openPullRequestCandidates).not.toHaveBeenCalled();
+  });
   it("skips an unchanged delivered proof but queues fresh validation when the base changes", async () => {
     const f = await fixture();
     await db.insert(checks).values({

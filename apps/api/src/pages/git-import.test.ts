@@ -5,7 +5,12 @@ vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 
 import { eq } from "drizzle-orm";
 import { db } from "../db/client";
-import { pages as pagesTable } from "../db/schema";
+import { createHash } from "node:crypto";
+import {
+  documentationGitBindings,
+  pagePullRequests,
+  pages as pagesTable,
+} from "../db/schema";
 import type { GitTreeEntry } from "../documentation/github/importer";
 import {
   createPagesRelease,
@@ -16,7 +21,7 @@ import {
 import { activateRelease, getActiveRelease } from "./releases";
 import { getPublishedPageBySlug, listPages } from "./queries";
 import { seedStandardPages } from "./seed";
-import { exportPagesFiles } from "./git-export";
+import { completeMergedPagesSetup, exportPagesFiles } from "./git-export";
 
 function repo(files: Record<string, string>) {
   const blobs = new Map<string, Uint8Array>();
@@ -243,5 +248,78 @@ describe("importPagesTree", () => {
     const { entries } = repo({ "x/pages/a.json": "{}" });
     expect(pagesSourceKey(entries, "x/pages")).toBe("tree-x/pages:");
     expect(pagesSourceKey(entries, "missing")).toBeNull();
+  });
+});
+
+describe("completeMergedPagesSetup", () => {
+  let teamId: string;
+  beforeEach(async () => {
+    teamId = (await seedTeam(db as any)).team.id;
+    await seedStandardPages(teamId);
+  });
+
+  async function mergeSetup(changedSince = false) {
+    const files = await exportPagesFiles(teamId, "marketing/pages");
+    await db.insert(documentationGitBindings).values({
+      teamId,
+      installationId: "1",
+      repositoryId: "2",
+      ownerId: "3",
+      ownerLogin: "acme",
+      repositoryName: "site",
+      repositoryPrivate: true,
+      branch: "main",
+      directory: "docs",
+      docsEnabled: false,
+      status: "connected",
+      grantActorAccountId: "account",
+      grantGithubUserId: "4",
+      repositoryAdminVerified: true,
+      capabilities: { read: true, proposals: true, directCommit: false },
+    });
+    await db.insert(pagePullRequests).values({
+      teamId,
+      kind: "setup",
+      branch: "frontlit/pages-setup/x",
+      baseSha: "a".repeat(40),
+      commitSha: "b".repeat(40),
+      number: 9,
+      url: "https://github.com/acme/site/pull/9",
+      directory: "marketing/pages",
+      files: files.map((file, index) => ({
+        path: file.path,
+        hash: createHash("sha256")
+          .update(changedSince && index === 0 ? "older content" : file.content)
+          .digest("hex"),
+      })),
+    });
+    const app = {
+      installationToken: async () => ({ token: "t" }),
+      findPagesPullRequest: async () => ({ state: "closed", merged: true }),
+    };
+    const binding = await db.query.documentationGitBindings.findFirst({
+      where: eq(documentationGitBindings.teamId, teamId),
+    });
+    return completeMergedPagesSetup(binding as any, app as any);
+  }
+
+  it("turns pages sync on when the merged export still matches FrontLit", async () => {
+    expect(await mergeSetup()).toMatchObject({
+      pagesDirectory: "marketing/pages",
+      pagesDiagnostics: null,
+    });
+  });
+
+  it("leaves sync off when pages changed in FrontLit after the export", async () => {
+    expect(await mergeSetup(true)).toMatchObject({ pagesDirectory: null });
+    expect(
+      await db.query.documentationGitBindings.findFirst({
+        where: eq(documentationGitBindings.teamId, teamId),
+      }),
+    ).toMatchObject({
+      pagesDiagnostics: [
+        expect.objectContaining({ code: "PAGES_CHANGED_SINCE_EXPORT" }),
+      ],
+    });
   });
 });
