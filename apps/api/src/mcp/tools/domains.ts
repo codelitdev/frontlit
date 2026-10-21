@@ -5,7 +5,9 @@ import {
   attachCustomDomain,
   getDomainSettings,
   removeCustomDomain,
-  setSubdomainPublic,
+  setPrimaryCustomDomain,
+  setRedirectSubdomain,
+  setHideFromSearch,
   setTeamSubdomain,
   verifyCustomDomain,
 } from "../../domains/queries";
@@ -18,12 +20,10 @@ function toPublicSettings(
 ) {
   return {
     ...settings,
-    customDomain: settings.customDomain
-      ? {
-          ...settings.customDomain,
-          verifiedAt: settings.customDomain.verifiedAt?.toISOString() ?? null,
-        }
-      : null,
+    customDomains: settings.customDomains.map((host) => ({
+      ...host,
+      verifiedAt: host.verifiedAt?.toISOString() ?? null,
+    })),
   };
 }
 
@@ -32,7 +32,7 @@ export function registerDomainTools(server: McpToolRegistrar): void {
     "get_domain_settings",
     {
       description:
-        "Gets the current team's domain settings: default subdomain, optional custom domain, whether the subdomain is public, and DNS verification records while a custom domain is attached.",
+        "Gets the current team's domain settings: default subdomain, the custom domain's hosts (an apex/www pair) with their per-host DNS records and status, the shared ownership TXT record, the canonical host, and whether the subdomain redirects to it.",
       inputSchema: {},
       outputSchema: domainSettingsSchema,
       annotations: {
@@ -92,11 +92,11 @@ export function registerDomainTools(server: McpToolRegistrar): void {
   );
 
   server.registerTool(
-    "set_subdomain_public",
+    "set_subdomain_redirect",
     {
       description:
-        "Shows or hides the current team's FrontLit subdomain. Hide is not a redirect — resolve-host treats the subdomain as an unknown host. Requires a verified custom domain.",
-      inputSchema: { subdomainPublic: z.boolean() },
+        "Chooses whether the current team's FrontLit subdomain 301-redirects to the canonical custom host (default true). Only applies while a custom host is verified; false keeps the subdomain serving the site.",
+      inputSchema: { redirectSubdomain: z.boolean() },
       outputSchema: domainSettingsSchema,
       annotations: {
         readOnlyHint: false,
@@ -108,11 +108,33 @@ export function registerDomainTools(server: McpToolRegistrar): void {
       const teamId = getTeamId(extra);
       if (!teamId) return AUTH_ERROR;
       try {
-        const result = await setSubdomainPublic(teamId, args.subdomainPublic);
-        if (!result.ok)
-          return errorResult(
-            "A verified custom domain is required to hide the FrontLit subdomain",
-          );
+        await setRedirectSubdomain(teamId, args.redirectSubdomain);
+        await revalidateAfterDomainChange(teamId);
+        return jsonResult(toPublicSettings((await getDomainSettings(teamId))!));
+      } catch {
+        return INTERNAL_ERROR;
+      }
+    },
+  );
+
+  server.registerTool(
+    "set_search_visibility",
+    {
+      description:
+        "Hides the current team's website from search engines (hideFromSearch true: every page noindex, robots.txt disallows all, empty sitemap) or exposes it. New sites start hidden; verifying the first custom domain turns it off.",
+      inputSchema: { hideFromSearch: z.boolean() },
+      outputSchema: domainSettingsSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async (args: any, extra: any) => {
+      const teamId = getTeamId(extra);
+      if (!teamId) return AUTH_ERROR;
+      try {
+        await setHideFromSearch(teamId, args.hideFromSearch);
         await revalidateAfterDomainChange(teamId);
         return jsonResult(toPublicSettings((await getDomainSettings(teamId))!));
       } catch {
@@ -125,7 +147,7 @@ export function registerDomainTools(server: McpToolRegistrar): void {
     "attach_custom_domain",
     {
       description:
-        "Attaches a custom domain to the current team and starts DNS verification. One custom domain per team — remove the existing one first.",
+        "Attaches a custom domain to the current team and starts DNS verification. An apex (`example.com`) or `www.` host also attaches the other half of the pair; the typed host starts as primary. One custom domain per team — remove the existing one first.",
       inputSchema: { hostname: z.string().min(1) },
       outputSchema: domainSettingsSchema,
       annotations: {
@@ -149,10 +171,38 @@ export function registerDomainTools(server: McpToolRegistrar): void {
   );
 
   server.registerTool(
+    "set_primary_custom_domain",
+    {
+      description:
+        "Chooses which of the current team's custom hosts is canonical. Once verified, every other host 301-redirects to it.",
+      inputSchema: { hostname: z.string().min(1) },
+      outputSchema: domainSettingsSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async (args: any, extra: any) => {
+      const teamId = getTeamId(extra);
+      if (!teamId) return AUTH_ERROR;
+      try {
+        const updated = await setPrimaryCustomDomain(teamId, args.hostname);
+        if (!updated) return errorResult("That host is not attached to this team");
+        await revalidateAfterDomainChange(teamId);
+        return jsonResult(toPublicSettings((await getDomainSettings(teamId))!));
+      } catch {
+        return INTERNAL_ERROR;
+      }
+    },
+  );
+
+  server.registerTool(
     "verify_custom_domain",
     {
       description:
-        "Re-checks ownership TXT and routing DNS for the current team's attached custom domain. Status becomes verified only when both pass.",
+        "Re-checks the shared ownership TXT and each custom host's routing DNS. A host becomes verified when the TXT and its own routing record pass, so one half of a pair can be live while the other is pending.",
       inputSchema: {},
       outputSchema: domainSettingsSchema,
       annotations: {
@@ -180,7 +230,7 @@ export function registerDomainTools(server: McpToolRegistrar): void {
     "remove_custom_domain",
     {
       description:
-        "Removes the current team's custom domain and re-enables the FrontLit subdomain.",
+        "Removes the current team's custom domain (both hosts of the pair). The FrontLit subdomain becomes canonical again.",
       inputSchema: {},
       outputSchema: domainSettingsSchema,
       annotations: {
@@ -198,7 +248,7 @@ export function registerDomainTools(server: McpToolRegistrar): void {
         if (!removed) return errorResult("No custom domain attached");
         await revalidateAfterDomainChange(
           teamId,
-          previous?.customDomain ? [previous.customDomain.hostname] : [],
+          previous?.customDomains.map((host) => host.hostname) ?? [],
         );
         return jsonResult(toPublicSettings((await getDomainSettings(teamId))!));
       } catch {

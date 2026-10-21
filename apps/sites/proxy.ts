@@ -40,15 +40,41 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // Behind the TLS edge the app itself only sees plain HTTP; the edge's
+  // forwarded scheme is what the visitor used. The port comes from the raw
+  // Host header so local `*.localhost:3002` redirects stay on the dev port.
+  // Only a bare scheme is trusted: anything else could steer the redirect
+  // to another origin.
+  const forwardedProto = request.headers
+    .get("x-forwarded-proto")
+    ?.split(",")[0]
+    ?.trim()
+    .toLowerCase();
   const decision = decideHost(resolved, {
     pathname: request.nextUrl.pathname,
     search: request.nextUrl.search,
-    protocol: request.nextUrl.protocol,
+    protocol:
+      forwardedProto === "http" || forwardedProto === "https"
+        ? `${forwardedProto}:`
+        : request.nextUrl.protocol,
+    port:
+      requestHost
+        .split(",")[0]
+        ?.trim()
+        .match(/:(\d+)$/)?.[1] ?? "",
   });
 
   // Unknown hosts do not map to any tenant site; refuse rather than falling through.
   if (decision.action === "unknown") {
     return uncached(new NextResponse(null, { status: 404 }));
+  }
+
+  if (decision.action === "redirect") {
+    // Browsers keep an uncached 301 indefinitely; cap it so a redirect from
+    // a stale host lookup or a later primary-host change clears within an hour.
+    const response = NextResponse.redirect(decision.location, 301);
+    response.headers.set("Cache-Control", "public, max-age=3600");
+    return response;
   }
 
   const url = request.nextUrl.clone();
@@ -66,12 +92,22 @@ export async function proxy(request: NextRequest) {
   // a header instead of restructuring routes, since a nested layout can't
   // opt out of what its parent renders.
   const headers = new Headers(request.headers);
+  // Search visibility: a hidden (pre-launch) site is noindex everywhere; a
+  // non-canonical host that still serves (subdomain with redirect off) is
+  // noindex so it never competes with the canonical host.
+  const hidden = resolved!.hideFromSearch;
+  const noindex = hidden || host !== resolved!.canonicalHost;
   headers.set("x-frontlit-canonical-host", resolved!.canonicalHost);
   headers.set("x-frontlit-team-id", decision.teamId);
+  headers.set("x-frontlit-hidden", hidden ? "1" : "0");
+  headers.set("x-frontlit-noindex", noindex ? "1" : "0");
   if (request.nextUrl.pathname.startsWith("/embed/"))
     headers.set("x-frontlit-embed", "1");
 
-  return uncached(NextResponse.rewrite(url, { request: { headers } }));
+  const response = NextResponse.rewrite(url, { request: { headers } });
+  // Covers non-HTML responses too (feeds, images) that carry no meta tag.
+  if (noindex) response.headers.set("X-Robots-Tag", "noindex");
+  return uncached(response);
 }
 
 export const config = {

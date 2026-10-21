@@ -66,7 +66,9 @@ export const accounts = pgTable("accounts", {
  * setup (not inferred from a person's name or email), and is
  * environment-independent; the full hostname is assembled from
  * `PLATFORM_SITE_DOMAIN` at runtime. A team may additionally attach one
- * verified custom domain and optionally hide the platform subdomain. */
+ * custom domain (an apex/www pair, see `customDomains`). Once a custom host
+ * is verified the subdomain 301-redirects to it unless `redirectSubdomain`
+ * is off. */
 export const customDomainStatuses = ["pending", "verified", "failed"] as const;
 export type CustomDomainStatus = (typeof customDomainStatuses)[number];
 
@@ -84,41 +86,46 @@ export const teams = pgTable(
       .references(() => accounts.id, { onDelete: "restrict" }),
     externalId: text("external_id").unique(),
     subdomain: text("subdomain").unique(),
-    subdomainPublic: boolean("subdomain_public").notNull().default(true),
+    redirectSubdomain: boolean("redirect_subdomain").notNull().default(true),
+    /** Pre-launch: every host serves `noindex`, robots.txt disallows all and
+     * the sitemap is empty. On for new sites; cleared when a custom domain is
+     * first verified. */
+    hideFromSearch: boolean("hide_from_search").notNull().default(true),
     customDomainCnameTarget: text("custom_domain_cname_target"),
     customDomainTxtRecordName: text("custom_domain_txt_record_name"),
-    customDomain: text("custom_domain").unique(),
-    customDomainStatus: text("custom_domain_status", {
-      enum: customDomainStatuses,
-    }),
+    /** One ownership TXT token shared by every host in `customDomains`. */
     customDomainVerificationToken: text("custom_domain_verification_token"),
-    customDomainVerifiedAt: timestamp("custom_domain_verified_at"),
     customDomainTxtSatisfied: boolean("custom_domain_txt_satisfied"),
-    customDomainRoutingSatisfied: boolean("custom_domain_routing_satisfied"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  () => [
-    publicIdCheck("team_id", "team"),
+  () => [publicIdCheck("team_id", "team")],
+);
+
+/** The hosts of a team's custom domain: the typed hostname plus, for an
+ * apex or `www.` host, its pair. Each host's routing is verified
+ * independently; exactly one is `primary` (the canonical host once
+ * verified). */
+export const customDomains = pgTable(
+  "custom_domains",
+  {
+    id: text("id").primaryKey().$defaultFn(genId),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    hostname: text("hostname").notNull().unique(),
+    primary: boolean("primary").notNull().default(false),
+    status: text("status", { enum: customDomainStatuses }).notNull().default("pending"),
+    routingSatisfied: boolean("routing_satisfied"),
+    verifiedAt: timestamp("verified_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("custom_domains_team_idx").on(table.teamId),
     check(
-      "teams_custom_domain_state_check",
-      sql`(
-                ("custom_domain" IS NULL
-                    AND "custom_domain_status" IS NULL
-                    AND "custom_domain_verification_token" IS NULL
-                    AND "custom_domain_verified_at" IS NULL
-                    AND "custom_domain_txt_satisfied" IS NULL
-                    AND "custom_domain_routing_satisfied" IS NULL)
-                OR
-                ("custom_domain" IS NOT NULL
-                    AND "custom_domain_status" IS NOT NULL
-                    AND "custom_domain_verification_token" IS NOT NULL
-                    AND ("custom_domain_status" <> 'verified' OR "custom_domain_verified_at" IS NOT NULL))
-            )`,
-    ),
-    check(
-      "teams_subdomain_public_check",
-      sql`("subdomain_public" = true OR "custom_domain_status" = 'verified')`,
+      "custom_domains_verified_at_check",
+      sql`("status" <> 'verified' OR "verified_at" IS NOT NULL)`,
     ),
   ],
 );

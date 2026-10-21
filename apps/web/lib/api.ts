@@ -1476,24 +1476,24 @@ export interface Subdomain {
 
 export interface CustomDomain {
   hostname: string;
+  primary: boolean;
   status: "pending" | "verified" | "failed";
   verifiedAt: string | null;
+  record: { type: "A" | "CNAME"; values: string[] };
+  routingSatisfied: boolean | null;
 }
 
 export interface DomainSettings {
   subdomain: Subdomain | null;
-  customDomain: CustomDomain | null;
-  canonicalHost: string | null;
-  verificationRecords: {
-    cnameTarget: string;
+  customDomains: CustomDomain[];
+  verification: {
     txtName: string;
     txtValue: string;
-    kind: "cname" | "a";
-    aRecords: string[];
     txtSatisfied: boolean | null;
-    routingSatisfied: boolean | null;
   } | null;
-  subdomainPublic: boolean;
+  canonicalHost: string | null;
+  redirectSubdomain: boolean;
+  hideFromSearch: boolean;
   platformDomain: string;
 }
 
@@ -1519,9 +1519,21 @@ export function removeCustomDomain() {
   return unwrap<DomainSettings>(client.domains.removeCustomDomain());
 }
 
-export function setSubdomainPublic(subdomainPublic: boolean) {
+export function setPrimaryCustomDomain(hostname: string) {
   return unwrap<DomainSettings>(
-    client.domains.setSubdomainPublic({ body: { subdomainPublic } }),
+    client.domains.setPrimaryCustomDomain({ body: { hostname } }),
+  );
+}
+
+export function setHideFromSearch(hideFromSearch: boolean) {
+  return unwrap<DomainSettings>(
+    client.domains.setHideFromSearch({ body: { hideFromSearch } }),
+  );
+}
+
+export function setRedirectSubdomain(redirectSubdomain: boolean) {
+  return unwrap<DomainSettings>(
+    client.domains.setRedirectSubdomain({ body: { redirectSubdomain } }),
   );
 }
 

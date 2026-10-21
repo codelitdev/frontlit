@@ -1,9 +1,12 @@
 import { buildRobotsTxt } from "@/lib/sitemap";
-import { getCanonicalHost } from "@/lib/request-host";
+import { getCanonicalHost, isHiddenFromSearch } from "@/lib/request-host";
 
 export async function GET() {
-  const canonicalHost = await getCanonicalHost();
-  return new Response(buildRobotsTxt(canonicalHost), {
+  const [canonicalHost, hidden] = await Promise.all([
+    getCanonicalHost(),
+    isHiddenFromSearch(),
+  ]);
+  return new Response(buildRobotsTxt(canonicalHost, hidden), {
     headers: { "content-type": "text/plain; charset=utf-8" },
   });
 }

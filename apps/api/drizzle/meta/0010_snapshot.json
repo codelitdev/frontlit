@@ -1,6 +1,6 @@
 {
-  "id": "bd47277a-dcba-4550-8ece-b41c3e4a5ba5",
-  "prevId": "25cd8e54-e64f-42c8-9636-016da97d0c7c",
+  "id": "f1ffa20b-9dc5-47ee-9502-651fb066f8f5",
+  "prevId": "63a12290-fd9d-4f6f-98bd-0ff263507e11",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2130,6 +2130,120 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.custom_domains": {
+      "name": "custom_domains",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "team_id": {
+          "name": "team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hostname": {
+          "name": "hostname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "primary": {
+          "name": "primary",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "routing_satisfied": {
+          "name": "routing_satisfied",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "verified_at": {
+          "name": "verified_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "custom_domains_team_idx": {
+          "name": "custom_domains_team_idx",
+          "columns": [
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "custom_domains_team_id_teams_id_fk": {
+          "name": "custom_domains_team_id_teams_id_fk",
+          "tableFrom": "custom_domains",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "custom_domains_hostname_unique": {
+          "name": "custom_domains_hostname_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "hostname"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "custom_domains_verified_at_check": {
+          "name": "custom_domains_verified_at_check",
+          "value": "(\"status\" <> 'verified' OR \"verified_at\" IS NOT NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.doc_sections": {
       "name": "doc_sections",
       "schema": "",
@@ -3007,6 +3121,37 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "docs_enabled": {
+          "name": "docs_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "pages_directory": {
+          "name": "pages_directory",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pages_source_key": {
+          "name": "pages_source_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "docs_source_key": {
+          "name": "docs_source_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pages_diagnostics": {
+          "name": "pages_diagnostics",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         },
         "status": {
           "name": "status",
@@ -6430,6 +6575,86 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.git_assets": {
+      "name": "git_assets",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "team_id": {
+          "name": "team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "blob_sha": {
+          "name": "blob_sha",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "git_assets_team_blob_idx": {
+          "name": "git_assets_team_blob_idx",
+          "columns": [
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "blob_sha",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "git_assets_team_id_teams_id_fk": {
+          "name": "git_assets_team_id_teams_id_fk",
+          "tableFrom": "git_assets",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.inbound_emails": {
       "name": "inbound_emails",
       "schema": "",
@@ -7299,6 +7524,155 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.page_pull_requests": {
+      "name": "page_pull_requests",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "team_id": {
+          "name": "team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "page_id": {
+          "name": "page_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "branch": {
+          "name": "branch",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "base_sha": {
+          "name": "base_sha",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "commit_sha": {
+          "name": "commit_sha",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "number": {
+          "name": "number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'open'"
+        },
+        "directory": {
+          "name": "directory",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "files": {
+          "name": "files",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "page_pull_requests_team_idx": {
+          "name": "page_pull_requests_team_idx",
+          "columns": [
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "page_pull_requests_team_id_teams_id_fk": {
+          "name": "page_pull_requests_team_id_teams_id_fk",
+          "tableFrom": "page_pull_requests",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "page_pull_requests_page_id_pages_id_fk": {
+          "name": "page_pull_requests_page_id_pages_id_fk",
+          "tableFrom": "page_pull_requests",
+          "tableTo": "pages",
+          "columnsFrom": [
+            "page_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.page_revisions": {
       "name": "page_revisions",
       "schema": "",
@@ -7738,6 +8112,12 @@
         },
         "summary": {
           "name": "summary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_key": {
+          "name": "source_key",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -8319,8 +8699,15 @@
           "primaryKey": false,
           "notNull": false
         },
-        "subdomain_public": {
-          "name": "subdomain_public",
+        "redirect_subdomain": {
+          "name": "redirect_subdomain",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "hide_from_search": {
+          "name": "hide_from_search",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
@@ -8338,38 +8725,14 @@
           "primaryKey": false,
           "notNull": false
         },
-        "custom_domain": {
-          "name": "custom_domain",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "custom_domain_status": {
-          "name": "custom_domain_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "custom_domain_verification_token": {
           "name": "custom_domain_verification_token",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "custom_domain_verified_at": {
-          "name": "custom_domain_verified_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
         "custom_domain_txt_satisfied": {
           "name": "custom_domain_txt_satisfied",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "custom_domain_routing_satisfied": {
-          "name": "custom_domain_routing_satisfied",
           "type": "boolean",
           "primaryKey": false,
           "notNull": false
@@ -8427,13 +8790,6 @@
           "columns": [
             "subdomain"
           ]
-        },
-        "teams_custom_domain_unique": {
-          "name": "teams_custom_domain_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "custom_domain"
-          ]
         }
       },
       "policies": {},
@@ -8441,14 +8797,6 @@
         "team_id_prefix_check": {
           "name": "team_id_prefix_check",
           "value": "\"team_id\" LIKE 'team\\_%' ESCAPE '\\'"
-        },
-        "teams_custom_domain_state_check": {
-          "name": "teams_custom_domain_state_check",
-          "value": "(\n                (\"custom_domain\" IS NULL\n                    AND \"custom_domain_status\" IS NULL\n                    AND \"custom_domain_verification_token\" IS NULL\n                    AND \"custom_domain_verified_at\" IS NULL\n                    AND \"custom_domain_txt_satisfied\" IS NULL\n                    AND \"custom_domain_routing_satisfied\" IS NULL)\n                OR\n                (\"custom_domain\" IS NOT NULL\n                    AND \"custom_domain_status\" IS NOT NULL\n                    AND \"custom_domain_verification_token\" IS NOT NULL\n                    AND (\"custom_domain_status\" <> 'verified' OR \"custom_domain_verified_at\" IS NOT NULL))\n            )"
-        },
-        "teams_subdomain_public_check": {
-          "name": "teams_subdomain_public_check",
-          "value": "(\"subdomain_public\" = true OR \"custom_domain_status\" = 'verified')"
         }
       },
       "isRLSEnabled": false

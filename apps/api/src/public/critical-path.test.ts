@@ -13,7 +13,7 @@ vi.mock("../tickets/notify", () => ({
 }));
 
 import { db as testDb } from "../db/client";
-import { outboxJobs, teams, ticketMailOutbox } from "../db/schema";
+import { customDomains, outboxJobs, teams, ticketMailOutbox } from "../db/schema";
 import { updateChatbotSettings } from "../chatbot/queries";
 import { createDocument, publishDocument, updateDocument } from "../documents/queries";
 import { createPage, publishPage } from "../pages/queries";
@@ -69,6 +69,9 @@ describe("public critical paths", () => {
       expect(await ok.json()).toEqual({
         teamId: teamPublicId,
         canonicalHost: subdomainHost,
+        redirect: false,
+        // New sites start hidden from search engines.
+        hideFromSearch: true,
       });
 
       const missing = await fetch(
@@ -78,25 +81,45 @@ describe("public critical paths", () => {
     });
   });
 
-  it("answers Caddy on-demand TLS asks for verified custom hosts only", async () => {
+  it("answers Caddy on-demand TLS asks for both hosts of a verified pair only", async () => {
     await db
       .update(teams)
       .set({
-        customDomain: "frolik.example.com",
-        customDomainStatus: "verified",
         customDomainVerificationToken: "test-token",
-        customDomainVerifiedAt: new Date(),
         customDomainTxtSatisfied: true,
-        customDomainRoutingSatisfied: true,
       })
       .where(eq(teams.id, teamInternalId));
+    await db.insert(customDomains).values([
+      {
+        teamId: teamInternalId,
+        hostname: "frolik.com",
+        primary: true,
+        status: "verified",
+        verifiedAt: new Date(),
+        routingSatisfied: true,
+      },
+      // The pending half of the pair still needs a certificate to 301.
+      { teamId: teamInternalId, hostname: "www.frolik.com" },
+    ]);
 
     await withServer(async (origin) => {
-      const allowed = await fetch(
-        `${origin}/public/tls-ask?domain=${encodeURIComponent("frolik.example.com")}`,
+      for (const host of ["frolik.com", "www.frolik.com"]) {
+        const allowed = await fetch(
+          `${origin}/public/tls-ask?domain=${encodeURIComponent(host)}`,
+        );
+        expect(allowed.status).toBe(200);
+        expect(await allowed.text()).toBe("");
+      }
+
+      const redirect = await fetch(
+        `${origin}/public/resolve-host?host=${encodeURIComponent("www.frolik.com")}`,
       );
-      expect(allowed.status).toBe(200);
-      expect(await allowed.text()).toBe("");
+      expect(await redirect.json()).toEqual({
+        teamId: teamPublicId,
+        canonicalHost: "frolik.com",
+        redirect: true,
+        hideFromSearch: true,
+      });
 
       const unknown = await fetch(
         `${origin}/public/tls-ask?domain=${encodeURIComponent("unknown.example.com")}`,

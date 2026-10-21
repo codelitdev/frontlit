@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { extractDocHeadings } from "@/lib/extract-doc-headings";
 import { getDocumentationBySlug, getSettings } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
-import { getCanonicalHost } from "@/lib/request-host";
+import { getCanonicalHost, isNoindex } from "@/lib/request-host";
 import { serializeJsonLd, techArticleJsonLd } from "@/lib/json-ld";
 import { API_PUBLIC_URL } from "@/lib/config";
 import { SiteChrome } from "@/components/site-chrome";
@@ -37,18 +37,19 @@ export async function generateMetadata(
     previous.title?.absolute || "Website",
   );
 
+  const url = `https://${await getCanonicalHost()}/docs/${slug}`;
+  const index = seo.robotsIndex && !(await isNoindex());
   return {
     title: seo.title,
     description: seo.description ?? undefined,
-    alternates: {
-      canonical: `https://${await getCanonicalHost()}/docs/${slug}`,
-    },
+    alternates: { canonical: url },
     openGraph: {
+      url,
       title: seo.title,
       description: seo.description ?? undefined,
       images: seo.imageUrl ? [{ url: seo.imageUrl }] : undefined,
     },
-    robots: { index: seo.robotsIndex, follow: seo.robotsIndex },
+    robots: { index, follow: index },
   };
 }
 

@@ -68,36 +68,15 @@
     {
       "idx": 9,
       "version": "7",
-      "when": 1792263457358,
-      "tag": "0009_site_releases",
+      "when": 1792261773276,
+      "tag": "0009_custom_domain_pairs",
       "breakpoints": true
     },
     {
       "idx": 10,
       "version": "7",
-      "when": 1792263458229,
-      "tag": "0010_drop_published_shared_widgets",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1792265227677,
-      "tag": "0011_git_pages_source",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1792265846402,
-      "tag": "0012_page_pull_requests",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "7",
-      "when": 1792266127147,
-      "tag": "0013_page_pr_directory",
+      "when": 1792552069376,
+      "tag": "0010_pages_from_git",
       "breakpoints": true
     }
   ]
