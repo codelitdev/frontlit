@@ -102,6 +102,29 @@ export async function createPagePullRequest(
   const access = await writeAccess(binding, app);
   const owner = access.repository.owner.login;
   const name = access.repository.name;
+  // One open pull request per page: a second one could be merged out of
+  // order and overwrite the newer draft. Ask GitHub, so a PR closed or
+  // merged there since the last sync doesn't block.
+  const openPr = await db.query.pagePullRequests.findFirst({
+    where: and(
+      eq(pagePullRequests.teamId, teamId),
+      eq(pagePullRequests.pageId, page.id),
+      eq(pagePullRequests.status, "open"),
+    ),
+  });
+  if (openPr) {
+    const pr = await app.findPagesPullRequest(access.token, owner, name, {
+      branch: openPr.branch,
+      base: binding.branch,
+      repositoryId: Number(binding.repositoryId),
+    });
+    if (pr?.state === "open" && !pr.merged)
+      throw new GitHubDocsError("PAGE_PULL_REQUEST_OPEN", 409);
+    await db
+      .update(pagePullRequests)
+      .set({ status: pr?.merged ? "merged" : "closed", updatedAt: new Date() })
+      .where(eq(pagePullRequests.id, openPr.id));
+  }
   const head = await app.branchHead(access.token, owner, name, binding.branch);
   const entries = await app.commitTree(access.token, owner, name, head);
   const read = async (path: string) => {
@@ -165,6 +188,18 @@ export async function createPagePullRequest(
         throw new GitHubDocsError("PAGE_UPSTREAM_CHANGED", 409);
       }
     }
+    // Like the page file: never overwrite a header or footer someone changed
+    // in GitHub since the live release. Compared in canonical form, since
+    // the release snapshot comes back from jsonb with keys reordered.
+    const chrome = (doc: SiteDocument) =>
+      serializeSiteFile({ header: doc.header, footer: doc.footer });
+    if (
+      siteText &&
+      release &&
+      chrome(site) !==
+        chrome({ header: release.site.header, footer: release.site.footer })
+    )
+      throw new GitHubDocsError("PAGE_UPSTREAM_CHANGED", 409);
     files.push({
       path: sitePath,
       content: serializeSiteFile({ ...site, header, footer }),

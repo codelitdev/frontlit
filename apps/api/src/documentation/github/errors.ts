@@ -12,6 +12,8 @@ const messages: Record<string, string> = {
     "That folder already exists on the branch. Choose a new folder, or preview and sync the existing one.",
   NOTHING_TO_PROPOSE:
     "The draft matches the repository already, so there's nothing to put in a pull request.",
+  PAGE_PULL_REQUEST_OPEN:
+    "This page already has an open pull request. Merge or close it in GitHub first, or add your changes to it there.",
   PAGE_UPSTREAM_CHANGED:
     "This page changed in GitHub since FrontLit last synced it. Sync the repository, redo your edit and try again.",
   PROPOSAL_NOT_OPEN:
