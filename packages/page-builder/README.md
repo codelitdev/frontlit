@@ -2,6 +2,12 @@
 
 Block-based page builder and renderer for React. Self-contained — no backend and no framework lock-in. Themes, blocks, and the WYSIWYG builder all run client-side.
 
+**You and your agents can collaborate on the same pages.** People edit visually in the WYSIWYG builder. AI agents edit the same page data, which is plain JSON (blocks plus their settings), with no screenshots or browser automation involved. Both kinds of edit go through the same draft and publish flow, so you can review an agent's changes in the builder before they go live, and an agent can pick up where you left off.
+
+- **In FrontLit**, agents use the MCP server's page and theme tools: `list_pages`, `get_page`, `create_page`, `update_page`, `publish_page`, `discard_page_draft`, `list_themes`, `create_theme`, `update_theme` and the matching delete tools.
+- **To teach a coding agent to write good FrontLit pages**, install [frontlit-skills](https://github.com/codelitdev/frontlit-skills).
+- **In your own app**, the layout the builder emits through `onChange` is the same JSON your agent reads and writes. See [`docs/ai-editing.md`](./docs/ai-editing.md) for the planned in-builder AI editing design.
+
 Rich text editing and rendering live in [`@frontlit/text-editor`](https://www.npmjs.com/package/@frontlit/text-editor), which this package depends on and installs automatically.
 
 ## Installation
