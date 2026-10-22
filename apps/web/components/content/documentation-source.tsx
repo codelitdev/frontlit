@@ -1672,7 +1672,7 @@ export function DocumentationSource({
                   </DialogTitle>
                   <DialogDescription>
                     {source?.binding
-                      ? "Docs and pages sync from GitHub. If a sync fails, readers keep seeing the last good version."
+                      ? "Your docs and pages sync from GitHub. If a sync fails, your site keeps showing the last good version."
                       : "Manage docs here, or connect GitHub to review changes through pull requests."}
                   </DialogDescription>
                 </DialogHeader>

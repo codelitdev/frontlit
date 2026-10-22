@@ -88,25 +88,25 @@ function health(source: DocumentationGitSource, binding: Binding): Health {
     return {
       tone: "danger",
       title: "Access lost",
-      body: "FrontLit can no longer read the repository. Readers keep seeing the last good version.",
+      body: "FrontLit can no longer read the repository. Your site keeps showing the last good version.",
     };
   if (source.status === "disconnected")
     return {
       tone: "danger",
       title: "Disconnected",
-      body: "Sync is off. Readers keep seeing the last good version.",
+      body: "Sync is off. Your site keeps showing the last good version.",
     };
   if (source.status === "paused")
     return {
       tone: "warning",
       title: "Sync paused",
-      body: "New commits aren't being picked up. Readers keep seeing the last good version.",
+      body: "New commits aren't being picked up. Your site keeps showing the last good version.",
     };
   if (source.sync?.status === "failed" || binding.lastDiagnostic)
     return {
       tone: "warning",
       title: "Latest sync didn't go live",
-      body: "Readers keep seeing the last good version. Fix the problem in GitHub and sync again.",
+      body: "Your site keeps showing the last good version. Fix the problem in GitHub and sync again.",
     };
   if (
     source.sync?.status === "queued" ||
@@ -116,12 +116,12 @@ function health(source: DocumentationGitSource, binding: Binding): Health {
     return {
       tone: "info",
       title: "Syncing",
-      body: `Checking the newest commit on ${binding.branch}. Readers still see the previous version.`,
+      body: `Checking the newest commit on ${binding.branch}. Your site still shows the previous version.`,
     };
   return {
     tone: "success",
     title: "In sync",
-    body: `Readers see the latest commit on ${binding.branch}.`,
+    body: `Your site shows the latest commit on ${binding.branch}.`,
   };
 }
 
@@ -310,6 +310,11 @@ export function ManageSource({
 
   const state = health(source, binding);
   const edits = caps.proposals || caps.directCommit;
+  // What the builder or docs editor sends to GitHub for this connection.
+  const synced =
+    [binding.docsEnabled && "docs", binding.pagesDirectory && "pages"]
+      .filter(Boolean)
+      .join(" and ") || "content";
   const body = (
     <>
       <HealthBanner
@@ -380,7 +385,11 @@ export function ManageSource({
           sha={binding.validatedSha}
           note="Passed format and link checks"
         />
-        <ProgressCell label="Live" sha={binding.liveSha} note="What readers see now" />
+        <ProgressCell
+          label="Live"
+          sha={binding.liveSha}
+          note="What your site shows now"
+        />
       </div>
       <SectionLabel>Changes made in FrontLit</SectionLabel>
       <div className="flex items-start gap-3.5 rounded-[0.625rem] border border-border px-4 py-3.5 text-sm">
@@ -399,8 +408,8 @@ export function ManageSource({
           </div>
           <p className="text-muted-foreground">
             {edits
-              ? "Edits made in FrontLit are sent to GitHub, so your repository stays the source of truth."
-              : "Edit your docs in GitHub. To let FrontLit open pull requests with edits, grant write access."}
+              ? `Edits to your ${synced} in FrontLit are sent to GitHub, so your repository stays the source of truth.`
+              : `Edit your ${synced} in GitHub. To let FrontLit open pull requests with edits, grant write access.`}
           </p>
         </div>
         {(source.status === "connected" || source.status === "paused") &&
