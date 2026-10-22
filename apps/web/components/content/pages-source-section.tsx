@@ -77,11 +77,21 @@ export function PagesPreviewDetails({ preview }: { preview: GitPagesPreview }) {
       )}
       {preview.diagnostics.length > 0 && <DiagnosticList items={preview.diagnostics} />}
       {preview.removedPages.length > 0 && (
-        <Callout tone="warning" title="These live pages have no file and go offline">
+        <Callout tone="warning" title="These live pages go offline">
           {preview.removedPages
             .map((page) => `${page.name} (${page.route})`)
-            .join(", ")}
-          . Export them to the repository first to keep them.
+            .join(", ")}{" "}
+          {preview.removedPages.length === 1 ? "has" : "have"} no file in{" "}
+          <Mono>{preview.directory}/</Mono>. To keep{" "}
+          {preview.removedPages.length === 1 ? "it" : "them"}, add{" "}
+          {preview.removedPages.map((page, i) => (
+            <span key={page.route}>
+              {i > 0 && (i === preview.removedPages.length - 1 ? " and " : ", ")}
+              <Mono>{page.route.slice(1) || "index"}.json</Mono>
+            </span>
+          ))}{" "}
+          to that folder in GitHub and check again. Or pick a folder that doesn&apos;t
+          exist yet and export all your current pages to it once connected.
         </Callout>
       )}
     </>
