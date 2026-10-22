@@ -482,7 +482,7 @@ describe("Git source and adoption REST/MCP domain parity", () => {
       installationId: 7,
       repositoryId: 9,
       branch: "trunk",
-      directory: "docs",
+      root: "",
       expectedDocsDraftVersion: settings.draftVersion,
       expectedPublicationId: settings.activePublicationId,
     };
@@ -564,7 +564,7 @@ describe("Git source and adoption REST/MCP domain parity", () => {
         installationId: 7,
         repositoryId: 9,
         branch: "trunk",
-        directory: "docs",
+        root: "",
         expectedDocsDraftVersion: settings.draftVersion,
         expectedPublicationId: settings.activePublicationId,
       })

@@ -5,6 +5,17 @@ import {
 } from "../content-validation";
 import { GitHubDocsError } from "./app";
 const messages: Record<string, string> = {
+  PAGES_ALREADY_SYNCED: "Pages already sync from this repository.",
+  GITHUB_NOTHING_TO_SYNC:
+    "Choose docs, landing pages or both to sync from the repository.",
+  PAGES_DIRECTORY_EXISTS:
+    "That folder already exists on the branch. Choose a new folder, or preview and sync the existing one.",
+  NOTHING_TO_PROPOSE:
+    "The draft matches the repository already, so there's nothing to put in a pull request.",
+  PAGE_PULL_REQUEST_OPEN:
+    "This page already has an open pull request. Merge or close it in GitHub first, or add your changes to it there.",
+  PAGE_UPSTREAM_CHANGED:
+    "This page changed in GitHub since FrontLit last synced it. Sync the repository, redo your edit and try again.",
   PROPOSAL_NOT_OPEN:
     "That pull request is no longer open, so it can't be updated. Create a new pull request instead.",
   PROPOSAL_ALREADY_OPEN:

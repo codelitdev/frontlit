@@ -65,7 +65,7 @@ describe("platform setup PR admission (V46–V48)", () => {
   afterEach(() => {
     delete process.env.DOCS_RESTORE_PENDING;
   });
-  async function fixture(emptyRepository = false, directory = "docs") {
+  async function fixture(emptyRepository = false, root = "") {
     const { team, account } = await seedTeam(db);
     const userId = crypto.randomUUID(),
       sessionId = crypto.randomUUID(),
@@ -140,7 +140,7 @@ describe("platform setup PR admission (V46–V48)", () => {
         installationId: 7,
         repositoryId: 9,
         branch: "main",
-        directory,
+        root,
         expectedDocsDraftVersion: settings.draftVersion,
         expectedPublicationId: null,
       },
@@ -175,8 +175,8 @@ describe("platform setup PR admission (V46–V48)", () => {
       submit,
     };
   }
-  async function writingFixture(emptyRepository = false, directory = "docs") {
-    const f = await fixture(emptyRepository, directory);
+  async function writingFixture(emptyRepository = false, root = "") {
+    const f = await fixture(emptyRepository, root);
     await f.submit();
     const claimed = (await claimGitMigrationWrite(f.team.id))!;
     const base = "a".repeat(40),
@@ -327,9 +327,9 @@ describe("platform setup PR admission (V46–V48)", () => {
     expect((await getDocsSettings(f.team.id)).source).toBe("editor");
   });
   it("preserves an existing file occupying a parent of the selected docs directory", async () => {
-    const f = await writingFixture(false, "docs/reference");
+    const f = await writingFixture(false, "frontlit");
     f.app.tree.mockResolvedValue([
-      { path: "docs", mode: "100644", type: "blob", sha: "e".repeat(40) },
+      { path: "frontlit", mode: "100644", type: "blob", sha: "e".repeat(40) },
     ]);
     await expect(writeGitMigration(f.claimed, f.app, config)).rejects.toMatchObject({
       code: "GITHUB_PROPOSAL_RECOVERY_CONFLICT",

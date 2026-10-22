@@ -690,20 +690,160 @@ export const teamSettings = pgTable("team_settings", {
   themeId: text("theme_id"),
   codeInjectionHead: text("code_injection_head"),
   codeInjectionBody: text("code_injection_body"),
-  /** Published and draft copies follow the same promotion model as page
-   * layouts. They are intentionally not exposed by the generic settings
-   * API; page reads hydrate them into the layout instead. */
-  sharedWidgets: jsonb("shared_widgets")
-    .$type<SharedWidgetsRow>()
-    .notNull()
-    .default(DEFAULT_SHARED_WIDGETS),
+  /** Draft header/footer. Publishing copies them into the new release's
+   * site snapshot. Not exposed by the generic settings API; page reads
+   * hydrate them into the layout instead. */
   draftSharedWidgets: jsonb("draft_shared_widgets")
     .$type<SharedWidgetsRow>()
     .notNull()
     .default(DEFAULT_SHARED_WIDGETS),
+  /** The live site: every public page, sitemap and chrome read comes from
+   * this release. Swapped atomically on publish, Git sync and rollback. */
+  activeReleaseId: text("active_release_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+// ---------------------------------------------------------------------------
+// Site releases: immutable snapshots of every published page plus site
+// chrome. Publishing (builder or Git) creates a release and activates it;
+// rollback re-activates an older one.
+// ---------------------------------------------------------------------------
+
+/** Canonical page content (`PageDocument` from `@frontlit/page-builder/schema`,
+ * minus the `published` flag). Header/footer are not part of it. */
+export type PageRevisionContent = {
+  title?: string;
+  description?: string;
+  socialImage?: { url: string; alt?: string };
+  robotsAllowed?: boolean;
+  layout: { name: string; settings?: Record<string, unknown> }[];
+};
+
+/** Content-addressed: `hash` is the sha256 of the canonical page file, so
+ * identical content (from the builder or a repo) shares one revision. */
+export const pageRevisions = pgTable(
+  "page_revisions",
+  {
+    id: text("id").primaryKey().$defaultFn(genId),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    hash: text("hash").notNull(),
+    content: jsonb("content").$type<PageRevisionContent>().notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("page_revisions_team_hash_idx").on(table.teamId, table.hash)],
+);
+
+export type SiteReleaseSnapshot = {
+  header: Record<string, unknown>;
+  footer: Record<string, unknown>;
+  /** Set when the site comes from a repo's `site.json`; otherwise the
+   * team's selected theme applies. */
+  theme?: Record<string, unknown>;
+  redirects?: { from: string; to: string; permanent?: boolean }[];
+};
+
+/** "preview": built from a pull request's head; never activated. */
+export const siteReleaseSources = ["builder", "git", "preview"] as const;
+export type SiteReleaseSource = (typeof siteReleaseSources)[number];
+
+export const siteReleases = pgTable(
+  "site_releases",
+  {
+    id: text("id").primaryKey().$defaultFn(genId),
+    releaseId: text("release_id")
+      .notNull()
+      .unique()
+      .$defaultFn(() => genPublicId("rel")),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    source: text("source", { enum: siteReleaseSources }).notNull(),
+    /** Git commit the release was built from. */
+    commitSha: text("commit_sha"),
+    /** Docs publication activated together with this release (Git releases
+     * that include docs). Builder releases leave docs alone. */
+    docsPublicationId: text("docs_publication_id"),
+    site: jsonb("site").$type<SiteReleaseSnapshot>().notNull(),
+    /** One line on what changed, e.g. "Published Pricing". */
+    summary: text("summary"),
+    /** Git releases: the pages source key they were built from. */
+    sourceKey: text("source_key"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("site_releases_team_idx").on(table.teamId, table.createdAt),
+    publicIdCheck("release_id", "rel"),
+  ],
+);
+
+/** Repo images uploaded to MediaLit by the pages importer, keyed by blob
+ * SHA so an unchanged image is uploaded once. */
+export const gitAssets = pgTable(
+  "git_assets",
+  {
+    id: text("id").primaryKey().$defaultFn(genId),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    blobSha: text("blob_sha").notNull(),
+    url: text("url").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("git_assets_team_blob_idx").on(table.teamId, table.blobSha)],
+);
+
+/** Pull requests FrontLit opened against a Git-owned pages folder: a
+ * builder draft ("page") or the export of existing pages ("setup"). */
+export const pagePullRequests = pgTable(
+  "page_pull_requests",
+  {
+    id: text("id").primaryKey().$defaultFn(genId),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["page", "setup"] }).notNull(),
+    pageId: text("page_id").references(() => pages.id, { onDelete: "set null" }),
+    branch: text("branch").notNull(),
+    baseSha: text("base_sha").notNull(),
+    commitSha: text("commit_sha").notNull(),
+    number: integer("number").notNull(),
+    url: text("url").notNull(),
+    status: text("status", { enum: ["open", "merged", "closed"] })
+      .notNull()
+      .default("open"),
+    /** Setup PRs: the pages folder they create; merging turns pages sync on. */
+    directory: text("directory"),
+    /** Setup PRs: the exported files' paths and canonical hashes. */
+    files: jsonb("files").$type<{ path: string; hash: string }[]>(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [index("page_pull_requests_team_idx").on(table.teamId, table.createdAt)],
+);
+
+export const siteReleasePages = pgTable(
+  "site_release_pages",
+  {
+    releaseId: text("release_id")
+      .notNull()
+      .references(() => siteReleases.id, { onDelete: "cascade" }),
+    /** The builder page this entry publishes; null once the page is deleted
+     * (the release still renders it if re-activated). */
+    pageId: text("page_id").references(() => pages.id, { onDelete: "set null" }),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    revisionId: text("revision_id")
+      .notNull()
+      .references(() => pageRevisions.id),
+  },
+  (table) => [
+    uniqueIndex("site_release_pages_slug_idx").on(table.releaseId, table.slug),
+    index("site_release_pages_page_idx").on(table.pageId),
+  ],
+);
 
 // ---------------------------------------------------------------------------
 // Help desk (architecture.md §11): support tickets and persisted chatbot
@@ -1120,18 +1260,9 @@ export const pages = pgTable(
     name: text("name").notNull(),
     slug: text("slug").notNull(),
     deletable: boolean("deletable").notNull().default(true),
-    // Published side — read by public rendering. Only ever written by
-    // `publish()`, which copies the draft columns below into these.
-    layout: jsonb("layout").$type<WidgetInstanceRow[]>().notNull().default([]),
-    title: text("title"),
-    description: text("description"),
-    socialImage: jsonb("social_image").$type<Record<string, unknown>>(),
-    robotsAllowed: boolean("robots_allowed"),
-    publishedAt: timestamp("published_at"),
-
-    // Draft side — written by every builder/editor save. `publish()`
-    // copies these into the published columns; `discardDraft()` does
-    // the reverse.
+    // Draft side — written by every builder/editor save. Publishing
+    // snapshots it into a `page_revisions` row inside a new site release;
+    // what's live is whatever the team's active release says.
     draftLayout: jsonb("draft_layout")
       .$type<WidgetInstanceRow[]>()
       .notNull()
@@ -1224,6 +1355,8 @@ export const documentationPublications = pgTable(
       commitSha: string;
       runId: string;
       proposalIds?: string[];
+      /** Tree SHA of the docs directory at `commitSha`. */
+      docsTreeSha?: string;
     }>(),
     generation: integer("generation").notNull(),
     purgeGeneration: integer("purge_generation").notNull(),
@@ -1534,7 +1667,21 @@ export const documentationGitBindings = pgTable(
     repositoryName: text("repository_name").notNull(),
     repositoryPrivate: boolean("repository_private").notNull(),
     branch: text("branch").notNull(),
+    /** Docs source directory; only read when `docsEnabled`. */
     directory: text("directory").notNull(),
+    /** The repo can feed docs, pages, or both. */
+    docsEnabled: boolean("docs_enabled").notNull().default(true),
+    /** Pages source directory (`frontlit/pages`); null when pages are
+     * builder-owned. `site.json` lives in its parent directory. */
+    pagesDirectory: text("pages_directory"),
+    /** `<pages tree sha>:<site.json blob sha>` of the last activated pages
+     * import; a sync skips the pages import while it's unchanged. */
+    pagesSourceKey: text("pages_source_key"),
+    /** Tree SHA of the docs directory behind the live docs publication; a
+     * push that leaves it unchanged publishes no new docs. */
+    docsSourceKey: text("docs_source_key"),
+    /** Problems and warnings from the last pages import. */
+    pagesDiagnostics: jsonb("pages_diagnostics").$type<Record<string, unknown>[]>(),
     status: text("status", {
       enum: ["connected", "paused", "access_lost", "disconnected"],
     }).notNull(),

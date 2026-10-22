@@ -249,7 +249,10 @@ export const auth = betterAuth({
           allowedScopes: [...MCP_SCOPES_SUPPORTED],
         },
       ],
+      // OAuth clients get one resource: MCP. The kit lists every valid audience
+      // as requestable; keep registration to the resources defined above.
       clientRegistrationDefaultResources: [mcpResourceUrl],
+      clientRegistrationAllowedResources: [mcpResourceUrl],
       schema: {
         oauthClient: {
           modelName: "authOAuthClient",

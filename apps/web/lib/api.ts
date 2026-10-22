@@ -338,6 +338,19 @@ export interface Page {
   draftRobotsAllowed?: boolean | null;
   createdAt: string | null;
   updatedAt: string | null;
+  /** Set while pages sync from GitHub: where this page's file lives. */
+  git?: {
+    path: string;
+    editUrl: string;
+    repositoryUrl: string;
+    branch: string;
+    liveSha: string | null;
+    pullRequest: {
+      number: number;
+      url: string;
+      status: "open" | "merged" | "closed";
+    } | null;
+  } | null;
 }
 
 export function listPages(
@@ -377,8 +390,27 @@ export function publishPage(pageId: string) {
   return unwrap<Page>(client.pages.publish({ params: { pageId } }));
 }
 
+export function createPagePullRequest(pageId: string) {
+  return unwrap<{ number: number; url: string }>(
+    client.pages.createPullRequest({ params: { pageId } }),
+  );
+}
+
 export function discardPageDraft(pageId: string) {
   return unwrap<Page>(client.pages.discardDraft({ params: { pageId } }));
+}
+
+export type SiteRelease = import("@ts-rest/core").ClientInferResponseBody<
+  typeof contract.pages.activateRelease,
+  200
+>;
+
+export function listSiteReleases() {
+  return unwrap<{ items: SiteRelease[] }>(client.pages.listReleases());
+}
+
+export function activateSiteRelease(releaseId: string) {
+  return unwrap<SiteRelease>(client.pages.activateRelease({ params: { releaseId } }));
 }
 
 // ---- Themes -----------------------------------------------------------
@@ -1725,6 +1757,27 @@ export function grantDocumentationGitCapabilities(
 ) {
   return unwrap<GitResponse<"capabilities">>(
     client.content.documentationGithub.capabilities({ body }),
+  );
+}
+export type GitPagesPreview = GitResponse<"previewPages">;
+export function previewGitPages() {
+  return unwrap<GitPagesPreview>(
+    client.content.documentationGithub.previewPages({ body: {} }),
+  );
+}
+export function enableGitPages(body: GitRequest<"enablePages">["body"]) {
+  return unwrap<{ pagesDirectory: string | null }>(
+    client.content.documentationGithub.enablePages({ body }),
+  );
+}
+export function disableGitPages() {
+  return unwrap<{ pagesDirectory: string | null }>(
+    client.content.documentationGithub.disablePages({}),
+  );
+}
+export function exportGitPages() {
+  return unwrap<{ number: number; url: string }>(
+    client.content.documentationGithub.exportPages({ body: {} }),
   );
 }
 export function getDocumentationGitSource() {

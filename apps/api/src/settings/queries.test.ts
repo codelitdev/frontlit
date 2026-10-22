@@ -27,31 +27,31 @@ describe("team settings", () => {
     expect(settings.codeInjectionHead).toBeNull();
     expect(settings.codeInjectionBody).toBeNull();
     expect(settings.themeId).toBeNull();
-    expect(settings.sharedWidgets.header).toMatchObject({
+    expect(settings.activeReleaseId).toBeNull();
+    expect(settings.draftSharedWidgets.header).toMatchObject({
       name: "header",
       shared: true,
       deletable: false,
       moveable: false,
-      settings: { verticalPadding: "py-4" },
     });
-    expect(settings.sharedWidgets.footer).toMatchObject({
+    expect(settings.draftSharedWidgets.footer).toMatchObject({
       name: "footer",
       shared: true,
       deletable: false,
       moveable: false,
     });
-    expect(settings.draftSharedWidgets).toEqual(settings.sharedWidgets);
   });
 
   it("starts with the team's own header and footer, not FrontLit's sample chrome", async () => {
-    const { sharedWidgets } = await getTeamSettings(teamId);
+    const { draftSharedWidgets: sharedWidgets } = await getTeamSettings(teamId);
     const headerSettings = sharedWidgets.header.settings as Record<string, unknown>;
     const footerSettings = sharedWidgets.footer.settings as Record<string, unknown>;
 
     // Logo text is left unset so header and footer follow Branding.
     expect(headerSettings.logoText).toBeUndefined();
     expect(headerSettings.ctaLabel).toBe("Contact us");
-    expect(headerSettings.ctaHref).toBe("/help");
+    // "/help" is also the header block's default, so canonical settings omit it.
+    expect(headerSettings.ctaHref).toBeUndefined();
     expect(footerSettings.logoText).toBeUndefined();
     expect(footerSettings.copyrightText).toBe("© Test Team. All rights reserved.");
     expect(JSON.stringify(sharedWidgets)).not.toContain("FrontLit");

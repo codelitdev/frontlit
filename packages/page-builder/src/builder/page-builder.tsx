@@ -9,6 +9,7 @@ import {
   createDefaultLayout,
   createWidgetInstance,
   ensureRequiredSharedWidgets,
+  withDefaultSettings,
   getDefaultTheme,
 } from "../starter";
 import { debounce, resolveColorMode, type ColorMode } from "../utils";
@@ -85,7 +86,9 @@ export function PageBuilder({
   className,
 }: PageBuilderProps) {
   const [layout, setLayout] = useState<WidgetInstance[]>(() =>
-    initialLayout ? ensureRequiredSharedWidgets(initialLayout) : createDefaultLayout(),
+    initialLayout
+      ? ensureRequiredSharedWidgets(withDefaultSettings(initialLayout))
+      : createDefaultLayout(),
   );
   const [theme, setTheme] = useState<Theme>(() => initialTheme ?? getDefaultTheme());
   const [previewTheme, setPreviewTheme] = useState<Theme | null>(null);

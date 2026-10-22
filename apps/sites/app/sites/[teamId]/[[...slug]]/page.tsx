@@ -1,5 +1,5 @@
 import type { Metadata, ResolvingMetadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { getPageBySlug, getSettings } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
 import { getCanonicalHost, isNoindex } from "@/lib/request-host";
@@ -61,7 +61,16 @@ export async function generateMetadata(
 
 export default async function SitePage({ params }: Props) {
   const { teamId, page } = await loadPage(params);
-  if (!page) notFound();
+  if (!page) {
+    // Redirects from site.json only apply where no page exists.
+    const path = `/${((await params).slug ?? []).join("/")}`;
+    const settings = await getSettings(teamId);
+    const match = settings?.redirects?.find(
+      (redirect) => (redirect.from.replace(/\/+$/, "") || "/") === path,
+    );
+    if (match) (match.permanent === false ? redirect : permanentRedirect)(match.to);
+    notFound();
+  }
 
   const canonicalHost = await getCanonicalHost();
   const [settings, siteTheme] = await Promise.all([

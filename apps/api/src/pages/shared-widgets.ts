@@ -1,6 +1,11 @@
 import type { SharedWidgetsRow, WidgetInstanceRow } from "../db/schema";
 import { DEFAULT_SHARED_WIDGETS } from "../db/schema";
 import { genId } from "../db/id";
+import {
+  canonicalizeLayout,
+  formatDiagnostic,
+  SchemaValidationError,
+} from "@frontlit/page-builder/schema";
 
 export const SHARED_WIDGET_NAMES = ["header", "footer"] as const;
 /** FrontLit reserves the generic core data slot for its standard content pages. */
@@ -19,6 +24,19 @@ export class InvalidPageLayoutError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "InvalidPageLayoutError";
+  }
+}
+
+/** Validates every block against its schema and rewrites settings in
+ * canonical form (the same content a page file would import as). */
+export function canonicalPageLayout(layout: WidgetInstanceRow[]): WidgetInstanceRow[] {
+  try {
+    return canonicalizeLayout(layout);
+  } catch (error) {
+    if (!(error instanceof SchemaValidationError)) throw error;
+    throw new InvalidPageLayoutError(
+      `Invalid layout: ${error.diagnostics.map(formatDiagnostic).join("; ")}`,
+    );
   }
 }
 

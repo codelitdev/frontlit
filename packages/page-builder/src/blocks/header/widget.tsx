@@ -11,7 +11,6 @@ import { HeaderMobileMenu } from "./mobile-menu";
 export function HeaderWidget({
   settings: {
     logoCorners,
-    logoRadius,
     links = [],
     ctaLabel,
     ctaHref,
@@ -40,7 +39,7 @@ export function HeaderWidget({
   const resolvedLogoImage = pageData.siteLogoUrl;
   const resolvedLogoText = pageData.siteTitle;
   const resolvedLogoAlt = pageData.siteLogoAlt || resolvedLogoText || "";
-  const effectiveLogoCorners = logoCorners ?? logoRadius ?? 2;
+  const effectiveLogoCorners = logoCorners ?? 2;
 
   const logo = (
     <NavLink href="/" className="no-underline">

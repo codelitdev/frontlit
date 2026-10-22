@@ -1,11 +1,7 @@
-import { and, count, eq, ilike, isNotNull } from "drizzle-orm";
+import { and, count, eq, ilike } from "drizzle-orm";
+import { isReservedPageSlug } from "@frontlit/api-contract";
 import { db } from "../db/client";
-import {
-  pages,
-  teamSettings,
-  type SharedWidgetsRow,
-  type WidgetInstanceRow,
-} from "../db/schema";
+import { pages, teamSettings, type WidgetInstanceRow } from "../db/schema";
 import { getTeamSettings } from "../settings/queries";
 import { isSlugTakenForTeam, slugify, uniqueSlugForTeam } from "./slug";
 import {
@@ -15,6 +11,7 @@ import {
   SlugConflictError,
 } from "../utils/slug";
 import {
+  canonicalPageLayout,
   createRequiredSharedWidgetPlaceholders,
   hydrateSharedWidgets,
   splitSubmittedLayout,
@@ -23,69 +20,91 @@ import {
   normalizeFeaturedImage,
   syncFeaturedImageToMediaLibrary,
 } from "../documents/queries";
+import { getPagesGitBinding, pageGitInfo, PageOwnedByGitError } from "./git-pr";
+import {
+  draftDocument,
+  draftReleasePage,
+  getActiveRelease,
+  pageRevisionFile,
+  publishBuilderRelease,
+  revisionDraftLayout,
+  revisionLayout,
+  type LoadedRelease,
+} from "./releases";
 
-/** Draft/publish status derived from the row, never stored (architecture.md §3). */
+/** Draft/publish status, derived from the page's draft and its entry in
+ * the active release (architecture.md §3). */
 export type PageStatus = "draft" | "published" | "published_with_changes";
 
-export function derivePageStatus(page: {
-  publishedAt: Date | string | null;
-  layout: unknown;
-  draftLayout: unknown;
-  title: string | null;
-  draftTitle: string | null;
-  description: string | null;
-  draftDescription: string | null;
-  socialImage: unknown;
-  draftSocialImage: unknown;
-  robotsAllowed: boolean | null;
-  draftRobotsAllowed: boolean | null;
-}): PageStatus {
-  if (!page.publishedAt) return "draft";
+type PageRow = typeof pages.$inferSelect;
+type ReleaseEntry = LoadedRelease["pages"][number];
 
-  const hasChanges =
-    JSON.stringify(page.layout) !== JSON.stringify(page.draftLayout) ||
-    page.title !== page.draftTitle ||
-    page.description !== page.draftDescription ||
-    JSON.stringify(page.socialImage ?? null) !==
-      JSON.stringify(page.draftSocialImage ?? null) ||
-    (page.robotsAllowed ?? null) !== (page.draftRobotsAllowed ?? null);
+function releaseEntry(release: LoadedRelease | null, page: { id: string }) {
+  return release?.pages.find((entry) => entry.pageId === page.id) ?? null;
+}
 
-  return hasChanges ? "published_with_changes" : "published";
+export function derivePageStatus(
+  page: PageRow,
+  entry: ReleaseEntry | null,
+): PageStatus {
+  if (!entry) return "draft";
+  return pageRevisionFile(draftDocument(page)).hash === entry.revision.hash
+    ? "published"
+    : "published_with_changes";
 }
 
 async function getRawPageByPageId(pageId: string) {
   return db.query.pages.findFirst({ where: eq(pages.pageId, pageId) });
 }
 
-function hydratePage<
-  T extends {
-    slug: string;
-    layout: WidgetInstanceRow[];
-    draftLayout: WidgetInstanceRow[];
-  },
->(page: T, sharedWidgets: SharedWidgetsRow, draftSharedWidgets: SharedWidgetsRow): T {
+/** The admin view of a page: its draft (with draft chrome) plus whatever
+ * the active release publishes for it. */
+function toPageView(
+  page: PageRow,
+  release: LoadedRelease | null,
+  draftSharedWidgets: Parameters<typeof hydrateSharedWidgets>[1],
+) {
+  const entry = releaseEntry(release, page);
+  const content = entry?.revision.content;
   return {
     ...page,
-    layout: hydrateSharedWidgets(page.layout, sharedWidgets, page.slug),
+    status: derivePageStatus(page, entry),
+    publishedAt: entry ? release!.createdAt : null,
+    layout:
+      entry && release
+        ? revisionLayout(entry.revision.content, entry.slug, release.site)
+        : [],
+    title: content?.title ?? null,
+    description: content?.description ?? null,
+    socialImage: (content?.socialImage as Record<string, unknown> | undefined) ?? null,
+    robotsAllowed: content ? content.robotsAllowed !== false : null,
     draftLayout: hydrateSharedWidgets(page.draftLayout, draftSharedWidgets, page.slug),
   };
 }
 
+export type PageView = ReturnType<typeof toPageView>;
+
+async function viewPages(teamId: string, rows: PageRow[]) {
+  const [settings, release] = await Promise.all([
+    getTeamSettings(teamId),
+    getActiveRelease(teamId),
+  ]);
+  return rows.map((row) => toPageView(row, release, settings.draftSharedWidgets));
+}
+
 export async function createPage(input: { teamId: string; name: string }) {
   const slug = await uniqueSlugForTeam(input.teamId, slugify(input.name));
-  const requiredLayout = createRequiredSharedWidgetPlaceholders();
   const [page] = await db
     .insert(pages)
     .values({
       teamId: input.teamId,
       name: input.name,
       slug,
-      layout: requiredLayout,
-      draftLayout: requiredLayout,
+      draftLayout: createRequiredSharedWidgetPlaceholders(),
     })
     .returning();
-  const settings = await getTeamSettings(input.teamId);
-  return hydratePage(page, settings.sharedWidgets, settings.draftSharedWidgets);
+  const [view] = await viewPages(input.teamId, [page]);
+  return view;
 }
 
 export async function listPages(input: {
@@ -100,18 +119,13 @@ export async function listPages(input: {
   const offset = ((input.offset ?? 1) - 1) * (input.itemsPerPage ?? 20);
   const limit = input.itemsPerPage ?? 20;
 
-  const [items, settings] = await Promise.all([
-    db.query.pages.findMany({
-      where: and(...conditions),
-      limit,
-      offset,
-      orderBy: (row, { desc }) => desc(row.updatedAt),
-    }),
-    getTeamSettings(input.teamId),
-  ]);
-  return items.map((page) =>
-    hydratePage(page, settings.sharedWidgets, settings.draftSharedWidgets),
-  );
+  const items = await db.query.pages.findMany({
+    where: and(...conditions),
+    limit,
+    offset,
+    orderBy: (row, { desc }) => desc(row.updatedAt),
+  });
+  return viewPages(input.teamId, items);
 }
 
 export async function countPages(input: { teamId: string; q?: string }) {
@@ -128,12 +142,13 @@ export async function countPages(input: { teamId: string; q?: string }) {
 export async function getPageByPageId(pageId: string) {
   const page = await getRawPageByPageId(pageId);
   if (!page) return undefined;
-  const settings = await getTeamSettings(page.teamId);
-  return hydratePage(page, settings.sharedWidgets, settings.draftSharedWidgets);
+  const [view] = await viewPages(page.teamId, [page]);
+  return { ...view, git: await pageGitInfo(page) };
 }
 
 /** Writes builder/SEO fields to draft columns. The slug is intentionally
- * immediate, so it can change without publishing unrelated draft content. */
+ * immediate: renaming a published page publishes a release that moves it,
+ * without publishing unrelated draft content. */
 export async function updatePage(
   teamId: string,
   pageId: string,
@@ -172,6 +187,12 @@ export async function updatePage(
   }
 
   let slug: string | undefined;
+  if (
+    requestedSlug !== undefined &&
+    requestedSlug !== existing.slug &&
+    (await getPagesGitBinding(teamId))
+  )
+    throw new PageOwnedByGitError();
   if (requestedSlug !== undefined) {
     if (existing.slug === "" || !existing.deletable) {
       throw new InvalidSlugError(
@@ -179,6 +200,9 @@ export async function updatePage(
       );
     }
     slug = normalizeEditableSlug(requestedSlug);
+    if (isReservedPageSlug(slug)) {
+      throw new InvalidSlugError(`/${slug} is reserved by the site.`);
+    }
     if (await isSlugTakenForTeam(teamId, slug, existing.id)) {
       throw new SlugConflictError("That slug is already in use.");
     }
@@ -186,10 +210,36 @@ export async function updatePage(
   const settings = layout !== undefined ? await getTeamSettings(teamId) : null;
   const splitLayout =
     layout !== undefined && settings
-      ? splitSubmittedLayout(layout, settings.draftSharedWidgets, existing.slug)
+      ? splitSubmittedLayout(
+          canonicalPageLayout(layout),
+          settings.draftSharedWidgets,
+          existing.slug,
+        )
       : null;
 
+  // A published page's new URL goes live with a release that moves it, in
+  // the same transaction as the slug change.
+  const moved =
+    slug !== undefined &&
+    slug !== existing.slug &&
+    releaseEntry(await getActiveRelease(teamId), existing) !== null;
   try {
+    if (moved) {
+      const summary = `Moved ${existing.name} to /${slug}`;
+      await publishBuilderRelease(
+        teamId,
+        { summary, publishChrome: false },
+        async (entries, tx) => {
+          await tx
+            .update(pages)
+            .set({ slug, updatedAt: new Date() })
+            .where(eq(pages.id, existing.id));
+          return entries.map((entry) =>
+            entry.pageId === existing.id ? { ...entry, slug: slug! } : entry,
+          );
+        },
+      );
+    }
     await db.transaction(async (tx) => {
       if (splitLayout && settings) {
         await tx
@@ -204,7 +254,7 @@ export async function updatePage(
         .update(pages)
         .set({
           ...(name !== undefined ? { name } : {}),
-          ...(slug !== undefined ? { slug } : {}),
+          ...(slug !== undefined && !moved ? { slug } : {}),
           ...(splitLayout ? { draftLayout: splitLayout.storedLayout } : {}),
           ...(title !== undefined ? { draftTitle: title } : {}),
           ...(description !== undefined ? { draftDescription: description } : {}),
@@ -225,91 +275,114 @@ export async function updatePage(
   return getPageByPageId(pageId);
 }
 
-/** Promotes the draft state to published: copies draft_* -> published
- * columns in one update and stamps `publishedAt` (architecture.md §3). */
+/** Publishes the page's draft (and the draft header/footer) as a new
+ * active site release. */
 export async function publishPage(teamId: string, pageId: string) {
   const existing = await getRawPageByPageId(pageId);
   if (!existing || existing.teamId !== teamId) return null;
-  const settings = await getTeamSettings(teamId);
+  if (await getPagesGitBinding(teamId)) throw new PageOwnedByGitError();
 
   if (existing.draftSocialImage) {
     await syncFeaturedImageToMediaLibrary(teamId, existing.draftSocialImage);
   }
-
-  await db.transaction(async (tx) => {
-    await tx
-      .update(teamSettings)
-      .set({
-        sharedWidgets: settings.draftSharedWidgets,
-        updatedAt: new Date(),
-      })
-      .where(eq(teamSettings.id, settings.id));
-    await tx
-      .update(pages)
-      .set({
-        layout: existing.draftLayout,
-        title: existing.draftTitle,
-        description: existing.draftDescription,
-        socialImage: existing.draftSocialImage,
-        robotsAllowed: existing.draftRobotsAllowed,
-        publishedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(pages.id, existing.id));
-  });
+  const summary = `Published ${existing.name}`;
+  await publishBuilderRelease(
+    teamId,
+    { summary, publishChrome: true },
+    async (entries, tx) => {
+      const next = await draftReleasePage(tx, existing);
+      return [...entries.filter((entry) => entry.pageId !== existing.id), next];
+    },
+  );
   return getPageByPageId(pageId);
 }
 
-/** Reverts the draft state back to whatever is currently published. */
+/** Resets the page's draft (and the draft header/footer) to what's live. */
 export async function discardPageDraft(teamId: string, pageId: string) {
   const existing = await getRawPageByPageId(pageId);
   if (!existing || existing.teamId !== teamId) return null;
-  const settings = await getTeamSettings(teamId);
+  const [settings, release] = await Promise.all([
+    getTeamSettings(teamId),
+    getActiveRelease(teamId),
+  ]);
+  const entry = releaseEntry(release, existing);
+  if (!release) return getPageByPageId(pageId);
 
   await db.transaction(async (tx) => {
     await tx
       .update(teamSettings)
       .set({
-        draftSharedWidgets: settings.sharedWidgets,
+        draftSharedWidgets: {
+          header: {
+            ...settings.draftSharedWidgets.header,
+            settings: release.site.header,
+          },
+          footer: {
+            ...settings.draftSharedWidgets.footer,
+            settings: release.site.footer,
+          },
+        },
         updatedAt: new Date(),
       })
       .where(eq(teamSettings.id, settings.id));
-    await tx
-      .update(pages)
-      .set({
-        draftLayout: existing.layout,
-        draftTitle: existing.title,
-        draftDescription: existing.description,
-        draftSocialImage: existing.socialImage,
-        draftRobotsAllowed: existing.robotsAllowed,
-        updatedAt: new Date(),
-      })
-      .where(eq(pages.id, existing.id));
+    if (entry) {
+      const content = entry.revision.content;
+      await tx
+        .update(pages)
+        .set({
+          draftLayout: revisionDraftLayout(content, existing.slug),
+          draftTitle: content.title ?? null,
+          draftDescription: content.description ?? null,
+          draftSocialImage: (content.socialImage as Record<string, unknown>) ?? null,
+          draftRobotsAllowed: content.robotsAllowed ?? null,
+          updatedAt: new Date(),
+        })
+        .where(eq(pages.id, existing.id));
+    }
   });
   return getPageByPageId(pageId);
 }
 
-/** Unauthenticated, published-only reads for public site rendering
- * (architecture.md §5.4/§12.2). Never selects draft* columns. */
-export async function getPublishedPageBySlug(teamId: string, slug: string) {
-  const page = await db.query.pages.findFirst({
-    where: and(eq(pages.teamId, teamId), eq(pages.slug, slug)),
-  });
-  if (!page || !page.publishedAt) return null;
-  const settings = await getTeamSettings(teamId);
+/** Unauthenticated, published-only read for public rendering: the page at
+ * `slug` in the team's active release. */
+export async function getPublishedPageBySlug(
+  teamId: string,
+  slug: string,
+  /** Render this release instead of the active one (signed previews). */
+  releaseOverride?: LoadedRelease | null,
+) {
+  const release = releaseOverride ?? (await getActiveRelease(teamId));
+  const entry = release?.pages.find((page) => page.slug === slug);
+  if (!release || !entry) return null;
+  const page = entry.pageId
+    ? await db.query.pages.findFirst({ where: eq(pages.id, entry.pageId) })
+    : undefined;
+  const content = entry.revision.content;
   return {
-    ...page,
-    layout: hydrateSharedWidgets(page.layout, settings.sharedWidgets, page.slug),
+    pageId: page?.pageId ?? "",
+    name: entry.name,
+    slug: entry.slug,
+    layout: revisionLayout(content, entry.slug, release.site),
+    title: content.title ?? null,
+    description: content.description ?? null,
+    socialImage: (content.socialImage as Record<string, unknown> | undefined) ?? null,
+    robotsAllowed: content.robotsAllowed !== false,
+    publishedAt: release.createdAt,
+    updatedAt: release.createdAt,
   };
 }
 
-/** Every published page for a team, for the sitemap (architecture.md
- * §12.3) — callers filter out `robotsAllowed === false` themselves since
- * `null` means "allowed" (the default), not "disallowed". */
+/** Every page in the active release, for the sitemap. */
 export async function listPublishedPages(teamId: string) {
-  return db.query.pages.findMany({
-    where: and(eq(pages.teamId, teamId), isNotNull(pages.publishedAt)),
-  });
+  const release = await getActiveRelease(teamId);
+  return (release?.pages ?? []).map((entry) => ({
+    slug: entry.slug,
+    robotsAllowed: entry.revision.content.robotsAllowed !== false,
+    // A revision is created when its content first appears, so this only
+    // moves when the page itself changes.
+    publishedAt: entry.revision.createdAt,
+    updatedAt: entry.revision.createdAt,
+  }));
 }
 
 export async function deletePage(teamId: string, pageId: string) {
@@ -318,6 +391,21 @@ export async function deletePage(teamId: string, pageId: string) {
     return { ok: false as const, reason: "not_found" as const };
   if (!existing.deletable)
     return { ok: false as const, reason: "not_deletable" as const };
-  await db.delete(pages).where(eq(pages.id, existing.id));
+  if (await getPagesGitBinding(teamId)) throw new PageOwnedByGitError();
+  const active = await getActiveRelease(teamId);
+  if (releaseEntry(active, existing)) {
+    // Unpublish and delete together.
+    const summary = `Deleted ${existing.name}`;
+    await publishBuilderRelease(
+      teamId,
+      { summary, publishChrome: false },
+      async (entries, tx) => {
+        await tx.delete(pages).where(eq(pages.id, existing.id));
+        return entries.filter((entry) => entry.pageId !== existing.id);
+      },
+    );
+  } else {
+    await db.delete(pages).where(eq(pages.id, existing.id));
+  }
   return { ok: true as const };
 }

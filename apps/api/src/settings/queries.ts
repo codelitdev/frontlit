@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../db/client";
 import { genId } from "../db/id";
+import { canonicalizeSettings } from "@frontlit/page-builder/schema";
 import {
   DEFAULT_SHARED_WIDGETS,
   teamSettings,
@@ -43,17 +44,17 @@ function createTeamSharedWidgets(teamName: string): SharedWidgetsRow {
   return {
     header: {
       ...header,
-      settings: {
+      settings: canonicalizeSettings("header", {
         ...header.settings,
         links: [link("Docs", "/docs"), link("Blog", "/blog")],
         // Every team has a help desk, so this always works.
         ctaLabel: "Contact us",
         ctaHref: "/help",
-      },
+      }),
     },
     footer: {
       ...footer,
-      settings: {
+      settings: canonicalizeSettings("footer", {
         ...footer.settings,
         columns: [
           {
@@ -72,7 +73,7 @@ function createTeamSharedWidgets(teamName: string): SharedWidgetsRow {
           },
         ],
         copyrightText: `© ${teamName}. All rights reserved.`,
-      },
+      }),
     },
   };
 }
@@ -97,7 +98,6 @@ export async function getTeamSettings(teamId: string) {
       title: team?.name ?? null,
       // Do not rely on the Postgres column default — local DBs keep
       // the old SQL default until migrations are reset.
-      sharedWidgets,
       draftSharedWidgets: sharedWidgets,
     })
     .returning();

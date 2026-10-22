@@ -1,4 +1,5 @@
 import { and, count, desc, eq } from "drizzle-orm";
+import { getActiveRelease } from "../pages/releases";
 import { db } from "../db/client";
 import {
   documents,
@@ -114,7 +115,8 @@ function placeContainsMedia(
 }
 
 /** How many saved FrontLit surfaces (branding, pages, documents) mention
- * each library item. Draft and published copies count separately. */
+ * each library item. Draft and live (active release) copies count
+ * separately. */
 export async function countMediaReferences(teamId: string) {
   const items = await db.query.media.findMany({
     where: eq(media.teamId, teamId),
@@ -125,28 +127,26 @@ export async function countMediaReferences(teamId: string) {
   );
   if (items.length === 0) return counts;
 
-  const [settings, teamPages, teamDocuments, retainedRevisions] = await Promise.all([
-    db.query.teamSettings.findFirst({
-      where: eq(teamSettings.teamId, teamId),
-    }),
-    db.query.pages.findMany({ where: eq(pages.teamId, teamId) }),
-    db.query.documents.findMany({ where: eq(documents.teamId, teamId) }),
-    db.query.documentationRevisions.findMany({
-      where: eq(documentationRevisions.teamId, teamId),
-    }),
-  ]);
+  const [settings, teamPages, teamDocuments, retainedRevisions, release] =
+    await Promise.all([
+      db.query.teamSettings.findFirst({
+        where: eq(teamSettings.teamId, teamId),
+      }),
+      db.query.pages.findMany({ where: eq(pages.teamId, teamId) }),
+      db.query.documents.findMany({ where: eq(documents.teamId, teamId) }),
+      db.query.documentationRevisions.findMany({
+        where: eq(documentationRevisions.teamId, teamId),
+      }),
+      getActiveRelease(teamId),
+    ]);
 
   const places: unknown[] = [
     ...retainedRevisions.map((revision) => revision.snapshot),
     settings?.logo,
-    settings?.sharedWidgets,
     settings?.draftSharedWidgets,
-    ...teamPages.flatMap((page) => [
-      page.layout,
-      page.draftLayout,
-      page.socialImage,
-      page.draftSocialImage,
-    ]),
+    ...teamPages.flatMap((page) => [page.draftLayout, page.draftSocialImage]),
+    release?.site,
+    ...(release?.pages ?? []).map((entry) => entry.revision.content),
     ...teamDocuments.flatMap((document) => [
       document.content,
       document.draftContent,

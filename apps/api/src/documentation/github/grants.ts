@@ -147,7 +147,8 @@ export async function changeGitHubCapabilities(
       input,
     );
     if (
-      settings.source !== "git" ||
+      // A pages-only connection keeps docs in the editor.
+      (binding.docsEnabled && settings.source !== "git") ||
       binding.repositoryId !== before.repositoryId ||
       binding.ownerId !== before.ownerId ||
       binding.installationId !== before.installationId ||
@@ -199,7 +200,11 @@ export async function changeGitHubCapabilities(
       .update(setups)
       .set({ status: "consumed", encryptedUserToken: null, encryptedVerifier: null })
       .where(eq(setups.setupId, setup.setupId));
-    if (binding.status === "connected")
+    // A pages-only connection without a pages folder has nothing to sync.
+    if (
+      binding.status === "connected" &&
+      (binding.docsEnabled || binding.pagesDirectory)
+    )
       await enqueueGitSync(teamId, { trigger: "configuration" }, tx);
     return grantProjection(receipt);
   });

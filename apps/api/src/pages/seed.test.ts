@@ -10,7 +10,16 @@ vi.mock("../media/service", async (original) => ({
 
 import { db as testDb } from "../db/client";
 import { pages } from "../db/schema";
-import { createHomepageBody, seedStandardPages } from "./seed";
+import { createHomepageBody, seedStandardPages, STANDARD_PAGES } from "./seed";
+import { parsePageFile, serializePageFile } from "@frontlit/page-builder/schema";
+import { createRequiredPageLayout } from "./shared-widgets";
+import { listPages } from "./queries";
+import { getActiveRelease } from "./releases";
+
+/** Page views (draft plus published state from the active release). */
+function teamPages(teamId: string) {
+  return listPages({ teamId, itemsPerPage: 100 });
+}
 
 const PUBLIC_HREF =
   /^\/(blog|docs|help|changelog|terms|privacy)$|^\/#(features|pricing)$/;
@@ -38,6 +47,19 @@ function collectedHrefs(value: unknown, acc: string[] = []): string[] {
   return acc;
 }
 
+describe("standard page seeds", () => {
+  it("are canonical page files: serialize(parse(serialize(x))) === serialize(x)", () => {
+    for (const page of STANDARD_PAGES) {
+      const once = serializePageFile({
+        title: page.title ?? undefined,
+        description: page.description ?? undefined,
+        layout: createRequiredPageLayout(page.slug, page.layout),
+      });
+      expect(serializePageFile(parsePageFile(once)), page.slug).toBe(once);
+    }
+  });
+});
+
 describe("seedStandardPages", () => {
   const db = testDb as unknown as TestDb;
   let teamId: string;
@@ -49,9 +71,7 @@ describe("seedStandardPages", () => {
   });
 
   it("publishes a FrontLit marketing homepage with section anchors", async () => {
-    const home = (await db.select().from(pages).where(eq(pages.teamId, teamId))).find(
-      (page) => page.slug === "",
-    );
+    const home = (await teamPages(teamId)).find((page) => page.slug === "");
 
     expect(home).toBeDefined();
     // No SEO title: the homepage falls back to the Branding site title.
@@ -85,23 +105,24 @@ describe("seedStandardPages", () => {
   });
 
   it("seeds all 7 standard pages by default when requestedPages is omitted", async () => {
-    const allPages = await db.select().from(pages).where(eq(pages.teamId, teamId));
+    const allPages = await teamPages(teamId);
     const slugs = allPages.map((p) => p.slug).sort();
     expect(slugs).toEqual(
       ["", "blog", "changelog", "docs", "help", "privacy", "terms"].sort(),
     );
     expect(allPages.every((p) => p.deletable === false)).toBe(true);
     expect(allPages.every((p) => p.publishedAt !== null)).toBe(true);
+    expect(allPages.every((p) => p.status === "published")).toBe(true);
+    // All seeded pages go live together in one release.
+    const release = await getActiveRelease(teamId);
+    expect(release?.pages).toHaveLength(7);
   });
 
   it("seeds only specified standard pages when requested", async () => {
     const customTeam = await seedTeam(db);
     await seedStandardPages(customTeam.team.id, ["blog", "help"]);
 
-    const seeded = await db
-      .select()
-      .from(pages)
-      .where(eq(pages.teamId, customTeam.team.id));
+    const seeded = await teamPages(customTeam.team.id);
     expect(seeded.map((p) => p.slug).sort()).toEqual(["blog", "help"]);
     expect(
       seeded
@@ -129,10 +150,7 @@ describe("seedStandardPages", () => {
       { slug: "faq", name: "FAQ", title: "Helpful Answers" },
     ]);
 
-    const seeded = await db
-      .select()
-      .from(pages)
-      .where(eq(pages.teamId, customTeam.team.id));
+    const seeded = await teamPages(customTeam.team.id);
     const bySlug = new Map(seeded.map((p) => [p.slug, p]));
 
     expect(bySlug.has("")).toBe(true); // "homepage" -> ""
@@ -161,17 +179,14 @@ describe("seedStandardPages", () => {
             deletable: true,
             moveable: true,
             shared: false,
-            settings: { title: "Terms of Service" },
+            settings: { alignment: "center" },
           },
         ],
       },
       { slug: "guide", deletable: false },
     ]);
 
-    const seeded = await db
-      .select()
-      .from(pages)
-      .where(eq(pages.teamId, customTeam.team.id));
+    const seeded = await teamPages(customTeam.team.id);
     const bySlug = new Map(seeded.map((p) => [p.slug, p]));
 
     // Standard page explicitly made deletable
@@ -182,7 +197,8 @@ describe("seedStandardPages", () => {
     expect(terms?.deletable).toBe(false);
     expect(terms?.layout.some((w) => w.name === "header")).toBe(true);
     expect(terms?.layout.some((w) => w.name === "footer")).toBe(true);
-    expect(terms?.layout.some((w) => w.widgetId === "custom-block")).toBe(true);
+    expect(terms?.layout.some((w) => w.name === "rich-text")).toBe(true);
+    expect(terms?.draftLayout.some((w) => w.widgetId === "custom-block")).toBe(true);
 
     // Custom page explicitly made non-deletable
     expect(bySlug.get("guide")?.deletable).toBe(false);
@@ -204,16 +220,13 @@ describe("seedStandardPages", () => {
       },
     ]);
 
-    const seeded = await db
-      .select()
-      .from(pages)
-      .where(eq(pages.teamId, customTeam.team.id));
+    const seeded = await teamPages(customTeam.team.id);
     const aboutPage = seeded.find((p) => p.slug === "about");
 
     expect(aboutPage).toBeDefined();
-    expect(aboutPage?.socialImage).toMatchObject({
+    // Published revision content keeps only the canonical url and alt.
+    expect(aboutPage?.socialImage).toEqual({
       url: "https://cdn.example.com/about-og.png",
-      thumbnailUrl: "https://cdn.example.com/about-thumb.png",
       alt: "About FrontLit",
     });
     expect(aboutPage?.draftSocialImage).toMatchObject({

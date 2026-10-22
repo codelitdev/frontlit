@@ -30,6 +30,8 @@ import {
   listPagesQuerySchema,
   pageSchema,
   updatePageBodySchema,
+  siteReleaseSchema,
+  pagePullRequestSchema,
 } from "./schemas/pages";
 import {
   createThemeBodySchema,
@@ -452,7 +454,7 @@ const pagesContract = c.router(
       method: "POST",
       path: "/pages/:pageId/publish",
       body: c.noBody(),
-      responses: { 200: pageSchema, 404: errorSchema },
+      responses: { 200: pageSchema, 404: errorSchema, 409: errorSchema },
       summary: "Publish a page",
       description:
         "Copies the page's draft layout and SEO fields into the published fields the public site renders.",
@@ -465,6 +467,36 @@ const pagesContract = c.router(
       summary: "Discard a page's draft changes",
       description:
         "Resets the draft layout and SEO fields back to whatever is currently published.",
+    },
+    createPullRequest: {
+      method: "POST",
+      path: "/pages/:pageId/pull-request",
+      body: c.noBody(),
+      responses: {
+        201: pagePullRequestSchema,
+        404: errorSchema,
+        409: z.object({ error: z.string(), code: z.string().optional() }).passthrough(),
+      },
+      summary: "Open a pull request with a page's draft",
+      description:
+        "For Git-owned pages: commits the draft page file (and site.json when the header or footer changed) to a new branch and opens a pull request. Returns 409 UPSTREAM_CHANGED when the file changed in GitHub since the live release.",
+    },
+    listReleases: {
+      method: "GET",
+      path: "/site/releases",
+      responses: { 200: z.object({ items: z.array(siteReleaseSchema) }) },
+      summary: "List site releases",
+      description:
+        "Newest first. A release is an immutable snapshot of every published page plus the site header and footer; exactly one is live.",
+    },
+    activateRelease: {
+      method: "POST",
+      path: "/site/releases/:releaseId/activate",
+      body: c.noBody(),
+      responses: { 200: siteReleaseSchema, 404: errorSchema },
+      summary: "Activate a site release",
+      description:
+        "Rolls the public site back (or forward) to this release. Drafts are untouched.",
     },
   },
   { metadata: { tag: "Pages" } },
@@ -1037,6 +1069,8 @@ const publicContract = c.router(
     getSettings: {
       method: "GET",
       path: "/public/:teamId/settings",
+      /** `release` + `token`: theme and redirects of a signed preview. */
+      query: z.object({ release: z.string().optional(), token: z.string().optional() }),
       responses: { 200: publicTeamSettingsSchema, 404: errorSchema },
       summary: "Get a team's public branding + code-injection settings",
       description:
@@ -1048,10 +1082,16 @@ const publicContract = c.router(
       // A `:slug` path param can't carry an empty string (the
       // homepage's slug, architecture.md §4.2), so it's a query param
       // instead of a `/pages/:slug` path segment.
-      query: z.object({ slug: z.string().optional() }),
+      query: z.object({
+        slug: z.string().optional(),
+        /** A pull request preview release, with its signed `token`. */
+        release: z.string().optional(),
+        token: z.string().optional(),
+      }),
       responses: { 200: publicPageSchema, 404: errorSchema },
       summary: "Get a team's published page layout by slug",
-      description: "Omit `slug` (or pass an empty string) to resolve the homepage.",
+      description:
+        "Omit `slug` (or pass an empty string) to resolve the homepage. `release` + `token` render a signed pull request preview instead of the live site.",
     },
     getSitemap: {
       method: "GET",
@@ -1818,20 +1858,44 @@ const emailContract = c.router(
 );
 
 import { documentationGithubContract } from "./documentation-github-contract";
-export const contract = c.router({
+const contentContract = c.router({
+  articles: articlesContract,
+  documentation: documentationContract,
+  productUpdates: productUpdatesContract,
+  documentationSections: documentationSectionsContract,
+  documentationGithub: documentationGithubContract,
+});
+
+// Spelled out so the declaration emit references each router instead of
+// inlining the whole tree, which exceeds the compiler's limit (TS7056).
+type ContractShape = {
+  teams: typeof teamsContract;
+  teamInvitations: typeof teamInvitationsContract;
+  provisioning: typeof provisioningContract;
+  pages: typeof pagesContract;
+  themes: typeof themesContract;
+  media: typeof mediaContract;
+  content: typeof contentContract;
+  contacts: typeof contactsContract;
+  segments: typeof segmentsContract;
+  email: typeof emailContract;
+  chatbot: typeof chatbotContract;
+  ai: typeof aiContract;
+  inboxAi: typeof inboxAiContract;
+  tickets: typeof ticketsContract;
+  domains: typeof domainsContract;
+  settings: typeof settingsContract;
+  public: typeof publicContract;
+};
+
+export const contract: ContractShape = c.router({
   teams: teamsContract,
   teamInvitations: teamInvitationsContract,
   provisioning: provisioningContract,
   pages: pagesContract,
   themes: themesContract,
   media: mediaContract,
-  content: c.router({
-    articles: articlesContract,
-    documentation: documentationContract,
-    productUpdates: productUpdatesContract,
-    documentationSections: documentationSectionsContract,
-    documentationGithub: documentationGithubContract,
-  }),
+  content: contentContract,
   contacts: contactsContract,
   segments: segmentsContract,
   email: emailContract,

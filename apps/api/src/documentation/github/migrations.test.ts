@@ -166,7 +166,7 @@ describe("reviewed CMS adoption after a platform-created setup PR", () => {
         installationId: 7,
         repositoryId: 9,
         branch: "trunk",
-        directory: "docs",
+        root: "",
         expectedDocsDraftVersion: s.draftVersion,
         expectedPublicationId: s.activePublicationId,
       },

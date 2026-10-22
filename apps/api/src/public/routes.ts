@@ -40,6 +40,8 @@ import { notifyTeamOfRequesterMessage } from "../tickets/notify";
 import { resolveHost } from "../domains/queries";
 import { getTeamSettings } from "../settings/queries";
 import { getPublishedPageBySlug, listPublishedPages } from "../pages/queries";
+import { getActiveRelease, getReleaseByReleaseId } from "../pages/releases";
+import { verifyPreview } from "../pages/git-preview";
 import { getThemeByThemeId } from "../themes/queries";
 import { verifyCaptcha } from "../services/captcha";
 import {
@@ -299,7 +301,7 @@ const impl = s.router(contract.public, {
   },
   getSettings: {
     middleware: [publicReadLimiter],
-    handler: async ({ params }) => {
+    handler: async ({ params, query }) => {
       const team = await findTeamByPublicId(params.teamId);
       if (!team) return { status: 404, body: { error: "Team not found" } };
 
@@ -309,7 +311,14 @@ const impl = s.router(contract.public, {
       const savedTheme = themeId?.startsWith("thm_")
         ? await getThemeByThemeId(themeId)
         : null;
-      const theme = savedTheme?.teamId === team.id ? savedTheme.style : null;
+      // A Git-owned site (site.json) ships its theme in the active release.
+      const release =
+        query?.release && verifyPreview(query.release, query.token)
+          ? await getReleaseByReleaseId(team.id, query.release)
+          : await getActiveRelease(team.id);
+      const theme =
+        release?.site.theme ??
+        (savedTheme?.teamId === team.id ? savedTheme.style : null);
       return {
         status: 200,
         body: {
@@ -320,6 +329,7 @@ const impl = s.router(contract.public, {
           theme,
           codeInjectionHead,
           codeInjectionBody,
+          redirects: release?.site.redirects ?? [],
         },
       };
     },
@@ -330,7 +340,14 @@ const impl = s.router(contract.public, {
       const team = await findTeamByPublicId(params.teamId);
       if (!team) return { status: 404, body: { error: "Team not found" } };
 
-      const page = await getPublishedPageBySlug(team.id, query.slug ?? "");
+      let preview = null;
+      if (query.release) {
+        preview = verifyPreview(query.release, query.token)
+          ? await getReleaseByReleaseId(team.id, query.release)
+          : null;
+        if (!preview) return { status: 404, body: { error: "Not found" } };
+      }
+      const page = await getPublishedPageBySlug(team.id, query.slug ?? "", preview);
       if (!page) return { status: 404, body: { error: "Not found" } };
       const {
         pageId,

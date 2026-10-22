@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, lte, or, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import {
   documentationGitBindings as bindings,
@@ -8,17 +8,22 @@ import { lockSettings } from "../authoring";
 import { DocsGitHubApp, GitHubDocsError, getDocsGitHubAppConfig } from "./app";
 import { enqueueGitPrCheck } from "./check-worker";
 import { readGitBindingAccess } from "./state";
+import { buildPagesPreview } from "../../pages/git-preview";
 const INTERVAL_MS = 15 * 60_000;
 
 /** Independent of branch imports and their pending leases. Complete provider
  * listing discovers external PRs even after their original webhook/report has
- * been lost or collected. One bounded batch of five sources runs per tick. */
+ * been lost or collected: docs PRs get a validation check queued, and PRs
+ * whose head has no pages preview yet get one built. One bounded batch of
+ * five sources runs per tick. */
 export async function reconcileGitPrChecks(
   injectedApp?: DocsGitHubApp,
   teamId?: string,
 ) {
   const due = and(
     eq(bindings.status, "connected"),
+    // Docs PR checks, pages previews, or both.
+    or(eq(bindings.docsEnabled, true), isNotNull(bindings.pagesDirectory)),
     lte(bindings.nextPrReconcileAt, sql`now()`),
     teamId ? eq(bindings.teamId, teamId) : undefined,
   );
@@ -66,6 +71,37 @@ export async function reconcileGitPrChecks(
         access.repository.name,
         binding.branch,
       );
+      // A pages preview normally comes from the pull_request webhook; build
+      // the ones a lost webhook missed. buildPagesPreview skips PRs that
+      // don't touch the pages folder or site.json.
+      if (binding.pagesDirectory) {
+        const { token: checksToken } = await app.installationToken(
+          Number(binding.installationId),
+          Number(binding.repositoryId),
+          "checks",
+        );
+        for (const pr of open) {
+          if (!pr.supported) continue;
+          const owner = access.repository.owner.login;
+          if (
+            await app.hasPagesCheckRun(
+              checksToken,
+              owner,
+              access.repository.name,
+              pr.headSha,
+            )
+          )
+            continue;
+          if (await buildPagesPreview(binding.teamId, pr, app)) queued++;
+        }
+      }
+      if (!binding.docsEnabled) {
+        await db
+          .update(bindings)
+          .set({ lastPrReconcileError: null })
+          .where(eq(bindings.teamId, binding.teamId));
+        continue;
+      }
       const added = await db.transaction(async (tx) => {
         const settings = await lockSettings(tx, binding.teamId);
         const current = await tx.query.documentationGitBindings.findFirst({

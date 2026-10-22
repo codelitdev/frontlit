@@ -1,5 +1,5 @@
 {
   "title": "Developers",
   "icon": "Code",
-  "pages": ["overview", "authentication", "mcp"]
+  "pages": ["overview", "authentication", "mcp", "pages-from-git"]
 }

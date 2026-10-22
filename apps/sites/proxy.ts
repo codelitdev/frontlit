@@ -14,6 +14,12 @@ export async function proxy(request: NextRequest) {
     return uncached(new NextResponse(null, { status: 404 }));
   }
 
+  // Page/site file JSON Schemas are the same on every host (frontlit.app
+  // serves the canonical `$schema` URLs); see app/schema.
+  if (/^\/schema\/(page|site)\.v1\.json$/.test(request.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
+
   const requestHost = request.headers.get("host");
   if (!requestHost) return uncached(new NextResponse(null, { status: 404 }));
   const host = normalizeHost(requestHost);
@@ -75,6 +81,11 @@ export async function proxy(request: NextRequest) {
   // Not `_sites` — a leading underscore makes Next.js treat the folder as
   // a private, non-routable segment, which would silently 404 everything.
   url.pathname = `/sites/${decision.teamId}${request.nextUrl.pathname}`;
+  // Signed pull request previews: /_preview/<releaseId>/<slug>. Next treats
+  // `_`-prefixed folders as private, so the route lives at release-preview.
+  if (request.nextUrl.pathname.startsWith("/_preview/")) {
+    url.pathname = `/sites/${decision.teamId}/release-preview/${request.nextUrl.pathname.slice("/_preview/".length)}`;
+  }
 
   // The chat iframe never gets the team's code-injection snippets or its
   // own floating widget button (architecture.md §12.5/§7.3) — flagged via

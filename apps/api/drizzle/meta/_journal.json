@@ -71,6 +71,13 @@
       "when": 1792261773276,
       "tag": "0009_custom_domain_pairs",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792552069376,
+      "tag": "0010_pages_from_git",
+      "breakpoints": true
     }
   ]
 }

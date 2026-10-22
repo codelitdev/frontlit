@@ -13,9 +13,10 @@ import {
   documentationGitMigrationPrs as migrationPrs,
 } from "../../db/schema";
 import { lockSettings } from "../authoring";
+import { schedulePagesPreview } from "../../pages/git-preview";
 import { completeGitHubSetup } from "./setup";
 import { getDocsGitHubAppConfig, GitHubDocsError, verifyGitHubSignature } from "./app";
-import { enqueueGitSync, supersedeGitWork } from "./state";
+import { canSync, enqueueGitSync, supersedeGitWork } from "./state";
 import { enqueueGitPrCheck } from "./check-worker";
 import { gitHubErrorResponse } from "./errors";
 const id = z.number().int().positive().safe();
@@ -33,7 +34,14 @@ const payloadSchema = z.object({
       number: id,
       merged: z.boolean(),
       base: z.object({ ref: z.string().min(1).max(255), repo }),
-      head: z.object({ ref: z.string().min(1).max(255), repo: repo.nullable() }),
+      head: z.object({
+        ref: z.string().min(1).max(255),
+        sha: z
+          .string()
+          .regex(/^[a-f0-9]{40}$/)
+          .optional(),
+        repo: repo.nullable(),
+      }),
     })
     .optional(),
   check_run: z
@@ -88,7 +96,11 @@ export async function receiveGitHubDelivery(
         data.pull_request.base.repo.id !== data.repository.id))
   )
     throw new GitHubDocsError("GITHUB_INVALID_DELIVERY", 400);
-  return db.transaction(async (tx) => {
+  const result: {
+    duplicate: boolean;
+    relevant: boolean;
+    previews?: { teamId: string; number: number; headSha: string }[];
+  } = await db.transaction(async (tx) => {
     const [receipt] = await tx
       .insert(deliveries)
       .values({
@@ -207,6 +219,7 @@ export async function receiveGitHubDelivery(
       }
     }
     const runIds: string[] = [];
+    const previews: { teamId: string; number: number; headSha: string }[] = [];
     // Stable lock ordering for a shared installation spanning several teams.
     for (const before of candidates.sort((a, b) => a.teamId.localeCompare(b.teamId))) {
       if (["paused", "disconnected"].includes(before.status)) continue;
@@ -336,10 +349,31 @@ export async function receiveGitHubDelivery(
           )
           .returning({ proposalId: proposals.proposalId });
         relevant ||= eligible.length > 0;
-        const checkJob = await enqueueGitPrCheck(current.teamId, pr.number, tx);
-        runIds.push(checkJob.checkId);
-        relevant = true;
-        if (data.action === "closed" && pr.merged) {
+        // Docs PR checks only apply when docs come from this repository.
+        if (
+          current.docsEnabled &&
+          (await lockSettings(tx, current.teamId)).source === "git"
+        ) {
+          const checkJob = await enqueueGitPrCheck(current.teamId, pr.number, tx);
+          runIds.push(checkJob.checkId);
+          relevant = true;
+        }
+        // Only same-repository branches: a fork's PR must not get a preview
+        // served from the team's domain (or have its images uploaded).
+        if (
+          current.pagesDirectory &&
+          pr.head.sha &&
+          pr.head.repo?.id === data.repository!.id &&
+          ["opened", "synchronize", "reopened"].includes(data.action!)
+        ) {
+          previews.push({
+            teamId: current.teamId,
+            number: pr.number,
+            headSha: pr.head.sha,
+          });
+          relevant = true;
+        }
+        if (data.action === "closed" && pr.merged && (await canSync(tx, current))) {
           const job = await enqueueGitSync(current.teamId, { trigger: "webhook" }, tx);
           runIds.push(job.runId);
           relevant = true;
@@ -372,12 +406,15 @@ export async function receiveGitHubDelivery(
         ]);
         if (numbers.size > 1000)
           throw new GitHubDocsError("GITHUB_RECONCILIATION_LIMIT", 409);
-        for (const number of numbers) {
-          const checkJob = await enqueueGitPrCheck(current.teamId, number, tx);
-          runIds.push(checkJob.checkId);
+        if (current.docsEnabled)
+          for (const number of numbers) {
+            const checkJob = await enqueueGitPrCheck(current.teamId, number, tx);
+            runIds.push(checkJob.checkId);
+          }
+        if (await canSync(tx, current)) {
+          const job = await enqueueGitSync(current.teamId, { trigger: "webhook" }, tx);
+          runIds.push(job.runId);
         }
-        const job = await enqueueGitSync(current.teamId, { trigger: "webhook" }, tx);
-        runIds.push(job.runId);
         if (data.deleted)
           await tx
             .update(bindings)
@@ -422,8 +459,14 @@ export async function receiveGitHubDelivery(
               updatedAt: new Date(),
             })
             .where(eq(bindings.teamId, current.teamId));
-          const job = await enqueueGitSync(current.teamId, { trigger: "webhook" }, tx);
-          runIds.push(job.runId);
+          if (await canSync(tx, current)) {
+            const job = await enqueueGitSync(
+              current.teamId,
+              { trigger: "webhook" },
+              tx,
+            );
+            runIds.push(job.runId);
+          }
           relevant = true;
         }
       }
@@ -435,8 +478,12 @@ export async function receiveGitHubDelivery(
         runIds,
       })
       .where(eq(deliveries.deliveryId, deliveryId));
-    return { duplicate: false, relevant };
+    return { duplicate: false, relevant, previews };
   });
+  // After commit: preview builds read GitHub and can take a while.
+  for (const preview of result.previews ?? [])
+    schedulePagesPreview(preview.teamId, preview);
+  return { duplicate: result.duplicate, relevant: result.relevant };
 }
 
 /** Infrastructure router is mounted before global JSON parsing. */

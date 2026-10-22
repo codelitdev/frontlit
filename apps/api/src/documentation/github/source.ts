@@ -19,12 +19,15 @@ import {
   documentationPublications as publications,
   documentationMemberships as memberships,
 } from "../../db/schema";
+import { gitSiteFolders, gitSiteRoot } from "@frontlit/api-contract";
 import { serializeDates } from "../../utils/public";
 import { draftReport, getDocsSettings, lockSettings } from "../authoring";
 import { digest } from "../publications";
 import { DocsGitHubApp, getDocsGitHubAppConfig, GitHubDocsError } from "./app";
 import { importDocumentationTree, type DocumentationGitManifest } from "./importer";
 import { authorizedSetup, requireGitManager, verifySetupRepository } from "./setup";
+import { latestPagesSetup } from "../../pages/git-export";
+import { previewPagesTree } from "../../pages/git-source";
 import { enqueueGitSync, readGitBindingAccess, supersedeGitWork } from "./state";
 import { reserveGitValidation } from "./admission";
 
@@ -33,7 +36,10 @@ export type GitSourceSelection = {
   installationId: number;
   repositoryId: number;
   branch: string;
-  directory: string;
+  /** The site folder: docs in `<root>/docs`, pages in `<root>/pages`. */
+  root: string;
+  docsEnabled?: boolean;
+  pagesEnabled?: boolean;
 };
 export function gitDocumentSnapshot(
   doc: DocumentationGitManifest["docs"][number],
@@ -90,9 +96,11 @@ export async function validateGitManifest(
     diagnostics: sortDiagnostics(diagnostics),
   };
 }
+type PagesPreview = Awaited<ReturnType<typeof previewPagesTree>>;
 export function preflightProjection(
   row: typeof preflights.$inferSelect,
   diagnostics: DocsDiagnostic[] = [],
+  pages: PagesPreview | null = null,
 ) {
   const manifest = row.manifest;
   if (!manifest || !row.commitSha)
@@ -115,6 +123,7 @@ export function preflightProjection(
     routes: manifest.docs
       .filter((d) => d.published)
       .map((d) => ({ path: d.sourcePath, route: d.route })),
+    pages,
     publishedDefaultsToTrue: true,
     selectedDocsWillBePublic: true,
     publishable: true,
@@ -130,7 +139,8 @@ export async function preflightGitHubSource(
 ) {
   requireGitManager(teamId, actor);
   await reserveGitValidation(teamId, actor);
-  const directory = normalizeDocsSourceDirectory(input.directory);
+  const folders = gitSiteFolders(input.root);
+  const directory = normalizeDocsSourceDirectory(folders.docs);
   const access = await verifySetupRepository(
     teamId,
     input.setupId,
@@ -146,25 +156,54 @@ export async function preflightGitHubSource(
     access.repository.name,
     input.branch,
   );
+  const docsEnabled = input.docsEnabled !== false;
+  if (!docsEnabled && !input.pagesEnabled)
+    throw new GitHubDocsError("GITHUB_NOTHING_TO_SYNC", 400);
+  const owner = access.repository.owner.login;
+  const name = access.repository.name;
+  const readBlob = (id: string) => app.blob(access.installationToken, owner, name, id);
   try {
-    const manifest = await importDocumentationTree({
-      commitSha: sha,
-      directory,
-      entries: await app.commitTree(
-        access.installationToken,
-        access.repository.owner.login,
-        access.repository.name,
-        sha,
-      ),
-      readBlob: (id) =>
-        app.blob(
-          access.installationToken,
-          access.repository.owner.login,
-          access.repository.name,
-          id,
-        ),
-    });
-    const report = await validateGitManifest(teamId, manifest);
+    const entries = await app.commitTree(access.installationToken, owner, name, sha);
+    // Pages problems block connecting; a folder that doesn't exist yet
+    // connects without pages so they can be exported afterwards.
+    const pages = input.pagesEnabled
+      ? await previewPagesTree(teamId, {
+          commitSha: sha,
+          directory: folders.pages,
+          entries,
+          readBlob,
+        })
+      : null;
+    if (pages && !pages.publishable && !pages.missing)
+      return {
+        preflightId: null,
+        commitSha: sha,
+        publishable: false,
+        diagnostics: pages.diagnostics,
+      };
+    const pagesDirectory = pages?.publishable ? pages.directory : null;
+    const manifest = docsEnabled
+      ? {
+          ...(await importDocumentationTree({
+            commitSha: sha,
+            directory,
+            entries,
+            readBlob,
+          })),
+          pagesDirectory,
+        }
+      : {
+          commitSha: sha,
+          directory,
+          docs: [],
+          sections: [],
+          bytes: 0,
+          docsEnabled: false,
+          pagesDirectory,
+        };
+    const report = docsEnabled
+      ? await validateGitManifest(teamId, manifest as DocumentationGitManifest)
+      : { publishable: true, diagnostics: [] };
     if (!report.publishable) return { preflightId: null, commitSha: sha, ...report };
     if (access.setup.expiresAt <= new Date())
       throw new GitHubDocsError("GITHUB_SETUP_EXPIRED", 409);
@@ -184,11 +223,11 @@ export async function preflightGitHubSource(
         commitSha: sha,
         docsDraftVersion: settings.draftVersion,
         manifestHash: digest(manifest),
-        manifest,
+        manifest: manifest as DocumentationGitManifest,
         expiresAt: access.setup.expiresAt,
       })
       .returning();
-    return preflightProjection(row, report.diagnostics);
+    return preflightProjection(row, report.diagnostics, pages);
   } catch (error) {
     if (error instanceof DocsContentError)
       return {
@@ -292,7 +331,15 @@ export async function connectGitHubSource(
       ),
     });
     if (pending) throw new GitHubDocsError("PUBLICATION_PENDING", 409);
-    if (settings.source === "editor") {
+    const chosen = preflight.manifest as {
+      docsEnabled?: boolean;
+      pagesDirectory?: string | null;
+    };
+    const docsEnabled = chosen.docsEnabled !== false;
+    const pagesDirectory = chosen.pagesDirectory ?? null;
+    if (!docsEnabled) {
+      // Pages only: docs stay wherever they are.
+    } else if (settings.source === "editor") {
       const docs = await tx.query.documents.findFirst({
         where: and(eq(documents.teamId, teamId), eq(documents.kind, "doc")),
       });
@@ -336,21 +383,30 @@ export async function connectGitHubSource(
       capabilities: { read: true, proposals: false, directCommit: false },
       grantedAt: new Date(),
       lastDiagnostic: null,
+      docsEnabled,
+      pagesDirectory,
+      pagesSourceKey: null,
+      pagesDiagnostics: null,
       updatedAt: new Date(),
     };
     await tx
       .insert(bindings)
       .values(value)
       .onConflictDoUpdate({ target: bindings.teamId, set: value });
-    await tx
-      .update(settingsTable)
-      .set({ source: "git", draftVersion: settings.draftVersion + 1 })
-      .where(eq(settingsTable.teamId, teamId));
-    const run = await enqueueGitSync(
-      teamId,
-      { reviewedSha: input.commitSha, trigger: "connect" },
-      tx,
-    );
+    if (docsEnabled)
+      await tx
+        .update(settingsTable)
+        .set({ source: "git", draftVersion: settings.draftVersion + 1 })
+        .where(eq(settingsTable.teamId, teamId));
+    // A pages-only connection whose folder doesn't exist yet has nothing to sync.
+    const run =
+      docsEnabled || pagesDirectory
+        ? await enqueueGitSync(
+            teamId,
+            { reviewedSha: input.commitSha, trigger: "connect" },
+            tx,
+          )
+        : { runId: "none" };
     await tx
       .update(bindings)
       .set({
@@ -452,6 +508,7 @@ export async function getGitHubSource(teamId: string, actor?: AuthzContext) {
       repository: binding.repositoryName,
       private: binding.repositoryPrivate,
       branch: binding.branch,
+      root: gitSiteRoot(binding.directory),
       directory: binding.directory,
       generation: binding.generation,
       grantVersion: binding.grantVersion,
@@ -463,6 +520,10 @@ export async function getGitHubSource(teamId: string, actor?: AuthzContext) {
       lastDiagnostic: binding.lastDiagnostic,
       nextPrReconcileAt: binding.nextPrReconcileAt,
       lastPrReconcileError: binding.lastPrReconcileError,
+      docsEnabled: binding.docsEnabled,
+      pagesDirectory: binding.pagesDirectory,
+      pagesDiagnostics: (binding.pagesDiagnostics as any[] | null) ?? null,
+      pagesSetup: await latestPagesSetup(teamId),
     },
     sync: run
       ? {

@@ -11,14 +11,19 @@ COPY package.json bun.lock ./
 COPY patches ./patches
 COPY packages/api-contract ./packages/api-contract
 COPY packages/text-editor ./packages/text-editor
+COPY packages/page-builder ./packages/page-builder
+COPY packages/media-uploader/package.json ./packages/media-uploader/package.json
 COPY apps/api ./apps/api
 
-RUN bun install --frozen-lockfile --filter=@frontlit/api --filter=@frontlit/api-contract --filter=@frontlit/text-editor
+RUN bun install --frozen-lockfile --filter=@frontlit/api --filter=@frontlit/api-contract --filter=@frontlit/text-editor --filter=@frontlit/page-builder
 
 FROM deps AS builder
 WORKDIR /app
 RUN bun run --filter @frontlit/api-contract build
 RUN bun run --filter @frontlit/text-editor build
+# Only the React-free schema entry: page/site file validation and the
+# canonical serializer (zod and jsonc-parser are bundled into it).
+RUN bun run --filter @frontlit/page-builder build:schema
 RUN bun run --filter @frontlit/api build
 
 FROM base AS prod-deps
@@ -30,6 +35,9 @@ COPY --from=builder /app/packages/api-contract/package.json ./packages/api-contr
 COPY --from=builder /app/packages/api-contract/dist ./packages/api-contract/dist
 COPY --from=builder /app/packages/text-editor/package.json ./packages/text-editor/package.json
 COPY --from=builder /app/packages/text-editor/dist ./packages/text-editor/dist
+COPY --from=builder /app/packages/page-builder/package.json ./packages/page-builder/package.json
+COPY --from=builder /app/packages/page-builder/dist/server/schema.js ./packages/page-builder/dist/server/schema.js
+COPY --from=builder /app/packages/media-uploader/package.json ./packages/media-uploader/package.json
 COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/drizzle ./apps/api/drizzle

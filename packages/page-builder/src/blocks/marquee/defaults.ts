@@ -1,5 +1,5 @@
 import type { MarqueeSettings } from "./settings";
-import { generateUniqueId } from "../../utils";
+import { generateUniqueId } from "../../utils/generate-unique-id";
 
 export const marqueeDefaults: Partial<MarqueeSettings> = {
   items: [

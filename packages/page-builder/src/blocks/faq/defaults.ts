@@ -1,5 +1,5 @@
 import type { FaqSettings } from "./settings";
-import { generateUniqueId } from "../../utils";
+import { generateUniqueId } from "../../utils/generate-unique-id";
 
 export const faqDefaults: Partial<FaqSettings> = {
   title: "Frequently asked questions",

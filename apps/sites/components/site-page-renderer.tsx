@@ -17,6 +17,7 @@ export function SitePageRenderer({
   pageData,
   children,
   dataSlots,
+  overlay,
 }: {
   layout: WidgetInstance[];
   themeId: string | null;
@@ -24,6 +25,7 @@ export function SitePageRenderer({
   pageData: PageData;
   children?: React.ReactNode;
   dataSlots?: Record<string, React.ReactNode>;
+  overlay?: React.ReactNode;
 }) {
   const theme = resolveSiteTheme(themeId, themeStyle);
 
@@ -35,6 +37,7 @@ export function SitePageRenderer({
         pageData={pageData}
         dataSlots={dataSlots}
         themeSwitcher={<SiteThemeSwitcher />}
+        overlay={overlay}
       >
         {children}
       </ServerPageRenderer>
