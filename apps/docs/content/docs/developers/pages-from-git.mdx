@@ -115,7 +115,14 @@ trailing newline. Files you write by hand don't have to match it.
 
 ## For coding agents
 
-Add this to your repository's `AGENTS.md` (or `CLAUDE.md`):
+Install the `frontlit-pages` skill. It teaches agents the blocks, copy and SEO
+rules and validates pages before they open a pull request:
+
+```bash
+npx skills add codelitdev/frontlit-skills --skill frontlit-pages
+```
+
+Or add this to your repository's `AGENTS.md` (or `CLAUDE.md`):
 
 ```md
 ## FrontLit pages
