@@ -463,7 +463,17 @@ export async function importPagesTree(input: {
   ];
   for (const source of sources) {
     for (const ref of mediaRefs(source.target, "")) {
-      if (!isRepoPath(ref.media.url)) continue;
+      if (!isRepoPath(ref.media.url)) {
+        if (!/^https:\/\//i.test(ref.media.url))
+          errors.push(
+            diagnostic(
+              "ASSET_URL",
+              "Images must be an https:// URL or a path in the repository.",
+              { file: source.file, fieldPath: ref.pointer },
+            ),
+          );
+        continue;
+      }
       const repoPath = resolveRepoPath(source.file, ref.media.url);
       const blob = byPath.get(repoPath);
       const mimeType = MIME[path.extname(repoPath).toLowerCase()];

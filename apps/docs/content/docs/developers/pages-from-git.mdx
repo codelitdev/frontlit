@@ -74,9 +74,10 @@ A page file:
   differs from the block's defaults; the JSON Schema documents every setting and
   its default.
 - Rich-text settings are Markdown (CommonMark + GFM).
-- Media is `{ "url", "alt" }`. A URL without a scheme is a path in the
-  repository, relative to the file (or to the repository root when it starts
-  with `/`); FrontLit uploads the image when it syncs.
+- Media is `{ "url", "alt" }`. The URL is an `https://` URL, or a path in the
+  repository (no scheme), relative to the file or to the repository root when
+  it starts with `/`; FrontLit uploads the image when it syncs. `http://` and
+  other schemes are rejected.
 - `"published": false` keeps a page as a draft. `"robotsAllowed": false` asks
   search engines not to index it.
 - The blog, docs and changelog pages hold their feed with
@@ -134,8 +135,8 @@ Marketing pages live in `frontlit/pages/*.json` and publish on merge.
   `site.v1.json`) holds the header, footer, theme and redirects.
 - A page is `{ title, description, layout: [{ name, settings? }] }`. Only set
   settings that differ from the block defaults listed in the schema.
-- Rich text is Markdown. Media is `{ "url", "alt" }`; repo-relative image paths
-  are uploaded on sync.
+- Rich text is Markdown. Media is `{ "url", "alt" }` with an `https://` URL or
+  a repo-relative image path; repo images are uploaded on sync.
 - One H1 per page (the hero); other block titles are H2.
 - Don't add a header or footer to pages — they come from `site.json`.
 - Header and footer links must point at existing pages, or the release fails.

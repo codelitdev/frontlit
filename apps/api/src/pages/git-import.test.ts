@@ -160,6 +160,23 @@ describe("importPagesTree", () => {
     ]);
   });
 
+  it("only accepts https:// image URLs besides repository paths", async () => {
+    const diagnostics = await diagnosticsOf(
+      importRepo(teamId, {
+        "frontlit/pages/index.json": page(
+          [
+            { name: "hero", settings: { media: { url: "http://cdn.test/hero.png" } } },
+            { name: "media", settings: { media: { url: "https://cdn.test/ok.png" } } },
+          ],
+          { socialImage: { url: "//cdn.test/og.png" } },
+        ),
+      }),
+    );
+    expect(diagnostics.map((d) => [d.code, d.fieldPath])).toEqual([
+      ["ASSET_URL", "/layout/0/settings/media"],
+      ["ASSET_URL", "/socialImage"],
+    ]);
+  });
   it("warns about missing SEO descriptions", async () => {
     const manifest = await importRepo(teamId, {
       "frontlit/pages/index.json": JSON.stringify({ layout: [] }),
