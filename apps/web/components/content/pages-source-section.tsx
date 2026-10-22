@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useState } from "react";
+import { gitSiteFolders } from "@frontlit/api-contract";
+import { useState } from "react";
 import { FileJson } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError } from "@/lib/api-client";
@@ -14,8 +15,6 @@ import {
 } from "@/lib/api";
 import { Badge } from "@/components/ui/codelit/badge";
 import { Button } from "@/components/ui/codelit/button";
-import { Input } from "@/components/ui/codelit/input";
-import { Label } from "@/components/ui/codelit/label";
 import { Callout, Mono } from "@/components/content/documentation-connect-parts";
 
 type Binding = NonNullable<DocumentationGitSource["binding"]>;
@@ -90,8 +89,7 @@ export function PagesPreviewDetails({ preview }: { preview: GitPagesPreview }) {
               <Mono>{page.route.slice(1) || "index"}.json</Mono>
             </span>
           ))}{" "}
-          to that folder in GitHub and check again. Or pick a folder that doesn&apos;t
-          exist yet and export all your current pages to it once connected.
+          to that folder in GitHub and check again.
         </Callout>
       )}
     </>
@@ -112,10 +110,7 @@ export function PagesSourceSection({
   canManage: boolean;
   onChanged: () => void;
 }) {
-  const inputId = useId();
-  const [directory, setDirectory] = useState(
-    binding.pagesDirectory ?? "frontlit/pages",
-  );
+  const folders = gitSiteFolders(binding.root);
   const [preview, setPreview] = useState<GitPagesPreview | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -179,35 +174,26 @@ export function PagesSourceSection({
         <div className="min-w-0 flex-1 space-y-1">
           <b className="font-medium">Pages aren&apos;t synced</b>
           <p className="text-muted-foreground">
-            Keep landing pages in this repository as JSON files (
+            Keep landing pages in <Mono>{folders.pages}/</Mono> as JSON files (
             <Mono>pricing.json</Mono> → <Mono>/pricing</Mono>, <Mono>index.json</Mono> →
-            homepage) with an optional <Mono>site.json</Mono> beside the folder for the
-            header, footer and theme.
+            homepage), with <Mono>{folders.siteFile}</Mono> for the header, footer and
+            theme.
           </p>
         </div>
       </div>
       {(binding.pagesDiagnostics?.length ?? 0) > 0 && (
         <DiagnosticList items={binding.pagesDiagnostics!} />
       )}
-      {canManage && (
-        <div className="flex items-end gap-2">
-          <div className="flex-1 space-y-1.5">
-            <Label htmlFor={inputId}>Pages folder</Label>
-            <Input
-              id={inputId}
-              value={directory}
-              onChange={(event) => {
-                setDirectory(event.target.value);
-                setPreview(null);
-              }}
-            />
-          </div>
+      {canManage && !preview && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-muted-foreground">
+            Already have pages in <Mono>{folders.pages}/</Mono>? Check them before they
+            go live.
+          </p>
           <Button
             variant="outline"
-            disabled={busy || !directory.trim()}
-            onClick={() =>
-              void act(async () => setPreview(await previewGitPages(directory)))
-            }
+            disabled={busy}
+            onClick={() => void act(async () => setPreview(await previewGitPages()))}
           >
             Preview
           </Button>
@@ -232,14 +218,14 @@ export function PagesSourceSection({
           <div className="flex items-center justify-between gap-3">
             <p className="text-muted-foreground">
               No pages in the repository yet? Export the current pages, header, footer
-              and theme to that folder as a pull request.
+              and theme to <Mono>{folders.pages}/</Mono> as a pull request.
             </p>
             <Button
               variant="outline"
-              disabled={busy || !directory.trim()}
+              disabled={busy}
               onClick={() =>
                 void act(async () => {
-                  const pr = await exportGitPages(directory);
+                  const pr = await exportGitPages();
                   toast.success(`Opened pull request #${pr.number}`, {
                     action: {
                       label: "View",
@@ -271,7 +257,7 @@ export function PagesSourceSection({
                 disabled={busy}
                 onClick={() =>
                   void act(async () => {
-                    await enableGitPages({ directory, commitSha: preview.commitSha });
+                    await enableGitPages({ commitSha: preview.commitSha });
                     toast.success("Syncing pages from the repository");
                     setPreview(null);
                     onChanged();

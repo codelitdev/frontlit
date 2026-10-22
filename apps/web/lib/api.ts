@@ -1760,9 +1760,9 @@ export function grantDocumentationGitCapabilities(
   );
 }
 export type GitPagesPreview = GitResponse<"previewPages">;
-export function previewGitPages(directory: string) {
+export function previewGitPages() {
   return unwrap<GitPagesPreview>(
-    client.content.documentationGithub.previewPages({ body: { directory } }),
+    client.content.documentationGithub.previewPages({ body: {} }),
   );
 }
 export function enableGitPages(body: GitRequest<"enablePages">["body"]) {
@@ -1775,9 +1775,9 @@ export function disableGitPages() {
     client.content.documentationGithub.disablePages({}),
   );
 }
-export function exportGitPages(directory: string) {
+export function exportGitPages() {
   return unwrap<{ number: number; url: string }>(
-    client.content.documentationGithub.exportPages({ body: { directory } }),
+    client.content.documentationGithub.exportPages({ body: {} }),
   );
 }
 export function getDocumentationGitSource() {

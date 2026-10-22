@@ -351,6 +351,9 @@ export function ManageSource({
         <SummaryRow label="Branch">
           <Mono>{binding.branch}</Mono>
         </SummaryRow>
+        <SummaryRow label="Site folder">
+          <Mono>{binding.root ? `${binding.root}/` : "Repository root"}</Mono>
+        </SummaryRow>
         <SummaryRow label="Docs folder">
           {binding.docsEnabled ? (
             <Mono>{binding.directory ? `${binding.directory}/` : "/"}</Mono>

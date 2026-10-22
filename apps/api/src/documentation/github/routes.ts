@@ -58,16 +58,16 @@ const implementation = s.router(
   contract.content.documentationGithub,
   authorizeHandlers(
     {
-      previewPages: async ({ req, body }: any) =>
-        run(() => previewGitPages(req.teamId, req.authz, body)),
+      previewPages: async ({ req }: any) =>
+        run(() => previewGitPages(req.teamId, req.authz)),
       enablePages: async ({ req, body }: any) =>
         run(() => enableGitPages(req.teamId, req.authz, body)),
       disablePages: async ({ req }: any) =>
         run(() => disableGitPages(req.teamId, req.authz)),
-      exportPages: async ({ req, body }: any) =>
+      exportPages: async ({ req }: any) =>
         run(() => {
           requireGitManager(req.teamId, req.authz, true);
-          return createPagesSetupPullRequest(req.teamId, body);
+          return createPagesSetupPullRequest(req.teamId);
         }, 201),
       getCheck: async ({ req, params }: any) =>
         run(() => getGitCheck(req.teamId, params.checkId)),

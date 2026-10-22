@@ -1,3 +1,4 @@
+import { gitSiteFolders, gitSiteRoot } from "@frontlit/api-contract";
 import path from "node:path/posix";
 import { and, eq } from "drizzle-orm";
 import {
@@ -97,6 +98,11 @@ export function normalizePagesDirectory(value: string | null | undefined): strin
       diagnostic("INVALID_PAGES_DIRECTORY", "Choose a folder inside the repository."),
     ]);
   return trimmed;
+}
+
+/** Pages always sync from `<root>/pages` of the connection's site folder. */
+export function pagesFolder(binding: { directory: string }) {
+  return gitSiteFolders(gitSiteRoot(binding.directory)).pages;
 }
 
 /** `site.json` sits next to the pages folder: `frontlit/pages` → `frontlit/site.json`. */

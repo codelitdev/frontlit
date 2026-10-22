@@ -1,3 +1,4 @@
+import { gitSiteFolders, gitSiteRoot } from "@frontlit/api-contract";
 import { and, eq, inArray } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import {
@@ -257,7 +258,7 @@ export async function getGitMigration(
     planId,
     status,
     setupId: plan.setupId,
-    selection: plan.selection,
+    selection: { ...plan.selection, root: gitSiteRoot(plan.selection.directory) },
     docsDraftVersion: plan.docsDraftVersion,
     activePublicationId: plan.activePublicationId,
     planHash: plan.planHash,
@@ -309,7 +310,7 @@ export async function planGitMigration(
 ) {
   requireGitManager(teamId, actor, false, true);
   requireRestoreReady();
-  const directory = normalizeDocsSourceDirectory(input.directory);
+  const directory = normalizeDocsSourceDirectory(gitSiteFolders(input.root).docs);
   const access = await verifySetupRepository(
     teamId,
     input.setupId,

@@ -19,6 +19,7 @@ import {
   documentationPublications as publications,
   documentationMemberships as memberships,
 } from "../../db/schema";
+import { gitSiteFolders, gitSiteRoot } from "@frontlit/api-contract";
 import { serializeDates } from "../../utils/public";
 import { draftReport, getDocsSettings, lockSettings } from "../authoring";
 import { digest } from "../publications";
@@ -35,9 +36,10 @@ export type GitSourceSelection = {
   installationId: number;
   repositoryId: number;
   branch: string;
-  directory: string;
+  /** The site folder: docs in `<root>/docs`, pages in `<root>/pages`. */
+  root: string;
   docsEnabled?: boolean;
-  pagesDirectory?: string;
+  pagesEnabled?: boolean;
 };
 export function gitDocumentSnapshot(
   doc: DocumentationGitManifest["docs"][number],
@@ -137,7 +139,8 @@ export async function preflightGitHubSource(
 ) {
   requireGitManager(teamId, actor);
   await reserveGitValidation(teamId, actor);
-  const directory = normalizeDocsSourceDirectory(input.directory);
+  const folders = gitSiteFolders(input.root);
+  const directory = normalizeDocsSourceDirectory(folders.docs);
   const access = await verifySetupRepository(
     teamId,
     input.setupId,
@@ -154,7 +157,7 @@ export async function preflightGitHubSource(
     input.branch,
   );
   const docsEnabled = input.docsEnabled !== false;
-  if (!docsEnabled && !input.pagesDirectory)
+  if (!docsEnabled && !input.pagesEnabled)
     throw new GitHubDocsError("GITHUB_NOTHING_TO_SYNC", 400);
   const owner = access.repository.owner.login;
   const name = access.repository.name;
@@ -163,10 +166,10 @@ export async function preflightGitHubSource(
     const entries = await app.commitTree(access.installationToken, owner, name, sha);
     // Pages problems block connecting; a folder that doesn't exist yet
     // connects without pages so they can be exported afterwards.
-    const pages = input.pagesDirectory
+    const pages = input.pagesEnabled
       ? await previewPagesTree(teamId, {
           commitSha: sha,
-          directory: input.pagesDirectory,
+          directory: folders.pages,
           entries,
           readBlob,
         })
@@ -505,6 +508,7 @@ export async function getGitHubSource(teamId: string, actor?: AuthzContext) {
       repository: binding.repositoryName,
       private: binding.repositoryPrivate,
       branch: binding.branch,
+      root: gitSiteRoot(binding.directory),
       directory: binding.directory,
       generation: binding.generation,
       grantVersion: binding.grantVersion,

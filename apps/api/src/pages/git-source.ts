@@ -14,6 +14,7 @@ import {
   importPagesTree,
   normalizePagesDirectory,
   PagesImportError,
+  pagesFolder,
   siteFilePath,
 } from "./git-import";
 import type { GitTreeEntry } from "../documentation/github/importer";
@@ -90,7 +91,6 @@ export async function previewPagesTree(
 export async function previewGitPages(
   teamId: string,
   actor: AuthzContext,
-  input: { directory: string },
   app = new DocsGitHubApp(getDocsGitHubAppConfig()),
 ) {
   requireGitManager(teamId, actor);
@@ -101,7 +101,7 @@ export async function previewGitPages(
   const commitSha = await app.branchHead(access.token, owner, name, binding.branch);
   return previewPagesTree(teamId, {
     commitSha,
-    directory: input.directory,
+    directory: pagesFolder(binding),
     entries: await app.commitTree(access.token, owner, name, commitSha),
     readBlob: (sha) => app.blob(access.token, owner, name, sha),
   });
@@ -111,10 +111,10 @@ export async function previewGitPages(
 export async function enableGitPages(
   teamId: string,
   actor: AuthzContext,
-  input: { directory: string; commitSha: string },
+  input: { commitSha: string },
 ) {
   requireGitManager(teamId, actor, true);
-  const directory = normalizePagesDirectory(input.directory);
+  const directory = pagesFolder(await connectedBinding(teamId));
   await db.transaction(async (tx) => {
     await lockSettings(tx, teamId);
     const [updated] = await tx

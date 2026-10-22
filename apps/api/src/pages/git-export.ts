@@ -13,7 +13,7 @@ import {
   GitHubDocsError,
 } from "../documentation/github/app";
 import { readGitBindingAccess, type GitBinding } from "../documentation/github/state";
-import { normalizePagesDirectory, siteFilePath } from "./git-import";
+import { pagesFolder, siteFilePath } from "./git-import";
 import { pageFilePath } from "./git-pr";
 import { draftDocument, getActiveRelease } from "./releases";
 
@@ -60,7 +60,6 @@ export async function exportPagesFiles(teamId: string, directory: string) {
  * Merging it turns pages sync on (see `completeMergedPagesSetup`). */
 export async function createPagesSetupPullRequest(
   teamId: string,
-  input: { directory: string },
   app = new DocsGitHubApp(getDocsGitHubAppConfig()),
 ) {
   const binding = await db.query.documentationGitBindings.findFirst({
@@ -71,7 +70,7 @@ export async function createPagesSetupPullRequest(
   if (binding.pagesDirectory) throw new GitHubDocsError("PAGES_ALREADY_SYNCED", 409);
   if (!binding.capabilities.proposals)
     throw new GitHubDocsError("GITHUB_WRITE_PERMISSION_REQUIRED", 409);
-  const directory = normalizePagesDirectory(input.directory);
+  const directory = pagesFolder(binding);
   const files = await exportPagesFiles(teamId, directory);
   if (!files.length) throw new GitHubDocsError("NOTHING_TO_PROPOSE", 409);
 

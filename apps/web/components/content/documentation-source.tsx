@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { DEFAULT_GIT_SITE_ROOT, gitSiteFolders } from "@frontlit/api-contract";
 import { Check, ExternalLink, Github, GitPullRequest, Loader2 } from "lucide-react";
 import {
   ManageShell,
@@ -96,11 +97,13 @@ export function DocumentationSource({
   const [installationId, setInstallationId] = useState("");
   const [repositoryId, setRepositoryId] = useState("");
   const [branch, setBranch] = useState(""),
-    [directory, setDirectory] = useState("docs");
+    [root, setRoot] = useState(DEFAULT_GIT_SITE_ROOT);
+  // Everything synced lives in one site folder: <root>/docs, <root>/pages, <root>/site.json.
+  const folders = gitSiteFolders(root);
+  const directory = folders.docs;
   /** Off connects the repository for pages only. */
   const [docsEnabled, setDocsEnabled] = useState(true);
-  const [pagesEnabled, setPagesEnabled] = useState(false),
-    [pagesDirectory, setPagesDirectory] = useState("frontlit/pages");
+  const [pagesEnabled, setPagesEnabled] = useState(false);
   const [preflight, setPreflight] = useState<DocumentationGitPreflight | null>(null);
   const [migration, setMigration] = useState<DocumentationGitMigration | null>(null);
   const [acknowledgeSetupPr, setAcknowledgeSetupPr] = useState(false);
@@ -162,7 +165,7 @@ export function DocumentationSource({
       sessionStorage.setItem(storageKey, plan.planId);
       setMigration(plan);
       setBranch(plan.selection.branch);
-      setDirectory(plan.selection.directory);
+      setRoot(plan.selection.root);
       setInstallationId(String(plan.selection.installationId));
       setRepositoryId(String(plan.selection.repositoryId));
       setVerifiedSha(plan.status === "verified" ? plan.verifiedSha : null);
@@ -328,9 +331,9 @@ export function DocumentationSource({
       installationId: Number(installationId),
       repositoryId: Number(repositoryId),
       branch,
-      directory,
+      root: folders.root,
       ...(docsEnabled ? {} : { docsEnabled: false }),
-      ...(pagesEnabled ? { pagesDirectory } : {}),
+      ...(pagesEnabled ? { pagesEnabled: true } : {}),
     };
   }
   async function review(createSetup = false) {
@@ -428,14 +431,10 @@ export function DocumentationSource({
       };
     } else if (pagesEnabled) {
       // The docs setup PR connected the repository; pages are checked now.
-      const check = await previewGitPages(pagesDirectory).catch(() => null);
-      if (check?.publishable)
-        await enableGitPages({
-          directory: check.directory,
-          commitSha: check.commitSha,
-        });
+      const check = await previewGitPages().catch(() => null);
+      if (check?.publishable) await enableGitPages({ commitSha: check.commitSha });
       pages = {
-        directory: check?.directory ?? pagesDirectory,
+        directory: check?.directory ?? folders.pages,
         synced: Boolean(check?.publishable),
       };
       result = await getDocumentationGitSource();
@@ -460,9 +459,7 @@ export function DocumentationSource({
       installationId &&
       repositoryId &&
       branch.trim() &&
-      (docsEnabled || pagesEnabled) &&
-      (!docsEnabled || directory.trim()) &&
-      (!pagesEnabled || pagesDirectory.trim()),
+      (docsEnabled || pagesEnabled),
   );
   const repositoryName = repositories?.repositories.find(
     (repository) => String(repository.repositoryId) === repositoryId,
@@ -859,17 +856,20 @@ export function DocumentationSource({
       </>
     );
   } else if (view === "folder") {
-    const clean = (path: string) => path.trim().replace(/^\/+|\/+$/g, "");
-    const docsFolder = clean(directory) || "docs";
-    const pagesFolder = clean(pagesDirectory) || "frontlit/pages";
-    const parent = pagesFolder.includes("/")
-      ? pagesFolder.slice(0, pagesFolder.lastIndexOf("/"))
-      : "";
-    const siteFile = parent ? `${parent}/site.json` : "site.json";
     const mapRows: PublishMapRow[] = [
+      {
+        kind: "folder",
+        path: folders.root ? `${folders.root}/` : "Repository root",
+        note: "site folder",
+      },
+      ...(pagesEnabled
+        ? ([
+            { kind: "file", path: folders.siteFile, note: "header, footer and theme" },
+          ] as const)
+        : []),
       ...(docsEnabled
         ? ([
-            { kind: "folder", path: `${docsFolder}/`, note: "docs" },
+            { kind: "folder", path: `${folders.docs}/`, note: "docs" },
             {
               kind: "route",
               file: "getting-started.md",
@@ -879,10 +879,9 @@ export function DocumentationSource({
         : []),
       ...(pagesEnabled
         ? ([
-            { kind: "folder", path: `${pagesFolder}/`, note: "landing pages" },
+            { kind: "folder", path: `${folders.pages}/`, note: "landing pages" },
             { kind: "route", file: "index.json", route: "/" },
             { kind: "route", file: "pricing.json", route: "/pricing" },
-            { kind: "file", path: siteFile, note: "header, footer and theme" },
           ] as const)
         : []),
     ];
@@ -903,11 +902,11 @@ export function DocumentationSource({
           }
         />
         <div className="space-y-5">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          <div className="grid grid-cols-[auto_14rem_1fr] items-center gap-x-4 gap-y-3">
             <Label htmlFor="git-branch">Publish from branch</Label>
             <Input
               id="git-branch"
-              className="w-56 font-mono"
+              className="font-mono"
               value={branch}
               disabled={busy}
               onChange={(e) => {
@@ -917,6 +916,21 @@ export function DocumentationSource({
             />
             <span className="text-muted-foreground text-sm">
               Changes merged here go live.
+            </span>
+            <Label htmlFor="git-root">Site folder</Label>
+            <Input
+              id="git-root"
+              className="font-mono"
+              value={root}
+              placeholder="Repository root"
+              disabled={busy}
+              onChange={(e) => {
+                setRoot(e.target.value);
+                setPreflight(null);
+              }}
+            />
+            <span className="text-muted-foreground text-sm">
+              Holds everything FrontLit syncs. Leave empty for the repository root.
             </span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -930,23 +944,11 @@ export function DocumentationSource({
               }}
               description={
                 <>
-                  Markdown files publish to <Mono>/docs</Mono>.
+                  Markdown files in <Mono>{folders.docs}/</Mono> publish to{" "}
+                  <Mono>/docs</Mono>.
                 </>
               }
             >
-              <div className="space-y-1.5">
-                <Label htmlFor="git-directory">Docs folder</Label>
-                <Input
-                  id="git-directory"
-                  className="font-mono"
-                  value={directory}
-                  disabled={busy}
-                  onChange={(e) => {
-                    setDirectory(e.target.value);
-                    setPreflight(null);
-                  }}
-                />
-              </div>
               {hasCmsContent ? (
                 <p className="text-muted-foreground">
                   FrontLit opens a pull request that adds your current docs to this
@@ -974,24 +976,11 @@ export function DocumentationSource({
               }}
               description={
                 <>
-                  One JSON file per page: <Mono>pricing.json</Mono> publishes to{" "}
-                  <Mono>/pricing</Mono>.
+                  One JSON file per page in <Mono>{folders.pages}/</Mono>, plus{" "}
+                  <Mono>{folders.siteFile}</Mono> for the header, footer and theme.
                 </>
               }
             >
-              <div className="space-y-1.5">
-                <Label htmlFor="git-pages-directory">Pages folder</Label>
-                <Input
-                  id="git-pages-directory"
-                  className="font-mono"
-                  value={pagesDirectory}
-                  disabled={busy}
-                  onChange={(e) => {
-                    setPagesDirectory(e.target.value);
-                    setPreflight(null);
-                  }}
-                />
-              </div>
               <Callout>
                 GitHub becomes the source of your pages, header and footer. Builder
                 edits turn into pull requests. You can export your current pages to this
@@ -1387,6 +1376,9 @@ export function DocumentationSource({
           </SummaryRow>
           <SummaryRow label="Branch" action={null}>
             <Mono>{preflight.branch}</Mono>
+          </SummaryRow>
+          <SummaryRow label="Site folder" action={null}>
+            <Mono>{folders.root ? `${folders.root}/` : "Repository root"}</Mono>
           </SummaryRow>
           {docsEnabled ? (
             <>

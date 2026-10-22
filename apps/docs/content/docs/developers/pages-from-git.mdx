@@ -9,10 +9,11 @@ folder on every push to your publishing branch.
 
 ## Turn it on
 
-Connect GitHub in **Settings → Integrations** and, on the folder step, tick
+Connect GitHub in **Settings → Integrations**. On the folder step, choose the
+**site folder** (default `frontlit`, or empty for the repository root) and tick
 **Landing pages** (untick **Docs** if your docs live elsewhere). Then:
 
-- If the pages folder (default `frontlit/pages`) already has page files,
+- If `<site folder>/pages` already has page files,
   **Check repository** previews the routes, problems and any builder pages that
   would go offline. **Finish setup** connects and publishes them in one step.
 - If the folder doesn't exist yet, connect anyway, then open the repository
@@ -29,9 +30,12 @@ page builder, drafts stay editable and **Publish** becomes **Create pull request
 
 ## Files
 
+Everything FrontLit syncs lives in one site folder, `frontlit/` by default:
+
 ```text
 frontlit/
 ├─ site.json          # header, footer, theme and redirects (optional)
+├─ docs/              # Markdown docs → /docs/...
 └─ pages/
    ├─ index.json      # /
    ├─ pricing.json    # /pricing
@@ -40,8 +44,8 @@ frontlit/
 
 - The file name is the URL: lowercase letters, numbers and hyphens.
   `index.json` is the homepage. Folders inside `pages/` aren't supported yet.
-- `site.json` sits next to the pages folder. Without it, the current header and
-  footer stay.
+- `site.json` sits at the root of the site folder. Without it, the current
+  header and footer stay.
 - Some paths are reserved by the site (`/embed`, `/api`, `/schema`, …).
 
 A page file:

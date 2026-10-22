@@ -132,7 +132,7 @@ describe("reviewed source connection and generation-fenced inbound sync", () => 
     );
   });
   async function preflight(
-    extra: { docsEnabled?: boolean; pagesDirectory?: string } = {},
+    extra: { docsEnabled?: boolean; pagesEnabled?: boolean; root?: string } = {},
   ) {
     const setup = await startGitHubSetup(teamId, actor, {}, config);
     await completeGitHubSetup(
@@ -149,7 +149,7 @@ describe("reviewed source connection and generation-fenced inbound sync", () => 
         installationId: 7,
         repositoryId: 9,
         branch: "trunk",
-        directory: "docs/",
+        root: "",
         ...extra,
       },
       config,
@@ -580,7 +580,7 @@ describe("reviewed source connection and generation-fenced inbound sync", () => 
   });
   it("grants write access to a pages-only connection", async () => {
     await connect(
-      await preflight({ docsEnabled: false, pagesDirectory: "frontlit/pages" }),
+      await preflight({ docsEnabled: false, pagesEnabled: true, root: "frontlit" }),
     );
     app.installation.mockResolvedValue(approveWrites());
     const result = await changeGitHubCapabilities(
@@ -1343,7 +1343,8 @@ describe("reviewed source connection and generation-fenced inbound sync", () => 
     // The folder doesn't exist yet: connect without pages, export or add them later.
     const report = await preflight({
       docsEnabled: false,
-      pagesDirectory: "frontlit/pages",
+      pagesEnabled: true,
+      root: "frontlit",
     });
     expect(report).toMatchObject({ pages: { missing: true } });
     await connect(report);
@@ -1380,14 +1381,15 @@ describe("reviewed source connection and generation-fenced inbound sync", () => 
     const preview = await previewGitPages(
       teamId,
       actor,
-      { directory: "frontlit/pages" },
       app as unknown as DocsGitHubApp,
     );
     expect(preview).toMatchObject({ publishable: true, pages: [{ route: "/" }] });
-    await enableGitPages(teamId, actor, {
-      directory: "frontlit/pages",
-      commitSha: sha,
-    });
+    await enableGitPages(teamId, actor, { commitSha: sha });
+    expect(
+      await db.query.documentationGitBindings.findFirst({
+        where: eq(bindings.teamId, teamId),
+      }),
+    ).toMatchObject({ directory: "frontlit/docs", pagesDirectory: "frontlit/pages" });
     const sync = await processGitSync(teamId, app as unknown as DocsGitHubApp);
     expect(sync).toMatchObject({ status: "active", publicationId: null });
     const live = await getPublishedPageBySlug(teamId, "");
@@ -1397,9 +1399,9 @@ describe("reviewed source connection and generation-fenced inbound sync", () => 
   });
   it("connects docs and pages together after previewing the pages folder", async () => {
     const tree = (pageSha: string) => [
-      { path: "docs", mode: "040000", type: "tree", sha },
-      { path: "docs/guide.md", mode: "100644", type: "blob", sha: blob },
       { path: "frontlit", mode: "040000", type: "tree", sha: "a".repeat(40) },
+      { path: "frontlit/docs", mode: "040000", type: "tree", sha },
+      { path: "frontlit/docs/guide.md", mode: "100644", type: "blob", sha: blob },
       { path: "frontlit/pages", mode: "040000", type: "tree", sha: pageSha },
       {
         path: "frontlit/pages/index.json",
@@ -1418,7 +1420,7 @@ describe("reviewed source connection and generation-fenced inbound sync", () => 
       async (_token: string, _o: string, _n: string, id: string) =>
         Buffer.from(id === "e".repeat(40) ? "{ broken" : markdown()),
     );
-    expect(await preflight({ pagesDirectory: "frontlit/pages" })).toMatchObject({
+    expect(await preflight({ pagesEnabled: true, root: "frontlit" })).toMatchObject({
       preflightId: null,
       publishable: false,
       diagnostics: expect.arrayContaining([
@@ -1430,7 +1432,7 @@ describe("reviewed source connection and generation-fenced inbound sync", () => 
       async (_token: string, _o: string, _n: string, id: string) =>
         Buffer.from(id === "e".repeat(40) ? page : markdown()),
     );
-    const report = await preflight({ pagesDirectory: "frontlit/pages/" });
+    const report = await preflight({ pagesEnabled: true, root: "/frontlit/" });
     expect(report).toMatchObject({
       publishable: true,
       pages: { missing: false, directory: "frontlit/pages", pages: [{ route: "/" }] },
@@ -1440,7 +1442,11 @@ describe("reviewed source connection and generation-fenced inbound sync", () => 
       await db.query.documentationGitBindings.findFirst({
         where: eq(bindings.teamId, teamId),
       }),
-    ).toMatchObject({ docsEnabled: true, pagesDirectory: "frontlit/pages" });
+    ).toMatchObject({
+      docsEnabled: true,
+      directory: "frontlit/docs",
+      pagesDirectory: "frontlit/pages",
+    });
     await publishSync();
     const live = await getPublishedPageBySlug(teamId, "");
     expect(live?.layout.find((widget) => widget.name === "hero")?.settings).toEqual({

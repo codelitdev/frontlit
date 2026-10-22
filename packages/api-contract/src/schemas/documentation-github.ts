@@ -1,6 +1,31 @@
 import { z } from "zod";
 import { documentationDiagnosticSchema } from "./documentation";
 
+/**
+ * Everything FrontLit syncs lives under one site folder in the repository
+ * (`""` is the repository root):
+ *
+ *     <root>/site.json   header, footer and theme
+ *     <root>/docs/       Markdown docs → /docs/...
+ *     <root>/pages/      one JSON file per page → /, /pricing, ...
+ */
+export function gitSiteFolders(root: string) {
+  const clean = root.trim().replace(/^\/+|\/+$/g, "");
+  const join = (name: string) => (clean ? `${clean}/${name}` : name);
+  return {
+    root: clean,
+    docs: join("docs"),
+    pages: join("pages"),
+    siteFile: join("site.json"),
+  };
+}
+/** The site folder a connection's docs folder (`<root>/docs`) sits in. */
+export function gitSiteRoot(docsDirectory: string) {
+  const slash = docsDirectory.lastIndexOf("/");
+  return slash === -1 ? "" : docsDirectory.slice(0, slash);
+}
+export const DEFAULT_GIT_SITE_ROOT = "frontlit";
+
 export const documentationGitErrorSchema = z.object({
   error: z.string(),
   code: z.string(),
@@ -180,11 +205,12 @@ export const documentationGitSelectionSchema = z
     installationId: z.number().int().positive().safe(),
     repositoryId: z.number().int().positive().safe(),
     branch: z.string().min(1).max(255),
-    directory: z.string().min(1).max(512),
+    /** The site folder (see `gitSiteFolders`); `""` is the repository root. */
+    root: z.string().max(200),
     /** false connects the repository for pages only (docs stay in FrontLit). */
     docsEnabled: z.boolean().optional(),
-    /** Also sync landing pages from this folder. */
-    pagesDirectory: z.string().min(1).max(200).optional(),
+    /** Also sync landing pages from `<root>/pages`. */
+    pagesEnabled: z.boolean().optional(),
   })
   .strict();
 export const documentationGitPreflightSchema = z.union([
@@ -255,6 +281,8 @@ export const documentationGitSourceSchema = z.object({
       repository: z.string(),
       private: z.boolean(),
       branch: z.string(),
+      /** The site folder; docs sync from `<root>/docs`, pages from `<root>/pages`. */
+      root: z.string(),
       directory: z.string(),
       generation: z.number().int(),
       grantVersion: z.number().int(),
@@ -272,7 +300,7 @@ export const documentationGitSourceSchema = z.object({
       lastPrReconcileError: z.string().nullable(),
       /** Whether this repo feeds docs (`directory`). */
       docsEnabled: z.boolean(),
-      /** Pages folder (`frontlit/pages`); null while pages are builder-owned. */
+      /** `<root>/pages` while pages sync; null while pages are builder-owned. */
       pagesDirectory: z.string().nullable(),
       /** Errors (or warnings) from the last pages import. */
       pagesDiagnostics: z.array(documentationDiagnosticSchema).nullable(),
@@ -354,7 +382,15 @@ export const documentationGitMigrationSchema = z.object({
   planId: z.string(),
   status: z.enum(["planned", "verified", "activated", "canceled", "expired"]),
   setupId: z.string(),
-  selection: documentationGitSelectionSchema.omit({ setupId: true }),
+  selection: z.object({
+    installationId: z.number().int(),
+    repositoryId: z.number().int(),
+    branch: z.string(),
+    /** The site folder. */
+    root: z.string(),
+    /** `<root>/docs`, where the setup pull request adds the docs. */
+    directory: z.string(),
+  }),
   docsDraftVersion: z.number().int(),
   activePublicationId: z.string().nullable(),
   planHash: z.string(),
@@ -456,12 +492,10 @@ export const documentationGitCheckListSchema = z.object({
   nextCursor: z.string().nullable(),
 });
 
-export const gitPagesPreviewBodySchema = z.object({
-  directory: z.string().min(1).max(200),
-});
+/** Pages always live in `<root>/pages` of the connected repository. */
+export const gitPagesPreviewBodySchema = z.object({}).strict();
 
 export const gitPagesEnableBodySchema = z.object({
-  directory: z.string().min(1).max(200),
   /** The previewed commit; enabling fails if the branch moved. */
   commitSha: z.string(),
 });

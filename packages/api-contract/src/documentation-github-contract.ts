@@ -55,7 +55,7 @@ export const documentationGithubContract = c.router(
       path: `${prefix}/pages/preview`,
       body: gitPagesPreviewBodySchema,
       responses: { 200: gitPagesPreviewSchema, ...errors },
-      summary: "Preview a pages folder",
+      summary: "Preview the pages folder",
       description:
         "Dry-runs the pages importer on the connected branch's head: routes, diagnostics and the live pages that would go offline.",
     },
@@ -75,7 +75,7 @@ export const documentationGithubContract = c.router(
       responses: { 201: gitPagesExportSchema, ...errors },
       summary: "Export pages to the repository",
       description:
-        "Opens a setup pull request with every page as a canonical JSON file plus site.json. Merging it turns pages sync on for that folder.",
+        "Opens a setup pull request with every page as a canonical JSON file plus site.json. Merging it turns pages sync on.",
     },
     disablePages: {
       method: "DELETE",
