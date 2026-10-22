@@ -16,12 +16,15 @@ import {
   FileList,
   LinkButton,
   Mono,
+  PublishMap,
   StatusBanner,
   StepIntro,
   SummaryCard,
   SummaryRow,
+  SyncCard,
   Timeline,
   WizardShell,
+  type PublishMapRow,
   type TimelineState,
 } from "@/components/content/documentation-connect-parts";
 import { Input } from "@/components/ui/codelit/input";
@@ -856,25 +859,55 @@ export function DocumentationSource({
       </>
     );
   } else if (view === "folder") {
+    const clean = (path: string) => path.trim().replace(/^\/+|\/+$/g, "");
+    const docsFolder = clean(directory) || "docs";
+    const pagesFolder = clean(pagesDirectory) || "frontlit/pages";
+    const parent = pagesFolder.includes("/")
+      ? pagesFolder.slice(0, pagesFolder.lastIndexOf("/"))
+      : "";
+    const siteFile = parent ? `${parent}/site.json` : "site.json";
+    const mapRows: PublishMapRow[] = [
+      ...(docsEnabled
+        ? ([
+            { kind: "folder", path: `${docsFolder}/`, note: "docs" },
+            {
+              kind: "route",
+              file: "getting-started.md",
+              route: "/docs/getting-started",
+            },
+          ] as const)
+        : []),
+      ...(pagesEnabled
+        ? ([
+            { kind: "folder", path: `${pagesFolder}/`, note: "landing pages" },
+            { kind: "route", file: "index.json", route: "/" },
+            { kind: "route", file: "pricing.json", route: "/pricing" },
+            { kind: "file", path: siteFile, note: "header, footer and theme" },
+          ] as const)
+        : []),
+    ];
     wizardBody = (
       <>
         <StepIntro
           title="Choose what to sync"
           lead={
             <>
-              FrontLit publishes from one branch in{" "}
-              <b className="font-medium text-foreground">
-                {repositoryName ?? "the repository"}
-              </b>
-              : docs, landing pages or both.
+              Pick what FrontLit should publish from{" "}
+              <Mono>
+                <b className="font-semibold text-foreground">
+                  {repositoryName ?? "the repository"}
+                </b>
+              </Mono>
+              . Turn on one or both.
             </>
           }
         />
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="git-branch">Publishing branch</Label>
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            <Label htmlFor="git-branch">Publish from branch</Label>
             <Input
               id="git-branch"
+              className="w-56 font-mono"
               value={branch}
               disabled={busy}
               onChange={(e) => {
@@ -882,72 +915,92 @@ export function DocumentationSource({
                 setPreflight(null);
               }}
             />
-            <p className="text-muted-foreground text-xs">
-              Merged changes on this branch go live on your site.
-            </p>
+            <span className="text-muted-foreground text-sm">
+              Changes merged here go live.
+            </span>
           </div>
-          <ConsentRow
-            checked={docsEnabled}
-            disabled={busy}
-            onChange={(checked) => {
-              setDocsEnabled(checked);
-              setPreflight(null);
-            }}
-          >
-            <b className="font-medium">Docs</b>
-            <span className="block text-muted-foreground">
-              Markdown files in a folder publish to <Mono>/docs</Mono>.
-            </span>
-          </ConsentRow>
-          {docsEnabled && (
-            <div className="space-y-1.5">
-              <Label htmlFor="git-directory">Documentation folder</Label>
-              <Input
-                id="git-directory"
-                value={directory}
-                disabled={busy}
-                onChange={(e) => {
-                  setDirectory(e.target.value);
-                  setPreflight(null);
-                }}
-              />
-              <p className="text-muted-foreground text-xs">
-                Relative to the repository root, for example <Code>docs</Code>.
-              </p>
-            </div>
-          )}
-          <ConsentRow
-            checked={pagesEnabled}
-            disabled={busy}
-            onChange={(checked) => {
-              setPagesEnabled(checked);
-              setPreflight(null);
-            }}
-          >
-            <b className="font-medium">Landing pages</b>
-            <span className="block text-muted-foreground">
-              JSON files in a folder (<Mono>pricing.json</Mono> → <Mono>/pricing</Mono>)
-              replace the pages, header and footer you edit in the builder.
-            </span>
-          </ConsentRow>
-          {pagesEnabled && (
-            <div className="space-y-1.5">
-              <Label htmlFor="git-pages-directory">Pages folder</Label>
-              <Input
-                id="git-pages-directory"
-                value={pagesDirectory}
-                disabled={busy}
-                onChange={(e) => {
-                  setPagesDirectory(e.target.value);
-                  setPreflight(null);
-                }}
-              />
-              <p className="text-muted-foreground text-xs">
-                <Code>site.json</Code> beside the folder holds the header, footer and
-                theme. If the folder doesn&apos;t exist yet, you can export your current
-                pages to it after connecting.
-              </p>
-            </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SyncCard
+              title="Docs"
+              checked={docsEnabled}
+              disabled={busy}
+              onChange={(checked) => {
+                setDocsEnabled(checked);
+                setPreflight(null);
+              }}
+              description={
+                <>
+                  Markdown files publish to <Mono>/docs</Mono>.
+                </>
+              }
+            >
+              <div className="space-y-1.5">
+                <Label htmlFor="git-directory">Docs folder</Label>
+                <Input
+                  id="git-directory"
+                  className="font-mono"
+                  value={directory}
+                  disabled={busy}
+                  onChange={(e) => {
+                    setDirectory(e.target.value);
+                    setPreflight(null);
+                  }}
+                />
+              </div>
+              {hasCmsContent ? (
+                <p className="text-muted-foreground">
+                  FrontLit opens a pull request that adds your current docs to this
+                  folder.
+                </p>
+              ) : (
+                <p className="text-muted-foreground">
+                  Folder not there yet?{" "}
+                  <LinkButton
+                    disabled={busy || !canReview || !canPublish}
+                    onClick={() => void action(() => review(true))}
+                  >
+                    Start with an empty one
+                  </LinkButton>
+                </p>
+              )}
+            </SyncCard>
+            <SyncCard
+              title="Landing pages"
+              checked={pagesEnabled}
+              disabled={busy}
+              onChange={(checked) => {
+                setPagesEnabled(checked);
+                setPreflight(null);
+              }}
+              description={
+                <>
+                  One JSON file per page: <Mono>pricing.json</Mono> publishes to{" "}
+                  <Mono>/pricing</Mono>.
+                </>
+              }
+            >
+              <div className="space-y-1.5">
+                <Label htmlFor="git-pages-directory">Pages folder</Label>
+                <Input
+                  id="git-pages-directory"
+                  className="font-mono"
+                  value={pagesDirectory}
+                  disabled={busy}
+                  onChange={(e) => {
+                    setPagesDirectory(e.target.value);
+                    setPreflight(null);
+                  }}
+                />
+              </div>
+              <Callout>
+                GitHub becomes the source of your pages, header and footer. Builder
+                edits turn into pull requests. You can export your current pages to this
+                folder after connecting.
+              </Callout>
+            </SyncCard>
+          </div>
+          {mapRows.length > 0 && (
+            <PublishMap branch={branch || "main"} rows={mapRows} />
           )}
         </div>
       </>
@@ -957,23 +1010,12 @@ export function DocumentationSource({
         <Button variant="ghost" disabled={busy} onClick={() => setFolderStep(false)}>
           Back
         </Button>
-        <div className="flex items-center gap-2.5">
-          {!hasCmsContent && docsEnabled && (
-            <Button
-              variant="outline"
-              disabled={busy || !canReview || !canPublish}
-              onClick={() => void action(() => review(true))}
-            >
-              Start with an empty docs folder
-            </Button>
-          )}
-          <Button
-            disabled={busy || !canReview || (hasCmsContent && !canPublish)}
-            onClick={() => void action(() => review())}
-          >
-            {hasCmsContent && docsEnabled ? "Review setup" : "Check repository"}
-          </Button>
-        </div>
+        <Button
+          disabled={busy || !canReview || (hasCmsContent && !canPublish)}
+          onClick={() => void action(() => review())}
+        >
+          {hasCmsContent && docsEnabled ? "Review setup" : "Check repository"}
+        </Button>
       </>
     );
   } else if (view === "review" && migration) {
@@ -1560,7 +1602,9 @@ export function DocumentationSource({
           if (!busy) setOpen(value);
         }}
       >
-        <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-[600px]">
+        <DialogContent
+          className={`gap-0 overflow-hidden p-0 ${wizardMode ? "sm:max-w-[760px]" : "sm:max-w-[600px]"}`}
+        >
           {wizardMode ? (
             <WizardShell
               current={wizardCurrent}

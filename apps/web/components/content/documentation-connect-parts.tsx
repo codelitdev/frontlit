@@ -1,7 +1,15 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Check, ChevronRight, CircleAlert, Info, TriangleAlert } from "lucide-react";
+import {
+  Check,
+  ChevronRight,
+  CircleAlert,
+  File,
+  Folder,
+  Info,
+  TriangleAlert,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const WIZARD_STEPS = ["Repository", "Folder", "Review", "Connect"] as const;
@@ -153,7 +161,7 @@ export function Callout({
   tone = "warning",
   children,
 }: {
-  title: string;
+  title?: string;
   tone?: "warning" | "info" | "danger";
   children: ReactNode;
 }) {
@@ -181,7 +189,7 @@ export function Callout({
         )}
       />
       <span>
-        <b className="mb-0.5 block font-semibold">{title}</b>
+        {title && <b className="mb-0.5 block font-semibold">{title}</b>}
         {children}
       </span>
     </div>
@@ -313,6 +321,100 @@ export function StatusBanner({
     >
       <Check className="size-[18px]" strokeWidth={2.4} />
       {children}
+    </div>
+  );
+}
+
+/** A selectable card for one thing to sync; its settings show while it's on. */
+export function SyncCard({
+  checked,
+  onChange,
+  disabled,
+  title,
+  description,
+  children,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+  title: string;
+  description: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex gap-3 rounded-[0.625rem] border px-4 py-4 text-sm focus-within:shadow-[var(--shadow-focus)]",
+        checked ? "border-primary bg-[var(--primary-soft)]" : "border-border",
+      )}
+    >
+      <input
+        type="checkbox"
+        id={`sync-${title}`}
+        className="mt-px size-[18px] shrink-0 cursor-pointer accent-[var(--primary)]"
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <div className="min-w-0 flex-1 space-y-3">
+        <label htmlFor={`sync-${title}`} className="block cursor-pointer">
+          <b className="block font-semibold">{title}</b>
+          <span className="block text-muted-foreground">{description}</span>
+        </label>
+        {checked && children}
+      </div>
+    </div>
+  );
+}
+
+export type PublishMapRow =
+  | { kind: "folder"; path: string; note: string }
+  | { kind: "file"; path: string; note: string }
+  | { kind: "route"; file: string; route: string };
+
+/** How repository files turn into site URLs, using the folders typed so far. */
+export function PublishMap({
+  branch,
+  rows,
+}: {
+  branch: string;
+  rows: PublishMapRow[];
+}) {
+  return (
+    <div className="overflow-hidden rounded-[0.625rem] border border-border text-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-border bg-muted px-4 py-2.5">
+        <span className="font-medium text-muted-foreground">
+          How files map to your site
+        </span>
+        <span className="font-mono text-[13px] text-muted-foreground">{branch}</span>
+      </div>
+      <ul className="flex flex-col gap-2 px-4 py-3">
+        {rows.map((row) =>
+          row.kind === "route" ? (
+            <li
+              key={`${row.file}${row.route}`}
+              className="flex items-center justify-between gap-3 pl-6"
+            >
+              <span className="break-all font-mono text-[13px]">{row.file}</span>
+              <span className="flex shrink-0 items-center gap-2 text-muted-foreground">
+                →<Code>{row.route}</Code>
+              </span>
+            </li>
+          ) : (
+            <li key={row.path} className="flex items-center justify-between gap-3">
+              <span className="flex min-w-0 items-center gap-2">
+                {row.kind === "folder" ? (
+                  <Folder className="size-4 shrink-0 text-muted-foreground" />
+                ) : (
+                  <File className="size-4 shrink-0 text-muted-foreground" />
+                )}
+                <span className="break-all font-mono text-[13px]">{row.path}</span>
+              </span>
+              <span className="shrink-0 text-muted-foreground">{row.note}</span>
+            </li>
+          ),
+        )}
+      </ul>
     </div>
   );
 }

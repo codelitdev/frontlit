@@ -48,6 +48,7 @@ import { gitDocumentSnapshot, validateGitManifest } from "./source";
 import {
   enqueueGitSync,
   markGitAccessLost,
+  recoverGitAccess,
   readGitBindingAccess,
   type GitBinding,
 } from "./state";
@@ -819,10 +820,17 @@ async function finishWithoutDocsPublication(
 
 export async function reconcileGitSources(now = new Date()) {
   const due = await db.query.documentationGitBindings.findMany({
-    where: and(eq(bindings.status, "connected"), lte(bindings.nextReconcileAt, now)),
+    where: and(
+      inArray(bindings.status, ["connected", "access_lost"]),
+      lte(bindings.nextReconcileAt, now),
+    ),
     limit: 5,
   });
   for (const binding of due) {
+    if (binding.status === "access_lost") {
+      await recoverGitAccess(binding);
+      continue;
+    }
     const pending = await db.query.documentationGitJobs.findFirst({
       where: and(
         eq(jobs.teamId, binding.teamId),

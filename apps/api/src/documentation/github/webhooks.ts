@@ -14,10 +14,9 @@ import {
 } from "../../db/schema";
 import { lockSettings } from "../authoring";
 import { schedulePagesPreview } from "../../pages/git-preview";
-import { hasOpenPagesSetup } from "../../pages/git-export";
 import { completeGitHubSetup } from "./setup";
 import { getDocsGitHubAppConfig, GitHubDocsError, verifyGitHubSignature } from "./app";
-import { enqueueGitSync, supersedeGitWork } from "./state";
+import { canSync, enqueueGitSync, supersedeGitWork } from "./state";
 import { enqueueGitPrCheck } from "./check-worker";
 import { gitHubErrorResponse } from "./errors";
 const id = z.number().int().positive().safe();
@@ -485,15 +484,6 @@ export async function receiveGitHubDelivery(
   for (const preview of result.previews ?? [])
     schedulePagesPreview(preview.teamId, preview);
   return { duplicate: result.duplicate, relevant: result.relevant };
-}
-
-/** Whether a sync can run: docs on Git, a pages folder, or a pending pages setup. */
-async function canSync(tx: any, binding: typeof bindings.$inferSelect) {
-  if (binding.docsEnabled)
-    return (await lockSettings(tx, binding.teamId)).source === "git";
-  return (
-    Boolean(binding.pagesDirectory) || (await hasOpenPagesSetup(binding.teamId, tx))
-  );
 }
 
 /** Infrastructure router is mounted before global JSON parsing. */
