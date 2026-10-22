@@ -166,6 +166,8 @@ export function DocumentationSource({
       setMigration(plan);
       setBranch(plan.selection.branch);
       setRoot(plan.selection.root);
+      // Pages are checked after the setup PR merges; remember the choice.
+      setPagesEnabled(sessionStorage.getItem(`${storageKey}:pages`) === "1");
       setInstallationId(String(plan.selection.installationId));
       setRepositoryId(String(plan.selection.repositoryId));
       setVerifiedSha(plan.status === "verified" ? plan.verifiedSha : null);
@@ -350,14 +352,25 @@ export function DocumentationSource({
       setMigration(plan);
       setAcknowledgeSetupPr(false);
       sessionStorage.setItem(storageKey, plan.planId);
+      sessionStorage.setItem(`${storageKey}:pages`, pagesEnabled ? "1" : "");
     } else {
       const report = await preflightDocumentationGit(selection());
+      // No docs folder yet: offer to create it in a setup pull request
+      // instead of stopping at "must exist".
+      if (
+        docsEnabled &&
+        canPublish &&
+        !report.publishable &&
+        report.diagnostics.some((d) => d.code === "SOURCE_DIRECTORY_UNAVAILABLE")
+      )
+        return review(true);
       setPreflight(report);
       setDiagnostics(report.diagnostics);
     }
   }
   function clearSetup() {
     sessionStorage.removeItem(storageKey);
+    sessionStorage.removeItem(`${storageKey}:pages`);
     setMigration(null);
     setVerifiedSha(null);
     setConsents([false]);
@@ -412,6 +425,7 @@ export function DocumentationSource({
         consent,
       });
       sessionStorage.removeItem(storageKey);
+      sessionStorage.removeItem(`${storageKey}:pages`);
       setMigration(null);
     } else if (preflight?.publishable) {
       result = await connectDocumentationGit({
@@ -571,7 +585,9 @@ export function DocumentationSource({
     return [
       {
         title: "FrontLit opens a pull request",
-        note: `Adds your ${fileCount} files to ${migration?.selection.directory ?? directory}/ on a new branch.`,
+        note: fileCount
+          ? `Adds your ${fileCount} ${fileCount === 1 ? "file" : "files"} to ${migration?.selection.directory ?? directory}/ on a new branch.`
+          : `Creates an empty ${migration?.selection.directory ?? directory}/ folder on a new branch.`,
         state: at[0],
         waiting: "Opening the pull request…",
       },
@@ -1023,23 +1039,29 @@ export function DocumentationSource({
           <SummaryRow label="Branch" action={changeLink(true)}>
             <Mono>{migration.selection.branch}</Mono>
           </SummaryRow>
-          <SummaryRow label="Folder" action={changeLink(true)}>
+          <SummaryRow label="Docs folder" action={changeLink(true)}>
             <Mono>{migration.selection.directory}/</Mono>
           </SummaryRow>
-          <SummaryRow
-            label="Files"
-            action={
-              <LinkButton
-                aria-expanded={showFiles}
-                onClick={() => setShowFiles((v) => !v)}
-              >
-                {showFiles ? "Hide" : "View"}
-              </LinkButton>
-            }
-          >
-            {fileCount} to copy
-          </SummaryRow>
-          {showFiles && (
+          {fileCount === 0 ? (
+            <SummaryRow label="Files" action={null}>
+              None yet. The pull request creates the empty folder.
+            </SummaryRow>
+          ) : (
+            <SummaryRow
+              label="Files"
+              action={
+                <LinkButton
+                  aria-expanded={showFiles}
+                  onClick={() => setShowFiles((v) => !v)}
+                >
+                  {showFiles ? "Hide" : "View"}
+                </LinkButton>
+              }
+            >
+              {fileCount} to copy
+            </SummaryRow>
+          )}
+          {fileCount > 0 && showFiles && (
             <>
               <FileList files={files} />
               {migration.nextOffset !== null && (
@@ -1064,6 +1086,13 @@ export function DocumentationSource({
             </>
           )}
         </SummaryCard>
+        {pagesEnabled && (
+          <Callout tone="info" title="Landing pages come next">
+            After you merge, FrontLit checks <Mono>{folders.pages}/</Mono>. If it
+            doesn&apos;t exist yet, export your current pages to it from the repository
+            dialog.
+          </Callout>
+        )}
         {isEmptyRepo && (
           <Callout tone="warning" title="This repository is empty">
             A pull request needs a base branch, so FrontLit first adds an empty{" "}
@@ -1096,7 +1125,9 @@ export function DocumentationSource({
         >
           {isEmptyRepo
             ? `I approve adding ${migration.selection.directory}/.gitkeep to ${migration.selection.branch} and opening a pull request with these ${fileCount} files.`
-            : `I approve opening a pull request with these ${fileCount} files.`}
+            : fileCount
+              ? `I approve opening a pull request with ${fileCount === 1 ? "this file" : `these ${fileCount} files`}.`
+              : `I approve opening a pull request that creates the empty ${migration.selection.directory}/ folder.`}
           {draftCount > 0 && " This includes the unpublished drafts above."}
         </ConsentRow>
         {migration.pullRequest?.diagnostic && (
