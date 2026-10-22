@@ -82,9 +82,14 @@ export const InlineEmbed = ({ content, className, style }: InlineEmbedProps) => 
     // because innerHTML ignores declarative shadow roots.
     const root = host.shadowRoot ?? host.attachShadow({ mode: "open" });
     if (appliedRef.current === body) return;
-    if (appliedRef.current !== null || !root.hasChildNodes()) root.innerHTML = body;
+    // The HTML parser already ran the scripts of a server-rendered shadow
+    // root; only markup set through innerHTML (which never runs scripts)
+    // needs them re-created, or they'd run twice.
+    if (appliedRef.current !== null || !root.hasChildNodes()) {
+      root.innerHTML = body;
+      runScripts(root);
+    }
     appliedRef.current = body;
-    runScripts(root);
   }, [body]);
 
   // Mirror the site's color mode onto the host so snippets can use
