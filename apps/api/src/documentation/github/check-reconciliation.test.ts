@@ -2,6 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { makeTestDb, seedTeam, type TestDb } from "../../test/db";
 vi.mock("../../db/client", async () => ({ db: await makeTestDb() }));
+const { buildPagesPreview } = vi.hoisted(() => ({
+  buildPagesPreview: vi.fn(async (..._args: unknown[]) => ({
+    releaseId: "rel_preview",
+  })),
+}));
+vi.mock("../../pages/git-preview", () => ({ buildPagesPreview }));
 import { db as appDb } from "../../db/client";
 import {
   documentationGitBindings as bindings,
@@ -99,7 +105,7 @@ describe("missed-event PR check reconciliation", () => {
     expect(f.app.openPullRequestCandidates).toHaveBeenCalledTimes(1);
     expect(f.app.installationToken).toHaveBeenLastCalledWith(7, 9, "review");
   });
-  it("skips pages-only connections, which have no docs PR checks", async () => {
+  it("skips connections that sync neither docs nor pages yet", async () => {
     const f = await fixture();
     await db
       .update(bindings)
@@ -107,6 +113,47 @@ describe("missed-event PR check reconciliation", () => {
       .where(eq(bindings.teamId, f.teamId));
     expect(await f.process()).toEqual({ sources: 0, queued: 0, failures: 0 });
     expect(f.app.openPullRequestCandidates).not.toHaveBeenCalled();
+  });
+  it("builds pages previews a lost webhook missed, once per head commit", async () => {
+    const f = await fixture();
+    buildPagesPreview.mockClear();
+    await db
+      .update(bindings)
+      .set({ docsEnabled: false, pagesDirectory: "frontlit/pages" })
+      .where(eq(bindings.teamId, f.teamId));
+    const fork = {
+      ...f.candidate,
+      number: 13,
+      headSha: "e".repeat(40),
+      supported: false,
+    };
+    f.app.openPullRequestCandidates.mockResolvedValue([f.candidate, fork]);
+    const reported = new Set<string>();
+    (f.app as any).hasPagesCheckRun = vi.fn(
+      async (_t: string, _o: string, _n: string, sha: string) => reported.has(sha),
+    );
+    buildPagesPreview.mockImplementation(async (...args: unknown[]) => {
+      reported.add((args[1] as { headSha: string }).headSha);
+      return { releaseId: "rel_preview" };
+    });
+    expect(await f.process()).toEqual({ sources: 1, queued: 1, failures: 0 });
+    // Same-repository PRs only; forks never get a preview.
+    expect(buildPagesPreview).toHaveBeenCalledTimes(1);
+    expect(buildPagesPreview).toHaveBeenCalledWith(
+      f.teamId,
+      expect.objectContaining({ number: 12, headSha: head }),
+      f.app,
+    );
+    // A pages-only connection queues no docs checks.
+    expect(
+      await db.query.documentationGitChecks.findMany({
+        where: eq(checks.teamId, f.teamId),
+      }),
+    ).toHaveLength(0);
+    // Next tick: the head already has its check, so nothing is rebuilt.
+    await f.due();
+    expect(await f.process()).toEqual({ sources: 1, queued: 0, failures: 0 });
+    expect(buildPagesPreview).toHaveBeenCalledTimes(1);
   });
   it("skips an unchanged delivered proof but queues fresh validation when the base changes", async () => {
     const f = await fixture();

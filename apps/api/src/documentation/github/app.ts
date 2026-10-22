@@ -890,6 +890,23 @@ export class DocsGitHubApp {
       },
     });
   }
+  /** Whether this app already reported "FrontLit / pages preview" on a commit. */
+  async hasPagesCheckRun(token: string, owner: string, name: string, headSha: string) {
+    requireSha(headSha);
+    const query = new URLSearchParams({
+      check_name: "FrontLit / pages preview",
+      filter: "all",
+      per_page: "1",
+      app_id: this.config.appId,
+    });
+    const result = await this.request<{ total_count: number }>(
+      `${repoPath(owner, name)}/commits/${headSha}/check-runs?${query}`,
+      token,
+    );
+    if (!Number.isSafeInteger(result.total_count))
+      throw new GitHubDocsError("GITHUB_INVALID_RESPONSE");
+    return result.total_count > 0;
+  }
   /** The pull request for a `frontlit/pages/...` branch, if any. */
   async findPagesPullRequest(
     token: string,
