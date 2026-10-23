@@ -121,6 +121,7 @@ services:
             WEB_BASE_URL: ${WEB_BASE_URL:-http://localhost:3000}
             SITES_BASE_URL: ${SITES_BASE_URL:-http://localhost:3002}
             PLATFORM_SITE_DOMAIN: ${PLATFORM_SITE_DOMAIN:-localhost}
+            PLATFORM_TEAM_ID: ${PLATFORM_TEAM_ID:-}
             CUSTOM_DOMAIN_CNAME_TARGET: ${CUSTOM_DOMAIN_CNAME_TARGET:-}
             ENABLE_TRUST_PROXY: ${ENABLE_TRUST_PROXY:-false}
             AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-}
