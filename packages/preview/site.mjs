@@ -40,6 +40,31 @@ function media(value, owner, root) {
     }),
   );
 }
+// The client renders fixtures directly, so reject shapes it would crash on.
+function feedFixtures(feeds, contextFile) {
+  if (feeds === undefined) return {};
+  const fail = (where) => {
+    throw new Error(
+      `${contextFile}: ${where} must be an array of { "title", "href", "description" } strings, keyed by route.`,
+    );
+  };
+  if (!feeds || typeof feeds !== "object" || Array.isArray(feeds)) fail("feeds");
+  for (const [route, entries] of Object.entries(feeds)) {
+    if (!Array.isArray(entries)) fail(`feeds["${route}"]`);
+    entries.forEach((entry, i) => {
+      if (
+        !entry ||
+        typeof entry !== "object" ||
+        Array.isArray(entry) ||
+        ["title", "href", "description"].some(
+          (key) => entry[key] !== undefined && typeof entry[key] !== "string",
+        )
+      )
+        fail(`feeds["${route}"][${i}]`);
+    });
+  }
+  return feeds;
+}
 export function loadSite(
   folder,
   pathname = "/",
@@ -114,7 +139,7 @@ export function loadSite(
         path: f === "index.json" ? "/" : "/" + f.slice(0, -5),
         name: f.slice(0, -5),
       })),
-    feeds: context.feeds ?? {},
+    feeds: feedFixtures(context.feeds, contextFile),
     missingBranding: !branding.title,
   };
 }

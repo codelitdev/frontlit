@@ -52,6 +52,15 @@ test("normalizes file settings, chrome, branding, fixtures and local images", ()
     assert.deepEqual(data.pages, [{ path: "/", name: "index" }]);
     assert.equal(data.feeds["/blog"][0].title, "Fixture");
     assert.equal(data.pageData.teamId, undefined);
+    for (const feeds of [
+      [],
+      { "/blog": { title: "Not a list" } },
+      { "/blog": ["x"] },
+      { "/blog": [{ title: 1 }] },
+    ]) {
+      writeFileSync(join(folder, "preview.context.json"), JSON.stringify({ feeds }));
+      assert.throws(() => loadSite(folder), /feeds/);
+    }
     assert.throws(() => loadSite(folder, "/../secret"));
     assert.throws(() => loadSite(folder, "/missing"));
     writeFileSync(join(folder, "pages/index.json"), "{");
