@@ -104,6 +104,12 @@ export async function startPreview(folder, { port = 4310, context } = {}) {
       },
     ],
   });
-  await server.listen();
+  try {
+    await server.listen();
+  } catch (error) {
+    // Vite's file watcher would otherwise keep the process alive.
+    await server.close();
+    throw error;
+  }
   return server;
 }
