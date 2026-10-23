@@ -2,7 +2,8 @@ import React from "react";
 import clsx from "clsx";
 import type { ThemeStyle, WidgetProps } from "../../models";
 import type { CodeSnippetSettings } from "./settings";
-import { Caption, CodeSnippet, Section } from "../../primitives";
+import { Caption, Section } from "../../primitives";
+import { CodeSnippet } from "../../primitives/code-snippet";
 
 export function CodeSnippetWidget({
   settings: {
@@ -16,7 +17,6 @@ export function CodeSnippetWidget({
     background,
   },
   state: { theme },
-  nextTheme,
 }: WidgetProps<CodeSnippetSettings>) {
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
@@ -26,12 +26,7 @@ export function CodeSnippetWidget({
   if (!code) return null;
 
   return (
-    <Section
-      theme={overriddenTheme}
-      id={cssId}
-      background={background}
-      nextTheme={nextTheme}
-    >
+    <Section theme={overriddenTheme} id={cssId} background={background}>
       <div
         className={clsx(
           "flex w-full max-w-2xl flex-col gap-3",

@@ -159,7 +159,7 @@ describe("signed OAuth documentation setup transports", () => {
         installationId: 7,
         repositoryId: 9,
         branch: "main",
-        directory: "docs",
+        root: "",
         expectedDocsDraftVersion: settings.draftVersion,
         expectedPublicationId: null,
       },

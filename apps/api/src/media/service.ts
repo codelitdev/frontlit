@@ -93,3 +93,35 @@ export async function deleteMedia(mediaId: string): Promise<void> {
   if (!response.ok && response.status !== 404)
     throw new MediaLitHttpError(response.status);
 }
+
+/** Server-side upload of a file FrontLit already holds (repo images synced
+ * from Git). Public and sealed, so the returned URL is permanent. */
+export async function uploadMediaFile(input: {
+  bytes: Uint8Array;
+  fileName: string;
+  mimeType: string;
+  group: string;
+}): Promise<MediaLitMedia> {
+  const medialit = await getMediaLitClient();
+  const form = new FormData();
+  form.append(
+    "file",
+    new Blob([Buffer.from(input.bytes)], { type: input.mimeType }),
+    input.fileName,
+  );
+  form.append("access", "public");
+  form.append("group", input.group);
+  const response = await fetch(`${medialit.endpoint}/media/create`, {
+    method: "POST",
+    headers: {
+      "x-medialit-apikey":
+        process.env.MEDIALIT_APIKEY || process.env.MEDIALIT_API_KEY || "",
+    },
+    body: form,
+    signal: AbortSignal.timeout(30000),
+  });
+  if (!response.ok) throw new MediaLitHttpError(response.status);
+  // Uploads stay temporary (and expire) until sealed.
+  const created = (await response.json()) as { mediaId: string };
+  return sealMedia(created.mediaId);
+}

@@ -1,6 +1,7 @@
 import type { PlatformConformanceAdapter } from "@codelitdev/platform-conformance";
 import { createObservability, redactText } from "@codelitdev/observability";
 import { openApiDocument } from "./openapi";
+import { mcpProtectedResourceMetadataUrl } from "./auth/better-auth";
 import { createApp } from "./app";
 import type { Server } from "node:http";
 
@@ -151,9 +152,14 @@ export function createFrontLitConformanceAdapter(
       return { status: 200, body: { items: [] } };
     },
     mcp: async (input) => {
-      if (input.headers.cookie && !input.headers.authorization) {
+      // Like the real /mcp (auth/middleware.ts): no bearer token gets a 401
+      // with the protected-resource challenge, cookie or not.
+      if (!input.headers.authorization) {
         return {
           status: 401,
+          headers: {
+            "www-authenticate": `Bearer resource_metadata="${mcpProtectedResourceMetadataUrl}"`,
+          },
           body: { error: { code: "unauthenticated" } },
         };
       }

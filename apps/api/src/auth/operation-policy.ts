@@ -165,6 +165,9 @@ export const REST_OPERATION_POLICIES = {
   "pages.remove": teamPermission("pages:write", MCP_SCOPES.pagesWrite),
   "pages.publish": teamPermission("pages:write", MCP_SCOPES.pagesWrite),
   "pages.discardDraft": teamPermission("pages:write", MCP_SCOPES.pagesWrite),
+  "pages.createPullRequest": teamPermission("pages:write", MCP_SCOPES.pagesWrite),
+  "pages.listReleases": teamPermission("pages:read", MCP_SCOPES.pagesRead),
+  "pages.activateRelease": teamPermission("pages:write", MCP_SCOPES.pagesWrite),
 
   "themes.create": teamPermission("themes:write", MCP_SCOPES.themesWrite),
   "themes.list": teamPermission("themes:read", MCP_SCOPES.themesRead),
@@ -279,6 +282,26 @@ export const REST_OPERATION_POLICIES = {
   "content.documentationSections.updateSettings": teamPermission(
     "documentation:manage",
     MCP_SCOPES.documentationManage,
+  ),
+  "content.documentationGithub.previewPages": teamPermission(
+    "documentation:manage",
+    MCP_SCOPES.documentationManage,
+    "deny",
+  ),
+  "content.documentationGithub.enablePages": teamPermission(
+    "documentation:manage",
+    "unsupported",
+    "deny",
+  ),
+  "content.documentationGithub.exportPages": teamPermission(
+    "documentation:manage",
+    "unsupported",
+    "deny",
+  ),
+  "content.documentationGithub.disablePages": teamPermission(
+    "documentation:manage",
+    "unsupported",
+    "deny",
   ),
   "content.documentationGithub.setup": teamPermission(
     "documentation:manage",
@@ -473,11 +496,16 @@ export const REST_OPERATION_POLICIES = {
 
   "domains.get": teamPermission("domains:read", MCP_SCOPES.domainsRead),
   "domains.setSubdomain": teamPermission("domains:write", MCP_SCOPES.domainsWrite),
-  "domains.setSubdomainPublic": teamPermission(
+  "domains.setRedirectSubdomain": teamPermission(
     "domains:write",
     MCP_SCOPES.domainsWrite,
   ),
+  "domains.setHideFromSearch": teamPermission("domains:write", MCP_SCOPES.domainsWrite),
   "domains.attachCustomDomain": teamPermission(
+    "domains:write",
+    MCP_SCOPES.domainsWrite,
+  ),
+  "domains.setPrimaryCustomDomain": teamPermission(
     "domains:write",
     MCP_SCOPES.domainsWrite,
   ),

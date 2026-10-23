@@ -20,6 +20,7 @@ type EditorRouteAccess = RouteAccess & {
 const ROUTE_ACCESS: readonly RouteAccess[] = [
   { href: "/website/code-injection", ownerOnly: true },
   { href: "/website/pages", permissions: ["pages:read"] },
+  { href: "/website/releases", permissions: ["pages:read"] },
   { href: "/website/branding", permissions: ["settings:read"] },
   { href: "/website/domain", permissions: ["domains:read"] },
   { href: "/website/chatbot", permissions: ["chatbot:read"] },
@@ -105,6 +106,7 @@ const EDITOR_ROUTE_ACCESS: readonly EditorRouteAccess[] = [
 
 const WEBSITE_TAB_ACCESS_HREF: Record<string, string> = {
   pages: "/website/pages",
+  releases: "/website/releases",
   branding: "/website/branding",
   domain: "/website/domain",
   "code-injection": "/website/code-injection",

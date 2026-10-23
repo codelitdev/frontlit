@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { runWhenIdle } from "@/lib/idle";
 
 type InjectionSection = "head" | "body";
 
@@ -19,32 +20,40 @@ export function CodeInjector({
   body?: string | null;
 }) {
   useEffect(() => {
-    const sections: [InjectionSection, string | null | undefined][] = [
-      ["head", head],
-      ["body", body],
-    ];
-
+    // Inject once the browser is idle so tenant scripts never compete with
+    // first paint. Dynamically inserted scripts are async, so they don't
+    // block parsing either.
     const injected: Element[] = [];
-    for (const [target, html] of sections) {
-      if (!html) continue;
-      const container = document.createElement("div");
-      container.innerHTML = html;
-      for (const child of Array.from(container.children)) {
-        let node: Element = child;
-        if (child.nodeName === "SCRIPT") {
-          const script = document.createElement("script");
-          script.innerHTML = child.innerHTML;
-          for (const attr of Array.from(child.attributes)) {
-            script.setAttribute(attr.nodeName, attr.nodeValue ?? "");
+    const inject = () => {
+      const sections: [InjectionSection, string | null | undefined][] = [
+        ["head", head],
+        ["body", body],
+      ];
+
+      for (const [target, html] of sections) {
+        if (!html) continue;
+        const container = document.createElement("div");
+        container.innerHTML = html;
+        for (const child of Array.from(container.children)) {
+          let node: Element = child;
+          if (child.nodeName === "SCRIPT") {
+            const script = document.createElement("script");
+            script.innerHTML = child.innerHTML;
+            for (const attr of Array.from(child.attributes)) {
+              script.setAttribute(attr.nodeName, attr.nodeValue ?? "");
+            }
+            node = script;
           }
-          node = script;
+          document[target].appendChild(node);
+          injected.push(node);
         }
-        document[target].appendChild(node);
-        injected.push(node);
       }
-    }
+    };
+
+    const cancelIdle = runWhenIdle(inject, 3000);
 
     return () => {
+      cancelIdle();
       for (const node of injected) node.remove();
     };
   }, [head, body]);

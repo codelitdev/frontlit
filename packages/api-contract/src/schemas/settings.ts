@@ -38,4 +38,10 @@ export const publicTeamSettingsSchema = z.object({
   theme: z.record(z.any()).nullable(),
   codeInjectionHead: z.string().nullable(),
   codeInjectionBody: z.string().nullable(),
+  /** From the live release's site.json; applied when no page matches. */
+  redirects: z
+    .array(
+      z.object({ from: z.string(), to: z.string(), permanent: z.boolean().optional() }),
+    )
+    .optional(),
 });

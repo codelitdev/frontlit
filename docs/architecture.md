@@ -120,7 +120,7 @@ draft state and publish state. They share:
   (`/editor/content/:type/:documentId`) built on `@frontlit/text-editor`,
 - a FrontLit-owned content-feed loader mounted through the page builder's
   generic `data-slot` block. The seeded `/blog`, `/docs`, and `/changelog`
-  pages persist the `frontlit.content-feed` slot plus `articles`,
+  pages persist the `content-feed` slot plus `articles`,
   `documentation`, or `product-updates` loader settings. `SiteChrome` invokes
   that loader server-side; the index routes no longer own collection queries
   or markup. The shared page-builder package has no FrontLit content model or
@@ -227,7 +227,7 @@ does not collide with the customer-facing `/docs` route in `apps/sites`.
 | Team settings (§12.5)                          | `GET/PATCH /settings` (branding + code injection; the shared shell moves through page publish)                                                                                      | `get_team_settings`, `update_team_settings`                                                                                                 |
 | Ask the docs (§7)                              | `POST /public/:teamId/chat` (public, persisted thread)                                                                                                                              | — (visitor widget only for now; no MCP twin yet)                                                                                            |
 | Help desk (§11)                                | `GET/POST /tickets`, `GET/PATCH /tickets/:ticketId`, `POST /tickets/:ticketId/messages` (submission is also public at `POST /public/:teamId/tickets`)                               | `create_ticket`, `list_tickets`, `get_ticket`, `reply_to_ticket`, `update_ticket_status`, `assign_ticket`                                   |
-| Domains (§12.1)                                | `GET/PATCH /domain`, `PATCH /domain/subdomain-public`, `POST /domain/custom`, `POST /domain/custom/verify`, `DELETE /domain/custom`                                                 | `get_domain_settings`, `set_team_subdomain`, `set_subdomain_public`, `attach_custom_domain`, `verify_custom_domain`, `remove_custom_domain` |
+| Domains (§12.1)                                | `GET/PATCH /domain`, `PATCH /domain/subdomain-redirect`, `POST /domain/custom`, `PATCH /domain/custom/primary`, `POST /domain/custom/verify`, `DELETE /domain/custom` | `get_domain_settings`, `set_team_subdomain`, `set_subdomain_redirect`, `attach_custom_domain`, `set_primary_custom_domain`, `verify_custom_domain`, `remove_custom_domain` |
 | Media (§9)                                     | `POST /media/presigned`, `POST /media`, `GET/PATCH/DELETE /media…`                                                                                                                  | `get_media_upload_signature`, `register_media`, `list_media`, `get_media`, `update_media`, `delete_media`                                   |
 | Contacts (§10.2, read-through to SendLit)      | `POST/GET /contacts` (with filter params), `GET/DELETE /contacts/:contactId`, `POST/DELETE /contacts/:contactId/tags/:tag` (capture itself is public: `POST /public/:teamId/leads`) | `list_contacts`, `create_contact`, `get_contact`, `delete_contact`, `add_contact_tag`, `remove_contact_tag`                                 |
 | Segments (§10.2, read-through to SendLit)      | `GET/POST/PATCH/DELETE /email/segments…`                                                                                                                                            | `list_segments`, `create_segment`, `update_segment`, `delete_segment`                                                                       |
@@ -1201,47 +1201,54 @@ Two Next.js apps with strictly separated concerns:
 
 ### 12.1 Team URLs & custom domains
 
-Every team is reachable at up to two hosts:
+Every team is reachable at:
 
 1. **Default subdomain** — `<subdomain>.<PLATFORM_SITE_DOMAIN>` (e.g.
    `acme.frontlit.app`), available only after a team member deliberately
    claims a unique `subdomain` in Domain settings. It is never derived from a
-   person's email or the initially generated team name. After a custom
-   domain is verified the team may hide this host (`subdomainPublic = false`);
-   hide means `resolve-host` returns 404 (unknown host), not a 301.
-2. **Custom domain** — `customdomain.tld`, available once attached and
-   verified.
+   person's email or the initially generated team name.
+2. **Custom domain** — one per team. Attaching an apex (`example.com`) or
+   `www.example.com` attaches both halves of the pair; any other host
+   (`docs.example.com`) is attached alone. Each host is verified
+   independently and the team picks which one is **primary** (defaults to the
+   one they typed).
 
 FrontLit has one deliberately strong invariant: **one team is one website**.
 All authored content, public settings, support, email state and hosts
-belong directly to that team; there is no intermediate `sites` resource or
-`domains` table. A new team's public site is inactive until its subdomain is
-claimed. The subdomain then serves the website unless it is hidden. Once the
-optional custom domain is verified, it also serves the website and becomes
-the canonical host automatically. There is no user-managed primary-domain
-picker.
+belong directly to that team; there is no intermediate `sites` resource. A
+new team's public site is inactive until its subdomain is claimed.
 
-| Custom domain           | subdomainPublic | Subdomain host     | Custom host | Canonical       |
-| ----------------------- | --------------- | ------------------ | ----------- | --------------- |
-| none / pending / failed | true (forced)   | serves             | 404         | subdomain       |
-| verified                | true (default)  | serves             | serves      | custom hostname |
-| verified                | false           | 404 / unknown host | serves      | custom hostname |
+The **canonical host** is the verified primary custom host, else the other
+verified custom host, else the subdomain. Every other known host
+301-redirects there, keeping path and query. The team can opt out of the
+subdomain redirect (`redirectSubdomain = false`) so the subdomain keeps
+serving with canonical tags pointing at the custom host and `noindex`.
 
-`subdomainPublic` defaults to true and may be false only while a custom
-domain is verified. Removing the custom domain always sets it back to true.
-The slug stays reserved when hidden.
+| Custom domain           | Subdomain host                 | Custom hosts                   | Canonical          |
+| ----------------------- | ------------------------------ | ------------------------------ | ------------------ |
+| none / pending / failed | serves                         | 404                            | subdomain          |
+| one host verified       | 301 (or serves, if opted out)  | verified serves, other 301s    | the verified host  |
+| both verified           | 301 (or serves, if opted out)  | primary serves, other 301s     | primary            |
 
-Schema — domain state lives on `teams` (one custom domain per team in v1):
+A pending half of a pair whose sibling is verified still resolves (and so
+redirects): the shared TXT already proves the zone belongs to the team.
+
+Schema — the TXT token lives on `teams`; each host is a `custom_domains` row:
 
 ```ts
-// added to the existing `teams` table
+// teams
 subdomain: text("subdomain").unique(), // null until setup; then <subdomain>.<PLATFORM_SITE_DOMAIN>
-subdomainPublic: boolean("subdomain_public").notNull().default(true),
-customDomain: text("custom_domain").unique(),   // apex or subdomain, lowercased
-customDomainStatus: text("custom_domain_status",
-    { enum: ["pending", "verified", "failed"] }),
-customDomainVerificationToken: text("custom_domain_verification_token"),
-customDomainVerifiedAt: timestamp("custom_domain_verified_at"),
+redirectSubdomain: boolean("redirect_subdomain").notNull().default(true),
+hideFromSearch: boolean("hide_from_search").notNull().default(true), // pre-launch, see §12.3
+customDomainVerificationToken: text("custom_domain_verification_token"), // shared by the pair
+customDomainTxtSatisfied: boolean("custom_domain_txt_satisfied"),
+
+// custom_domains
+hostname: text("hostname").notNull().unique(), // lowercased
+primary: boolean("primary").notNull().default(false),
+status: text("status", { enum: ["pending", "verified", "failed"] }),
+routingSatisfied: boolean("routing_satisfied"),
+verifiedAt: timestamp("verified_at"),
 ```
 
 `subdomain` is just the environment-independent label (for example,
@@ -1267,44 +1274,49 @@ of the eventual `teams.subdomain = <label>` query.
 
 Attach/verify flow (module `apps/api/src/domains/`):
 
-1. `POST /domain/custom { domain }` — validates shape, rejects hosts under
-   `<PLATFORM_SITE_DOMAIN>` itself and domains already claimed by another team, stores
-   `pending` + a verification token.
-2. Team adds DNS records (shown in the workspace):
-   `CNAME → <CUSTOM_DOMAIN_CNAME_TARGET>`
-   (or `A → <CUSTOM_DOMAIN_A_RECORDS>` for apex) and `TXT _frontlit-verify.<domain> = <token>`.
-3. `POST /domain/custom/verify` performs two independent DNS checks and
-   flips the status to `verified` only when both pass (re-runnable from the
-   workspace; not queued on the §10.5 outbox): ownership TXT at
-   `_frontlit-verify.<hostname>` and routing (non-apex CNAME to
-   `CUSTOM_DOMAIN_CNAME_TARGET`; apex A records, optionally matching
-   `CUSTOM_DOMAIN_A_RECORDS`). Only `verified` custom hosts and **public**
-   platform subdomains are ever resolved by `apps/sites`.
+1. `POST /domain/custom { hostname }` — validates shape, rejects hosts under
+   `<PLATFORM_SITE_DOMAIN>` itself and hosts (or their pair) already claimed
+   by another team, stores both hosts as `pending` + one verification token.
+2. Team adds DNS records (shown in the workspace): per host,
+   `CNAME → <CUSTOM_DOMAIN_CNAME_TARGET>` for `www`/subdomains and
+   `A → <CUSTOM_DOMAIN_A_RECORDS>`
+   for the apex; plus one `TXT _frontlit-verify.<apex> = <token>`.
+3. `POST /domain/custom/verify` checks the TXT once and each host's routing
+   record separately; a host flips to `verified` when the TXT and its own
+   routing pass (re-runnable from the workspace; not queued on the §10.5
+   outbox). If only one record is configured the other host stays pending
+   and the workspace shows a warning while the verified host serves.
+4. `PATCH /domain/custom/primary { hostname }` picks the canonical host;
+   `PATCH /domain/subdomain-redirect { redirectSubdomain }` keeps the
+   subdomain serving instead of redirecting;
+   `PATCH /domain/search-visibility { hideFromSearch }` hides the site from
+   search engines (§12.3). The first verified custom domain turns that off.
 
 TLS: terminate at the edge with on-demand certificates (Caddy on-demand TLS
 or the hosting platform's domains API, e.g. Vercel). The on-demand `ask`
-endpoint is `GET /public/resolve-host?host=…` — the same cached endpoint
-`apps/sites` uses for tenant resolution — which answers 200 only for a
-public `<subdomain>.<PLATFORM_SITE_DOMAIN>` or a verified custom domain.
+endpoint (`GET /public/tls-ask?domain=…`) uses the same host authority as
+`GET /public/resolve-host`, so every host that serves *or redirects* —
+including the other half of a verified pair — gets a certificate.
 
 Per §2, everything here is REST + MCP (see matrix): `get_domain_settings`,
-`set_team_subdomain`, `set_subdomain_public`, `attach_custom_domain`,
-`verify_custom_domain`, `remove_custom_domain`.
+`set_team_subdomain`, `set_subdomain_redirect`, `attach_custom_domain`,
+`set_primary_custom_domain`, `verify_custom_domain`, `remove_custom_domain`.
 
 ### 12.2 Public site delivery (`apps/sites`)
 
 A dedicated Next.js app serving all tenants' published sites. Middleware
 normalizes the request `Host` (including a local-development port) and sends
 the complete hostname to `GET /public/resolve-host`. The API is the sole host
-authority: it performs an exact verified custom-domain match or recognizes
+authority: it performs an exact custom-host match or recognizes
 `*.<PLATFORM_SITE_DOMAIN>`, extracts the one-label subdomain and queries
-`teams.subdomain` — returning unknown if that subdomain is hidden.
+`teams.subdomain`, and answers `{ teamId, canonicalHost, redirect }`.
 `apps/sites` has no domain-suffix configuration of its own,
 which prevents configuration drift. It caches the result briefly,
 deletes those cache keys when the API's domain-change webhook lists
-`invalidateHosts`, and rewrites to `/sites/[teamId]/…`. Known hosts render
-normally; there is no host redirect. The resolver also supplies the
-canonical host to the rewritten request for SEO.
+`invalidateHosts`, and either 301-redirects to the canonical host (keeping
+path, query, the forwarded scheme and any dev port) or rewrites to
+`/sites/[teamId]/…`. The resolver also supplies the canonical host to the
+rewritten request for SEO.
 
 | route                                 | renders                                                             |
 | ------------------------------------- | ------------------------------------------------------------------- |
@@ -1317,9 +1329,13 @@ canonical host to the rewritten request for SEO.
 | `/blog/rss.xml`, `/changelog/rss.xml` | RSS feeds (§12.3)                                                   |
 | `/embed/chat`, `/embed/chat.js`       | chatbot iframe + loader                                             |
 
-All public pages are statically cached (ISR, tagged per team) and
-revalidated on publish and on domain changes via a signed webhook from the
-API — crawlers always receive fully server-rendered HTML. SEO is a
+All public pages, docs included, are cached inside FrontLit (Next.js
+Cache Components, with separate shell and content tags per team, shared
+through Redis when several replicas run) and invalidated on publish and on
+domain changes through outbox-delivered, signed webhooks from the API. A
+CDN or HTTP cache in front is optional and vendor-neutral. Crawlers always
+receive fully server-rendered HTML. The full caching, invalidation and
+page-weight design is in [`site-delivery.md`](site-delivery.md). SEO is a
 first-class concern of this app; see §12.3.
 
 ### 12.3 SEO
@@ -1386,10 +1402,10 @@ segment instead:
 
 **Canonical** — every route's `generateMetadata` sets
 `alternates.canonical` to `https://<canonical-host>/<path>` (path without
-query strings). The host resolver chooses the verified custom domain when
-one exists and otherwise the FrontLit subdomain. Canonical is automatic;
-crawlers see exactly one canonical URL per resource. The platform subdomain
-may be hidden after verify, but it is never advertised via redirect.
+query strings), and `openGraph.url` to the same URL where the route sets
+Open Graph. The canonical host is the verified primary custom host (§12.1);
+other hosts 301 there, so crawlers see exactly one canonical URL per
+resource.
 
 **Sitemap** — **fully auto-generated; never authored or curated.** The
 sitemap is derived entirely from what is published: the API assembles it
@@ -1416,8 +1432,19 @@ Disallow: /embed/
 Sitemap: https://<canonical-host>/sitemap.xml
 ```
 
-It is served on both known hosts; the sitemap itself always lists canonical
-URLs.
+It is served on every host that does not redirect; the sitemap itself
+always lists canonical URLs.
+
+**Search visibility** — `resolve-host` returns the team's `hideFromSearch`
+flag and the proxy marks each request:
+
+- **Hidden** (pre-launch; on for new sites, off once a custom domain is
+  first verified or when the team turns it off): every response is
+  `noindex` (meta tag + `X-Robots-Tag`), robots.txt is
+  `User-agent: *` / `Disallow: /` and the sitemap is empty.
+- **Non-canonical host that serves** (the subdomain with
+  `redirectSubdomain` off): `noindex` with canonical tags pointing at the
+  canonical host; robots.txt and sitemap stay as above.
 
 **JSON-LD** — a small `JsonLd` server component renders
 `<script type="application/ld+json">` (serialized with `<` escaped to
@@ -1600,7 +1627,7 @@ exhaust another's budget:
 
 | endpoint class                            | key                                         | default limit                                                                                              | on breach                        |
 | ----------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| Public reads (pages/content/sitemap)      | IP                                          | generous (≈300/min) — mostly absorbed by ISR anyway                                                        | 429                              |
+| Public reads (pages/content/sitemap)      | IP                                          | generous (≈300/min) — mostly absorbed by site cache                                                        | 429                              |
 | Lead capture, ticket submission           | IP+team **and** team-global                 | strict (≈5/min/IP, ≈100/day/team-global)                                                                   | 429 + CAPTCHA escalation (§13.3) |
 | Ticket thread reads/replies (magic token) | token+IP                                    | moderate (≈30/min)                                                                                         | 429                              |
 | Chat (`POST /public/:teamId/chat`)        | IP+team **and** per-team daily token budget | ≈10 msg/min/IP; team budget caps LLM spend (tracked in a `usage_counters` table, checked before each call) | 429 / "budget exhausted" event   |
@@ -1682,11 +1709,13 @@ users may write from anywhere) but tags the ticket for review.
 
 What keeps the design boring under load, and the known ceilings:
 
-- **Reads scale in `apps/sites`**: ISR + tag revalidation means public
-  traffic mostly never reaches the API; the API's public reads are also
-  CDN-cacheable (`Cache-Control` + `ETag`). The hot non-cacheable paths
-  are chat and search, which are rate-limited and budget-capped by
-  design (§13.2).
+- **Reads scale in `apps/sites`**: the built-in page and data cache
+  (tag-invalidated on publish, shared through Redis across replicas)
+  means public traffic mostly never reaches the API, with or without a
+  CDN. An optional edge cache adds `stale-if-error`, so sites stay up
+  through API or database outages ([`site-delivery.md`](site-delivery.md)).
+  The hot uncacheable paths are chat and search, which are rate-limited
+  and budget-capped by design (§13.2).
 - **The Postgres outbox** (§10.5) is the only job queue: two SendLit
   job types, claimed by an in-process poller with compare-and-set (not
   `FOR UPDATE SKIP LOCKED`). Multiple API instances will not double-
@@ -1700,9 +1729,10 @@ What keeps the design boring under load, and the known ceilings:
   hit, the escape hatches are partial indexes per large tenant or
   IVFFlat — schema unchanged.
 - **Host resolution** is one indexed lookup, cached in `apps/sites` with
-  short TTL + event invalidation; a stampede on cache expiry collapses
-  into one upstream call per host (request coalescing in the middleware
-  helper).
+  short TTL + event invalidation (in Redis when `REDIS_URL` is set, so
+  invalidation reaches every replica); a stampede on cache expiry
+  collapses into one upstream call per host (request coalescing in the
+  middleware helper).
 - **Postgres growth**: `document_chunks` and `ticket_messages` are the
   only unbounded-ish tables; both are team-scoped and prunable
   (chunks are regenerable derived data; closed-ticket retention is a

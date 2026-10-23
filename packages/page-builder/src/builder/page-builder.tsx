@@ -9,6 +9,7 @@ import {
   createDefaultLayout,
   createWidgetInstance,
   ensureRequiredSharedWidgets,
+  withDefaultSettings,
   getDefaultTheme,
 } from "../starter";
 import { debounce, resolveColorMode, type ColorMode } from "../utils";
@@ -44,7 +45,7 @@ export interface PageBuilderProps {
    * which flows back to the host via `onChange`.
    */
   themes?: { system?: Theme[]; custom?: Theme[] };
-  pageData?: PageData;
+  pageData: PageData;
   onChange?: (state: PageBuilderState) => void;
   /** Whether the editor may alter team-wide theme data. */
   allowThemeEditing?: boolean;
@@ -85,7 +86,9 @@ export function PageBuilder({
   className,
 }: PageBuilderProps) {
   const [layout, setLayout] = useState<WidgetInstance[]>(() =>
-    initialLayout ? ensureRequiredSharedWidgets(initialLayout) : createDefaultLayout(),
+    initialLayout
+      ? ensureRequiredSharedWidgets(withDefaultSettings(initialLayout))
+      : createDefaultLayout(),
   );
   const [theme, setTheme] = useState<Theme>(() => initialTheme ?? getDefaultTheme());
   const [previewTheme, setPreviewTheme] = useState<Theme | null>(null);
@@ -285,7 +288,6 @@ export function PageBuilder({
               theme={paintedTheme}
               pageData={pageData}
               nextTheme={resolvedMode}
-              themeMode={mode}
               onThemeModeChange={setMode}
               editing
               selectedWidgetId={selectedWidgetId ?? undefined}

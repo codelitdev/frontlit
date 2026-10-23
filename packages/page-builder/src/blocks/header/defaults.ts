@@ -1,5 +1,5 @@
 import type { HeaderSettings } from "./settings";
-import { generateUniqueId } from "../../utils";
+import { generateUniqueId } from "../../utils/generate-unique-id";
 
 export const headerDefaults: Partial<HeaderSettings> = {
   logoCorners: 2,

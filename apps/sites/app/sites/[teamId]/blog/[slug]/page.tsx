@@ -2,7 +2,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 import { notFound } from "next/navigation";
 import { getArticleBySlug, getSettings } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
-import { getCanonicalHost } from "@/lib/request-host";
+import { getCanonicalHost, isNoindex } from "@/lib/request-host";
 import { blogPostingJsonLd, serializeJsonLd } from "@/lib/json-ld";
 import { SiteChrome } from "@/components/site-chrome";
 import { ThemedBlogPost } from "@/components/themed-document";
@@ -30,16 +30,17 @@ export async function generateMetadata(
       image: post.featuredImage,
     },
     settings,
-    previous.title?.absolute || "FrontLit site",
+    previous.title?.absolute || "Website",
   );
 
+  const url = `https://${await getCanonicalHost()}/blog/${slug}`;
+  const index = seo.robotsIndex && !(await isNoindex());
   return {
     title: seo.title,
     description: seo.description ?? undefined,
-    alternates: {
-      canonical: `https://${await getCanonicalHost()}/blog/${slug}`,
-    },
+    alternates: { canonical: url },
     openGraph: {
+      url,
       type: "article",
       title: seo.title,
       description: seo.description ?? undefined,
@@ -47,7 +48,7 @@ export async function generateMetadata(
       publishedTime: post.publishedAt ?? undefined,
       modifiedTime: post.updatedAt ?? undefined,
     },
-    robots: { index: seo.robotsIndex, follow: seo.robotsIndex },
+    robots: { index, follow: index },
   };
 }
 

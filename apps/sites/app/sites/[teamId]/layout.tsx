@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { preload } from "react-dom";
 import { getChatbotSettings, getSettings } from "@/lib/api";
 import { API_PUBLIC_URL } from "@/lib/config";
+import { isNoindex } from "@/lib/request-host";
+import { themeFontPreloads } from "@/lib/font-css";
 import { loadSiteTheme } from "@/lib/load-site-theme";
+import { resolveSiteTheme } from "@/lib/site-theme";
 import { CodeInjector } from "@/components/code-injector";
 import { ChatWidget } from "@/components/chat-widget";
 
@@ -13,15 +17,15 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { teamId } = await params;
   const settings = await getSettings(teamId);
-  const siteTitle = settings?.title || "FrontLit site";
+  const siteTitle = settings?.title || "Website";
   const logoUrl = (settings?.logo?.url as string | undefined) ?? null;
 
   return {
     title: { template: `%s | ${siteTitle}`, default: siteTitle },
     description: settings?.subtitle ?? undefined,
-    applicationName: "FrontLit",
-    generator: "FrontLit",
     icons: logoUrl ? { icon: logoUrl } : undefined,
+    // Pages that set their own robots repeat this check (child metadata wins).
+    robots: (await isNoindex()) ? { index: false, follow: false } : undefined,
     openGraph: {
       siteName: siteTitle,
       images: logoUrl ? [{ url: logoUrl }] : undefined,
@@ -45,6 +49,12 @@ export default async function TenantLayout({
     getChatbotSettings(teamId),
     loadSiteTheme(teamId),
   ]);
+
+  // Only the fonts the active theme paints with are preloaded.
+  const { theme } = resolveSiteTheme(siteTheme.themeId, siteTheme.themeStyle);
+  for (const href of themeFontPreloads(theme)) {
+    preload(href, { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
+  }
 
   return (
     <>

@@ -39,6 +39,9 @@ async function unwrapOrNull<T>(
 export interface ResolvedHost {
   teamId: string;
   canonicalHost: string;
+  /** True when this host should 301 to `canonicalHost`. */
+  redirect: boolean;
+  hideFromSearch: boolean;
 }
 
 export function resolveHost(host: string): Promise<ResolvedHost | null> {
@@ -53,13 +56,19 @@ export interface PublicSettings {
   theme: Record<string, unknown> | null;
   codeInjectionHead: string | null;
   codeInjectionBody: string | null;
+  redirects?: { from: string; to: string; permanent?: boolean }[];
 }
 
-export function getSettings(teamId: string): Promise<PublicSettings | null> {
+export function getSettings(
+  teamId: string,
+  /** A signed preview release: its theme instead of the live one (uncached). */
+  preview?: { release: string; token: string },
+): Promise<PublicSettings | null> {
   return unwrapOrNull(
     client.getSettings({
       params: { teamId },
-      fetchOptions: teamCache(teamId),
+      query: preview ?? {},
+      fetchOptions: preview ? { cache: "no-store" } : teamCache(teamId),
     }),
   );
 }
@@ -87,6 +96,22 @@ export function getPageBySlug(
       params: { teamId },
       query: { slug },
       fetchOptions: teamCache(teamId),
+    }),
+  );
+}
+
+/** A page from a signed pull request preview release (never cached). */
+export function getPreviewPage(
+  teamId: string,
+  release: string,
+  token: string,
+  slug: string = "",
+): Promise<PublicPage | null> {
+  return unwrapOrNull(
+    client.getPageBySlug({
+      params: { teamId },
+      query: { slug, release, token },
+      fetchOptions: { cache: "no-store" },
     }),
   );
 }

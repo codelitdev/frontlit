@@ -3,7 +3,8 @@ import clsx from "clsx";
 import type { ThemeStyle, WidgetProps } from "../../models";
 import type { PricingSettings } from "./settings";
 import { renderTitle, titleProps } from "../_shared/title";
-import { NavLink, TextRenderer } from "../../components";
+import { NavLink } from "../../components/nav-link";
+import { TextRenderer } from "../../components/text-renderer";
 import {
   Badge,
   Button,
@@ -33,7 +34,6 @@ export function PricingWidget({
     background,
   },
   state: { theme },
-  nextTheme,
 }: WidgetProps<PricingSettings>) {
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
@@ -41,12 +41,7 @@ export function PricingWidget({
     verticalPadding || theme.theme.structure.section.padding.y;
 
   return (
-    <Section
-      theme={overriddenTheme}
-      id={cssId}
-      background={background}
-      nextTheme={nextTheme}
-    >
+    <Section theme={overriddenTheme} id={cssId} background={background}>
       <div className="flex flex-col gap-8">
         <div
           className={clsx(

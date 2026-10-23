@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useId } from "react";
 import clsx from "clsx";
 import { ChevronDown } from "lucide-react";
@@ -22,7 +20,6 @@ export function FaqWidget({
     background,
   },
   state: { theme },
-  nextTheme,
 }: WidgetProps<FaqSettings>) {
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
@@ -35,12 +32,7 @@ export function FaqWidget({
   const groupName = useId();
 
   return (
-    <Section
-      theme={overriddenTheme}
-      id={cssId}
-      background={background}
-      nextTheme={nextTheme}
-    >
+    <Section theme={overriddenTheme} id={cssId} background={background}>
       <div className="flex flex-col gap-6">
         {title && (
           <div

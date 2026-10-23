@@ -40,6 +40,8 @@ import { notifyTeamOfRequesterMessage } from "../tickets/notify";
 import { resolveHost } from "../domains/queries";
 import { getTeamSettings } from "../settings/queries";
 import { getPublishedPageBySlug, listPublishedPages } from "../pages/queries";
+import { getActiveRelease, getReleaseByReleaseId } from "../pages/releases";
+import { verifyPreview } from "../pages/git-preview";
 import { getThemeByThemeId } from "../themes/queries";
 import { verifyCaptcha } from "../services/captcha";
 import {
@@ -291,13 +293,15 @@ const impl = s.router(contract.public, {
         body: {
           teamId: team.teamId,
           canonicalHost: resolved.canonicalHost,
+          redirect: resolved.redirect,
+          hideFromSearch: resolved.hideFromSearch,
         },
       };
     },
   },
   getSettings: {
     middleware: [publicReadLimiter],
-    handler: async ({ params }) => {
+    handler: async ({ params, query }) => {
       const team = await findTeamByPublicId(params.teamId);
       if (!team) return { status: 404, body: { error: "Team not found" } };
 
@@ -307,7 +311,14 @@ const impl = s.router(contract.public, {
       const savedTheme = themeId?.startsWith("thm_")
         ? await getThemeByThemeId(themeId)
         : null;
-      const theme = savedTheme?.teamId === team.id ? savedTheme.style : null;
+      // A Git-owned site (site.json) ships its theme in the active release.
+      const release =
+        query?.release && verifyPreview(query.release, query.token)
+          ? await getReleaseByReleaseId(team.id, query.release)
+          : await getActiveRelease(team.id);
+      const theme =
+        release?.site.theme ??
+        (savedTheme?.teamId === team.id ? savedTheme.style : null);
       return {
         status: 200,
         body: {
@@ -318,6 +329,7 @@ const impl = s.router(contract.public, {
           theme,
           codeInjectionHead,
           codeInjectionBody,
+          redirects: release?.site.redirects ?? [],
         },
       };
     },
@@ -328,7 +340,14 @@ const impl = s.router(contract.public, {
       const team = await findTeamByPublicId(params.teamId);
       if (!team) return { status: 404, body: { error: "Team not found" } };
 
-      const page = await getPublishedPageBySlug(team.id, query.slug ?? "");
+      let preview = null;
+      if (query.release) {
+        preview = verifyPreview(query.release, query.token)
+          ? await getReleaseByReleaseId(team.id, query.release)
+          : null;
+        if (!preview) return { status: 404, body: { error: "Not found" } };
+      }
+      const page = await getPublishedPageBySlug(team.id, query.slug ?? "", preview);
       if (!page) return { status: 404, body: { error: "Not found" } };
       const {
         pageId,
@@ -980,7 +999,9 @@ createExpressEndpoints(contract.public, impl, router);
 
 /** Caddy on-demand TLS `ask` adapter. Caddy sends `GET ?domain=` and
  * issues a certificate only when this returns 200. Same host authority as
- * `GET /public/resolve-host`. */
+ * `GET /public/resolve-host`, so redirecting hosts (the other half of a
+ * verified apex/www pair, a redirected subdomain) get certificates too —
+ * an HTTPS 301 needs one. */
 router.get("/public/tls-ask", publicReadLimiter, async (req, res) => {
   const domain = String(req.query.domain ?? req.query.host ?? "");
   const resolved = await resolveHost(domain);

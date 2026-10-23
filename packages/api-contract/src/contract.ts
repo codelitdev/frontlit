@@ -30,6 +30,8 @@ import {
   listPagesQuerySchema,
   pageSchema,
   updatePageBodySchema,
+  siteReleaseSchema,
+  pagePullRequestSchema,
 } from "./schemas/pages";
 import {
   createThemeBodySchema,
@@ -158,7 +160,9 @@ import {
   domainSettingsSchema,
   resolveHostQuerySchema,
   resolveHostResponseSchema,
-  setSubdomainPublicBodySchema,
+  setRedirectSubdomainBodySchema,
+  setHideFromSearchBodySchema,
+  setPrimaryCustomDomainBodySchema,
   setTeamSubdomainBodySchema,
 } from "./schemas/domains";
 import {
@@ -450,7 +454,7 @@ const pagesContract = c.router(
       method: "POST",
       path: "/pages/:pageId/publish",
       body: c.noBody(),
-      responses: { 200: pageSchema, 404: errorSchema },
+      responses: { 200: pageSchema, 404: errorSchema, 409: errorSchema },
       summary: "Publish a page",
       description:
         "Copies the page's draft layout and SEO fields into the published fields the public site renders.",
@@ -463,6 +467,36 @@ const pagesContract = c.router(
       summary: "Discard a page's draft changes",
       description:
         "Resets the draft layout and SEO fields back to whatever is currently published.",
+    },
+    createPullRequest: {
+      method: "POST",
+      path: "/pages/:pageId/pull-request",
+      body: c.noBody(),
+      responses: {
+        201: pagePullRequestSchema,
+        404: errorSchema,
+        409: z.object({ error: z.string(), code: z.string().optional() }).passthrough(),
+      },
+      summary: "Open a pull request with a page's draft",
+      description:
+        "For Git-owned pages: commits the draft page file (and site.json when the header or footer changed) to a new branch and opens a pull request. Returns 409 UPSTREAM_CHANGED when the file changed in GitHub since the live release.",
+    },
+    listReleases: {
+      method: "GET",
+      path: "/site/releases",
+      responses: { 200: z.object({ items: z.array(siteReleaseSchema) }) },
+      summary: "List site releases",
+      description:
+        "Newest first. A release is an immutable snapshot of every published page plus the site header and footer; exactly one is live.",
+    },
+    activateRelease: {
+      method: "POST",
+      path: "/site/releases/:releaseId/activate",
+      body: c.noBody(),
+      responses: { 200: siteReleaseSchema, 404: errorSchema },
+      summary: "Activate a site release",
+      description:
+        "Rolls the public site back (or forward) to this release. Drafts are untouched.",
     },
   },
   { metadata: { tag: "Pages" } },
@@ -1030,11 +1064,13 @@ const publicContract = c.router(
       summary:
         'Resolve a request Host to a team (apps/sites tenant middleware + TLS "ask")',
       description:
-        "Answers 200 only for a public claimed `<slug>.<PLATFORM_SITE_DOMAIN>` subdomain or a verified custom host (architecture.md §12.1/§12.2). A hidden platform subdomain is the same as an unknown host (404).",
+        "Answers 200 only for a claimed `<slug>.<PLATFORM_SITE_DOMAIN>` subdomain or a host of a verified custom domain (architecture.md §12.1/§12.2). `redirect` is true for every host other than `canonicalHost` — the other half of an apex/www pair, and the subdomain unless the team keeps it serving.",
     },
     getSettings: {
       method: "GET",
       path: "/public/:teamId/settings",
+      /** `release` + `token`: theme and redirects of a signed preview. */
+      query: z.object({ release: z.string().optional(), token: z.string().optional() }),
       responses: { 200: publicTeamSettingsSchema, 404: errorSchema },
       summary: "Get a team's public branding + code-injection settings",
       description:
@@ -1046,10 +1082,16 @@ const publicContract = c.router(
       // A `:slug` path param can't carry an empty string (the
       // homepage's slug, architecture.md §4.2), so it's a query param
       // instead of a `/pages/:slug` path segment.
-      query: z.object({ slug: z.string().optional() }),
+      query: z.object({
+        slug: z.string().optional(),
+        /** A pull request preview release, with its signed `token`. */
+        release: z.string().optional(),
+        token: z.string().optional(),
+      }),
       responses: { 200: publicPageSchema, 404: errorSchema },
       summary: "Get a team's published page layout by slug",
-      description: "Omit `slug` (or pass an empty string) to resolve the homepage.",
+      description:
+        "Omit `slug` (or pass an empty string) to resolve the homepage. `release` + `token` render a signed pull request preview instead of the live site.",
     },
     getSitemap: {
       method: "GET",
@@ -1452,15 +1494,23 @@ const domainsContract = c.router(
       responses: { 200: domainSettingsSchema, 409: errorSchema },
       summary: "Change the team's default subdomain slug",
     },
-    setSubdomainPublic: {
+    setRedirectSubdomain: {
       method: "PATCH",
-      path: "/domain/subdomain-public",
-      body: setSubdomainPublicBodySchema,
-      responses: { 200: domainSettingsSchema, 409: errorSchema },
-      summary:
-        "Show or hide the team's FrontLit subdomain after a custom domain is verified",
+      path: "/domain/subdomain-redirect",
+      body: setRedirectSubdomainBodySchema,
+      responses: { 200: domainSettingsSchema },
+      summary: "Choose whether the FrontLit subdomain redirects to the custom domain",
       description:
-        "Hiding is not a redirect: resolve-host returns 404 for the platform subdomain. Requires a verified custom domain.",
+        "Only applies while a custom host is verified. On (default) the subdomain 301-redirects to the canonical host; off keeps it serving the site with canonical tags pointing at the custom host.",
+    },
+    setHideFromSearch: {
+      method: "PATCH",
+      path: "/domain/search-visibility",
+      body: setHideFromSearchBodySchema,
+      responses: { 200: domainSettingsSchema },
+      summary: "Hide the website from search engines, or expose it",
+      description:
+        "While hidden every page serves `noindex`, robots.txt disallows all crawling and the sitemap is empty. New sites start hidden; verifying the first custom domain turns it off.",
     },
     attachCustomDomain: {
       method: "POST",
@@ -1468,6 +1518,16 @@ const domainsContract = c.router(
       body: attachCustomDomainBodySchema,
       responses: { 200: domainSettingsSchema, 409: errorSchema },
       summary: "Attach a custom domain (starts DNS verification)",
+      description:
+        "Attaching an apex (`example.com`) or `www.` host also attaches the other half of the pair. The typed host starts as primary.",
+    },
+    setPrimaryCustomDomain: {
+      method: "PATCH",
+      path: "/domain/custom/primary",
+      body: setPrimaryCustomDomainBodySchema,
+      responses: { 200: domainSettingsSchema, 404: errorSchema },
+      summary: "Choose which custom host is canonical",
+      description: "Every other host 301-redirects to the primary once it is verified.",
     },
     verifyCustomDomain: {
       method: "POST",
@@ -1476,7 +1536,7 @@ const domainsContract = c.router(
       responses: { 200: domainSettingsSchema, 404: errorSchema },
       summary: "Re-check DNS for the attached custom domain",
       description:
-        "Looks up the ownership TXT record and the routing CNAME/apex records. Status becomes verified only when both pass. Re-runnable.",
+        "Looks up the shared ownership TXT record and each host's routing record. A host becomes verified when the TXT and its own routing record pass, so one half of a pair can verify before the other. Re-runnable.",
     },
     removeCustomDomain: {
       method: "DELETE",
@@ -1798,20 +1858,44 @@ const emailContract = c.router(
 );
 
 import { documentationGithubContract } from "./documentation-github-contract";
-export const contract = c.router({
+const contentContract = c.router({
+  articles: articlesContract,
+  documentation: documentationContract,
+  productUpdates: productUpdatesContract,
+  documentationSections: documentationSectionsContract,
+  documentationGithub: documentationGithubContract,
+});
+
+// Spelled out so the declaration emit references each router instead of
+// inlining the whole tree, which exceeds the compiler's limit (TS7056).
+type ContractShape = {
+  teams: typeof teamsContract;
+  teamInvitations: typeof teamInvitationsContract;
+  provisioning: typeof provisioningContract;
+  pages: typeof pagesContract;
+  themes: typeof themesContract;
+  media: typeof mediaContract;
+  content: typeof contentContract;
+  contacts: typeof contactsContract;
+  segments: typeof segmentsContract;
+  email: typeof emailContract;
+  chatbot: typeof chatbotContract;
+  ai: typeof aiContract;
+  inboxAi: typeof inboxAiContract;
+  tickets: typeof ticketsContract;
+  domains: typeof domainsContract;
+  settings: typeof settingsContract;
+  public: typeof publicContract;
+};
+
+export const contract: ContractShape = c.router({
   teams: teamsContract,
   teamInvitations: teamInvitationsContract,
   provisioning: provisioningContract,
   pages: pagesContract,
   themes: themesContract,
   media: mediaContract,
-  content: c.router({
-    articles: articlesContract,
-    documentation: documentationContract,
-    productUpdates: productUpdatesContract,
-    documentationSections: documentationSectionsContract,
-    documentationGithub: documentationGithubContract,
-  }),
+  content: contentContract,
   contacts: contactsContract,
   segments: segmentsContract,
   email: emailContract,

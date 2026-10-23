@@ -6,6 +6,7 @@
 - Prefer simpler data structures, schemas and logic over complicated implementation.
 - Don't over-engineer or pre-optimize, just to tackle edge cases which have very slim chances of occuring.
 - There should be no shared user identity between admin and learner apps.
+- Do not consider an issue done until you've done full e2e browser based smoke.
 
 ## Public site UI
 

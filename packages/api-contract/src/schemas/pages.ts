@@ -55,7 +55,27 @@ export const pageSchema = z.object({
   draftRobotsAllowed: z.boolean().nullable().optional(),
   createdAt: z.string().nullable(),
   updatedAt: z.string().nullable(),
+  /** Set while pages sync from a Git repository: the page's file there. */
+  git: z
+    .object({
+      path: z.string(),
+      editUrl: z.string(),
+      repositoryUrl: z.string(),
+      branch: z.string(),
+      liveSha: z.string().nullable(),
+      pullRequest: z
+        .object({
+          number: z.number(),
+          url: z.string(),
+          status: z.enum(["open", "merged", "closed"]),
+        })
+        .nullable(),
+    })
+    .nullable()
+    .optional(),
 });
+
+export const pagePullRequestSchema = z.object({ number: z.number(), url: z.string() });
 
 export const createPageBodySchema = z.object({
   name: z.string().min(1),
@@ -80,4 +100,33 @@ export const listPagesQuerySchema = z.object({
   q: z.string().optional().describe("Search term matched against page name"),
   offset: z.coerce.number().int().min(1).optional(),
   itemsPerPage: z.coerce.number().int().min(1).optional(),
+});
+
+/** Page slugs custom pages can't take: they're served by the public site
+ * itself (static routes, content feeds' children, previews). */
+export const RESERVED_PAGE_SLUGS = [
+  "api",
+  "embed",
+  "opengraph-image",
+  "sitemap.xml",
+  "robots.txt",
+  "favicon.ico",
+  "openapi.json",
+  "_preview",
+  "release-preview",
+  "schema",
+] as const;
+
+export function isReservedPageSlug(slug: string): boolean {
+  return (RESERVED_PAGE_SLUGS as readonly string[]).includes(slug);
+}
+
+export const siteReleaseSchema = z.object({
+  releaseId: z.string(),
+  source: z.enum(["builder", "git", "preview"]),
+  commitSha: z.string().nullable(),
+  summary: z.string().nullable(),
+  pageCount: z.number(),
+  active: z.boolean(),
+  createdAt: z.string(),
 });

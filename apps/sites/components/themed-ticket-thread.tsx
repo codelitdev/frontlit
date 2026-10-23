@@ -1,19 +1,17 @@
-"use client";
-
-import { TextRenderer } from "@frontlit/text-editor";
+import { TextRenderer } from "@frontlit/text-editor/renderer";
 import {
   Caption,
   Header1,
   PageCard,
   PageCardContent,
   Section,
-} from "@frontlit/page-builder/primitives";
-import { useSiteThemeStyle } from "@/lib/site-theme-context";
+} from "@frontlit/page-builder/primitives/server";
+import { getRequestThemeStyle } from "@/lib/request-theme";
 import { CitationList } from "@/components/citation-list";
 import { TicketReplyForm } from "@/components/ticket-reply-form";
 import type { TicketMessage } from "@/lib/api";
 
-export function ThemedTicketThread({
+export async function ThemedTicketThread({
   subject,
   status,
   messages,
@@ -30,7 +28,7 @@ export function ThemedTicketThread({
   ticketId: string;
   token: string;
 }) {
-  const theme = useSiteThemeStyle();
+  const theme = await getRequestThemeStyle();
   return (
     <Section theme={theme}>
       <div className="flex flex-col gap-8">

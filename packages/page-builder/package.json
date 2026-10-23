@@ -10,6 +10,7 @@
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
+    "schema",
     "README.md",
     "LICENSE"
   ],
@@ -49,6 +50,32 @@
       "import": "./dist/builder/index.js",
       "default": "./dist/builder/index.js"
     },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "import": "./dist/server/index.js",
+      "default": "./dist/server/index.js"
+    },
+    "./primitives/server": {
+      "types": "./dist/server/primitives.d.ts",
+      "import": "./dist/server/primitives.js",
+      "default": "./dist/server/primitives.js"
+    },
+    "./islands/*": {
+      "types": "./dist/server/islands/*.d.ts",
+      "import": "./dist/server/islands/*.js",
+      "default": "./dist/server/islands/*.js"
+    },
+    "./theme": {
+      "types": "./dist/server/theme.d.ts",
+      "import": "./dist/server/theme.js",
+      "default": "./dist/server/theme.js"
+    },
+    "./schema": {
+      "types": "./dist/server/schema.d.ts",
+      "import": "./dist/server/schema.js",
+      "default": "./dist/server/schema.js"
+    },
+    "./schema/*.json": "./schema/*.json",
     "./data-slots": {
       "types": "./dist/data-slots.d.ts",
       "import": "./dist/data-slots.js",
@@ -76,6 +103,21 @@
       ],
       "builder": [
         "dist/builder/index.d.ts"
+      ],
+      "server": [
+        "dist/server/index.d.ts"
+      ],
+      "theme": [
+        "dist/server/theme.d.ts"
+      ],
+      "primitives/server": [
+        "dist/server/primitives.d.ts"
+      ],
+      "islands/*": [
+        "dist/server/islands/*.d.ts"
+      ],
+      "schema": [
+        "dist/server/schema.d.ts"
       ],
       "data-slots": [
         "dist/data-slots.d.ts"
@@ -106,11 +148,14 @@
     "frontlit"
   ],
   "scripts": {
-    "build": "tsup && node scripts/add-use-client.mjs && tailwindcss -i src/styles.css -o dist/styles.css && cp src/theme.css dist/theme.css && rm -rf dist/fonts && cp -a fonts dist/fonts && node scripts/rewrite-font-urls.mjs",
+    "build": "tsup && tsup --config tsup.islands.config.ts && tsup --config tsup.server.config.ts && tsup --config tsup.schema.config.ts && node scripts/add-use-client.mjs && tailwindcss -i src/styles.css -o dist/styles.css && cp src/theme.css dist/theme.css && rm -rf dist/fonts && cp -a fonts dist/fonts && node scripts/rewrite-font-urls.mjs",
     "prepublishOnly": "bun run build",
-    "dev": "tsup --watch",
+    "dev": "tsup --watch & tsup --watch --config tsup.islands.config.ts & tsup --watch --config tsup.server.config.ts & wait",
     "clean": "rimraf dist",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "schema:generate": "bun scripts/generate-json-schemas.ts",
+    "build:schema": "tsup --config tsup.schema.config.ts",
+    "test": "vitest run"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
@@ -127,27 +172,31 @@
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-popover": "^1.1.23",
     "@radix-ui/react-radio-group": "^1.4.7",
-    "@radix-ui/react-slot": "^1.2.4",
-    "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-select": "^2.3.7",
     "@radix-ui/react-separator": "^1.1.15",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tooltip": "^1.2.16",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "color-convert": "^3.1.0",
+    "jsonc-parser": "^3.3.1",
     "lucide-react": "^0.553.0",
     "tailwind-merge": "^3.4.0",
-    "tw-animate-css": "^1.4.0"
+    "tw-animate-css": "^1.4.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.1.0",
     "@types/color-convert": "^2.0.4",
     "@types/node": "^20.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@tailwindcss/cli": "^4.1.0",
     "rimraf": "^5.0.0",
     "tailwindcss": "^4.1.0",
     "tsup": "^8.3.0",
-    "typescript": "^5.6.2"
+    "typescript": "^5.6.2",
+    "vitest": "^3.2.4",
+    "zod-to-json-schema": "^3.25.2"
   }
 }

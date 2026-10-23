@@ -8,10 +8,7 @@ export interface HeaderNavLink {
 }
 
 export interface HeaderSettings extends WidgetDefaultSettings {
-  logoText?: string;
-  logoImage?: string;
   logoCorners?: number;
-  logoRadius?: number;
   links?: HeaderNavLink[];
   ctaLabel?: string;
   ctaHref?: string;

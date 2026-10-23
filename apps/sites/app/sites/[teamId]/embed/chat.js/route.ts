@@ -103,7 +103,7 @@ export async function GET(
     loadSiteTheme(teamId),
   ]);
   if (!settings?.enabled) {
-    return new Response("// FrontLit chat widget is disabled for this team\n", {
+    return new Response("// Chat widget is disabled for this team\n", {
       headers: {
         "content-type": "application/javascript; charset=utf-8",
       },
@@ -154,7 +154,7 @@ export async function GET(
     setDockHeight(72);
     window.addEventListener("message", function (ev) {
       var data = ev && ev.data;
-      if (!data || data.type !== "frontlit-chat-resize") return;
+      if (!data || data.type !== "chat-resize") return;
       if (typeof data.height === "number") setDockHeight(data.height);
     });
     document.body.appendChild(dock);

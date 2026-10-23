@@ -1,0 +1,3811 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://frontlit.app/schema/site.v1.json",
+  "title": "FrontLit site",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "theme": {
+      "type": "object",
+      "properties": {
+        "colors": {
+          "type": "object",
+          "properties": {
+            "light": {
+              "type": "object",
+              "properties": {
+                "background": {
+                  "type": "string"
+                },
+                "foreground": {
+                  "type": "string"
+                },
+                "card": {
+                  "type": "string"
+                },
+                "cardForeground": {
+                  "type": "string"
+                },
+                "popover": {
+                  "type": "string"
+                },
+                "popoverForeground": {
+                  "type": "string"
+                },
+                "primary": {
+                  "type": "string"
+                },
+                "primaryForeground": {
+                  "type": "string"
+                },
+                "secondary": {
+                  "type": "string"
+                },
+                "secondaryForeground": {
+                  "type": "string"
+                },
+                "muted": {
+                  "type": "string"
+                },
+                "mutedForeground": {
+                  "type": "string"
+                },
+                "accent": {
+                  "type": "string"
+                },
+                "accentForeground": {
+                  "type": "string"
+                },
+                "destructive": {
+                  "type": "string"
+                },
+                "border": {
+                  "type": "string"
+                },
+                "input": {
+                  "type": "string"
+                },
+                "ring": {
+                  "type": "string"
+                },
+                "chart1": {
+                  "type": "string"
+                },
+                "chart2": {
+                  "type": "string"
+                },
+                "chart3": {
+                  "type": "string"
+                },
+                "chart4": {
+                  "type": "string"
+                },
+                "chart5": {
+                  "type": "string"
+                },
+                "sidebar": {
+                  "type": "string"
+                },
+                "sidebarForeground": {
+                  "type": "string"
+                },
+                "sidebarPrimary": {
+                  "type": "string"
+                },
+                "sidebarPrimaryForeground": {
+                  "type": "string"
+                },
+                "sidebarAccent": {
+                  "type": "string"
+                },
+                "sidebarAccentForeground": {
+                  "type": "string"
+                },
+                "sidebarBorder": {
+                  "type": "string"
+                },
+                "sidebarRing": {
+                  "type": "string"
+                },
+                "shadow2xs": {
+                  "type": "string"
+                },
+                "shadowXs": {
+                  "type": "string"
+                },
+                "shadowSm": {
+                  "type": "string"
+                },
+                "shadowMd": {
+                  "type": "string"
+                },
+                "shadowLg": {
+                  "type": "string"
+                },
+                "shadowXl": {
+                  "type": "string"
+                },
+                "shadow2xl": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "background",
+                "foreground",
+                "card",
+                "cardForeground",
+                "popover",
+                "popoverForeground",
+                "primary",
+                "primaryForeground",
+                "secondary",
+                "secondaryForeground",
+                "muted",
+                "mutedForeground",
+                "accent",
+                "accentForeground",
+                "destructive",
+                "border",
+                "input",
+                "ring",
+                "chart1",
+                "chart2",
+                "chart3",
+                "chart4",
+                "chart5",
+                "sidebar",
+                "sidebarForeground",
+                "sidebarPrimary",
+                "sidebarPrimaryForeground",
+                "sidebarAccent",
+                "sidebarAccentForeground",
+                "sidebarBorder",
+                "sidebarRing",
+                "shadow2xs",
+                "shadowXs",
+                "shadowSm",
+                "shadowMd",
+                "shadowLg",
+                "shadowXl",
+                "shadow2xl"
+              ],
+              "additionalProperties": false
+            },
+            "dark": {
+              "type": "object",
+              "properties": {
+                "background": {
+                  "type": "string"
+                },
+                "foreground": {
+                  "type": "string"
+                },
+                "card": {
+                  "type": "string"
+                },
+                "cardForeground": {
+                  "type": "string"
+                },
+                "popover": {
+                  "type": "string"
+                },
+                "popoverForeground": {
+                  "type": "string"
+                },
+                "primary": {
+                  "type": "string"
+                },
+                "primaryForeground": {
+                  "type": "string"
+                },
+                "secondary": {
+                  "type": "string"
+                },
+                "secondaryForeground": {
+                  "type": "string"
+                },
+                "muted": {
+                  "type": "string"
+                },
+                "mutedForeground": {
+                  "type": "string"
+                },
+                "accent": {
+                  "type": "string"
+                },
+                "accentForeground": {
+                  "type": "string"
+                },
+                "destructive": {
+                  "type": "string"
+                },
+                "border": {
+                  "type": "string"
+                },
+                "input": {
+                  "type": "string"
+                },
+                "ring": {
+                  "type": "string"
+                },
+                "chart1": {
+                  "type": "string"
+                },
+                "chart2": {
+                  "type": "string"
+                },
+                "chart3": {
+                  "type": "string"
+                },
+                "chart4": {
+                  "type": "string"
+                },
+                "chart5": {
+                  "type": "string"
+                },
+                "sidebar": {
+                  "type": "string"
+                },
+                "sidebarForeground": {
+                  "type": "string"
+                },
+                "sidebarPrimary": {
+                  "type": "string"
+                },
+                "sidebarPrimaryForeground": {
+                  "type": "string"
+                },
+                "sidebarAccent": {
+                  "type": "string"
+                },
+                "sidebarAccentForeground": {
+                  "type": "string"
+                },
+                "sidebarBorder": {
+                  "type": "string"
+                },
+                "sidebarRing": {
+                  "type": "string"
+                },
+                "shadow2xs": {
+                  "type": "string"
+                },
+                "shadowXs": {
+                  "type": "string"
+                },
+                "shadowSm": {
+                  "type": "string"
+                },
+                "shadowMd": {
+                  "type": "string"
+                },
+                "shadowLg": {
+                  "type": "string"
+                },
+                "shadowXl": {
+                  "type": "string"
+                },
+                "shadow2xl": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "background",
+                "foreground",
+                "card",
+                "cardForeground",
+                "popover",
+                "popoverForeground",
+                "primary",
+                "primaryForeground",
+                "secondary",
+                "secondaryForeground",
+                "muted",
+                "mutedForeground",
+                "accent",
+                "accentForeground",
+                "destructive",
+                "border",
+                "input",
+                "ring",
+                "chart1",
+                "chart2",
+                "chart3",
+                "chart4",
+                "chart5",
+                "sidebar",
+                "sidebarForeground",
+                "sidebarPrimary",
+                "sidebarPrimaryForeground",
+                "sidebarAccent",
+                "sidebarAccentForeground",
+                "sidebarBorder",
+                "sidebarRing",
+                "shadow2xs",
+                "shadowXs",
+                "shadowSm",
+                "shadowMd",
+                "shadowLg",
+                "shadowXl",
+                "shadow2xl"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "light",
+            "dark"
+          ],
+          "additionalProperties": false
+        },
+        "typography": {
+          "type": "object",
+          "properties": {
+            "preheader": {
+              "type": "object",
+              "properties": {
+                "fontFamily": {
+                  "type": "string"
+                },
+                "fontSize": {
+                  "type": "string",
+                  "enum": [
+                    "text-xs",
+                    "text-sm",
+                    "text-base",
+                    "text-lg",
+                    "text-xl",
+                    "text-2xl",
+                    "text-3xl",
+                    "text-4xl",
+                    "text-5xl",
+                    "text-6xl",
+                    "text-7xl",
+                    "text-8xl",
+                    "text-9xl"
+                  ]
+                },
+                "fontWeight": {
+                  "type": "string",
+                  "enum": [
+                    "font-thin",
+                    "font-extralight",
+                    "font-light",
+                    "font-normal",
+                    "font-medium",
+                    "font-semibold",
+                    "font-bold",
+                    "font-extrabold",
+                    "font-black"
+                  ]
+                },
+                "lineHeight": {
+                  "type": "string",
+                  "enum": [
+                    "leading-none",
+                    "leading-tight",
+                    "leading-snug",
+                    "leading-normal",
+                    "leading-relaxed",
+                    "leading-loose"
+                  ]
+                },
+                "letterSpacing": {
+                  "type": "string",
+                  "enum": [
+                    "tracking-tighter",
+                    "tracking-tight",
+                    "tracking-normal",
+                    "tracking-wide",
+                    "tracking-wider",
+                    "tracking-widest"
+                  ]
+                },
+                "textTransform": {
+                  "type": "string",
+                  "enum": [
+                    "uppercase",
+                    "lowercase",
+                    "capitalize",
+                    "normal-case"
+                  ]
+                },
+                "textDecoration": {
+                  "type": "string",
+                  "enum": [
+                    "underline",
+                    "line-through",
+                    "no-underline"
+                  ]
+                },
+                "textOverflow": {
+                  "type": "string",
+                  "enum": [
+                    "truncate",
+                    "text-ellipsis",
+                    "text-clip"
+                  ]
+                },
+                "fluid": {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "fontFamily",
+                "fontSize",
+                "fontWeight"
+              ],
+              "additionalProperties": false
+            },
+            "display": {
+              "type": "object",
+              "properties": {
+                "fontFamily": {
+                  "type": "string"
+                },
+                "fontSize": {
+                  "type": "string",
+                  "enum": [
+                    "text-xs",
+                    "text-sm",
+                    "text-base",
+                    "text-lg",
+                    "text-xl",
+                    "text-2xl",
+                    "text-3xl",
+                    "text-4xl",
+                    "text-5xl",
+                    "text-6xl",
+                    "text-7xl",
+                    "text-8xl",
+                    "text-9xl"
+                  ]
+                },
+                "fontWeight": {
+                  "type": "string",
+                  "enum": [
+                    "font-thin",
+                    "font-extralight",
+                    "font-light",
+                    "font-normal",
+                    "font-medium",
+                    "font-semibold",
+                    "font-bold",
+                    "font-extrabold",
+                    "font-black"
+                  ]
+                },
+                "lineHeight": {
+                  "type": "string",
+                  "enum": [
+                    "leading-none",
+                    "leading-tight",
+                    "leading-snug",
+                    "leading-normal",
+                    "leading-relaxed",
+                    "leading-loose"
+                  ]
+                },
+                "letterSpacing": {
+                  "type": "string",
+                  "enum": [
+                    "tracking-tighter",
+                    "tracking-tight",
+                    "tracking-normal",
+                    "tracking-wide",
+                    "tracking-wider",
+                    "tracking-widest"
+                  ]
+                },
+                "textTransform": {
+                  "type": "string",
+                  "enum": [
+                    "uppercase",
+                    "lowercase",
+                    "capitalize",
+                    "normal-case"
+                  ]
+                },
+                "textDecoration": {
+                  "type": "string",
+                  "enum": [
+                    "underline",
+                    "line-through",
+                    "no-underline"
+                  ]
+                },
+                "textOverflow": {
+                  "type": "string",
+                  "enum": [
+                    "truncate",
+                    "text-ellipsis",
+                    "text-clip"
+                  ]
+                },
+                "fluid": {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "fontFamily",
+                "fontSize",
+                "fontWeight"
+              ],
+              "additionalProperties": false
+            },
+            "header1": {
+              "type": "object",
+              "properties": {
+                "fontFamily": {
+                  "type": "string"
+                },
+                "fontSize": {
+                  "type": "string",
+                  "enum": [
+                    "text-xs",
+                    "text-sm",
+                    "text-base",
+                    "text-lg",
+                    "text-xl",
+                    "text-2xl",
+                    "text-3xl",
+                    "text-4xl",
+                    "text-5xl",
+                    "text-6xl",
+                    "text-7xl",
+                    "text-8xl",
+                    "text-9xl"
+                  ]
+                },
+                "fontWeight": {
+                  "type": "string",
+                  "enum": [
+                    "font-thin",
+                    "font-extralight",
+                    "font-light",
+                    "font-normal",
+                    "font-medium",
+                    "font-semibold",
+                    "font-bold",
+                    "font-extrabold",
+                    "font-black"
+                  ]
+                },
+                "lineHeight": {
+                  "type": "string",
+                  "enum": [
+                    "leading-none",
+                    "leading-tight",
+                    "leading-snug",
+                    "leading-normal",
+                    "leading-relaxed",
+                    "leading-loose"
+                  ]
+                },
+                "letterSpacing": {
+                  "type": "string",
+                  "enum": [
+                    "tracking-tighter",
+                    "tracking-tight",
+                    "tracking-normal",
+                    "tracking-wide",
+                    "tracking-wider",
+                    "tracking-widest"
+                  ]
+                },
+                "textTransform": {
+                  "type": "string",
+                  "enum": [
+                    "uppercase",
+                    "lowercase",
+                    "capitalize",
+                    "normal-case"
+                  ]
+                },
+                "textDecoration": {
+                  "type": "string",
+                  "enum": [
+                    "underline",
+                    "line-through",
+                    "no-underline"
+                  ]
+                },
+                "textOverflow": {
+                  "type": "string",
+                  "enum": [
+                    "truncate",
+                    "text-ellipsis",
+                    "text-clip"
+                  ]
+                },
+                "fluid": {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "fontFamily",
+                "fontSize",
+                "fontWeight"
+              ],
+              "additionalProperties": false
+            },
+            "header2": {
+              "type": "object",
+              "properties": {
+                "fontFamily": {
+                  "type": "string"
+                },
+                "fontSize": {
+                  "type": "string",
+                  "enum": [
+                    "text-xs",
+                    "text-sm",
+                    "text-base",
+                    "text-lg",
+                    "text-xl",
+                    "text-2xl",
+                    "text-3xl",
+                    "text-4xl",
+                    "text-5xl",
+                    "text-6xl",
+                    "text-7xl",
+                    "text-8xl",
+                    "text-9xl"
+                  ]
+                },
+                "fontWeight": {
+                  "type": "string",
+                  "enum": [
+                    "font-thin",
+                    "font-extralight",
+                    "font-light",
+                    "font-normal",
+                    "font-medium",
+                    "font-semibold",
+                    "font-bold",
+                    "font-extrabold",
+                    "font-black"
+                  ]
+                },
+                "lineHeight": {
+                  "type": "string",
+                  "enum": [
+                    "leading-none",
+                    "leading-tight",
+                    "leading-snug",
+                    "leading-normal",
+                    "leading-relaxed",
+                    "leading-loose"
+                  ]
+                },
+                "letterSpacing": {
+                  "type": "string",
+                  "enum": [
+                    "tracking-tighter",
+                    "tracking-tight",
+                    "tracking-normal",
+                    "tracking-wide",
+                    "tracking-wider",
+                    "tracking-widest"
+                  ]
+                },
+                "textTransform": {
+                  "type": "string",
+                  "enum": [
+                    "uppercase",
+                    "lowercase",
+                    "capitalize",
+                    "normal-case"
+                  ]
+                },
+                "textDecoration": {
+                  "type": "string",
+                  "enum": [
+                    "underline",
+                    "line-through",
+                    "no-underline"
+                  ]
+                },
+                "textOverflow": {
+                  "type": "string",
+                  "enum": [
+                    "truncate",
+                    "text-ellipsis",
+                    "text-clip"
+                  ]
+                },
+                "fluid": {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "fontFamily",
+                "fontSize",
+                "fontWeight"
+              ],
+              "additionalProperties": false
+            },
+            "header3": {
+              "type": "object",
+              "properties": {
+                "fontFamily": {
+                  "type": "string"
+                },
+                "fontSize": {
+                  "type": "string",
+                  "enum": [
+                    "text-xs",
+                    "text-sm",
+                    "text-base",
+                    "text-lg",
+                    "text-xl",
+                    "text-2xl",
+                    "text-3xl",
+                    "text-4xl",
+                    "text-5xl",
+                    "text-6xl",
+                    "text-7xl",
+                    "text-8xl",
+                    "text-9xl"
+                  ]
+                },
+                "fontWeight": {
+                  "type": "string",
+                  "enum": [
+                    "font-thin",
+                    "font-extralight",
+                    "font-light",
+                    "font-normal",
+                    "font-medium",
+                    "font-semibold",
+                    "font-bold",
+                    "font-extrabold",
+                    "font-black"
+                  ]
+                },
+                "lineHeight": {
+                  "type": "string",
+                  "enum": [
+                    "leading-none",
+                    "leading-tight",
+                    "leading-snug",
+                    "leading-normal",
+                    "leading-relaxed",
+                    "leading-loose"
+                  ]
+                },
+                "letterSpacing": {
+                  "type": "string",
+                  "enum": [
+                    "tracking-tighter",
+                    "tracking-tight",
+                    "tracking-normal",
+                    "tracking-wide",
+                    "tracking-wider",
+                    "tracking-widest"
+                  ]
+                },
+                "textTransform": {
+                  "type": "string",
+                  "enum": [
+                    "uppercase",
+                    "lowercase",
+                    "capitalize",
+                    "normal-case"
+                  ]
+                },
+                "textDecoration": {
+                  "type": "string",
+                  "enum": [
+                    "underline",
+                    "line-through",
+                    "no-underline"
+                  ]
+                },
+                "textOverflow": {
+                  "type": "string",
+                  "enum": [
+                    "truncate",
+                    "text-ellipsis",
+                    "text-clip"
+                  ]
+                },
+                "fluid": {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "fontFamily",
+                "fontSize",
+                "fontWeight"
+              ],
+              "additionalProperties": false
+            },
+            "header4": {
+              "type": "object",
+              "properties": {
+                "fontFamily": {
+                  "type": "string"
+                },
+                "fontSize": {
+                  "type": "string",
+                  "enum": [
+                    "text-xs",
+                    "text-sm",
+                    "text-base",
+                    "text-lg",
+                    "text-xl",
+                    "text-2xl",
+                    "text-3xl",
+                    "text-4xl",
+                    "text-5xl",
+                    "text-6xl",
+                    "text-7xl",
+                    "text-8xl",
+                    "text-9xl"
+                  ]
+                },
+                "fontWeight": {
+                  "type": "string",
+                  "enum": [
+                    "font-thin",
+                    "font-extralight",
+                    "font-light",
+                    "font-normal",
+                    "font-medium",
+                    "font-semibold",
+                    "font-bold",
+                    "font-extrabold",
+                    "font-black"
+                  ]
+                },
+                "lineHeight": {
+                  "type": "string",
+                  "enum": [
+                    "leading-none",
+                    "leading-tight",
+                    "leading-snug",
+                    "leading-normal",
+                    "leading-relaxed",
+                    "leading-loose"
+                  ]
+                },
+                "letterSpacing": {
+                  "type": "string",
+                  "enum": [
+                    "tracking-tighter",
+                    "tracking-tight",
+                    "tracking-normal",
+                    "tracking-wide",
+                    "tracking-wider",
+                    "tracking-widest"
+                  ]
+                },
+                "textTransform": {
+                  "type": "string",
+                  "enum": [
+                    "uppercase",
+                    "lowercase",
+                    "capitalize",
+                    "normal-case"
+                  ]
+                },
+                "textDecoration": {
+                  "type": "string",
+                  "enum": [
+                    "underline",
+                    "line-through",
+                    "no-underline"
+                  ]
+                },
+                "textOverflow": {
+                  "type": "string",
+                  "enum": [
+                    "truncate",
+                    "text-ellipsis",
+                    "text-clip"
+                  ]
+                },
+                "fluid": {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "fontFamily",
+                "fontSize",
+                "fontWeight"
+              ],
+              "additionalProperties": false
+            },
+            "subheader1": {
+              "type": "object",
+              "properties": {
+                "fontFamily": {
+                  "type": "string"
+                },
+                "fontSize": {
+                  "type": "string",
+                  "enum": [
+                    "text-xs",
+                    "text-sm",
+                    "text-base",
+                    "text-lg",
+                    "text-xl",
+                    "text-2xl",
+                    "text-3xl",
+                    "text-4xl",
+                    "text-5xl",
+                    "text-6xl",
+                    "text-7xl",
+                    "text-8xl",
+                    "text-9xl"
+                  ]
+                },
+                "fontWeight": {
+                  "type": "string",
+                  "enum": [
+                    "font-thin",
+                    "font-extralight",
+                    "font-light",
+                    "font-normal",
+                    "font-medium",
+                    "font-semibold",
+                    "font-bold",
+                    "font-extrabold",
+                    "font-black"
+                  ]
+                },
+                "lineHeight": {
+                  "type": "string",
+                  "enum": [
+                    "leading-none",
+                    "leading-tight",
+                    "leading-snug",
+                    "leading-normal",
+                    "leading-relaxed",
+                    "leading-loose"
+                  ]
+                },
+                "letterSpacing": {
+                  "type": "string",
+                  "enum": [
+                    "tracking-tighter",
+                    "tracking-tight",
+                    "tracking-normal",
+                    "tracking-wide",
+                    "tracking-wider",
+                    "tracking-widest"
+                  ]
+                },
+                "textTransform": {
+                  "type": "string",
+                  "enum": [
+                    "uppercase",
+                    "lowercase",
+                    "capitalize",
+                    "normal-case"
+                  ]
+                },
+                "textDecoration": {
+                  "type": "string",
+                  "enum": [
+                    "underline",
+                    "line-through",
+                    "no-underline"
+                  ]
+                },
+                "textOverflow": {
+                  "type": "string",
+                  "enum": [
+                    "truncate",
+                    "text-ellipsis",
+                    "text-clip"
+                  ]
+                },
+                "fluid": {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "fontFamily",
+                "fontSize",
+                "fontWeight"
+              ],
+              "additionalProperties": false
+            },
+            "subheader2": {
+              "type": "object",
+              "properties": {
+                "fontFamily": {
+                  "type": "string"
+                },
+                "fontSize": {
+                  "type": "string",
+                  "enum": [
+                    "text-xs",
+                    "text-sm",
+                    "text-base",
+                    "text-lg",
+                    "text-xl",
+                    "text-2xl",
+                    "text-3xl",
+                    "text-4xl",
+                    "text-5xl",
+                    "text-6xl",
+                    "text-7xl",
+                    "text-8xl",
+                    "text-9xl"
+                  ]
+                },
+                "fontWeight": {
+                  "type": "string",
+                  "enum": [
+                    "font-thin",
+                    "font-extralight",
+                    "font-light",
+                    "font-normal",
+                    "font-medium",
+                    "font-semibold",
+                    "font-bold",
+                    "font-extrabold",
+                    "font-black"
+                  ]
+                },
+                "lineHeight": {
+                  "type": "string",
+                  "enum": [
+                    "leading-none",
+                    "leading-tight",
+                    "leading-snug",
+                    "leading-normal",
+                    "leading-relaxed",
+                    "leading-loose"
+                  ]
+                },
+                "letterSpacing": {
+                  "type": "string",
+                  "enum": [
+                    "tracking-tighter",
+                    "tracking-tight",
+                    "tracking-normal",
+                    "tracking-wide",
+                    "tracking-wider",
+                    "tracking-widest"
+                  ]
+                },
+                "textTransform": {
+                  "type": "string",
+                  "enum": [
+                    "uppercase",
+                    "lowercase",
+                    "capitalize",
+                    "normal-case"
+                  ]
+                },
+                "textDecoration": {
+                  "type": "string",
+                  "enum": [
+                    "underline",
+                    "line-through",
+                    "no-underline"
+                  ]
+                },
+                "textOverflow": {
+                  "type": "string",
+                  "enum": [
+                    "truncate",
+                    "text-ellipsis",
+                    "text-clip"
+                  ]
+                },
+                "fluid": {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "fontFamily",
+                "fontSize",
+                "fontWeight"
+              ],
+              "additionalProperties": false
+            },
+            "text1": {
+              "type": "object",
+              "properties": {
+                "fontFamily": {
+                  "type": "string"
+                },
+                "fontSize": {
+                  "type": "string",
+                  "enum": [
+                    "text-xs",
+                    "text-sm",
+                    "text-base",
+                    "text-lg",
+                    "text-xl",
+                    "text-2xl",
+                    "text-3xl",
+                    "text-4xl",
+                    "text-5xl",
+                    "text-6xl",
+                    "text-7xl",
+                    "text-8xl",
+                    "text-9xl"
+                  ]
+                },
+                "fontWeight": {
+                  "type": "string",
+                  "enum": [
+                    "font-thin",
+                    "font-extralight",
+                    "font-light",
+                    "font-normal",
+                    "font-medium",
+                    "font-semibold",
+                    "font-bold",
+                    "font-extrabold",
+                    "font-black"
+                  ]
+                },
+                "lineHeight": {
+                  "type": "string",
+                  "enum": [
+                    "leading-none",
+                    "leading-tight",
+                    "leading-snug",
+                    "leading-normal",
+                    "leading-relaxed",
+                    "leading-loose"
+                  ]
+                },
+                "letterSpacing": {
+                  "type": "string",
+                  "enum": [
+                    "tracking-tighter",
+                    "tracking-tight",
+                    "tracking-normal",
+                    "tracking-wide",
+                    "tracking-wider",
+                    "tracking-widest"
+                  ]
+                },
+                "textTransform": {
+                  "type": "string",
+                  "enum": [
+                    "uppercase",
+                    "lowercase",
+                    "capitalize",
+                    "normal-case"
+                  ]
+                },
+                "textDecoration": {
+                  "type": "string",
+                  "enum": [
+                    "underline",
+                    "line-through",
+                    "no-underline"
+                  ]
+                },
+                "textOverflow": {
+                  "type": "string",
+                  "enum": [
+                    "truncate",
+                    "text-ellipsis",
+                    "text-clip"
+                  ]
+                },
+                "fluid": {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "fontFamily",
+                "fontSize",
+                "fontWeight"
+              ],
+              "additionalProperties": false
+            },
+            "text2": {
+              "type": "object",
+              "properties": {
+                "fontFamily": {
+                  "type": "string"
+                },
+                "fontSize": {
+                  "type": "string",
+                  "enum": [
+                    "text-xs",
+                    "text-sm",
+                    "text-base",
+                    "text-lg",
+                    "text-xl",
+                    "text-2xl",
+                    "text-3xl",
+                    "text-4xl",
+                    "text-5xl",
+                    "text-6xl",
+                    "text-7xl",
+                    "text-8xl",
+                    "text-9xl"
+                  ]
+                },
+                "fontWeight": {
+                  "type": "string",
+                  "enum": [
+                    "font-thin",
+                    "font-extralight",
+                    "font-light",
+                    "font-normal",
+                    "font-medium",
+                    "font-semibold",
+                    "font-bold",
+                    "font-extrabold",
+                    "font-black"
+                  ]
+                },
+                "lineHeight": {
+                  "type": "string",
+                  "enum": [
+                    "leading-none",
+                    "leading-tight",
+                    "leading-snug",
+                    "leading-normal",
+                    "leading-relaxed",
+                    "leading-loose"
+                  ]
+                },
+                "letterSpacing": {
+                  "type": "string",
+                  "enum": [
+                    "tracking-tighter",
+                    "tracking-tight",
+                    "tracking-normal",
+                    "tracking-wide",
+                    "tracking-wider",
+                    "tracking-widest"
+                  ]
+                },
+                "textTransform": {
+                  "type": "string",
+                  "enum": [
+                    "uppercase",
+                    "lowercase",
+                    "capitalize",
+                    "normal-case"
+                  ]
+                },
+                "textDecoration": {
+                  "type": "string",
+                  "enum": [
+                    "underline",
+                    "line-through",
+                    "no-underline"
+                  ]
+                },
+                "textOverflow": {
+                  "type": "string",
+                  "enum": [
+                    "truncate",
+                    "text-ellipsis",
+                    "text-clip"
+                  ]
+                },
+                "fluid": {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "fontFamily",
+                "fontSize",
+                "fontWeight"
+              ],
+              "additionalProperties": false
+            },
+            "link": {
+              "type": "object",
+              "properties": {
+                "fontFamily": {
+                  "type": "string"
+                },
+                "fontSize": {
+                  "type": "string",
+                  "enum": [
+                    "text-xs",
+                    "text-sm",
+                    "text-base",
+                    "text-lg",
+                    "text-xl",
+                    "text-2xl",
+                    "text-3xl",
+                    "text-4xl",
+                    "text-5xl",
+                    "text-6xl",
+                    "text-7xl",
+                    "text-8xl",
+                    "text-9xl"
+                  ]
+                },
+                "fontWeight": {
+                  "type": "string",
+                  "enum": [
+                    "font-thin",
+                    "font-extralight",
+                    "font-light",
+                    "font-normal",
+                    "font-medium",
+                    "font-semibold",
+                    "font-bold",
+                    "font-extrabold",
+                    "font-black"
+                  ]
+                },
+                "lineHeight": {
+                  "type": "string",
+                  "enum": [
+                    "leading-none",
+                    "leading-tight",
+                    "leading-snug",
+                    "leading-normal",
+                    "leading-relaxed",
+                    "leading-loose"
+                  ]
+                },
+                "letterSpacing": {
+                  "type": "string",
+                  "enum": [
+                    "tracking-tighter",
+                    "tracking-tight",
+                    "tracking-normal",
+                    "tracking-wide",
+                    "tracking-wider",
+                    "tracking-widest"
+                  ]
+                },
+                "textTransform": {
+                  "type": "string",
+                  "enum": [
+                    "uppercase",
+                    "lowercase",
+                    "capitalize",
+                    "normal-case"
+                  ]
+                },
+                "textDecoration": {
+                  "type": "string",
+                  "enum": [
+                    "underline",
+                    "line-through",
+                    "no-underline"
+                  ]
+                },
+                "textOverflow": {
+                  "type": "string",
+                  "enum": [
+                    "truncate",
+                    "text-ellipsis",
+                    "text-clip"
+                  ]
+                },
+                "fluid": {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "fontFamily",
+                "fontSize",
+                "fontWeight"
+              ],
+              "additionalProperties": false
+            },
+            "button": {
+              "type": "object",
+              "properties": {
+                "fontFamily": {
+                  "type": "string"
+                },
+                "fontSize": {
+                  "type": "string",
+                  "enum": [
+                    "text-xs",
+                    "text-sm",
+                    "text-base",
+                    "text-lg",
+                    "text-xl",
+                    "text-2xl",
+                    "text-3xl",
+                    "text-4xl",
+                    "text-5xl",
+                    "text-6xl",
+                    "text-7xl",
+                    "text-8xl",
+                    "text-9xl"
+                  ]
+                },
+                "fontWeight": {
+                  "type": "string",
+                  "enum": [
+                    "font-thin",
+                    "font-extralight",
+                    "font-light",
+                    "font-normal",
+                    "font-medium",
+                    "font-semibold",
+                    "font-bold",
+                    "font-extrabold",
+                    "font-black"
+                  ]
+                },
+                "lineHeight": {
+                  "type": "string",
+                  "enum": [
+                    "leading-none",
+                    "leading-tight",
+                    "leading-snug",
+                    "leading-normal",
+                    "leading-relaxed",
+                    "leading-loose"
+                  ]
+                },
+                "letterSpacing": {
+                  "type": "string",
+                  "enum": [
+                    "tracking-tighter",
+                    "tracking-tight",
+                    "tracking-normal",
+                    "tracking-wide",
+                    "tracking-wider",
+                    "tracking-widest"
+                  ]
+                },
+                "textTransform": {
+                  "type": "string",
+                  "enum": [
+                    "uppercase",
+                    "lowercase",
+                    "capitalize",
+                    "normal-case"
+                  ]
+                },
+                "textDecoration": {
+                  "type": "string",
+                  "enum": [
+                    "underline",
+                    "line-through",
+                    "no-underline"
+                  ]
+                },
+                "textOverflow": {
+                  "type": "string",
+                  "enum": [
+                    "truncate",
+                    "text-ellipsis",
+                    "text-clip"
+                  ]
+                },
+                "fluid": {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "fontFamily",
+                "fontSize",
+                "fontWeight"
+              ],
+              "additionalProperties": false
+            },
+            "input": {
+              "type": "object",
+              "properties": {
+                "fontFamily": {
+                  "type": "string"
+                },
+                "fontSize": {
+                  "type": "string",
+                  "enum": [
+                    "text-xs",
+                    "text-sm",
+                    "text-base",
+                    "text-lg",
+                    "text-xl",
+                    "text-2xl",
+                    "text-3xl",
+                    "text-4xl",
+                    "text-5xl",
+                    "text-6xl",
+                    "text-7xl",
+                    "text-8xl",
+                    "text-9xl"
+                  ]
+                },
+                "fontWeight": {
+                  "type": "string",
+                  "enum": [
+                    "font-thin",
+                    "font-extralight",
+                    "font-light",
+                    "font-normal",
+                    "font-medium",
+                    "font-semibold",
+                    "font-bold",
+                    "font-extrabold",
+                    "font-black"
+                  ]
+                },
+                "lineHeight": {
+                  "type": "string",
+                  "enum": [
+                    "leading-none",
+                    "leading-tight",
+                    "leading-snug",
+                    "leading-normal",
+                    "leading-relaxed",
+                    "leading-loose"
+                  ]
+                },
+                "letterSpacing": {
+                  "type": "string",
+                  "enum": [
+                    "tracking-tighter",
+                    "tracking-tight",
+                    "tracking-normal",
+                    "tracking-wide",
+                    "tracking-wider",
+                    "tracking-widest"
+                  ]
+                },
+                "textTransform": {
+                  "type": "string",
+                  "enum": [
+                    "uppercase",
+                    "lowercase",
+                    "capitalize",
+                    "normal-case"
+                  ]
+                },
+                "textDecoration": {
+                  "type": "string",
+                  "enum": [
+                    "underline",
+                    "line-through",
+                    "no-underline"
+                  ]
+                },
+                "textOverflow": {
+                  "type": "string",
+                  "enum": [
+                    "truncate",
+                    "text-ellipsis",
+                    "text-clip"
+                  ]
+                },
+                "fluid": {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "fontFamily",
+                "fontSize",
+                "fontWeight"
+              ],
+              "additionalProperties": false
+            },
+            "caption": {
+              "type": "object",
+              "properties": {
+                "fontFamily": {
+                  "type": "string"
+                },
+                "fontSize": {
+                  "type": "string",
+                  "enum": [
+                    "text-xs",
+                    "text-sm",
+                    "text-base",
+                    "text-lg",
+                    "text-xl",
+                    "text-2xl",
+                    "text-3xl",
+                    "text-4xl",
+                    "text-5xl",
+                    "text-6xl",
+                    "text-7xl",
+                    "text-8xl",
+                    "text-9xl"
+                  ]
+                },
+                "fontWeight": {
+                  "type": "string",
+                  "enum": [
+                    "font-thin",
+                    "font-extralight",
+                    "font-light",
+                    "font-normal",
+                    "font-medium",
+                    "font-semibold",
+                    "font-bold",
+                    "font-extrabold",
+                    "font-black"
+                  ]
+                },
+                "lineHeight": {
+                  "type": "string",
+                  "enum": [
+                    "leading-none",
+                    "leading-tight",
+                    "leading-snug",
+                    "leading-normal",
+                    "leading-relaxed",
+                    "leading-loose"
+                  ]
+                },
+                "letterSpacing": {
+                  "type": "string",
+                  "enum": [
+                    "tracking-tighter",
+                    "tracking-tight",
+                    "tracking-normal",
+                    "tracking-wide",
+                    "tracking-wider",
+                    "tracking-widest"
+                  ]
+                },
+                "textTransform": {
+                  "type": "string",
+                  "enum": [
+                    "uppercase",
+                    "lowercase",
+                    "capitalize",
+                    "normal-case"
+                  ]
+                },
+                "textDecoration": {
+                  "type": "string",
+                  "enum": [
+                    "underline",
+                    "line-through",
+                    "no-underline"
+                  ]
+                },
+                "textOverflow": {
+                  "type": "string",
+                  "enum": [
+                    "truncate",
+                    "text-ellipsis",
+                    "text-clip"
+                  ]
+                },
+                "fluid": {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "fontFamily",
+                "fontSize",
+                "fontWeight"
+              ],
+              "additionalProperties": false
+            },
+            "code": {
+              "type": "object",
+              "properties": {
+                "fontFamily": {
+                  "type": "string"
+                },
+                "fontSize": {
+                  "type": "string",
+                  "enum": [
+                    "text-xs",
+                    "text-sm",
+                    "text-base",
+                    "text-lg",
+                    "text-xl",
+                    "text-2xl",
+                    "text-3xl",
+                    "text-4xl",
+                    "text-5xl",
+                    "text-6xl",
+                    "text-7xl",
+                    "text-8xl",
+                    "text-9xl"
+                  ]
+                },
+                "fontWeight": {
+                  "type": "string",
+                  "enum": [
+                    "font-thin",
+                    "font-extralight",
+                    "font-light",
+                    "font-normal",
+                    "font-medium",
+                    "font-semibold",
+                    "font-bold",
+                    "font-extrabold",
+                    "font-black"
+                  ]
+                },
+                "lineHeight": {
+                  "type": "string",
+                  "enum": [
+                    "leading-none",
+                    "leading-tight",
+                    "leading-snug",
+                    "leading-normal",
+                    "leading-relaxed",
+                    "leading-loose"
+                  ]
+                },
+                "letterSpacing": {
+                  "type": "string",
+                  "enum": [
+                    "tracking-tighter",
+                    "tracking-tight",
+                    "tracking-normal",
+                    "tracking-wide",
+                    "tracking-wider",
+                    "tracking-widest"
+                  ]
+                },
+                "textTransform": {
+                  "type": "string",
+                  "enum": [
+                    "uppercase",
+                    "lowercase",
+                    "capitalize",
+                    "normal-case"
+                  ]
+                },
+                "textDecoration": {
+                  "type": "string",
+                  "enum": [
+                    "underline",
+                    "line-through",
+                    "no-underline"
+                  ]
+                },
+                "textOverflow": {
+                  "type": "string",
+                  "enum": [
+                    "truncate",
+                    "text-ellipsis",
+                    "text-clip"
+                  ]
+                },
+                "fluid": {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "fontFamily",
+                "fontSize",
+                "fontWeight"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "preheader",
+            "header1",
+            "header2",
+            "header3",
+            "header4",
+            "subheader1",
+            "subheader2",
+            "text1",
+            "text2",
+            "link",
+            "button",
+            "input",
+            "caption"
+          ],
+          "additionalProperties": false
+        },
+        "highlight": {
+          "type": "string",
+          "enum": [
+            "color",
+            "marker"
+          ]
+        },
+        "interactives": {
+          "type": "object",
+          "properties": {
+            "button": {
+              "type": "object",
+              "properties": {
+                "padding": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "string",
+                      "enum": [
+                        "px-0",
+                        "px-1",
+                        "px-2",
+                        "px-3",
+                        "px-4",
+                        "px-5",
+                        "px-6",
+                        "px-8",
+                        "px-10",
+                        "px-12",
+                        "px-16",
+                        "px-20",
+                        "px-24",
+                        "px-32",
+                        "px-40",
+                        "px-48",
+                        "px-56",
+                        "px-64"
+                      ]
+                    },
+                    "y": {
+                      "type": "string",
+                      "enum": [
+                        "py-0",
+                        "py-1",
+                        "py-2",
+                        "py-3",
+                        "py-4",
+                        "py-5",
+                        "py-6",
+                        "py-8",
+                        "py-10",
+                        "py-12",
+                        "py-16",
+                        "py-20",
+                        "py-24",
+                        "py-32",
+                        "py-40",
+                        "py-48",
+                        "py-56",
+                        "py-64"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "border": {
+                  "type": "object",
+                  "properties": {
+                    "width": {
+                      "type": "string",
+                      "enum": [
+                        "border",
+                        "border-0",
+                        "border-2",
+                        "border-4",
+                        "border-8"
+                      ]
+                    },
+                    "radius": {
+                      "type": "string",
+                      "enum": [
+                        "rounded-none",
+                        "rounded-sm",
+                        "rounded",
+                        "rounded-md",
+                        "rounded-lg",
+                        "rounded-xl",
+                        "rounded-2xl",
+                        "rounded-3xl",
+                        "rounded-full"
+                      ]
+                    },
+                    "style": {
+                      "type": "string",
+                      "enum": [
+                        "border-solid",
+                        "border-dashed",
+                        "border-dotted",
+                        "border-double",
+                        "border-hidden",
+                        "border-none"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "shadow": {
+                  "type": "string",
+                  "enum": [
+                    "shadow-2xs",
+                    "shadow-xs",
+                    "shadow-sm",
+                    "shadow-md",
+                    "shadow-lg",
+                    "shadow-xl",
+                    "shadow-2xl",
+                    "shadow-none"
+                  ]
+                },
+                "custom": {
+                  "type": "string"
+                },
+                "disabled": {
+                  "type": "object",
+                  "properties": {
+                    "color": {
+                      "type": "string"
+                    },
+                    "background": {
+                      "type": "string"
+                    },
+                    "border": {
+                      "type": "string"
+                    },
+                    "opacity": {
+                      "type": "string",
+                      "enum": [
+                        "opacity-50",
+                        "opacity-75",
+                        "opacity-100"
+                      ]
+                    },
+                    "cursor": {
+                      "type": "string",
+                      "enum": [
+                        "cursor-not-allowed",
+                        "cursor-default",
+                        "cursor-pointer"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "menu": {
+              "type": "object",
+              "properties": {
+                "padding": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "string",
+                      "enum": [
+                        "px-0",
+                        "px-1",
+                        "px-2",
+                        "px-3",
+                        "px-4",
+                        "px-5",
+                        "px-6",
+                        "px-8",
+                        "px-10",
+                        "px-12",
+                        "px-16",
+                        "px-20",
+                        "px-24",
+                        "px-32",
+                        "px-40",
+                        "px-48",
+                        "px-56",
+                        "px-64"
+                      ]
+                    },
+                    "y": {
+                      "type": "string",
+                      "enum": [
+                        "py-0",
+                        "py-1",
+                        "py-2",
+                        "py-3",
+                        "py-4",
+                        "py-5",
+                        "py-6",
+                        "py-8",
+                        "py-10",
+                        "py-12",
+                        "py-16",
+                        "py-20",
+                        "py-24",
+                        "py-32",
+                        "py-40",
+                        "py-48",
+                        "py-56",
+                        "py-64"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "border": {
+                  "type": "object",
+                  "properties": {
+                    "width": {
+                      "type": "string",
+                      "enum": [
+                        "border",
+                        "border-0",
+                        "border-2",
+                        "border-4",
+                        "border-8"
+                      ]
+                    },
+                    "radius": {
+                      "type": "string",
+                      "enum": [
+                        "rounded-none",
+                        "rounded-sm",
+                        "rounded",
+                        "rounded-md",
+                        "rounded-lg",
+                        "rounded-xl",
+                        "rounded-2xl",
+                        "rounded-3xl",
+                        "rounded-full"
+                      ]
+                    },
+                    "style": {
+                      "type": "string",
+                      "enum": [
+                        "border-solid",
+                        "border-dashed",
+                        "border-dotted",
+                        "border-double",
+                        "border-hidden",
+                        "border-none"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "shadow": {
+                  "type": "string",
+                  "enum": [
+                    "shadow-2xs",
+                    "shadow-xs",
+                    "shadow-sm",
+                    "shadow-md",
+                    "shadow-lg",
+                    "shadow-xl",
+                    "shadow-2xl",
+                    "shadow-none"
+                  ]
+                },
+                "custom": {
+                  "type": "string"
+                },
+                "item": {
+                  "type": "object",
+                  "properties": {
+                    "padding": {
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "type": "string",
+                          "enum": [
+                            "px-0",
+                            "px-1",
+                            "px-2",
+                            "px-3",
+                            "px-4",
+                            "px-5",
+                            "px-6",
+                            "px-8",
+                            "px-10",
+                            "px-12",
+                            "px-16",
+                            "px-20",
+                            "px-24",
+                            "px-32",
+                            "px-40",
+                            "px-48",
+                            "px-56",
+                            "px-64"
+                          ]
+                        },
+                        "y": {
+                          "type": "string",
+                          "enum": [
+                            "py-0",
+                            "py-1",
+                            "py-2",
+                            "py-3",
+                            "py-4",
+                            "py-5",
+                            "py-6",
+                            "py-8",
+                            "py-10",
+                            "py-12",
+                            "py-16",
+                            "py-20",
+                            "py-24",
+                            "py-32",
+                            "py-40",
+                            "py-48",
+                            "py-56",
+                            "py-64"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "border": {
+                      "type": "object",
+                      "properties": {
+                        "width": {
+                          "type": "string",
+                          "enum": [
+                            "border",
+                            "border-0",
+                            "border-2",
+                            "border-4",
+                            "border-8"
+                          ]
+                        },
+                        "radius": {
+                          "type": "string",
+                          "enum": [
+                            "rounded-none",
+                            "rounded-sm",
+                            "rounded",
+                            "rounded-md",
+                            "rounded-lg",
+                            "rounded-xl",
+                            "rounded-2xl",
+                            "rounded-3xl",
+                            "rounded-full"
+                          ]
+                        },
+                        "style": {
+                          "type": "string",
+                          "enum": [
+                            "border-solid",
+                            "border-dashed",
+                            "border-dotted",
+                            "border-double",
+                            "border-hidden",
+                            "border-none"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "custom": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "dialog": {
+              "type": "object",
+              "properties": {
+                "padding": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "string",
+                      "enum": [
+                        "px-0",
+                        "px-1",
+                        "px-2",
+                        "px-3",
+                        "px-4",
+                        "px-5",
+                        "px-6",
+                        "px-8",
+                        "px-10",
+                        "px-12",
+                        "px-16",
+                        "px-20",
+                        "px-24",
+                        "px-32",
+                        "px-40",
+                        "px-48",
+                        "px-56",
+                        "px-64"
+                      ]
+                    },
+                    "y": {
+                      "type": "string",
+                      "enum": [
+                        "py-0",
+                        "py-1",
+                        "py-2",
+                        "py-3",
+                        "py-4",
+                        "py-5",
+                        "py-6",
+                        "py-8",
+                        "py-10",
+                        "py-12",
+                        "py-16",
+                        "py-20",
+                        "py-24",
+                        "py-32",
+                        "py-40",
+                        "py-48",
+                        "py-56",
+                        "py-64"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "border": {
+                  "type": "object",
+                  "properties": {
+                    "width": {
+                      "type": "string",
+                      "enum": [
+                        "border",
+                        "border-0",
+                        "border-2",
+                        "border-4",
+                        "border-8"
+                      ]
+                    },
+                    "radius": {
+                      "type": "string",
+                      "enum": [
+                        "rounded-none",
+                        "rounded-sm",
+                        "rounded",
+                        "rounded-md",
+                        "rounded-lg",
+                        "rounded-xl",
+                        "rounded-2xl",
+                        "rounded-3xl",
+                        "rounded-full"
+                      ]
+                    },
+                    "style": {
+                      "type": "string",
+                      "enum": [
+                        "border-solid",
+                        "border-dashed",
+                        "border-dotted",
+                        "border-double",
+                        "border-hidden",
+                        "border-none"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "shadow": {
+                  "type": "string",
+                  "enum": [
+                    "shadow-2xs",
+                    "shadow-xs",
+                    "shadow-sm",
+                    "shadow-md",
+                    "shadow-lg",
+                    "shadow-xl",
+                    "shadow-2xl",
+                    "shadow-none"
+                  ]
+                },
+                "custom": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "popover": {
+              "type": "object",
+              "properties": {
+                "padding": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "string",
+                      "enum": [
+                        "px-0",
+                        "px-1",
+                        "px-2",
+                        "px-3",
+                        "px-4",
+                        "px-5",
+                        "px-6",
+                        "px-8",
+                        "px-10",
+                        "px-12",
+                        "px-16",
+                        "px-20",
+                        "px-24",
+                        "px-32",
+                        "px-40",
+                        "px-48",
+                        "px-56",
+                        "px-64"
+                      ]
+                    },
+                    "y": {
+                      "type": "string",
+                      "enum": [
+                        "py-0",
+                        "py-1",
+                        "py-2",
+                        "py-3",
+                        "py-4",
+                        "py-5",
+                        "py-6",
+                        "py-8",
+                        "py-10",
+                        "py-12",
+                        "py-16",
+                        "py-20",
+                        "py-24",
+                        "py-32",
+                        "py-40",
+                        "py-48",
+                        "py-56",
+                        "py-64"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "border": {
+                  "type": "object",
+                  "properties": {
+                    "width": {
+                      "type": "string",
+                      "enum": [
+                        "border",
+                        "border-0",
+                        "border-2",
+                        "border-4",
+                        "border-8"
+                      ]
+                    },
+                    "radius": {
+                      "type": "string",
+                      "enum": [
+                        "rounded-none",
+                        "rounded-sm",
+                        "rounded",
+                        "rounded-md",
+                        "rounded-lg",
+                        "rounded-xl",
+                        "rounded-2xl",
+                        "rounded-3xl",
+                        "rounded-full"
+                      ]
+                    },
+                    "style": {
+                      "type": "string",
+                      "enum": [
+                        "border-solid",
+                        "border-dashed",
+                        "border-dotted",
+                        "border-double",
+                        "border-hidden",
+                        "border-none"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "shadow": {
+                  "type": "string",
+                  "enum": [
+                    "shadow-2xs",
+                    "shadow-xs",
+                    "shadow-sm",
+                    "shadow-md",
+                    "shadow-lg",
+                    "shadow-xl",
+                    "shadow-2xl",
+                    "shadow-none"
+                  ]
+                },
+                "custom": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "tooltip": {
+              "type": "object",
+              "properties": {
+                "padding": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "string",
+                      "enum": [
+                        "px-0",
+                        "px-1",
+                        "px-2",
+                        "px-3",
+                        "px-4",
+                        "px-5",
+                        "px-6",
+                        "px-8",
+                        "px-10",
+                        "px-12",
+                        "px-16",
+                        "px-20",
+                        "px-24",
+                        "px-32",
+                        "px-40",
+                        "px-48",
+                        "px-56",
+                        "px-64"
+                      ]
+                    },
+                    "y": {
+                      "type": "string",
+                      "enum": [
+                        "py-0",
+                        "py-1",
+                        "py-2",
+                        "py-3",
+                        "py-4",
+                        "py-5",
+                        "py-6",
+                        "py-8",
+                        "py-10",
+                        "py-12",
+                        "py-16",
+                        "py-20",
+                        "py-24",
+                        "py-32",
+                        "py-40",
+                        "py-48",
+                        "py-56",
+                        "py-64"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "border": {
+                  "type": "object",
+                  "properties": {
+                    "width": {
+                      "type": "string",
+                      "enum": [
+                        "border",
+                        "border-0",
+                        "border-2",
+                        "border-4",
+                        "border-8"
+                      ]
+                    },
+                    "radius": {
+                      "type": "string",
+                      "enum": [
+                        "rounded-none",
+                        "rounded-sm",
+                        "rounded",
+                        "rounded-md",
+                        "rounded-lg",
+                        "rounded-xl",
+                        "rounded-2xl",
+                        "rounded-3xl",
+                        "rounded-full"
+                      ]
+                    },
+                    "style": {
+                      "type": "string",
+                      "enum": [
+                        "border-solid",
+                        "border-dashed",
+                        "border-dotted",
+                        "border-double",
+                        "border-hidden",
+                        "border-none"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "shadow": {
+                  "type": "string",
+                  "enum": [
+                    "shadow-2xs",
+                    "shadow-xs",
+                    "shadow-sm",
+                    "shadow-md",
+                    "shadow-lg",
+                    "shadow-xl",
+                    "shadow-2xl",
+                    "shadow-none"
+                  ]
+                },
+                "custom": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "link": {
+              "type": "object",
+              "properties": {
+                "padding": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "string",
+                      "enum": [
+                        "px-0",
+                        "px-1",
+                        "px-2",
+                        "px-3",
+                        "px-4",
+                        "px-5",
+                        "px-6",
+                        "px-8",
+                        "px-10",
+                        "px-12",
+                        "px-16",
+                        "px-20",
+                        "px-24",
+                        "px-32",
+                        "px-40",
+                        "px-48",
+                        "px-56",
+                        "px-64"
+                      ]
+                    },
+                    "y": {
+                      "type": "string",
+                      "enum": [
+                        "py-0",
+                        "py-1",
+                        "py-2",
+                        "py-3",
+                        "py-4",
+                        "py-5",
+                        "py-6",
+                        "py-8",
+                        "py-10",
+                        "py-12",
+                        "py-16",
+                        "py-20",
+                        "py-24",
+                        "py-32",
+                        "py-40",
+                        "py-48",
+                        "py-56",
+                        "py-64"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "border": {
+                  "type": "object",
+                  "properties": {
+                    "width": {
+                      "type": "string",
+                      "enum": [
+                        "border",
+                        "border-0",
+                        "border-2",
+                        "border-4",
+                        "border-8"
+                      ]
+                    },
+                    "radius": {
+                      "type": "string",
+                      "enum": [
+                        "rounded-none",
+                        "rounded-sm",
+                        "rounded",
+                        "rounded-md",
+                        "rounded-lg",
+                        "rounded-xl",
+                        "rounded-2xl",
+                        "rounded-3xl",
+                        "rounded-full"
+                      ]
+                    },
+                    "style": {
+                      "type": "string",
+                      "enum": [
+                        "border-solid",
+                        "border-dashed",
+                        "border-dotted",
+                        "border-double",
+                        "border-hidden",
+                        "border-none"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "textShadow": {
+                  "type": "string"
+                },
+                "custom": {
+                  "type": "string"
+                },
+                "disabled": {
+                  "type": "object",
+                  "properties": {
+                    "color": {
+                      "type": "string"
+                    },
+                    "background": {
+                      "type": "string"
+                    },
+                    "border": {
+                      "type": "string"
+                    },
+                    "opacity": {
+                      "type": "string",
+                      "enum": [
+                        "opacity-50",
+                        "opacity-75",
+                        "opacity-100"
+                      ]
+                    },
+                    "cursor": {
+                      "type": "string",
+                      "enum": [
+                        "cursor-not-allowed",
+                        "cursor-default",
+                        "cursor-pointer"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "card": {
+              "type": "object",
+              "properties": {
+                "padding": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "string",
+                      "enum": [
+                        "px-0",
+                        "px-1",
+                        "px-2",
+                        "px-3",
+                        "px-4",
+                        "px-5",
+                        "px-6",
+                        "px-8",
+                        "px-10",
+                        "px-12",
+                        "px-16",
+                        "px-20",
+                        "px-24",
+                        "px-32",
+                        "px-40",
+                        "px-48",
+                        "px-56",
+                        "px-64"
+                      ]
+                    },
+                    "y": {
+                      "type": "string",
+                      "enum": [
+                        "py-0",
+                        "py-1",
+                        "py-2",
+                        "py-3",
+                        "py-4",
+                        "py-5",
+                        "py-6",
+                        "py-8",
+                        "py-10",
+                        "py-12",
+                        "py-16",
+                        "py-20",
+                        "py-24",
+                        "py-32",
+                        "py-40",
+                        "py-48",
+                        "py-56",
+                        "py-64"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "border": {
+                  "type": "object",
+                  "properties": {
+                    "width": {
+                      "type": "string",
+                      "enum": [
+                        "border",
+                        "border-0",
+                        "border-2",
+                        "border-4",
+                        "border-8"
+                      ]
+                    },
+                    "radius": {
+                      "type": "string",
+                      "enum": [
+                        "rounded-none",
+                        "rounded-sm",
+                        "rounded",
+                        "rounded-md",
+                        "rounded-lg",
+                        "rounded-xl",
+                        "rounded-2xl",
+                        "rounded-3xl",
+                        "rounded-full"
+                      ]
+                    },
+                    "style": {
+                      "type": "string",
+                      "enum": [
+                        "border-solid",
+                        "border-dashed",
+                        "border-dotted",
+                        "border-double",
+                        "border-hidden",
+                        "border-none"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "shadow": {
+                  "type": "string",
+                  "enum": [
+                    "shadow-2xs",
+                    "shadow-xs",
+                    "shadow-sm",
+                    "shadow-md",
+                    "shadow-lg",
+                    "shadow-xl",
+                    "shadow-2xl",
+                    "shadow-none"
+                  ]
+                },
+                "custom": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "input": {
+              "type": "object",
+              "properties": {
+                "padding": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "string",
+                      "enum": [
+                        "px-0",
+                        "px-1",
+                        "px-2",
+                        "px-3",
+                        "px-4",
+                        "px-5",
+                        "px-6",
+                        "px-8",
+                        "px-10",
+                        "px-12",
+                        "px-16",
+                        "px-20",
+                        "px-24",
+                        "px-32",
+                        "px-40",
+                        "px-48",
+                        "px-56",
+                        "px-64"
+                      ]
+                    },
+                    "y": {
+                      "type": "string",
+                      "enum": [
+                        "py-0",
+                        "py-1",
+                        "py-2",
+                        "py-3",
+                        "py-4",
+                        "py-5",
+                        "py-6",
+                        "py-8",
+                        "py-10",
+                        "py-12",
+                        "py-16",
+                        "py-20",
+                        "py-24",
+                        "py-32",
+                        "py-40",
+                        "py-48",
+                        "py-56",
+                        "py-64"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "border": {
+                  "type": "object",
+                  "properties": {
+                    "width": {
+                      "type": "string",
+                      "enum": [
+                        "border",
+                        "border-0",
+                        "border-2",
+                        "border-4",
+                        "border-8"
+                      ]
+                    },
+                    "radius": {
+                      "type": "string",
+                      "enum": [
+                        "rounded-none",
+                        "rounded-sm",
+                        "rounded",
+                        "rounded-md",
+                        "rounded-lg",
+                        "rounded-xl",
+                        "rounded-2xl",
+                        "rounded-3xl",
+                        "rounded-full"
+                      ]
+                    },
+                    "style": {
+                      "type": "string",
+                      "enum": [
+                        "border-solid",
+                        "border-dashed",
+                        "border-dotted",
+                        "border-double",
+                        "border-hidden",
+                        "border-none"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "shadow": {
+                  "type": "string",
+                  "enum": [
+                    "shadow-2xs",
+                    "shadow-xs",
+                    "shadow-sm",
+                    "shadow-md",
+                    "shadow-lg",
+                    "shadow-xl",
+                    "shadow-2xl",
+                    "shadow-none"
+                  ]
+                },
+                "custom": {
+                  "type": "string"
+                },
+                "borderRadius": {
+                  "type": "string",
+                  "enum": [
+                    "rounded-none",
+                    "rounded-sm",
+                    "rounded",
+                    "rounded-md",
+                    "rounded-lg",
+                    "rounded-xl",
+                    "rounded-2xl",
+                    "rounded-3xl",
+                    "rounded-full"
+                  ]
+                },
+                "disabled": {
+                  "type": "object",
+                  "properties": {
+                    "color": {
+                      "type": "string"
+                    },
+                    "background": {
+                      "type": "string"
+                    },
+                    "border": {
+                      "type": "string"
+                    },
+                    "opacity": {
+                      "type": "string",
+                      "enum": [
+                        "opacity-50",
+                        "opacity-75",
+                        "opacity-100"
+                      ]
+                    },
+                    "cursor": {
+                      "type": "string",
+                      "enum": [
+                        "cursor-not-allowed",
+                        "cursor-default",
+                        "cursor-pointer"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "button",
+            "link",
+            "card",
+            "input"
+          ],
+          "additionalProperties": false
+        },
+        "structure": {
+          "type": "object",
+          "properties": {
+            "page": {
+              "type": "object",
+              "properties": {
+                "width": {
+                  "type": "string",
+                  "enum": [
+                    "max-w-2xl",
+                    "max-w-3xl",
+                    "max-w-4xl",
+                    "max-w-5xl",
+                    "max-w-6xl"
+                  ]
+                }
+              },
+              "required": [
+                "width"
+              ],
+              "additionalProperties": false
+            },
+            "section": {
+              "type": "object",
+              "properties": {
+                "dividers": {
+                  "type": "boolean"
+                },
+                "padding": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "string",
+                      "enum": [
+                        "px-0",
+                        "px-4",
+                        "px-6",
+                        "px-8",
+                        "px-10",
+                        "px-12",
+                        "px-16",
+                        "px-20",
+                        "px-24",
+                        "px-32",
+                        "px-40",
+                        "px-48",
+                        "px-56",
+                        "px-64"
+                      ]
+                    },
+                    "y": {
+                      "type": "string",
+                      "enum": [
+                        "py-0",
+                        "py-4",
+                        "py-6",
+                        "py-8",
+                        "py-10",
+                        "py-12",
+                        "py-16",
+                        "py-20",
+                        "py-24",
+                        "py-32",
+                        "py-40",
+                        "py-48",
+                        "py-56",
+                        "py-64"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "padding"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "page",
+            "section"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "colors",
+        "typography",
+        "interactives",
+        "structure"
+      ],
+      "additionalProperties": false,
+      "description": "The site theme."
+    },
+    "header": {
+      "type": "object",
+      "properties": {
+        "cssId": {
+          "type": "string",
+          "description": "HTML id, used for in-page links like /#pricing."
+        },
+        "verticalPadding": {
+          "type": "string",
+          "enum": [
+            "py-0",
+            "py-4",
+            "py-6",
+            "py-8",
+            "py-10",
+            "py-12",
+            "py-16",
+            "py-20",
+            "py-24",
+            "py-32",
+            "py-40",
+            "py-48",
+            "py-56",
+            "py-64"
+          ],
+          "default": "py-4"
+        },
+        "maxWidth": {
+          "type": "string",
+          "enum": [
+            "max-w-2xl",
+            "max-w-3xl",
+            "max-w-4xl",
+            "max-w-5xl",
+            "max-w-6xl"
+          ]
+        },
+        "background": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "color",
+                "image",
+                "gradient"
+              ]
+            },
+            "backgroundColor": {
+              "type": "string"
+            },
+            "backgroundColorDark": {
+              "type": "string"
+            },
+            "backgroundImage": {
+              "type": "string"
+            },
+            "backgroundImageDark": {
+              "type": "string"
+            },
+            "backgroundSize": {
+              "type": "string"
+            },
+            "backgroundPosition": {
+              "type": "string"
+            },
+            "backgroundRepeat": {
+              "type": "string",
+              "enum": [
+                "no-repeat",
+                "repeat",
+                "repeat-x",
+                "repeat-y",
+                "space",
+                "round"
+              ]
+            },
+            "backgroundAttachment": {
+              "type": "string",
+              "enum": [
+                "scroll",
+                "fixed",
+                "local"
+              ]
+            },
+            "maskImage": {
+              "type": "string"
+            },
+            "gradientBackgroundSize": {
+              "type": "string"
+            },
+            "gradientBackgroundPosition": {
+              "type": "string"
+            },
+            "gradientBackgroundRepeat": {
+              "type": "string",
+              "enum": [
+                "no-repeat",
+                "repeat",
+                "repeat-x",
+                "repeat-y",
+                "space",
+                "round"
+              ]
+            },
+            "gradientMaskImage": {
+              "type": "string"
+            },
+            "blur": {
+              "type": "number",
+              "minimum": 0
+            },
+            "overlay": {
+              "type": "object",
+              "properties": {
+                "color": {
+                  "type": "string"
+                },
+                "colorDark": {
+                  "type": "string"
+                },
+                "blendMode": {
+                  "type": "string",
+                  "enum": [
+                    "normal",
+                    "multiply",
+                    "screen",
+                    "overlay",
+                    "darken",
+                    "lighten",
+                    "color-dodge",
+                    "color-burn",
+                    "hard-light",
+                    "soft-light",
+                    "difference",
+                    "exclusion",
+                    "hue",
+                    "saturation",
+                    "color",
+                    "luminosity"
+                  ]
+                },
+                "opacity": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 10,
+                  "description": "0 is invisible, 10 is fully solid."
+                }
+              },
+              "required": [
+                "color",
+                "blendMode",
+                "opacity"
+              ],
+              "additionalProperties": false
+            },
+            "media": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Absolute URL, or a path relative to the repo."
+                },
+                "alt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        "layout": {
+          "type": "string",
+          "enum": [
+            "fixed",
+            "floating",
+            "centered"
+          ],
+          "default": "fixed"
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "href": {
+                "type": "string",
+                "description": "A site path (\"/pricing\"), anchor (\"/#faq\") or absolute URL."
+              },
+              "isButton": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "label",
+              "href"
+            ],
+            "additionalProperties": false
+          },
+          "default": [
+            {
+              "label": "Features",
+              "href": "/#features"
+            },
+            {
+              "label": "Pricing",
+              "href": "/#pricing"
+            },
+            {
+              "label": "Docs",
+              "href": "/docs"
+            },
+            {
+              "label": "Blog",
+              "href": "/blog"
+            }
+          ]
+        },
+        "ctaLabel": {
+          "type": "string",
+          "default": "Get started"
+        },
+        "ctaHref": {
+          "type": "string",
+          "description": "A site path (\"/pricing\"), anchor (\"/#faq\") or absolute URL.",
+          "default": "/help"
+        },
+        "linkAlignment": {
+          "type": "string",
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "default": "left"
+        },
+        "backdropBlur": {
+          "type": "boolean",
+          "default": false
+        },
+        "logoCorners": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8,
+          "default": 2
+        }
+      },
+      "additionalProperties": false,
+      "description": "Site header, shown on every page."
+    },
+    "footer": {
+      "type": "object",
+      "properties": {
+        "cssId": {
+          "type": "string",
+          "description": "HTML id, used for in-page links like /#pricing."
+        },
+        "verticalPadding": {
+          "type": "string",
+          "enum": [
+            "py-0",
+            "py-4",
+            "py-6",
+            "py-8",
+            "py-10",
+            "py-12",
+            "py-16",
+            "py-20",
+            "py-24",
+            "py-32",
+            "py-40",
+            "py-48",
+            "py-56",
+            "py-64"
+          ]
+        },
+        "maxWidth": {
+          "type": "string",
+          "enum": [
+            "max-w-2xl",
+            "max-w-3xl",
+            "max-w-4xl",
+            "max-w-5xl",
+            "max-w-6xl"
+          ]
+        },
+        "background": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "color",
+                "image",
+                "gradient"
+              ]
+            },
+            "backgroundColor": {
+              "type": "string"
+            },
+            "backgroundColorDark": {
+              "type": "string"
+            },
+            "backgroundImage": {
+              "type": "string"
+            },
+            "backgroundImageDark": {
+              "type": "string"
+            },
+            "backgroundSize": {
+              "type": "string"
+            },
+            "backgroundPosition": {
+              "type": "string"
+            },
+            "backgroundRepeat": {
+              "type": "string",
+              "enum": [
+                "no-repeat",
+                "repeat",
+                "repeat-x",
+                "repeat-y",
+                "space",
+                "round"
+              ]
+            },
+            "backgroundAttachment": {
+              "type": "string",
+              "enum": [
+                "scroll",
+                "fixed",
+                "local"
+              ]
+            },
+            "maskImage": {
+              "type": "string"
+            },
+            "gradientBackgroundSize": {
+              "type": "string"
+            },
+            "gradientBackgroundPosition": {
+              "type": "string"
+            },
+            "gradientBackgroundRepeat": {
+              "type": "string",
+              "enum": [
+                "no-repeat",
+                "repeat",
+                "repeat-x",
+                "repeat-y",
+                "space",
+                "round"
+              ]
+            },
+            "gradientMaskImage": {
+              "type": "string"
+            },
+            "blur": {
+              "type": "number",
+              "minimum": 0
+            },
+            "overlay": {
+              "type": "object",
+              "properties": {
+                "color": {
+                  "type": "string"
+                },
+                "colorDark": {
+                  "type": "string"
+                },
+                "blendMode": {
+                  "type": "string",
+                  "enum": [
+                    "normal",
+                    "multiply",
+                    "screen",
+                    "overlay",
+                    "darken",
+                    "lighten",
+                    "color-dodge",
+                    "color-burn",
+                    "hard-light",
+                    "soft-light",
+                    "difference",
+                    "exclusion",
+                    "hue",
+                    "saturation",
+                    "color",
+                    "luminosity"
+                  ]
+                },
+                "opacity": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 10,
+                  "description": "0 is invisible, 10 is fully solid."
+                }
+              },
+              "required": [
+                "color",
+                "blendMode",
+                "opacity"
+              ],
+              "additionalProperties": false
+            },
+            "media": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Absolute URL, or a path relative to the repo."
+                },
+                "alt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        "layout": {
+          "type": "string",
+          "enum": [
+            "columns",
+            "centered",
+            "minimal"
+          ]
+        },
+        "tagline": {
+          "type": "string"
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "links": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "href": {
+                      "type": "string",
+                      "description": "A site path (\"/pricing\"), anchor (\"/#faq\") or absolute URL."
+                    }
+                  },
+                  "required": [
+                    "label",
+                    "href"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "title",
+              "links"
+            ],
+            "additionalProperties": false
+          },
+          "default": [
+            {
+              "title": "Product",
+              "links": [
+                {
+                  "label": "Features",
+                  "href": "/#features"
+                },
+                {
+                  "label": "Pricing",
+                  "href": "/#pricing"
+                },
+                {
+                  "label": "Changelog",
+                  "href": "/changelog"
+                }
+              ]
+            },
+            {
+              "title": "Resources",
+              "links": [
+                {
+                  "label": "Blog",
+                  "href": "/blog"
+                },
+                {
+                  "label": "Help center",
+                  "href": "/help"
+                },
+                {
+                  "label": "Docs",
+                  "href": "/docs"
+                }
+              ]
+            },
+            {
+              "title": "Legal",
+              "links": [
+                {
+                  "label": "Terms of use",
+                  "href": "/terms"
+                },
+                {
+                  "label": "Privacy policy",
+                  "href": "/privacy"
+                }
+              ]
+            }
+          ]
+        },
+        "copyrightText": {
+          "type": "string",
+          "default": "© FrontLit. All rights reserved."
+        },
+        "showThemeSwitcher": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false,
+      "description": "Site footer, shown on every page."
+    },
+    "redirects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "pattern": "^\\/\\S*$"
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1,
+            "description": "A site path or absolute URL."
+          },
+          "permanent": {
+            "type": "boolean",
+            "description": "308 when true (default), 307 when false."
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

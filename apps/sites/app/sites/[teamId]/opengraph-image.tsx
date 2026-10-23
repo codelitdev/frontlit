@@ -15,7 +15,7 @@ export default async function Image({
 }) {
   const { teamId } = await params;
   const settings = await getSettings(teamId);
-  const siteName = settings?.title || "FrontLit site";
+  const siteName = settings?.title || "Website";
 
   return new ImageResponse(
     <div

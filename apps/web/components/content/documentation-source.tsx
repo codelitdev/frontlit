@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { DEFAULT_GIT_SITE_ROOT, gitSiteFolders } from "@frontlit/api-contract";
 import { Check, ExternalLink, Github, GitPullRequest, Loader2 } from "lucide-react";
 import {
   ManageShell,
@@ -16,12 +17,15 @@ import {
   FileList,
   LinkButton,
   Mono,
+  PublishMap,
   StatusBanner,
   StepIntro,
   SummaryCard,
   SummaryRow,
+  SyncCard,
   Timeline,
   WizardShell,
+  type PublishMapRow,
   type TimelineState,
 } from "@/components/content/documentation-connect-parts";
 import { Input } from "@/components/ui/codelit/input";
@@ -50,11 +54,19 @@ import {
   activateDocumentationGitMigration,
   cancelDocumentationGitMigration,
   grantDocumentationGitCapabilities,
+  previewGitPages,
+  enableGitPages,
   type DocumentationGitSource,
   type DocumentationGitRepositories,
   type DocumentationGitPreflight,
   type DocumentationGitMigration,
 } from "@/lib/api";
+import { PagesPreviewDetails } from "@/components/content/pages-source-section";
+
+function currentWriteAccess(source: DocumentationGitSource) {
+  const caps = source.binding?.capabilities;
+  return [Boolean(caps?.proposals), Boolean(caps?.directCommit)];
+}
 
 export function DocumentationSource({
   workspaceKey,
@@ -85,7 +97,13 @@ export function DocumentationSource({
   const [installationId, setInstallationId] = useState("");
   const [repositoryId, setRepositoryId] = useState("");
   const [branch, setBranch] = useState(""),
-    [directory, setDirectory] = useState("docs");
+    [root, setRoot] = useState(DEFAULT_GIT_SITE_ROOT);
+  // Everything synced lives in one site folder: <root>/docs, <root>/pages, <root>/site.json.
+  const folders = gitSiteFolders(root);
+  const directory = folders.docs;
+  /** Off connects the repository for pages only. */
+  const [docsEnabled, setDocsEnabled] = useState(true);
+  const [pagesEnabled, setPagesEnabled] = useState(false);
   const [preflight, setPreflight] = useState<DocumentationGitPreflight | null>(null);
   const [migration, setMigration] = useState<DocumentationGitMigration | null>(null);
   const [acknowledgeSetupPr, setAcknowledgeSetupPr] = useState(false);
@@ -100,6 +118,9 @@ export function DocumentationSource({
     repository: string;
     branch: string;
     directory: string;
+    docs: boolean;
+    /** Folder pages now sync from, or why they don't yet. */
+    pages: { directory: string; synced: boolean } | null;
   } | null>(null);
   const storageKey = `documentation-git-plan:${workspaceKey}`;
   const setupStorageKey = `documentation-git-setup:${workspaceKey}`;
@@ -144,7 +165,9 @@ export function DocumentationSource({
       sessionStorage.setItem(storageKey, plan.planId);
       setMigration(plan);
       setBranch(plan.selection.branch);
-      setDirectory(plan.selection.directory);
+      setRoot(plan.selection.root);
+      // Pages are checked after the setup PR merges; remember the choice.
+      setPagesEnabled(sessionStorage.getItem(`${storageKey}:pages`) === "1");
       setInstallationId(String(plan.selection.installationId));
       setRepositoryId(String(plan.selection.repositoryId));
       setVerifiedSha(plan.status === "verified" ? plan.verifiedSha : null);
@@ -160,7 +183,10 @@ export function DocumentationSource({
         setRepositories(result);
         if (result.installationId) setInstallationId(String(result.installationId));
         const upgrade = sessionStorage.getItem(upgradeStorageKey);
-        if (upgrade) setGrantReview(JSON.parse(upgrade));
+        if (upgrade) {
+          setGrantReview(JSON.parse(upgrade));
+          setWriteConsents(currentWriteAccess(current));
+        }
       } catch (error) {
         if (!(error instanceof ApiError) || error.code !== "GITHUB_SETUP_EXPIRED")
           throw error;
@@ -196,8 +222,10 @@ export function DocumentationSource({
         const upgrade = sessionStorage.getItem(upgradeStorageKey);
         if (upgrade) {
           setGrantReview(JSON.parse(upgrade));
-          setWriteConsents([false, false]);
-          setSource(await getDocumentationGitSource());
+          const current = await getDocumentationGitSource();
+          setSource(current);
+          // Start from what's granted now, so confirming keeps it.
+          setWriteConsents(currentWriteAccess(current));
           if (!returned)
             throw new Error("GitHub permission review was not completed. Restart it.");
           return;
@@ -305,14 +333,16 @@ export function DocumentationSource({
       installationId: Number(installationId),
       repositoryId: Number(repositoryId),
       branch,
-      directory,
+      root: folders.root,
+      ...(docsEnabled ? {} : { docsEnabled: false }),
+      ...(pagesEnabled ? { pagesEnabled: true } : {}),
     };
   }
   async function review(createSetup = false) {
     setConsents([false]);
     setDiagnostics([]);
     setVerifiedSha(null);
-    if (source?.source === "editor" && (hasCmsContent || createSetup)) {
+    if (docsEnabled && source?.source === "editor" && (hasCmsContent || createSetup)) {
       const s = await getDocumentationSettings();
       const plan = await planDocumentationGitMigration({
         ...selection(),
@@ -322,14 +352,25 @@ export function DocumentationSource({
       setMigration(plan);
       setAcknowledgeSetupPr(false);
       sessionStorage.setItem(storageKey, plan.planId);
+      sessionStorage.setItem(`${storageKey}:pages`, pagesEnabled ? "1" : "");
     } else {
       const report = await preflightDocumentationGit(selection());
+      // No docs folder yet: offer to create it in a setup pull request
+      // instead of stopping at "must exist".
+      if (
+        docsEnabled &&
+        canPublish &&
+        !report.publishable &&
+        report.diagnostics.some((d) => d.code === "SOURCE_DIRECTORY_UNAVAILABLE")
+      )
+        return review(true);
       setPreflight(report);
       setDiagnostics(report.diagnostics);
     }
   }
   function clearSetup() {
     sessionStorage.removeItem(storageKey);
+    sessionStorage.removeItem(`${storageKey}:pages`);
     setMigration(null);
     setVerifiedSha(null);
     setConsents([false]);
@@ -384,6 +425,7 @@ export function DocumentationSource({
         consent,
       });
       sessionStorage.removeItem(storageKey);
+      sessionStorage.removeItem(`${storageKey}:pages`);
       setMigration(null);
     } else if (preflight?.publishable) {
       result = await connectDocumentationGit({
@@ -395,10 +437,28 @@ export function DocumentationSource({
         consent,
       });
     } else return;
+    let pages: { directory: string; synced: boolean } | null = null;
+    if (preflight?.publishable && preflight.pages) {
+      pages = {
+        directory: preflight.pages.directory,
+        synced: preflight.pages.publishable,
+      };
+    } else if (pagesEnabled) {
+      // The docs setup PR connected the repository; pages are checked now.
+      const check = await previewGitPages().catch(() => null);
+      if (check?.publishable) await enableGitPages({ commitSha: check.commitSha });
+      pages = {
+        directory: check?.directory ?? folders.pages,
+        synced: Boolean(check?.publishable),
+      };
+      result = await getDocumentationGitSource();
+    }
     setConnectedInfo({
       repository: migration?.repositoryName ?? repositoryName ?? "your repository",
       branch,
       directory,
+      docs: docsEnabled,
+      pages,
     });
     setSource(result);
     setPreflight(null);
@@ -409,7 +469,11 @@ export function DocumentationSource({
     await onChanged();
   }
   const canReview = Boolean(
-    setupId && installationId && repositoryId && branch.trim() && directory.trim(),
+    setupId &&
+      installationId &&
+      repositoryId &&
+      branch.trim() &&
+      (docsEnabled || pagesEnabled),
   );
   const repositoryName = repositories?.repositories.find(
     (repository) => String(repository.repositoryId) === repositoryId,
@@ -421,8 +485,13 @@ export function DocumentationSource({
     diagnostics.some((diagnostic) => diagnostic.blocksPublish);
   const pullRequestStatus = migration?.pullRequest?.status ?? "";
   const setupStopped = ["canceled", "expired"].includes(migration?.status ?? "");
+  // A pages-only connection keeps docs in the editor but is still connected.
   const wizardMode = Boolean(
-    connectedInfo || (source?.configured && source.source === "editor" && !grantReview),
+    connectedInfo ||
+      (source?.configured &&
+        source.source === "editor" &&
+        (!source.binding || source.status === "disconnected") &&
+        !grantReview),
   );
   type View =
     | "connect"
@@ -516,7 +585,9 @@ export function DocumentationSource({
     return [
       {
         title: "FrontLit opens a pull request",
-        note: `Adds your ${fileCount} files to ${migration?.selection.directory ?? directory}/ on a new branch.`,
+        note: fileCount
+          ? `Adds your ${fileCount} ${fileCount === 1 ? "file" : "files"} to ${migration?.selection.directory ?? directory}/ on a new branch.`
+          : `Creates an empty ${migration?.selection.directory ?? directory}/ folder on a new branch.`,
         state: at[0],
         waiting: "Opening the pull request…",
       },
@@ -594,10 +665,18 @@ export function DocumentationSource({
       </div>
     </Disclosure>
   );
+  const publishNow = [
+    docsEnabled && "docs",
+    pagesEnabled && !(preflight?.publishable && preflight.pages?.missing) && "pages",
+  ]
+    .filter(Boolean)
+    .join(" and ");
   const consentRows = (
     <div className="space-y-3">
       {[
-        `Publish the selected docs now, and automatically publish valid updates merged or pushed to ${branch}/${directory}.`,
+        publishNow
+          ? `Publish the selected ${publishNow} now, and automatically publish valid updates merged or pushed to ${branch}.`
+          : `Automatically publish valid updates merged or pushed to ${branch}.`,
       ].map((label, i) => (
         <ConsentRow
           key={label}
@@ -648,7 +727,7 @@ export function DocumentationSource({
       <>
         <StepIntro
           title="Connect your GitHub account"
-          lead="FrontLit reads and proposes changes through a GitHub App. You'll choose the repository for your docs next."
+          lead="FrontLit reads and proposes changes through a GitHub App. You'll choose the repository next."
         />
         {installationReturned && (
           <Callout tone="info" title="You're back from GitHub">
@@ -671,7 +750,7 @@ export function DocumentationSource({
       <>
         <StepIntro
           title="Choose a repository"
-          lead="Pick the GitHub account and repository that will hold your docs."
+          lead="Pick the GitHub account and repository that will hold your docs or pages."
         />
         {!repositories && <p className="text-muted-foreground text-sm">Loading…</p>}
         {repositories?.installUrl && (
@@ -793,25 +872,57 @@ export function DocumentationSource({
       </>
     );
   } else if (view === "folder") {
+    const mapRows: PublishMapRow[] = [
+      {
+        kind: "folder",
+        path: folders.root ? `${folders.root}/` : "Repository root",
+        note: "site folder",
+      },
+      ...(pagesEnabled
+        ? ([
+            { kind: "file", path: folders.siteFile, note: "header, footer and theme" },
+          ] as const)
+        : []),
+      ...(docsEnabled
+        ? ([
+            { kind: "folder", path: `${folders.docs}/`, note: "docs" },
+            {
+              kind: "route",
+              file: "getting-started.md",
+              route: "/docs/getting-started",
+            },
+          ] as const)
+        : []),
+      ...(pagesEnabled
+        ? ([
+            { kind: "folder", path: `${folders.pages}/`, note: "landing pages" },
+            { kind: "route", file: "index.json", route: "/" },
+            { kind: "route", file: "pricing.json", route: "/pricing" },
+          ] as const)
+        : []),
+    ];
     wizardBody = (
       <>
         <StepIntro
-          title="Choose where docs live"
+          title="Choose what to sync"
           lead={
             <>
-              FrontLit publishes from one branch and one folder in{" "}
-              <b className="font-medium text-foreground">
-                {repositoryName ?? "the repository"}
-              </b>
-              .
+              Pick what FrontLit should publish from{" "}
+              <Mono>
+                <b className="font-semibold text-foreground">
+                  {repositoryName ?? "the repository"}
+                </b>
+              </Mono>
+              . Turn on one or both.
             </>
           }
         />
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="git-branch">Publishing branch</Label>
+        <div className="space-y-5">
+          <div className="grid grid-cols-[auto_14rem_1fr] items-center gap-x-4 gap-y-3">
+            <Label htmlFor="git-branch">Publish from branch</Label>
             <Input
               id="git-branch"
+              className="font-mono"
               value={branch}
               disabled={busy}
               onChange={(e) => {
@@ -819,25 +930,83 @@ export function DocumentationSource({
                 setPreflight(null);
               }}
             />
-            <p className="text-muted-foreground text-xs">
-              Merged changes on this branch go live on your docs site.
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="git-directory">Documentation folder</Label>
+            <span className="text-muted-foreground text-sm">
+              Changes merged here go live.
+            </span>
+            <Label htmlFor="git-root">Site folder</Label>
             <Input
-              id="git-directory"
-              value={directory}
+              id="git-root"
+              className="font-mono"
+              value={root}
+              placeholder="Repository root"
               disabled={busy}
               onChange={(e) => {
-                setDirectory(e.target.value);
+                setRoot(e.target.value);
                 setPreflight(null);
               }}
             />
-            <p className="text-muted-foreground text-xs">
-              Relative to the repository root, for example <Code>docs</Code>.
-            </p>
+            <span className="text-muted-foreground text-sm">
+              Holds everything FrontLit syncs. Leave empty for the repository root.
+            </span>
           </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SyncCard
+              title="Docs"
+              checked={docsEnabled}
+              disabled={busy}
+              onChange={(checked) => {
+                setDocsEnabled(checked);
+                setPreflight(null);
+              }}
+              description={
+                <>
+                  Markdown files in <Mono>{folders.docs}/</Mono> publish to{" "}
+                  <Mono>/docs</Mono>.
+                </>
+              }
+            >
+              {hasCmsContent ? (
+                <p className="text-muted-foreground">
+                  FrontLit opens a pull request that adds your current docs to this
+                  folder.
+                </p>
+              ) : (
+                <p className="text-muted-foreground">
+                  Folder not there yet?{" "}
+                  <LinkButton
+                    disabled={busy || !canReview || !canPublish}
+                    onClick={() => void action(() => review(true))}
+                  >
+                    Start with an empty one
+                  </LinkButton>
+                </p>
+              )}
+            </SyncCard>
+            <SyncCard
+              title="Landing pages"
+              checked={pagesEnabled}
+              disabled={busy}
+              onChange={(checked) => {
+                setPagesEnabled(checked);
+                setPreflight(null);
+              }}
+              description={
+                <>
+                  One JSON file per page in <Mono>{folders.pages}/</Mono>, plus{" "}
+                  <Mono>{folders.siteFile}</Mono> for the header, footer and theme.
+                </>
+              }
+            >
+              <Callout>
+                GitHub becomes the source of your pages, header and footer. Builder
+                edits turn into pull requests. You can export your current pages to this
+                folder after connecting.
+              </Callout>
+            </SyncCard>
+          </div>
+          {mapRows.length > 0 && (
+            <PublishMap branch={branch || "main"} rows={mapRows} />
+          )}
         </div>
       </>
     );
@@ -846,23 +1015,12 @@ export function DocumentationSource({
         <Button variant="ghost" disabled={busy} onClick={() => setFolderStep(false)}>
           Back
         </Button>
-        <div className="flex items-center gap-2.5">
-          {!hasCmsContent && (
-            <Button
-              variant="outline"
-              disabled={busy || !canReview || !canPublish}
-              onClick={() => void action(() => review(true))}
-            >
-              Start with an empty docs folder
-            </Button>
-          )}
-          <Button
-            disabled={busy || !canReview || (hasCmsContent && !canPublish)}
-            onClick={() => void action(() => review())}
-          >
-            {hasCmsContent ? "Review setup" : "Check repository"}
-          </Button>
-        </div>
+        <Button
+          disabled={busy || !canReview || (hasCmsContent && !canPublish)}
+          onClick={() => void action(() => review())}
+        >
+          {hasCmsContent && docsEnabled ? "Review setup" : "Check repository"}
+        </Button>
       </>
     );
   } else if (view === "review" && migration) {
@@ -881,23 +1039,29 @@ export function DocumentationSource({
           <SummaryRow label="Branch" action={changeLink(true)}>
             <Mono>{migration.selection.branch}</Mono>
           </SummaryRow>
-          <SummaryRow label="Folder" action={changeLink(true)}>
+          <SummaryRow label="Docs folder" action={changeLink(true)}>
             <Mono>{migration.selection.directory}/</Mono>
           </SummaryRow>
-          <SummaryRow
-            label="Files"
-            action={
-              <LinkButton
-                aria-expanded={showFiles}
-                onClick={() => setShowFiles((v) => !v)}
-              >
-                {showFiles ? "Hide" : "View"}
-              </LinkButton>
-            }
-          >
-            {fileCount} to copy
-          </SummaryRow>
-          {showFiles && (
+          {fileCount === 0 ? (
+            <SummaryRow label="Files" action={null}>
+              None yet. The pull request creates the empty folder.
+            </SummaryRow>
+          ) : (
+            <SummaryRow
+              label="Files"
+              action={
+                <LinkButton
+                  aria-expanded={showFiles}
+                  onClick={() => setShowFiles((v) => !v)}
+                >
+                  {showFiles ? "Hide" : "View"}
+                </LinkButton>
+              }
+            >
+              {fileCount} to copy
+            </SummaryRow>
+          )}
+          {fileCount > 0 && showFiles && (
             <>
               <FileList files={files} />
               {migration.nextOffset !== null && (
@@ -922,6 +1086,13 @@ export function DocumentationSource({
             </>
           )}
         </SummaryCard>
+        {pagesEnabled && (
+          <Callout tone="info" title="Landing pages come next">
+            After you merge, FrontLit checks <Mono>{folders.pages}/</Mono>. If it
+            doesn&apos;t exist yet, export your current pages to it from the repository
+            dialog.
+          </Callout>
+        )}
         {isEmptyRepo && (
           <Callout tone="warning" title="This repository is empty">
             A pull request needs a base branch, so FrontLit first adds an empty{" "}
@@ -954,7 +1125,9 @@ export function DocumentationSource({
         >
           {isEmptyRepo
             ? `I approve adding ${migration.selection.directory}/.gitkeep to ${migration.selection.branch} and opening a pull request with these ${fileCount} files.`
-            : `I approve opening a pull request with these ${fileCount} files.`}
+            : fileCount
+              ? `I approve opening a pull request with ${fileCount === 1 ? "this file" : `these ${fileCount} files`}.`
+              : `I approve opening a pull request that creates the empty ${migration.selection.directory}/ folder.`}
           {draftCount > 0 && " This includes the unpublished drafts above."}
         </ConsentRow>
         {migration.pullRequest?.diagnostic && (
@@ -1220,11 +1393,11 @@ export function DocumentationSource({
     wizardBody = (
       <>
         <StepIntro
-          title="Review your repository's docs"
+          title="Review what goes live"
           lead={
             preflight.repositoryPrivate
-              ? "Published docs found in this folder become public on your docs site."
-              : "This repository is public, and published docs in this folder become public on your docs site."
+              ? "Published files in the chosen folders become public on your site."
+              : "This repository is public, and published files in the chosen folders become public on your site."
           }
         />
         <SummaryCard>
@@ -1235,12 +1408,39 @@ export function DocumentationSource({
           <SummaryRow label="Branch" action={null}>
             <Mono>{preflight.branch}</Mono>
           </SummaryRow>
-          <SummaryRow label="Folder" action={null}>
-            <Mono>{preflight.directory}/</Mono>
+          <SummaryRow label="Site folder" action={null}>
+            <Mono>{folders.root ? `${folders.root}/` : "Repository root"}</Mono>
           </SummaryRow>
-          <SummaryRow label="Docs" action={null}>
-            {preflight.publishedCount} public of {preflight.fileCount} files
-          </SummaryRow>
+          {docsEnabled ? (
+            <>
+              <SummaryRow label="Docs folder" action={null}>
+                <Mono>{preflight.directory}/</Mono>
+              </SummaryRow>
+              <SummaryRow label="Docs" action={null}>
+                {preflight.publishedCount} public of {preflight.fileCount} files
+              </SummaryRow>
+            </>
+          ) : (
+            <SummaryRow label="Docs" action={null}>
+              Stay in FrontLit
+            </SummaryRow>
+          )}
+          {preflight.pages && (
+            <SummaryRow label="Pages" action={null}>
+              {preflight.pages.missing ? (
+                <>
+                  <Mono>{preflight.pages.directory}/</Mono> doesn&apos;t exist yet
+                </>
+              ) : (
+                <>
+                  <Mono>{preflight.pages.directory}/</Mono> ·{" "}
+                  {preflight.pages.pages.length === 1
+                    ? "1 page"
+                    : `${preflight.pages.pages.length} pages`}
+                </>
+              )}
+            </SummaryRow>
+          )}
           <SummaryRow label="Commit" action={null}>
             <Mono>{preflight.commitSha.slice(0, 7)}</Mono>
           </SummaryRow>
@@ -1252,15 +1452,30 @@ export function DocumentationSource({
             public publication.
           </p>
         )}
-        <Disclosure label="Pages that will go live">
-          <ul className="space-y-1">
-            {preflight.routes.map((r) => (
-              <li key={r.path} className="font-mono">
-                {r.path} → /docs/{r.route}
-              </li>
-            ))}
-          </ul>
-        </Disclosure>
+        {docsEnabled && (
+          <Disclosure label="Docs that will go live">
+            <ul className="space-y-1">
+              {preflight.routes.map((r) => (
+                <li key={r.path} className="font-mono">
+                  {r.path} → /docs/{r.route}
+                </li>
+              ))}
+            </ul>
+          </Disclosure>
+        )}
+        {preflight.pages?.missing ? (
+          <Callout tone="info" title="No pages folder yet">
+            Connect now, then export your current pages to{" "}
+            <Mono>{preflight.pages.directory}/</Mono> from the repository dialog.
+            Merging that pull request turns pages sync on.
+          </Callout>
+        ) : (
+          preflight.pages && (
+            <div className="space-y-3 rounded-[0.625rem] border border-border px-4 py-3.5 text-sm">
+              <PagesPreviewDetails preview={preflight.pages} />
+            </div>
+          )
+        )}
         {consentRows}
       </>
     );
@@ -1291,23 +1506,32 @@ export function DocumentationSource({
           <span className="grid size-16 place-items-center rounded-full bg-[var(--success-soft)] text-[var(--success)]">
             <Check className="size-[30px]" strokeWidth={2.4} />
           </span>
-          <h3 className="font-semibold text-lg">Documentation connected</h3>
+          <h3 className="font-semibold text-lg">Repository connected</h3>
           <p className="max-w-[440px] text-muted-foreground text-sm">
-            FrontLit now publishes your docs from{" "}
-            <Mono>{connectedInfo.directory}/</Mono> on{" "}
-            <Mono>{connectedInfo.branch}</Mono> in {connectedInfo.repository}. Merge
-            changes there and they show up on your site.
+            Merge changes on <Mono>{connectedInfo.branch}</Mono> in{" "}
+            {connectedInfo.repository} and they show up on your site.
           </p>
         </div>
         <SummaryCard>
           <SummaryRow label="Repository">
             <b className="font-medium">{connectedInfo.repository}</b>
           </SummaryRow>
-          <SummaryRow label="Source">
-            <Mono>
-              {connectedInfo.branch} · {connectedInfo.directory}/
-            </Mono>
-          </SummaryRow>
+          {connectedInfo.docs && (
+            <SummaryRow label="Docs">
+              <Mono>{connectedInfo.directory}/</Mono>
+            </SummaryRow>
+          )}
+          {connectedInfo.pages && (
+            <SummaryRow label="Pages">
+              <Mono>{connectedInfo.pages.directory}/</Mono>
+              {connectedInfo.pages.synced ? null : (
+                <span className="text-muted-foreground">
+                  {" "}
+                  · not synced yet; set it up from the repository dialog
+                </span>
+              )}
+            </SummaryRow>
+          )}
         </SummaryCard>
       </>
     );
@@ -1401,16 +1625,19 @@ export function DocumentationSource({
           if (!busy) setOpen(value);
         }}
       >
-        <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-[600px]">
+        <DialogContent
+          className={`gap-0 overflow-hidden p-0 ${wizardMode ? "sm:max-w-[760px]" : "sm:max-w-[600px]"}`}
+        >
           {wizardMode ? (
             <WizardShell
               current={wizardCurrent}
               finished={view === "done"}
               header={
                 <DialogHeader>
-                  <DialogTitle>Connect documentation source</DialogTitle>
+                  <DialogTitle>Connect GitHub repository</DialogTitle>
                   <DialogDescription>
-                    Sync docs from GitHub. Your live docs stay up the whole time.
+                    Sync docs and landing pages from GitHub. Your live site stays up the
+                    whole time.
                   </DialogDescription>
                 </DialogHeader>
               }
@@ -1440,10 +1667,12 @@ export function DocumentationSource({
               icon={<Github />}
               header={
                 <DialogHeader>
-                  <DialogTitle>Documentation source</DialogTitle>
+                  <DialogTitle>
+                    {source?.binding ? "GitHub repository" : "Documentation source"}
+                  </DialogTitle>
                   <DialogDescription>
-                    {source?.source === "git"
-                      ? "Docs sync from GitHub. If sync pauses or fails, readers keep seeing the last good version."
+                    {source?.binding
+                      ? "Your docs and pages sync from GitHub. If a sync fails, your site keeps showing the last good version."
                       : "Manage docs here, or connect GitHub to review changes through pull requests."}
                   </DialogDescription>
                 </DialogHeader>

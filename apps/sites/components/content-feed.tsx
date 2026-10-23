@@ -18,7 +18,7 @@ export const CONTENT_FEED_SOURCES = [
 export type ContentFeedSource = (typeof CONTENT_FEED_SOURCES)[number];
 
 /** Name stored by FrontLit's standard content pages in the generic data slot. */
-export const FRONTLIT_CONTENT_FEED_SLOT = "frontlit.content-feed";
+export const CONTENT_FEED_SLOT = "content-feed";
 
 export function isContentFeedSource(value: unknown): value is ContentFeedSource {
   return CONTENT_FEED_SOURCES.includes(value as ContentFeedSource);
@@ -76,7 +76,7 @@ async function ProductUpdatesFeed({ teamId }: { teamId: string }) {
       subtitle={settings?.subtitle}
       jsonLd={serializeJsonLd(
         changelogJsonLd({
-          siteName: settings?.title || "FrontLit site",
+          siteName: settings?.title || "Website",
           url: `https://${canonicalHost}/changelog`,
           entries: items.map((entry) => ({
             name: entry.title ?? entry.slug,
@@ -110,7 +110,7 @@ export function ContentFeed({
  * contract. Other applications can provide different loaders for their own
  * slot names without importing FrontLit's content model.
  */
-export const frontlitContentFeedLoader: DataSlotLoader = ({ instance, pageData }) => {
+export const contentFeedLoader: DataSlotLoader = ({ instance, pageData }) => {
   const source = instance.settings?.source;
   if (!pageData.teamId || !isContentFeedSource(source)) return null;
   return (

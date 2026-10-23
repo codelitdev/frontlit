@@ -16,6 +16,7 @@
       "!**/migrations",
       "!**/node_modules",
       "!**/*.generated.ts",
+      "!packages/page-builder/schema",
       "!**/*.tgz"
     ]
   },

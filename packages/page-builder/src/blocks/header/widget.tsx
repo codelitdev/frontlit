@@ -1,58 +1,16 @@
-import React, { useState } from "react";
+import React from "react";
 import clsx from "clsx";
-import { MenuIcon } from "lucide-react";
 import type { WidgetProps, ThemeStyle } from "../../models";
-import type { HeaderNavLink, HeaderSettings } from "./settings";
-import { FRONTLIT_NAME, FrontLitLogo, Image, NavLink } from "../../components";
-import {
-  Button,
-  Drawer,
-  Header4,
-  Link as PrimitiveLink,
-  Section,
-} from "../../primitives";
-
-function HeaderLink({
-  link,
-  theme,
-  onClick,
-  fullWidth = false,
-}: {
-  link: HeaderNavLink;
-  theme?: ThemeStyle;
-  onClick?: () => void;
-  /** Mobile menu: button links span the sheet, like the CTA. */
-  fullWidth?: boolean;
-}) {
-  if (link.isButton) {
-    return (
-      <NavLink href={link.href} onClick={onClick}>
-        <Button
-          size={fullWidth ? undefined : "sm"}
-          theme={theme}
-          className={fullWidth ? "w-full" : undefined}
-        >
-          {link.label}
-        </Button>
-      </NavLink>
-    );
-  }
-
-  return (
-    <NavLink href={link.href} onClick={onClick} className="no-underline">
-      <PrimitiveLink theme={theme} className="no-underline">
-        {link.label}
-      </PrimitiveLink>
-    </NavLink>
-  );
-}
+import type { HeaderSettings } from "./settings";
+import { Image } from "../../components/image";
+import { NavLink } from "../../components/nav-link";
+import { Button, Header4, Section } from "../../primitives";
+import { HeaderLink } from "./header-link";
+import { HeaderMobileMenu } from "./mobile-menu";
 
 export function HeaderWidget({
   settings: {
-    logoText,
-    logoImage,
     logoCorners,
-    logoRadius,
     links = [],
     ctaLabel,
     ctaHref,
@@ -66,29 +24,22 @@ export function HeaderWidget({
   },
   state: { theme },
   pageData,
-  nextTheme,
 }: WidgetProps<HeaderSettings>) {
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
   overriddenTheme.structure.section.padding.y =
     verticalPadding || theme.theme.structure.section.padding.y;
 
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const isFloating = layout === "floating";
   const isCentered = layout === "centered";
   const isFixed = !isFloating;
   const primaryLinks = links.filter((link) => !link.isButton);
   const buttonLinks = links.filter((link) => link.isButton);
-  // On a published tenant site, branding is owned by the site settings,
-  // not the header instance. Retain the block-local image for standalone
-  // renderer and builder previews where no tenant logo is supplied.
-  const resolvedLogoImage = pageData.siteLogoUrl || logoImage;
-  // Without a logo the header shows FrontLit's mark; without a site
-  // title or logo either, FrontLit's name too.
-  const resolvedLogoText =
-    logoText || pageData.siteTitle || (resolvedLogoImage ? undefined : FRONTLIT_NAME);
+  // The logo and title always come from Branding; an unset one renders nothing.
+  const resolvedLogoImage = pageData.siteLogoUrl;
+  const resolvedLogoText = pageData.siteTitle;
   const resolvedLogoAlt = pageData.siteLogoAlt || resolvedLogoText || "";
-  const effectiveLogoCorners = logoCorners ?? logoRadius ?? 2;
+  const effectiveLogoCorners = logoCorners ?? 2;
 
   const logo = (
     <NavLink href="/" className="no-underline">
@@ -99,11 +50,11 @@ export function HeaderWidget({
             alt={resolvedLogoAlt}
             width="w-8"
             height="h-8"
+            sizes="32px"
             className="aspect-square shrink-0"
             borderRadius={effectiveLogoCorners}
           />
         )}
-        {!resolvedLogoImage && <FrontLitLogo className="h-8 w-8 shrink-0" />}
         {resolvedLogoText && (
           <Header4 theme={overriddenTheme} as="span">
             {resolvedLogoText}
@@ -130,37 +81,12 @@ export function HeaderWidget({
         </div>
       )}
       <div className="lg:hidden">
-        <Drawer
-          open={mobileNavOpen}
-          setOpen={setMobileNavOpen}
-          side="right"
+        <HeaderMobileMenu
+          links={links}
+          ctaLabel={ctaLabel}
+          ctaHref={ctaHref}
           theme={overriddenTheme}
-          trigger={
-            <Button variant="outline" size="sm" theme={overriddenTheme}>
-              <MenuIcon className="h-4 w-4" />
-              <span className="sr-only">Toggle menu</span>
-            </Button>
-          }
-        >
-          <div className="mt-6 flex flex-col gap-4">
-            {links.map((link) => (
-              <HeaderLink
-                key={link.id}
-                link={link}
-                theme={overriddenTheme}
-                onClick={() => setMobileNavOpen(false)}
-                fullWidth
-              />
-            ))}
-            {ctaLabel && ctaHref && (
-              <NavLink href={ctaHref} onClick={() => setMobileNavOpen(false)}>
-                <Button theme={overriddenTheme} className="w-full">
-                  {ctaLabel}
-                </Button>
-              </NavLink>
-            )}
-          </div>
-        </Drawer>
+        />
       </div>
     </div>
   );
@@ -219,7 +145,6 @@ export function HeaderWidget({
       component="header"
       id={cssId}
       background={background}
-      nextTheme={nextTheme}
       className={clsx(
         "sticky top-0 z-20",
         isFixed && "border-b",

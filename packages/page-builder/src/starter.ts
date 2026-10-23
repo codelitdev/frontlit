@@ -25,6 +25,18 @@ export function createWidgetInstance(
   };
 }
 
+/** Fills each block's unset settings with its defaults. Saved layouts omit
+ * settings equal to a default (the renderer merges them back), so the
+ * builder's panels need them filled in to show what's on the canvas. */
+export function withDefaultSettings(layout: WidgetInstance[]): WidgetInstance[] {
+  return layout.map((widget) => {
+    const defaults = blockRegistry[widget.name]?.getDefaultSettings?.();
+    return defaults
+      ? { ...widget, settings: { ...defaults, ...widget.settings } }
+      : widget;
+  });
+}
+
 /** Ensures a builder layout always has one locked header and footer.
  * API validation remains the hard boundary; this repair keeps legacy/empty
  * initial layouts usable and prevents the UI from ever presenting a page

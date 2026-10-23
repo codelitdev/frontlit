@@ -26,7 +26,12 @@ ${urls}
 
 /** Per-host robots policy (architecture.md §12.3) — the embed iframe is
  * disallowed since it's an isolated widget surface, not a content page. */
-export function buildRobotsTxt(canonicalHost: string): string {
+export function buildRobotsTxt(canonicalHost: string, hidden = false): string {
+  // Pre-launch: keep crawlers out entirely until the site goes live.
+  if (hidden)
+    return `User-agent: *
+Disallow: /
+`;
   return `User-agent: *
 Allow: /
 Disallow: /embed/

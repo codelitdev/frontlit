@@ -5,6 +5,7 @@ import { makeTestDb, type TestDb } from "../test/db";
 vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 
 import { db as testDb } from "../db/client";
+import { listPages } from "../pages/queries";
 import { accounts, authSession, authUser, pages } from "../db/schema";
 import {
   createAccountWithDefaultTeam,
@@ -42,7 +43,7 @@ describe("createTeam", () => {
     });
 
     expect(team.subdomain).toBeNull();
-    expect(team.customDomain).toBeNull();
+    expect(team.customDomainVerificationToken).toBeNull();
   });
 
   it("persists provisioned DNS settings and only fills missing values on retries", async () => {
@@ -79,15 +80,14 @@ describe("createTeam", () => {
       name: `Acme ${crypto.randomUUID().slice(0, 8)}`,
     });
 
-    const teamPages = await db.query.pages.findMany({
-      where: eq(pages.teamId, team.id),
-    });
+    const teamPages = await listPages({ teamId: team.id, itemsPerPage: 100 });
     const slugs = teamPages.map((p) => p.slug).sort();
     expect(slugs).toEqual(
       ["", "blog", "changelog", "docs", "help", "privacy", "terms"].sort(),
     );
     expect(teamPages.every((p) => !p.deletable)).toBe(true);
     expect(teamPages.every((p) => p.publishedAt !== null)).toBe(true);
+    expect(teamPages.every((p) => p.status === "published")).toBe(true);
     expect(
       teamPages.every(
         (p) => p.layout[0]?.name === "header" && p.layout.at(-1)?.name === "footer",
@@ -125,7 +125,7 @@ describe("createTeam", () => {
           moveable: true,
           shared: false,
           settings: {
-            slot: "frontlit.content-feed",
+            slot: "content-feed",
             source,
           },
         }),
@@ -145,9 +145,7 @@ describe("createTeam", () => {
       ],
     });
 
-    const teamPages = await db.query.pages.findMany({
-      where: eq(pages.teamId, team.id),
-    });
+    const teamPages = await listPages({ teamId: team.id, itemsPerPage: 100 });
     const bySlug = new Map(teamPages.map((p) => [p.slug, p]));
     expect(bySlug.get("blog")?.deletable).toBe(true);
     expect(bySlug.get("help")?.deletable).toBe(false);

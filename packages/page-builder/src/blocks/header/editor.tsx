@@ -4,14 +4,12 @@ import type { HeaderNavLink, HeaderSettings } from "./settings";
 import { generateUniqueId } from "../../utils";
 import {
   FieldGroup,
-  ImageField,
   ListField,
   SelectField,
   SliderField,
   TextField,
   ToggleField,
 } from "../_shared/fields";
-import { getMediaUrl } from "../../models/media";
 
 const CORNER_LABELS: Record<number, string> = {
   0: "Square",
@@ -34,25 +32,6 @@ export function HeaderEditor({
 
   return (
     <div className="flex flex-col">
-      <FieldGroup title="Logo">
-        <TextField
-          label="Logo text"
-          value={settings.logoText}
-          hint="Leave empty to use the site title from Branding."
-          onChange={(logoText) => update({ logoText: logoText || undefined })}
-        />
-        <ImageField
-          label="Logo image"
-          value={
-            settings.logoImage
-              ? typeof settings.logoImage === "string"
-                ? { url: settings.logoImage, file: settings.logoImage }
-                : (settings.logoImage as any)
-              : undefined
-          }
-          onChange={(media) => update({ logoImage: getMediaUrl(media) || undefined })}
-        />
-      </FieldGroup>
       <FieldGroup title="Navigation links">
         <ListField<HeaderNavLink>
           label="Links"
@@ -132,7 +111,7 @@ export function HeaderDesignEditor({
   const update = (partial: Partial<HeaderSettings>) =>
     onChange({ ...settings, ...partial });
 
-  const logoCorners = settings.logoCorners ?? settings.logoRadius ?? 2;
+  const logoCorners = settings.logoCorners ?? 2;
 
   return (
     <div className="flex flex-col">

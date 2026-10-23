@@ -2,6 +2,12 @@
 
 Block-based page builder and renderer for React. Self-contained — no backend and no framework lock-in. Themes, blocks, and the WYSIWYG builder all run client-side.
 
+**You and your agents can collaborate on the same pages.** People edit visually in the WYSIWYG builder. AI agents edit the same page data, which is plain JSON (blocks plus their settings), with no screenshots or browser automation involved. Both kinds of edit go through the same draft and publish flow, so you can review an agent's changes in the builder before they go live, and an agent can pick up where you left off.
+
+- **In FrontLit**, agents use the MCP server's page and theme tools: `list_pages`, `get_page`, `create_page`, `update_page`, `publish_page`, `discard_page_draft`, `list_themes`, `create_theme`, `update_theme` and the matching delete tools.
+- **To teach a coding agent to write good FrontLit pages**, install [frontlit-skills](https://github.com/codelitdev/frontlit-skills).
+- **In your own app**, the layout the builder emits through `onChange` is the same JSON your agent reads and writes. See [`docs/ai-editing.md`](./docs/ai-editing.md) for the planned in-builder AI editing design.
+
 Rich text editing and rendering live in [`@frontlit/text-editor`](https://www.npmjs.com/package/@frontlit/text-editor), which this package depends on and installs automatically.
 
 ## Installation
@@ -79,6 +85,28 @@ function AppLink(props: PageBuilderLinkProps) {
 
 `PageBuilder` accepts the same `linkComponent` prop and forwards it to the live preview.
 
+### Server rendering (React Server Components)
+
+`PageRenderer` is a client component. To render published pages on the server, use `ServerPageRenderer` from `@frontlit/page-builder/server`: static blocks render on the server and ship no JavaScript; only the interactive parts (mobile menu, marquee, email/support forms, copy buttons, links) are client islands.
+
+```tsx
+import { ServerPageRenderer } from "@frontlit/page-builder/server";
+import { resolveTheme } from "@frontlit/page-builder/theme";
+
+const theme = resolveTheme(themeId, themeStyle);
+
+<ServerPageRenderer layout={layout} theme={theme} pageData={pageData} />;
+```
+
+Because nothing crosses the server/client boundary as a function, it takes no callbacks. Instead:
+
+- **Links** — wrap the page in a client component that renders `PageBuilderLinkProvider` (from `@frontlit/page-builder/islands/nav-link`) with your router's link.
+- **Light/dark control** — pass a ready client element as `themeSwitcher` (e.g. one built on `@frontlit/page-builder/islands/theme-mode-switcher`); it is shown in the footer.
+- **Images** — call `setImageAttributesResolver` once at start-up to swap an image's `src`/`srcSet` for your optimizer's URLs (the sites app uses Next's `getImageProps`).
+- **Dark mode** — section backgrounds switch with the `dark` class on an ancestor, so the server needs no colour mode.
+
+The server build is separate from the main bundle (`tsup.server.config.ts`): its client islands are listed in `tsup.islands.ts`, built on their own with a `"use client"` banner, and imported — not bundled — by the server entry. A block that needs state or effects must either live in that list or be split so only its interactive part does. The block lookup used by the server renderer is `src/server/registry.ts`; keep it in step with `src/registry.ts` when adding a block.
+
 ## What's inside
 
 | Subpath                             | What it exports                                                                                                             |
@@ -91,6 +119,10 @@ function AppLink(props: PageBuilderLinkProps) {
 | `@frontlit/page-builder/renderer`   | `PageRenderer` — renders a page's `WidgetInstance[]` layout, with an `editing` mode for use inside the builder              |
 | `@frontlit/page-builder/builder`    | `PageBuilder` — the full WYSIWYG editor (add/remove/reorder blocks, edit settings, switch themes)                           |
 | `@frontlit/page-builder/data-slots` | Server-safe helper for hosts to resolve named data slots before rendering                                                   |
+| `@frontlit/page-builder/server`     | `ServerPageRenderer`, `setImageAttributesResolver` — server-component page rendering (see above)                            |
+| `@frontlit/page-builder/theme`      | `resolveTheme`, `themes`, `generateThemeStyles` — server-callable and light enough for client components                    |
+| `@frontlit/page-builder/primitives/server` | The hook-free primitives, callable from server components                                                            |
+| `@frontlit/page-builder/islands/*`  | Small client islands (`nav-link`, `theme-mode-switcher`) hosts can import without the full client bundle                    |
 
 `createDefaultLayout()` / `getDefaultTheme()` (exported from the root) build a ready-to-render starter landing page.
 

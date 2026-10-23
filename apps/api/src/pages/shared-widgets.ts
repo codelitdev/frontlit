@@ -1,11 +1,16 @@
 import type { SharedWidgetsRow, WidgetInstanceRow } from "../db/schema";
 import { DEFAULT_SHARED_WIDGETS } from "../db/schema";
 import { genId } from "../db/id";
+import {
+  canonicalizeLayout,
+  formatDiagnostic,
+  SchemaValidationError,
+} from "@frontlit/page-builder/schema";
 
 export const SHARED_WIDGET_NAMES = ["header", "footer"] as const;
 /** FrontLit reserves the generic core data slot for its standard content pages. */
 export const DATA_SLOT_WIDGET_NAME = "data-slot" as const;
-export const FRONTLIT_CONTENT_FEED_SLOT = "frontlit.content-feed" as const;
+export const CONTENT_FEED_SLOT = "content-feed" as const;
 export const CONTENT_FEED_SOURCES = {
   blog: "articles",
   docs: "documentation",
@@ -19,6 +24,19 @@ export class InvalidPageLayoutError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "InvalidPageLayoutError";
+  }
+}
+
+/** Validates every block against its schema and rewrites settings in
+ * canonical form (the same content a page file would import as). */
+export function canonicalPageLayout(layout: WidgetInstanceRow[]): WidgetInstanceRow[] {
+  try {
+    return canonicalizeLayout(layout);
+  } catch (error) {
+    if (!(error instanceof SchemaValidationError)) throw error;
+    throw new InvalidPageLayoutError(
+      `Invalid layout: ${error.diagnostics.map(formatDiagnostic).join("; ")}`,
+    );
   }
 }
 
@@ -57,7 +75,7 @@ function frontlitContentFeedPlaceholder(
     deletable: false,
     moveable: true,
     shared: false,
-    settings: { slot: FRONTLIT_CONTENT_FEED_SLOT, source },
+    settings: { slot: CONTENT_FEED_SLOT, source },
   };
 }
 

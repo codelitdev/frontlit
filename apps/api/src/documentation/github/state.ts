@@ -6,6 +6,7 @@ import {
   documentationPublications as publications,
 } from "../../db/schema";
 import { lockSettings } from "../authoring";
+import { hasOpenPagesSetup } from "../../pages/git-export";
 import { requireDocumentationWorkCapacity } from "../admission";
 import { DocsGitHubApp, getDocsGitHubAppConfig, GitHubDocsError } from "./app";
 
@@ -60,7 +61,10 @@ export async function enqueueGitSync(
     })) as GitBinding | undefined;
     if (
       !binding ||
-      settings.source !== "git" ||
+      // Docs need the docs source on Git; a pages-only repo needs a pages folder.
+      (binding.docsEnabled
+        ? settings.source !== "git"
+        : !binding.pagesDirectory && !(await hasOpenPagesSetup(teamId, tx))) ||
       binding.status !== "connected" ||
       !binding.capabilities.read ||
       (options.expectedGeneration !== undefined &&
@@ -123,6 +127,63 @@ export async function markGitAccessLost(
       .returning();
     if (row) await supersedeGitWork(tx, teamId);
     return row;
+  });
+}
+/** Whether a sync can run: docs on Git, a pages folder, or a pending pages setup. */
+export async function canSync(tx: any, binding: typeof bindings.$inferSelect) {
+  if (binding.docsEnabled)
+    return (await lockSettings(tx, binding.teamId)).source === "git";
+  return (
+    Boolean(binding.pagesDirectory) || (await hasOpenPagesSetup(binding.teamId, tx))
+  );
+}
+
+/**
+ * GitHub can answer 401/403 for a moment (a token race, a skewed clock) and
+ * that marks access lost. Check again on the reconcile loop and reconnect
+ * once the installation and repository answer normally.
+ */
+export async function recoverGitAccess(
+  binding: GitBinding,
+  app = new DocsGitHubApp(getDocsGitHubAppConfig()),
+) {
+  if (binding.lastDiagnostic !== "GITHUB_ACCESS_LOST" || !binding.capabilities.read)
+    return false;
+  try {
+    await readGitBindingAccess(binding, app);
+  } catch {
+    await db
+      .update(bindings)
+      .set({ nextReconcileAt: new Date(Date.now() + 15 * 60_000) })
+      .where(
+        and(
+          eq(bindings.teamId, binding.teamId),
+          eq(bindings.generation, binding.generation),
+        ),
+      );
+    return false;
+  }
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(bindings)
+      .set({
+        status: "connected",
+        generation: sql`${bindings.generation} + 1`,
+        lastDiagnostic: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(bindings.teamId, binding.teamId),
+          eq(bindings.generation, binding.generation),
+          eq(bindings.status, "access_lost"),
+        ),
+      )
+      .returning();
+    if (!row) return false;
+    if (await canSync(tx, row))
+      await enqueueGitSync(row.teamId, { trigger: "reconcile" }, tx);
+    return true;
   });
 }
 export async function readGitBindingAccess(

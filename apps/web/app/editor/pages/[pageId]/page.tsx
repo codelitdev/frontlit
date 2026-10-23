@@ -3,7 +3,9 @@
 import { use, useEffect, useMemo, useRef, useState } from "react";
 import { PageBuilder, type PageBuilderState } from "@frontlit/page-builder/builder";
 import type { Theme as BuilderTheme } from "@frontlit/page-builder/models";
+import { toast } from "sonner";
 import {
+  createPagePullRequest,
   createTheme,
   discardPageDraft,
   getPage,
@@ -26,6 +28,7 @@ import { FullScreenLoading } from "@/components/workspace/loading";
 import { SlugEditor } from "@/components/workspace/slug-editor";
 import { useEditorAccess } from "@/components/workspace/editor-access-gate";
 import { ApiError } from "@/lib/api-client";
+import { toSiteBranding, type SiteBranding } from "@frontlit/api-contract";
 
 export default function PageEditorPage({
   params,
@@ -37,10 +40,7 @@ export default function PageEditorPage({
   const [page, setPage] = useState<Page | null>(null);
   const [initialTheme, setInitialTheme] = useState<BuilderTheme | undefined>(undefined);
   const [customThemes, setCustomThemes] = useState<BuilderTheme[] | null>(null);
-  const [branding, setBranding] = useState<{
-    siteTitle?: string;
-    siteSubtitle?: string;
-  }>({});
+  const [branding, setBranding] = useState<SiteBranding>(toSiteBranding(null));
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [publishing, setPublishing] = useState(false);
   // Bumped only when the draft is reset from outside the builder (discard),
@@ -80,9 +80,7 @@ export default function PageEditorPage({
     Promise.all([
       getPage(pageId),
       canReadThemes ? listThemes() : Promise.resolve({ items: [] }),
-      canReadSettings
-        ? getTeamSettings()
-        : Promise.resolve({ themeId: null, title: null, subtitle: null }),
+      canReadSettings ? getTeamSettings() : Promise.resolve(null),
     ])
       .then(async ([loaded, savedThemes, siteSettings]) => {
         if (cancelled) return;
@@ -101,7 +99,7 @@ export default function PageEditorPage({
         );
         const resolvedTheme = await resolveEditorTheme(
           canReadSettings && canReadThemes
-            ? (siteSettings.themeId ?? "classic")
+            ? (siteSettings?.themeId ?? "classic")
             : "classic",
           async (themeId) => {
             const loadedTheme = savedThemes.items.find(
@@ -116,17 +114,14 @@ export default function PageEditorPage({
         );
         appliedSiteThemeIdRef.current =
           canReadSettings && canReadThemes
-            ? (siteSettings.themeId ?? "classic")
+            ? (siteSettings?.themeId ?? "classic")
             : "classic";
         appliedSiteThemeSnapshotRef.current = resolvedTheme
           ? themeSnapshot(resolvedTheme)
           : null;
         setInitialTheme(resolvedTheme);
         setCustomThemes(mappedThemes);
-        setBranding({
-          siteTitle: siteSettings.title ?? undefined,
-          siteSubtitle: siteSettings.subtitle ?? undefined,
-        });
+        setBranding(toSiteBranding(siteSettings));
         setPage(loaded);
       })
       .catch((error) => {
@@ -185,7 +180,18 @@ export default function PageEditorPage({
   async function handlePublish() {
     setPublishing(true);
     try {
-      setPage(await publishPage(pageId));
+      if (page?.git) {
+        // Git-owned: the draft goes live when its pull request is merged.
+        const pr = await createPagePullRequest(pageId);
+        toast.success(`Opened pull request #${pr.number}`, {
+          action: { label: "View", onClick: () => window.open(pr.url, "_blank") },
+        });
+        setPage(await getPage(pageId));
+      } else {
+        setPage(await publishPage(pageId));
+      }
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Something went wrong");
     } finally {
       setPublishing(false);
     }
@@ -235,13 +241,20 @@ export default function PageEditorPage({
             slug={page.slug}
             prefix="/"
             onSave={handleSlugSave}
-            disabled={!page.deletable}
-            disabledReason={`The ${page.name} URL is fixed at /${page.slug}.`}
+            disabled={!page.deletable || Boolean(page.git)}
+            disabledReason={
+              page.git
+                ? `The URL comes from the file name, ${page.git.path}.`
+                : `The ${page.name} URL is fixed at /${page.slug}.`
+            }
             testId="page-slug-input"
             compact
           />
         }
         onPublish={handlePublish}
+        publishLabel={page.git ? "Create pull request" : "Publish"}
+        publishingLabel={page.git ? "Opening pull request…" : "Publishing…"}
+        extra={page.git ? <GitPageLinks git={page.git} /> : undefined}
         onDiscardDraft={handleDiscardDraft}
         discardDescription="Discard all unpublished changes on this page? This cannot be undone."
       />
@@ -251,7 +264,7 @@ export default function PageEditorPage({
           initialLayout={page.draftLayout}
           initialTheme={initialTheme}
           themes={{ custom: customThemes }}
-          pageData={branding}
+          pageData={{ ...branding }}
           allowThemeEditing={canWriteThemes && canWriteSettings}
           initialSeo={{
             title: page.draftTitle ?? undefined,
@@ -263,5 +276,37 @@ export default function PageEditorPage({
         />
       </div>
     </div>
+  );
+}
+
+/** "Edit in GitHub", the live commit and the latest pull request. */
+function GitPageLinks({ git }: { git: NonNullable<Page["git"]> }) {
+  return (
+    <span className="flex items-center gap-2 text-xs text-muted-foreground">
+      {git.pullRequest?.status === "open" && (
+        <a
+          href={git.pullRequest.url}
+          target="_blank"
+          rel="noreferrer"
+          className="text-primary hover:underline"
+        >
+          Pull request #{git.pullRequest.number}
+        </a>
+      )}
+      {git.liveSha && (
+        <span title="Live commit">
+          Live <code>{git.liveSha.slice(0, 7)}</code>
+        </span>
+      )}
+      <a
+        href={git.editUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="text-primary hover:underline"
+        data-testid="edit-in-github"
+      >
+        Edit in GitHub
+      </a>
+    </span>
   );
 }

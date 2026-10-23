@@ -29,6 +29,11 @@ import {
   documentationGitCheckSchema,
   documentationGitCheckListQuerySchema,
   documentationGitCheckListSchema,
+  gitPagesPreviewBodySchema,
+  gitPagesPreviewSchema,
+  gitPagesEnableBodySchema,
+  gitPagesExportSchema,
+  gitPagesStateSchema,
 } from "./schemas/documentation-github";
 const c = initContract();
 const errors = {
@@ -45,6 +50,42 @@ const errors = {
 const prefix = "/content/documentation/github";
 export const documentationGithubContract = c.router(
   {
+    previewPages: {
+      method: "POST",
+      path: `${prefix}/pages/preview`,
+      body: gitPagesPreviewBodySchema,
+      responses: { 200: gitPagesPreviewSchema, ...errors },
+      summary: "Preview the pages folder",
+      description:
+        "Dry-runs the pages importer on the connected branch's head: routes, diagnostics and the live pages that would go offline.",
+    },
+    enablePages: {
+      method: "PUT",
+      path: `${prefix}/pages`,
+      body: gitPagesEnableBodySchema,
+      responses: { 200: gitPagesStateSchema, ...errors },
+      summary: "Sync pages from the repository",
+      description:
+        "Makes every page and the site chrome Git-owned: each push to the branch publishes the folder's pages (plus site.json) as one release.",
+    },
+    exportPages: {
+      method: "POST",
+      path: `${prefix}/pages/export`,
+      body: gitPagesPreviewBodySchema,
+      responses: { 201: gitPagesExportSchema, ...errors },
+      summary: "Export pages to the repository",
+      description:
+        "Opens a setup pull request with every page as a canonical JSON file plus site.json. Merging it turns pages sync on.",
+    },
+    disablePages: {
+      method: "DELETE",
+      path: `${prefix}/pages`,
+      body: c.noBody(),
+      responses: { 200: gitPagesStateSchema, ...errors },
+      summary: "Stop syncing pages",
+      description:
+        "Hands pages back to the builder. The last release stays live until the next publish.",
+    },
     listChecks: {
       method: "GET",
       path: `${prefix}/checks`,

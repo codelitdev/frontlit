@@ -9,7 +9,7 @@ import {
   PageCard,
   PageCardContent,
   Text2,
-} from "@frontlit/page-builder/primitives";
+} from "@frontlit/page-builder/primitives/server";
 import { useSiteThemeStyle } from "@/lib/site-theme-context";
 
 type SearchHit = {

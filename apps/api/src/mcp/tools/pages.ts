@@ -5,7 +5,6 @@ import {
   countPages,
   createPage,
   deletePage,
-  derivePageStatus,
   discardPageDraft,
   getPageByPageId,
   listPages,
@@ -22,11 +21,10 @@ import {
 import { getTeamId } from "./auth";
 import { omitInternal, serializeDates } from "../../utils/public";
 import { InvalidPageLayoutError } from "../../pages/shared-widgets";
+import { PageOwnedByGitError } from "../../pages/git-pr";
 
 function toPublicPage<T extends Record<string, unknown>>(page: T) {
-  return serializeDates(
-    omitInternal({ ...page, status: derivePageStatus(page as any) }, "teamId"),
-  );
+  return serializeDates(omitInternal(page, "teamId"));
 }
 
 export function registerPageTools(server: McpToolRegistrar): void {
@@ -122,7 +120,7 @@ export function registerPageTools(server: McpToolRegistrar): void {
     "update_page",
     {
       description:
-        "Updates a page's metadata (name, SEO) and/or its block layout. Writes only the page's draft state — call publish_page to make changes live.",
+        "Updates a page's metadata (name, SEO) and/or its block layout. Writes only the page's draft state — call publish_page to make changes live. Block settings are validated against the block schemas (https://frontlit.app/schema/page.v1.json describes them; rich text there is Markdown, here TipTap JSON) and stored in canonical form, with settings equal to a block default omitted.",
       inputSchema: {
         pageId: z.string(),
         name: z.string().optional(),
@@ -147,7 +145,10 @@ export function registerPageTools(server: McpToolRegistrar): void {
         if (!page) return NOT_FOUND;
         return jsonResult(toPublicPage(page));
       } catch (error) {
-        if (error instanceof InvalidPageLayoutError) {
+        if (
+          error instanceof InvalidPageLayoutError ||
+          error instanceof PageOwnedByGitError
+        ) {
           return errorResult(error.message);
         }
         return INTERNAL_ERROR;
@@ -178,7 +179,8 @@ export function registerPageTools(server: McpToolRegistrar): void {
           return errorResult("This is a standard page and can't be deleted.");
         }
         return jsonResult({ message: "Page deleted." });
-      } catch {
+      } catch (error) {
+        if (error instanceof PageOwnedByGitError) return errorResult(error.message);
         return INTERNAL_ERROR;
       }
     },
@@ -205,7 +207,8 @@ export function registerPageTools(server: McpToolRegistrar): void {
         const page = await publishPage(teamId, args.pageId);
         if (!page) return NOT_FOUND;
         return jsonResult(toPublicPage(page));
-      } catch {
+      } catch (error) {
+        if (error instanceof PageOwnedByGitError) return errorResult(error.message);
         return INTERNAL_ERROR;
       }
     },

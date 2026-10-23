@@ -8,6 +8,7 @@ import {
   Code,
   ContactRound,
   FileText,
+  History,
   Globe,
   Images,
   Inbox,
@@ -41,6 +42,7 @@ import { WEBSITE_TABS, websiteTabHref } from "@/lib/website-tabs";
 
 const WEBSITE_TAB_ICONS = {
   pages: FileText,
+  releases: History,
   branding: Palette,
   domain: Globe,
   "code-injection": Code,

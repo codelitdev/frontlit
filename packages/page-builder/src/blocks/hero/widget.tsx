@@ -4,13 +4,16 @@ import type { ThemeStyle } from "../../models";
 import { getMediaUrl, getMediaAlt } from "../../models/media";
 import type { HeroSettings } from "./settings";
 import { renderTitle, titleProps } from "../_shared/title";
-import { Image, NavLink, TextRenderer, VideoWithPreview } from "../../components";
+import { Image } from "../../components/image";
+import { NavLink } from "../../components/nav-link";
+import { TextRenderer } from "../../components/text-renderer";
+import { VideoWithPreview } from "../../components/video-with-preview";
+import { CodeSnippet } from "../../primitives/code-snippet";
 import { isVideo } from "../../utils";
 import clsx from "clsx";
 import {
   Button,
   Caption,
-  CodeSnippet,
   Display,
   Preheader,
   Subheader1,
@@ -56,7 +59,6 @@ export function HeroWidget({
     layout = "normal",
   },
   state: { theme },
-  nextTheme,
 }: WidgetProps<HeroSettings>) {
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
@@ -83,6 +85,8 @@ export function HeroWidget({
           src={mediaUrl || ""}
           alt={getMediaAlt(media)}
           borderRadius={mediaRadius}
+          // The hero sits at the top of the page, so its image is the LCP.
+          priority
         />
       )}
     </div>
@@ -174,12 +178,7 @@ export function HeroWidget({
   }
 
   return (
-    <Section
-      theme={overriddenTheme}
-      id={cssId}
-      background={background}
-      nextTheme={nextTheme}
-    >
+    <Section theme={overriddenTheme} id={cssId} background={background}>
       {layout === "card" ? (
         <PageCard theme={overriddenTheme}>
           <PageCardContent theme={overriddenTheme}>{mainContent}</PageCardContent>

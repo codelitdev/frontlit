@@ -1,12 +1,13 @@
 import type { Metadata, ResolvingMetadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { getPageBySlug, getSettings } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
-import { getCanonicalHost } from "@/lib/request-host";
+import { getCanonicalHost, isNoindex } from "@/lib/request-host";
 import { organizationAndWebsiteJsonLd, serializeJsonLd } from "@/lib/json-ld";
 import { API_PUBLIC_URL } from "@/lib/config";
 import { loadSiteTheme } from "@/lib/load-site-theme";
 import { SitePageRenderer } from "@/components/site-page-renderer";
+import { toSiteBranding } from "@frontlit/api-contract";
 
 interface Props {
   params: Promise<{ teamId: string; slug?: string[] }>;
@@ -37,43 +38,45 @@ export async function generateMetadata(
       fallbackName: isHomepage ? undefined : page.name,
     },
     settings,
-    previous.title?.absolute || "FrontLit site",
+    previous.title?.absolute || "Website",
   );
 
+  const url = `https://${await getCanonicalHost()}/${page.slug}`;
+  const index = seo.robotsIndex && !(await isNoindex());
   return {
     // The layout's template appends the site title; the homepage is the
     // site itself, so its title stands alone.
     title: isHomepage ? { absolute: seo.title } : seo.title,
     description: seo.description ?? undefined,
-    alternates: {
-      canonical: `https://${await getCanonicalHost()}/${page.slug}`,
-    },
+    alternates: { canonical: url },
     openGraph: {
+      url,
       title: seo.title,
       description: seo.description ?? undefined,
       images: seo.imageUrl ? [{ url: seo.imageUrl }] : undefined,
     },
-    robots: { index: seo.robotsIndex, follow: seo.robotsIndex },
+    robots: { index, follow: index },
   };
 }
 
 export default async function SitePage({ params }: Props) {
   const { teamId, page } = await loadPage(params);
-  if (!page) notFound();
+  if (!page) {
+    // Redirects from site.json only apply where no page exists.
+    const path = `/${((await params).slug ?? []).join("/")}`;
+    const settings = await getSettings(teamId);
+    const match = settings?.redirects?.find(
+      (redirect) => (redirect.from.replace(/\/+$/, "") || "/") === path,
+    );
+    if (match) (match.permanent === false ? redirect : permanentRedirect)(match.to);
+    notFound();
+  }
 
   const canonicalHost = await getCanonicalHost();
   const [settings, siteTheme] = await Promise.all([
     getSettings(teamId),
     loadSiteTheme(teamId),
   ]);
-  const siteLogoUrl =
-    typeof settings?.logo?.url === "string" ? settings.logo.url : null;
-  const siteLogoAlt =
-    typeof settings?.logo?.alt === "string"
-      ? settings.logo.alt
-      : typeof settings?.logo?.caption === "string"
-        ? settings.logo.caption
-        : null;
 
   return (
     <>
@@ -95,14 +98,11 @@ export default async function SitePage({ params }: Props) {
         layout={page.layout}
         themeId={siteTheme.themeId}
         themeStyle={siteTheme.themeStyle}
-        siteLogoUrl={siteLogoUrl}
-        siteLogoAlt={siteLogoAlt}
         pageData={{
           teamId,
           pageSlug: page.slug,
           publicApiBaseUrl: API_PUBLIC_URL,
-          siteTitle: settings?.title ?? undefined,
-          siteSubtitle: settings?.subtitle ?? undefined,
+          ...toSiteBranding(settings),
         }}
       />
     </>

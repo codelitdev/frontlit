@@ -5,7 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import type { ThemeStyle, WidgetProps } from "../../models";
 import type { FeaturedSettings } from "./settings";
 import { renderTitle, titleProps } from "../_shared/title";
-import { TextRenderer } from "../../components";
+import { TextRenderer } from "../../components/text-renderer";
 import {
   Header1,
   Header4,
@@ -43,7 +43,6 @@ export function FeaturedWidget({
     background,
   },
   state: { theme },
-  nextTheme,
 }: WidgetProps<FeaturedSettings>) {
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
@@ -51,12 +50,7 @@ export function FeaturedWidget({
     verticalPadding || theme.theme.structure.section.padding.y;
 
   return (
-    <Section
-      theme={overriddenTheme}
-      id={cssId}
-      background={background}
-      nextTheme={nextTheme}
-    >
+    <Section theme={overriddenTheme} id={cssId} background={background}>
       <div className="flex flex-col gap-8">
         <div
           className={clsx(
