@@ -1,0 +1,17 @@
+{
+  "mode": "pre",
+  "tag": "alpha",
+  "initialVersions": {
+    "@frontlit/api": "0.1.0",
+    "@frontlit/docs": "0.1.0",
+    "@frontlit/sites": "0.1.0",
+    "@frontlit/web": "0.1.0",
+    "@frontlit/components-demo": "0.1.0",
+    "@frontlit/api-contract": "0.1.0",
+    "@frontlit/media-uploader": "0.1.0-alpha.0",
+    "@frontlit/page-builder": "0.1.0-alpha.3",
+    "@frontlit/preview": "0.1.0-alpha.1",
+    "@frontlit/text-editor": "0.1.0-alpha.2"
+  },
+  "changesets": []
+}
