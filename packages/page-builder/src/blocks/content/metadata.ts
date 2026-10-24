@@ -6,4 +6,5 @@ export const contentMetadata: WidgetMetadata = {
   description:
     "A rich-text section with an optional image, for things like an about-us or feature explainer.",
   compatibleWith: ["site", "landing", "blog", "post", "custom"],
+  icon: "Newspaper",
 };

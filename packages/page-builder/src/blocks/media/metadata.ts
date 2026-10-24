@@ -6,4 +6,5 @@ export const mediaMetadata: WidgetMetadata = {
   description:
     "A single image or video — YouTube, Vimeo or self-hosted — with an optional click-to-play preview.",
   compatibleWith: ["site", "landing", "blog", "post", "custom"],
+  icon: "Image",
 };

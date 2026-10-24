@@ -1,5 +1,6 @@
 import React from "react";
 import clsx from "clsx";
+import { Github } from "lucide-react";
 import type { WidgetProps, ThemeStyle } from "../../models";
 import type { HeaderSettings } from "./settings";
 import { Image } from "../../components/image";
@@ -7,6 +8,8 @@ import { NavLink } from "../../components/nav-link";
 import { Button, Header4, Section } from "../../primitives";
 import { HeaderLink } from "./header-link";
 import { HeaderMobileMenu } from "./mobile-menu";
+import { GithubStars } from "./github-stars";
+import { parseGithubRepo } from "./github";
 
 export function HeaderWidget({
   settings: {
@@ -17,6 +20,8 @@ export function HeaderWidget({
     linkAlignment = "left",
     layout = "fixed",
     backdropBlur = false,
+    githubRepo,
+    showGithubStars,
     cssId,
     maxWidth,
     verticalPadding,
@@ -40,6 +45,8 @@ export function HeaderWidget({
   const resolvedLogoText = pageData.siteTitle;
   const resolvedLogoAlt = pageData.siteLogoAlt || resolvedLogoText || "";
   const effectiveLogoCorners = logoCorners ?? 2;
+  const hasCta = Boolean(ctaLabel && ctaHref);
+  const repo = parseGithubRepo(githubRepo);
 
   const logo = (
     <NavLink href="/" className="no-underline">
@@ -66,12 +73,25 @@ export function HeaderWidget({
 
   const ctaAndMenu = (
     <div className="flex items-center gap-3">
+      {repo && (
+        <a
+          href={`https://github.com/${repo}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Button theme={overriddenTheme} variant="ghost" size="sm" className="gap-1.5">
+            <Github className="h-4 w-4" aria-hidden />
+            <span className="sr-only">GitHub repository</span>
+            {showGithubStars && <GithubStars repo={repo} />}
+          </Button>
+        </a>
+      )}
       {buttonLinks.map((link) => (
         <div className="hidden lg:!block" key={link.id}>
           <HeaderLink link={link} theme={overriddenTheme} />
         </div>
       ))}
-      {ctaLabel && ctaHref && (
+      {hasCta && (
         <div className="hidden lg:!block">
           <NavLink href={ctaHref}>
             <Button theme={overriddenTheme} size="sm">
@@ -80,14 +100,16 @@ export function HeaderWidget({
           </NavLink>
         </div>
       )}
-      <div className="lg:hidden">
-        <HeaderMobileMenu
-          links={links}
-          ctaLabel={ctaLabel}
-          ctaHref={ctaHref}
-          theme={overriddenTheme}
-        />
-      </div>
+      {(links.length > 0 || hasCta) && (
+        <div className="lg:hidden">
+          <HeaderMobileMenu
+            links={links}
+            ctaLabel={ctaLabel}
+            ctaHref={ctaHref}
+            theme={overriddenTheme}
+          />
+        </div>
+      )}
     </div>
   );
 

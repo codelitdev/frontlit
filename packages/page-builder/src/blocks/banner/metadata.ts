@@ -5,4 +5,5 @@ export const bannerMetadata: WidgetMetadata = {
   displayName: "Banner",
   description: "A strong, punchy call-to-action strip.",
   compatibleWith: ["site", "landing", "blog", "post", "custom"],
+  icon: "Megaphone",
 };

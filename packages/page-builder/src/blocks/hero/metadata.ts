@@ -5,4 +5,5 @@ export const heroMetadata: WidgetMetadata = {
   displayName: "Hero",
   description: "A large introductory section with a title, copy and CTAs.",
   compatibleWith: ["site", "landing", "blog", "post", "custom"],
+  icon: "Sparkles",
 };

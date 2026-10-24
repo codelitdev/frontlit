@@ -5,4 +5,5 @@ export const headerMetadata: WidgetMetadata = {
   displayName: "Header",
   description: "The site navigation bar, pinned to the top of every page.",
   compatibleWith: ["site", "landing", "blog", "post", "custom"],
+  icon: "PanelTop",
 };

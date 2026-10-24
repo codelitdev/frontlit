@@ -5,4 +5,5 @@ export const pricingMetadata: WidgetMetadata = {
   displayName: "Pricing",
   description: "A grid of pricing tiers with features and calls to action.",
   compatibleWith: ["site", "landing", "custom"],
+  icon: "BadgeDollarSign",
 };

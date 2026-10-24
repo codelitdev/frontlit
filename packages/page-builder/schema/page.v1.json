@@ -2243,6 +2243,26 @@
                     ],
                     "default": "center"
                   },
+                  "pricingSwitcher": {
+                    "type": "boolean",
+                    "description": "Show a Monthly/Yearly switch above the plans."
+                  },
+                  "monthlyPriceCaption": {
+                    "type": "string",
+                    "description": "Defaults to \"Monthly\"."
+                  },
+                  "yearlyPriceCaption": {
+                    "type": "string",
+                    "description": "Defaults to \"Yearly\", e.g. \"Yearly (2 months free)\"."
+                  },
+                  "defaultPeriod": {
+                    "type": "string",
+                    "enum": [
+                      "monthly",
+                      "yearly"
+                    ],
+                    "description": "Period selected on load. Defaults to yearly."
+                  },
                   "tiers": {
                     "type": "array",
                     "items": {
@@ -2253,7 +2273,11 @@
                         },
                         "price": {
                           "type": "string",
-                          "description": "Display string, e.g. \"$29/mo\"."
+                          "description": "Display string, e.g. \"$29/month\". The monthly price when pricingSwitcher is on."
+                        },
+                        "priceYearly": {
+                          "type": "string",
+                          "description": "Shown when the switch is on Yearly, e.g. \"$290/year\". Falls back to price."
                         },
                         "description": {
                           "type": "string"
@@ -2268,6 +2292,10 @@
                           "type": "string"
                         },
                         "buttonAction": {
+                          "type": "string",
+                          "description": "A site path (\"/pricing\"), anchor (\"/#faq\") or absolute URL."
+                        },
+                        "buttonActionYearly": {
                           "type": "string",
                           "description": "A site path (\"/pricing\"), anchor (\"/#faq\") or absolute URL."
                         },

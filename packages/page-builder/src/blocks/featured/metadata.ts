@@ -6,4 +6,5 @@ export const featuredMetadata: WidgetMetadata = {
   description:
     "A grid of feature highlights, each with an icon, title and description.",
   compatibleWith: ["site", "landing", "custom"],
+  icon: "LayoutGrid",
 };
