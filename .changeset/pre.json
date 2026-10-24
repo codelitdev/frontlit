@@ -13,5 +13,10 @@
     "@frontlit/preview": "0.1.0-alpha.1",
     "@frontlit/text-editor": "0.1.0-alpha.2"
   },
-  "changesets": []
+  "changesets": [
+    "local-page-preview",
+    "media-uploader-upload-notice",
+    "page-builder-editor-feedback",
+    "text-editor-flush-pending"
+  ]
 }
