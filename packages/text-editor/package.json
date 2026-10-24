@@ -63,7 +63,6 @@
   ],
   "scripts": {
     "build": "tsup && tsup --config tsup.renderer.config.ts && node scripts/add-use-client.mjs && tailwindcss -i src/styles.css -o dist/styles.css && cp src/prose.css dist/prose.css && cp src/tokens.css dist/tokens.css",
-    "prepublishOnly": "bun run build",
     "dev": "tsup --watch",
     "clean": "rimraf dist",
     "check-types": "tsc --noEmit",
