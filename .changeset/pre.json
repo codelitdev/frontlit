@@ -16,6 +16,7 @@
   "changesets": [
     "local-page-preview",
     "media-uploader-upload-notice",
+    "page-builder-137-pricing-header",
     "page-builder-editor-feedback",
     "text-editor-flush-pending"
   ]
