@@ -1,6 +1,6 @@
 {
   "name": "@frontlit/media-uploader",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "description": "Reusable media and file upload dialog with library and Unsplash tabs for React",
   "author": "FrontLit",
   "license": "MIT",
