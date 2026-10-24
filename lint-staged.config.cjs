@@ -19,7 +19,7 @@ module.exports = (files) => {
   const eslintFiles = eligibleFiles.filter((file) => ESLINT_EXTENSIONS.test(file));
 
   return [
-    biomeFiles.length > 0 && `biome format --write ${biomeFiles.map(quote).join(" ")}`,
+    biomeFiles.length > 0 && `biome format --write --no-errors-on-unmatched ${biomeFiles.map(quote).join(" ")}`,
     eslintFiles.length > 0 &&
       `eslint --quiet --cache --fix ${eslintFiles.map(quote).join(" ")}`,
   ].filter(Boolean);
