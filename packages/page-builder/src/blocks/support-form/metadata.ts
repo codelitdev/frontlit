@@ -6,4 +6,5 @@ export const supportFormMetadata: WidgetMetadata = {
   description:
     "Raises a support ticket, suggesting matching help articles before the visitor submits.",
   compatibleWith: ["site", "landing", "custom"],
+  icon: "LifeBuoy",
 };

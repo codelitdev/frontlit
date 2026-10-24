@@ -6,4 +6,5 @@ export const dataSlotMetadata: WidgetMetadata = {
   description:
     "A host-resolved data region. Its data source and presentation belong to the embedding application.",
   compatibleWith: ["site", "blog", "landing", "post", "custom"],
+  icon: "Database",
 };

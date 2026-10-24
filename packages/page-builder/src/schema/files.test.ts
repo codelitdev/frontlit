@@ -171,6 +171,27 @@ describe("canonicalizeLayout", () => {
     expect(canonicalizeLayout([{ name: "header" }])).toEqual([{ name: "header" }]);
   });
 
+  it("accepts the pricing period switch", () => {
+    const settings = {
+      pricingSwitcher: true,
+      yearlyPriceCaption: "Yearly (2 months free)",
+      defaultPeriod: "monthly",
+      tiers: [
+        {
+          name: "Pro",
+          price: "$10/month",
+          priceYearly: "$100/year",
+          features: [],
+          buttonAction: "/buy",
+          buttonActionYearly: "/buy?period=yearly",
+        },
+      ],
+    };
+    expect(canonicalizeLayout([{ name: "pricing", settings }])).toEqual([
+      { name: "pricing", settings },
+    ]);
+  });
+
   it("rejects unknown settings with a layout pointer", () => {
     const diagnostics = diagnosticsOf(() =>
       canonicalizeLayout([{ name: "faq", settings: { items: [{ question: "Q" }] } }]),
@@ -198,6 +219,17 @@ describe("site files", () => {
     expect(parsed.footer).toBeUndefined();
     expect(parsed.redirects).toEqual([{ from: "/old", to: "/new" }]);
     expect(serializeSiteFile(parseSiteFile(text))).toBe(text);
+  });
+
+  it("accepts the header's GitHub repo, including a cleared one", () => {
+    for (const githubRepo of [
+      "codelitdev/medialit",
+      "https://github.com/codelitdev/medialit",
+      "",
+    ]) {
+      const site = JSON.stringify({ header: { githubRepo, showGithubStars: true } });
+      expect(parseSiteFile(site).header).toMatchObject({ githubRepo });
+    }
   });
 });
 

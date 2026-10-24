@@ -54,6 +54,38 @@ export function PricingEditor({
           ]}
         />
       </FieldGroup>
+      <FieldGroup title="Billing period">
+        <ToggleField
+          label="Monthly/Yearly switch"
+          value={settings.pricingSwitcher}
+          onChange={(pricingSwitcher) => update({ pricingSwitcher })}
+        />
+        {settings.pricingSwitcher && (
+          <>
+            <TextField
+              label="Monthly caption"
+              value={settings.monthlyPriceCaption}
+              placeholder="Monthly"
+              onChange={(monthlyPriceCaption) => update({ monthlyPriceCaption })}
+            />
+            <TextField
+              label="Yearly caption"
+              value={settings.yearlyPriceCaption}
+              placeholder="Yearly (2 months free)"
+              onChange={(yearlyPriceCaption) => update({ yearlyPriceCaption })}
+            />
+            <SelectField
+              label="Selected by default"
+              value={settings.defaultPeriod ?? "yearly"}
+              onChange={(defaultPeriod) => update({ defaultPeriod })}
+              options={[
+                { label: "Monthly", value: "monthly" },
+                { label: "Yearly", value: "yearly" },
+              ]}
+            />
+          </>
+        )}
+      </FieldGroup>
       <FieldGroup title="Pricing tiers">
         <ListField<PricingTier>
           label="Tiers"
@@ -69,11 +101,20 @@ export function PricingEditor({
                 onChange={(name) => updateTier({ name })}
               />
               <TextField
-                label="Price"
+                label={settings.pricingSwitcher ? "Monthly price" : "Price"}
                 value={tier.price}
                 placeholder="$29/mo"
                 onChange={(price) => updateTier({ price })}
               />
+              {settings.pricingSwitcher && (
+                <TextField
+                  label="Yearly price"
+                  value={tier.priceYearly}
+                  placeholder="$290/year"
+                  hint="Leave empty to show the monthly price."
+                  onChange={(priceYearly) => updateTier({ priceYearly })}
+                />
+              )}
               <TextField
                 label="Description"
                 value={tier.description}
@@ -103,6 +144,14 @@ export function PricingEditor({
                 value={tier.buttonAction}
                 onChange={(buttonAction) => updateTier({ buttonAction })}
               />
+              {settings.pricingSwitcher && (
+                <TextField
+                  label="Yearly button link"
+                  value={tier.buttonActionYearly}
+                  hint="Leave empty to use the button link."
+                  onChange={(buttonActionYearly) => updateTier({ buttonActionYearly })}
+                />
+              )}
               <ToggleField
                 label="Highlight this tier"
                 value={tier.highlighted}

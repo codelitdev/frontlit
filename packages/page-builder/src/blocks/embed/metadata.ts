@@ -6,4 +6,5 @@ export const embedMetadata: WidgetMetadata = {
   description:
     "Embed a URL in an iframe, or paste a script/iframe snippet from a third-party tool.",
   compatibleWith: ["site", "landing", "blog", "post", "custom"],
+  icon: "AppWindow",
 };
