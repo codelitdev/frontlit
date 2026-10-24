@@ -47,7 +47,6 @@
   ],
   "scripts": {
     "build": "tsup && node scripts/add-use-client.mjs && tailwindcss -i src/styles.css -o dist/styles.css",
-    "prepublishOnly": "bun run build",
     "dev": "tsup --watch",
     "clean": "rimraf dist",
     "check-types": "tsc --noEmit"

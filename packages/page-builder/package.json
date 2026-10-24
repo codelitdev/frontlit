@@ -149,7 +149,6 @@
   ],
   "scripts": {
     "build": "tsup && tsup --config tsup.islands.config.ts && tsup --config tsup.server.config.ts && tsup --config tsup.schema.config.ts && node scripts/add-use-client.mjs && tailwindcss -i src/styles.css -o dist/styles.css && cp src/theme.css dist/theme.css && rm -rf dist/fonts && cp -a fonts dist/fonts && node scripts/rewrite-font-urls.mjs",
-    "prepublishOnly": "bun run build",
     "dev": "tsup --watch & tsup --watch --config tsup.islands.config.ts & tsup --watch --config tsup.server.config.ts & wait",
     "clean": "rimraf dist",
     "check-types": "tsc --noEmit",
