@@ -1,6 +1,6 @@
 {
   "name": "@frontlit/preview",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "description": "Local, file-watching previews for FrontLit page JSON",
   "type": "module",
   "license": "MIT",
