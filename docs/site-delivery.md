@@ -369,6 +369,7 @@ which prefetches on intent: hover, focus or touch.
 | `EDGE_CACHE_TTL`                        | `60`       | `s-maxage` in `ttl` mode                               |
 | `EDGE_PURGE_ADAPTER`                    | `http`     | Purge adapter in `purge` mode (set on `apps/api`)      |
 | `EDGE_PURGE_URL`, `EDGE_PURGE_SECRET`   | unset      | Target of the `http` adapter (set on `apps/api`)       |
+| `EDGE_PORT`, `VARNISH_SIZE`             | `8080`, `512M` | `deploy/edge-cache` only: Varnish port and cache size |
 | `ASSET_PREFIX`                          | unset      | Separate host for `/_next/static` (build time)          |
 | `IMAGE_LOADER`                          | `default`  | `default` (built-in optimizer) or a loader URL template |
 

@@ -13,10 +13,13 @@ visitor → Caddy (TLS, unchanged) → Varnish → frontlit-sites
 
 ## Run it
 
-1. Set a secret shared by the API and the purge receiver in `.env`:
+1. Set a secret shared by the API and the purge receiver in `.env`, and
+   optionally the published port and cache size:
 
    ```
    EDGE_PURGE_SECRET=<openssl rand -base64 48>
+   EDGE_PORT=8080        # default
+   VARNISH_SIZE=512M     # default
    ```
 
 2. Start the stack with the override file:
