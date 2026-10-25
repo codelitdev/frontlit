@@ -11,7 +11,7 @@ Git, site releases), [#81](https://github.com/codelitdev/frontlit/issues/81)
 [#141](https://github.com/codelitdev/frontlit/issues/141) (docs site
 performance).
 
-Status: proposal. Target customers are small and medium teams; scope, limits
+Status: implemented (v1). Target customers are small and medium teams; scope, limits
 and operational choices are sized for them and for an early-stage product.
 
 ## 1. Context
@@ -61,8 +61,10 @@ What exists in FrontLit today:
 | 7 | **The playground calls the customer API directly from the browser. No proxy in v1.** | A proxy is an SSRF surface and an operational burden. MediaLit, SendLit and FrontLit can allow the docs origin through CORS. |
 | 8 | **Operation pages ship no OpenAPI code to the browser.** Everything is computed at import, the reference is server-rendered HTML, and the playground's small script loads only on intent. | The pages are on the public site and must be as fast as a docs article (§8). |
 
-OpenAPI support is Git-only, like the issue proposes, and is configured in the
-docs part of the GitHub connection. Editor-owned docs do not get it in v1; the
+OpenAPI support is Git-only, like the issue proposes. It works with any
+GitHub connection, including one that syncs pages only; the docs themselves
+can be Git-owned or editor-owned. Teams without a GitHub connection don't
+get it in v1; the
 admin explains that connecting GitHub enables it.
 
 ### Trade-off of decision 2
@@ -205,8 +207,12 @@ Each is a diagnostic when exceeded.
 
 - Load JSON or YAML with the `yaml` package already in the repo, keeping
   source positions for diagnostics and enforcing §4.1.
-- Validate with `@scalar/openapi-parser`; normalize 3.0 to 3.1 with
-  `@scalar/openapi-upgrader`. Check their current APIs before relying on them.
+- Validate with our own checks rather than a full JSON Schema validator: the
+  `openapi` version (3.0 or 3.1), `info.title`, `paths`, every internal
+  `$ref` resolves, no `$ref`s to other files, unique `operationId`s and
+  routes. 3.0 and 3.1 are read directly; nothing is upgraded. These checks
+  give precise, readable errors; full validation would reject many real,
+  slightly off-spec generated specs.
 - Build per-operation slices, routes, anchors and search chunks:
   - one chunk per section of an operation: overview, parameters, request
     body, and one per response status, each with its anchor;
@@ -216,7 +222,8 @@ Each is a diagnostic when exceeded.
     `name (string, required): description`, not raw JSON;
   - the overview chunk includes the auth requirements.
 - Precompute everything a page needs and store it in the slice: example
-  bodies (`openapi-sampler`), code samples (curl, JavaScript, Python, plus
+  bodies (our own small generator: the spec's example, default, const or
+  first enum value, else a value built from the types), code samples (curl, JavaScript, Python, plus
   `x-codeSamples`), parsed descriptions and the playground model (§8.3).
   Code samples use the first server and placeholder credentials; they don't
   follow the server picked in "Try it".
@@ -242,12 +249,14 @@ docs, so none of their early returns or failures can skip it:
 2. Read the file with the existing `readBlob`, run the import (§6.1), and
    store the result: a `failed` row with diagnostics, or a new spec ready to
    activate.
-3. Activate in one short transaction: re-check the branch head and
-   connection generation (as `checkGitPublicationHead` does for docs),
-   replace the operation rows, delete the previous spec row, set
+3. Activate in one short transaction: re-check that the connection
+   generation, spec path and URL path are unchanged (otherwise a newer sync
+   imports again), replace the operation rows, delete the previous spec row, set
    `activeApiSpecId`, and insert an outbox event that invalidates
-   `docs:<team>` and `sitemap:<team>`. The event is a new type, which the
-   sites webhook (`/api/webhooks/documentation`) must accept.
+   `docs:<team>` and `sitemap:<team>` on the sites and, when configured, the
+   edge cache (the same destinations as a docs activation). The event is a
+   new type, `api_reference`, which the sites webhook accepts. The worker is
+   woken right away so the change is live within a second.
 4. The step catches its own errors and records them on its row. It never
    fails the sync job; pages and docs run as before.
 
@@ -281,9 +290,9 @@ public", and in the admin panel (§6.6).
 
 | Endpoint | Returns |
 | --- | --- |
-| `GET /public/:teamId/content/documentation/api` | Navigation and landing data: mount, `info`, and per operation `route`, `title`, `group`, `method`, `deprecated`. 404 if none. |
-| `GET /public/:teamId/content/documentation/api/operation?route=...` | One operation: slice, code samples, playground model. |
-| `GET /public/:teamId/content/documentation/api/openapi.json` | The served spec text, with `ETag` = content hash. |
+| `GET /public/:teamId/content/api-reference` | Navigation and landing data: mount, `info`, and per operation `route`, `title`, `group`, `method`, `deprecated`. 404 if none. |
+| `GET /public/:teamId/content/api-reference/operation?route=...` | One operation: slice, code samples, playground model. |
+| `GET /public/:teamId/content/api-reference/openapi.json` | The served spec text, with `ETag` = content hash. |
 
 ### 6.3 Public site (`apps/sites`)
 
@@ -300,6 +309,13 @@ public", and in the admin panel (§6.6).
     authentication, parameter tables, request-body schema tree
     (`oneOf`/`anyOf`/`allOf`), responses per status with schemas and
     examples, code-sample tabs, and the "Try it" button.
+- Layout: on wide themes the operation page has three columns (docs sidebar,
+  content, a sticky code panel with "Try it", code samples and response
+  examples). Columns follow the width of the theme's container, not the
+  viewport: when it is narrower than 1,024px (Editorial), the code panels
+  move below the content and "Try it" sits under the description.
+- Reads are cached like docs (`"use cache"` tagged `docs:<team>`) and
+  invalidated by the API reference activation event (§6.2).
 - `lib/docs-tree.ts` / `DocsSidebar` and the docs home page: the API Section
   is merged in from the `api` endpoint, after the docs Sections, with
   operations under tag labels ordered by the spec's `tags`, then spec order.
@@ -413,11 +429,10 @@ page and can read playground inputs. The docs for teams say so.
 
 ### 6.6 Admin (`apps/web`)
 
-- The GitHub integration dialog gets the two fields from §4, with preflight
-  results.
-- The GitHub source settings get an "API reference" panel: spec path, URL
-  path, live commit, operation count, last attempt and its diagnostics, and
-  a note that the spec is published publicly.
+- The GitHub connection dialog has an "API reference" section: the two
+  fields from §4 with a preview (endpoints, URL paths, problems) before
+  publishing, then the spec path, URL path, live commit, operation count,
+  the latest failed import with its diagnostics, and "Change" / "Turn off".
 - Operations do not appear in the docs list, so it isn't flooded with
   generated pages.
 
@@ -447,8 +462,8 @@ response, and the playground costs nothing until it is used.
   operation row and maps it to primitives.
 - Navigation reads only titles and routes. Slices are never part of the docs
   snapshot.
-- `apps/sites` never depends on the parser, upgrader or `openapi-sampler`.
-  The browser never downloads them.
+- `apps/sites` never depends on the import code (parser, validation,
+  example and code-sample generators). The browser never downloads it.
 
 ### 8.2 Server-rendered reference with no JavaScript
 
@@ -486,7 +501,8 @@ response, and the playground costs nothing until it is used.
 ### 8.4 `/openapi.json`
 
 - Cached under `docs:<team>` and invalidated by the spec activation event.
-- `ETag` equal to the spec's content hash; served compressed.
+- `ETag` equal to the spec's content hash, with `304` for a matching
+  `If-None-Match`.
 
 ## 9. Departures from the issue's expanded design
 
@@ -511,9 +527,9 @@ response, and the playground costs nothing until it is used.
 4. The playground, loaded on intent, with its size measured against the
    budget.
 
-Each step is smoke-tested end to end in the browser against a team connected
-to a test docs repository. Steps 3 and 4 are also checked against the
-budgets in §8.
+All four steps are done and were smoke-tested end to end in the browser
+against a team connected to a test docs repository, in all six preset
+themes (light and dark).
 
 **Later:**
 - Semantic embeddings for operations (a background job and a vector table).
