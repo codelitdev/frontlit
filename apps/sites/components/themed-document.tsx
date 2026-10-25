@@ -46,6 +46,8 @@ export async function ThemedBlogPost({
               src={imageUrl}
               alt={imageAlt}
               theme={theme}
+              priority
+              sizes="(min-width: 1024px) 1024px, 100vw"
               className="aspect-[2/1] max-h-[480px] w-full object-cover"
             />
           </div>
