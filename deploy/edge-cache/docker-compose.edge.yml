@@ -1,0 +1,41 @@
+# Optional edge cache in front of frontlit-sites (docs/site-delivery.md §5).
+# Not part of the default stack. Use it together with docker-compose.yml:
+#
+#   docker compose -f docker-compose.yml -f deploy/edge-cache/docker-compose.edge.yml up
+#
+# and point Caddy (or your load balancer) at varnish:80 instead of
+# frontlit-sites:3002. TLS stays where it is.
+services:
+    frontlit-sites:
+        environment:
+            EDGE_CACHE_MODE: purge
+
+    frontlit-api:
+        environment:
+            EDGE_PURGE_ADAPTER: http
+            EDGE_PURGE_URL: http://edge-purge:8090
+            EDGE_PURGE_SECRET: ${EDGE_PURGE_SECRET:?Set EDGE_PURGE_SECRET}
+
+    varnish:
+        image: varnish:7.6
+        restart: unless-stopped
+        environment:
+            VARNISH_SIZE: ${VARNISH_SIZE:-512M}
+        volumes:
+            - ./deploy/edge-cache/default.vcl:/etc/varnish/default.vcl:ro
+        depends_on:
+            - frontlit-sites
+        ports:
+            - "${EDGE_PORT:-8080}:80"
+
+    edge-purge:
+        image: node:22-alpine
+        restart: unless-stopped
+        environment:
+            EDGE_PURGE_SECRET: ${EDGE_PURGE_SECRET:?Set EDGE_PURGE_SECRET}
+            VARNISH_URL: http://varnish:80
+        volumes:
+            - ./deploy/edge-cache/purge-receiver.mjs:/app/purge-receiver.mjs:ro
+        command: ["node", "/app/purge-receiver.mjs"]
+        depends_on:
+            - varnish

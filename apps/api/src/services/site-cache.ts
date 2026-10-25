@@ -4,6 +4,12 @@ import { db } from "../db/client";
 import { siteCacheOutbox, teams } from "../db/schema";
 import { logger } from "./log";
 import { signWebhookPayload } from "./webhook-signing";
+import {
+  deliverEdgePurge,
+  edgeDestinations,
+  edgePurgeAdapter,
+  NotYetDue,
+} from "./edge-purge";
 
 /**
  * Public-site cache invalidation (docs/site-delivery.md §4.5). apps/sites
@@ -27,9 +33,10 @@ export const siteTags = {
 type Executor = Pick<typeof db, "insert" | "query">;
 type TagBuilder = (publicTeamId: string) => string[];
 
-/** Where invalidations go. Unset secret = no public site to invalidate. */
+/** Where invalidations go: the sites (Layer 1), then an edge cache when
+ * one is configured. Unset secret = no public site to invalidate. */
 function destinations(): string[] {
-  return process.env.REVALIDATE_WEBHOOK_SECRET ? ["sites"] : [];
+  return process.env.REVALIDATE_WEBHOOK_SECRET ? ["sites", ...edgeDestinations()] : [];
 }
 
 /**
@@ -126,14 +133,17 @@ export function revalidateRequest(
 type OutboxRow = typeof siteCacheOutbox.$inferSelect;
 
 async function deliver(destination: string, event: OutboxRow): Promise<void> {
-  if (destination !== "sites") throw new Error(`Unknown destination ${destination}`);
-  const secret = process.env.REVALIDATE_WEBHOOK_SECRET;
-  if (!secret) throw new Error("REVALIDATE_WEBHOOK_SECRET is not set");
   const team = await db.query.teams.findFirst({
     where: eq(teams.id, event.teamId),
     columns: { teamId: true },
   });
   if (!team) return;
+  if (destination === "edge" || destination === "edge-repeat") {
+    return deliverEdgePurge(destination, event, team.teamId, event.tags);
+  }
+  if (destination !== "sites") throw new Error(`Unknown destination ${destination}`);
+  const secret = process.env.REVALIDATE_WEBHOOK_SECRET;
+  if (!secret) throw new Error("REVALIDATE_WEBHOOK_SECRET is not set");
   const { url, init } = revalidateRequest(
     event,
     team.teamId,
@@ -200,6 +210,13 @@ export async function deliverSiteCacheEvent(): Promise<boolean> {
       .set({ completedAt: new Date(), leaseToken: null, leaseExpiresAt: null })
       .where(owned);
   } catch (error) {
+    if (error instanceof NotYetDue) {
+      await db
+        .update(siteCacheOutbox)
+        .set({ nextAttemptAt: error.at, leaseToken: null, leaseExpiresAt: null })
+        .where(owned);
+      return true;
+    }
     logger.warn(
       {
         eventId: claimed.eventId,
@@ -239,6 +256,17 @@ function scheduleDelivery() {
 }
 
 export function startSiteCacheWorker(intervalMs = 1000): () => void {
+  if (edgeDestinations().length) {
+    try {
+      if (!edgePurgeAdapter())
+        throw new Error("EDGE_PURGE_URL and EDGE_PURGE_SECRET are required");
+    } catch (error) {
+      logger.error(
+        { error: error instanceof Error ? error.message : String(error) },
+        "Edge purging is misconfigured; edge purges will retry until it is fixed",
+      );
+    }
+  }
   let stopped = false;
   let lastCleanup = 0;
   async function tick() {

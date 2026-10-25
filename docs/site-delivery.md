@@ -243,22 +243,25 @@ The mode is chosen with `EDGE_CACHE_MODE`.
 | `ttl`            | `CDN-Cache-Control: public, s-maxage=$EDGE_CACHE_TTL, stale-while-revalidate=86400, stale-if-error=604800`               | none; staleness capped at the TTL    |
 | `purge`          | `CDN-Cache-Control: public, s-maxage=31536000, stale-while-revalidate=86400, stale-if-error=604800`, plus `Surrogate-Key` and `Cache-Tag` | outbox → purge adapter              |
 
-In every mode the browser gets `Cache-Control: public, max-age=0,
-must-revalidate`. Uncached routes (§4.6) always send `private, no-store`,
-so they are never stored at the edge.
+In `ttl` and `purge` mode the browser gets `Cache-Control: public,
+max-age=0, must-revalidate`, and `Surrogate-Control` repeats the edge
+lifetime for caches that read it instead of `CDN-Cache-Control`. Uncached
+routes (§4.6: `/help/tickets/*`, `/_preview/*`, `/embed/chat`) send
+`private, no-store` in every mode, so they are never stored at the edge.
+The headers are set in `proxy.ts` (`lib/edge-cache.ts`); Next keeps them
+on the rendered response.
 
 **Edge tags** are computed in `proxy.ts` from the URL path, so the edge
 never needs page IDs. They use the same names as §4.3:
 
 | Path                         | Edge tags                                     |
 | ---------------------------- | --------------------------------------------- |
-| any                          | `team:<team>`                                 |
-| `/docs`, `/docs/*`           | `docs:<team>`                                 |
-| `/blog`, `/blog/*`           | `blog:<team>`                                 |
-| `/changelog`, `/changelog/*` | `changelog:<team>`                            |
+| any                          | `team:<team>`, `shell:<team>` (every route renders settings or chrome) |
+| `/docs`, `/docs/*`           | `docs:<team>`; `/docs` also `page:<team>:docs` |
+| `/blog`, `/blog/*`           | `blog:<team>`; `/blog` also `page:<team>:blog` |
+| `/changelog`, `/changelog/*` | `changelog:<team>`; `/changelog` also `page:<team>:changelog` |
 | `/sitemap.xml`               | `sitemap:<team>`                              |
 | other page paths             | `page:<team>:<slug>`                          |
-| every HTML route             | `shell:<team>` (the shell is baked into every page) |
 
 **Purge adapters.** The outbox gains an `edge` destination, used only in
 `purge` mode, that calls `purge(tags[])` on the configured adapter:
@@ -277,8 +280,12 @@ never needs page IDs. They use the same names as §4.3:
 3. A second edge purge about 10 seconds later, to catch renders that started
    before step 1 and finished after step 2.
 
+Both outboxes (`site_cache_outbox` and the documentation delivery outbox)
+deliver `sites`, then `edge`, then `edge-repeat`; `edge-repeat` waits
+until ten seconds after the event. A failed purge is retried with backoff.
 A sensitive-data purge counts as complete only after the edge destination
-acknowledges it.
+acknowledges it: its event completes then, and `GET …/purges/:purgeId`
+reports that time as `deliveredAt`.
 
 **RSC payloads.** Client navigations fetch RSC payloads from the same paths
 with an `_rsc` query parameter, and Next varies those responses on request
@@ -287,13 +294,22 @@ keep the `rsc`, `next-router-prefetch` and `_rsc` signals, so HTML and RSC
 payloads are never mixed up (Next.js `cdn-caching` guide). Every Layer 2
 setup must pass a client-navigation test behind the cache.
 
+A request whose `rsc` header and `_rsc` parameter disagree is never
+cacheable (`private, no-store`, in every mode). Next answers an `rsc`
+header without `_rsc` with a redirect; behind a cache that ignores `Vary`,
+storing that redirect at the page's own URL would send every later visitor
+to an RSC payload, and one crafted request is enough to do it. The proxy
+needs both signals to tell, so `skipProxyUrlNormalize` is on (Next strips
+them before the proxy by default).
+
 **Static assets.** `/_next/static/*` is content-hashed and already
 `immutable`; any layer caches it. An optional `ASSET_PREFIX` serves it from a
 separate host.
 
 **Self-hosted recipe (optional, documented).** Caddy (TLS, unchanged) →
 Varnish with the `xkey` module → `apps/sites`, with a small purge receiver
-wired to the `http` adapter. It is not part of the default compose stack.
+wired to the `http` adapter: [`deploy/edge-cache`](../deploy/edge-cache/README.md).
+It is not part of the default compose stack.
 
 ## 6. Page weight
 
@@ -349,11 +365,12 @@ which prefetches on intent: hover, focus or touch.
 | `IMAGE_REMOTE_HOSTS`                    | `cdn.medialit.cloud,images.unsplash.com` | Build time. Image hosts the optimizer accepts (`images.remotePatterns`) |
 | `REVALIDATE_WEBHOOK_SECRET`             | unset      | Required for publish-time invalidation; unset = pages refresh every minute |
 | `SITES_REVALIDATE_URL`                  | `SITES_BASE_URL` | Where apps/api posts invalidations (set on `apps/api`) |
-| `EDGE_CACHE_MODE`                       | `none`     | `none` \| `ttl` \| `purge` (§5)                        |
+| `EDGE_CACHE_MODE`                       | `none`     | `none` \| `ttl` \| `purge` (§5), read at runtime     |
 | `EDGE_CACHE_TTL`                        | `60`       | `s-maxage` in `ttl` mode                               |
 | `EDGE_PURGE_ADAPTER`                    | `http`     | Purge adapter in `purge` mode (set on `apps/api`)      |
 | `EDGE_PURGE_URL`, `EDGE_PURGE_SECRET`   | unset      | Target of the `http` adapter (set on `apps/api`)       |
-| `ASSET_PREFIX`                          | unset      | Separate host for `/_next/static`                      |
+| `EDGE_PORT`, `VARNISH_SIZE`             | `8080`, `512M` | `deploy/edge-cache` only: Varnish port and cache size |
+| `ASSET_PREFIX`                          | unset      | Separate host for `/_next/static` (build time)          |
 | `IMAGE_LOADER`                          | `default`  | `default` (built-in optimizer) or a loader URL template |
 
 `SITES_BASE_URL` keeps its current meaning (links in emails).
@@ -401,6 +418,16 @@ API calls are counted by a proxy between sites and the API.
 | Publish → visible (docs publication)       | next request (no cache) | 0.43–0.54 s   |
 | Second replica sees a publish (Redis)      | up to 60 s              | 0.33–0.48 s   |
 | Cold replica's first 6 views (Redis)       | 12 API calls            | 0             |
+
+Layer 2, Varnish recipe in front of the same origin (`purge` mode):
+
+| Measure                                    | Origin (Layer 1)   | Through Varnish |
+| ------------------------------------------ | ------------------ | --------------- |
+| Throughput, home / docs article / blog post | 140 / 181 / 242 req/s | 4,908 / 6,215 / 7,361 req/s |
+| p50 under load                             | 36–63 ms           | 1 ms            |
+| Publish → visible at the edge              | —                  | 0.20–0.44 s (docs 0.42–0.54 s) |
+| `ttl` mode, `EDGE_CACHE_TTL=5`, no purge    | —                  | 5.0–5.1 s       |
+| Purge receiver down for 6 s                | —                  | retried; visible at 6.7 s |
 
 Phase 1 (#71) against the commit before it, Lighthouse: performance score
 55 → 91 (home), 73 → 93 (docs), 69 → 90 (blog post); TBT 1.1–1.3 s →

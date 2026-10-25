@@ -1,5 +1,6 @@
 import { siteOriginForTeam } from "../utils/site-url";
 import { wakeDocumentationWorker } from "./worker-wake";
+import { deliverEdgePurge, edgeDestinations, NotYetDue } from "../services/edge-purge";
 import { activateGitRelease } from "../pages/git-import";
 import {
   checkGitPublicationHead,
@@ -89,8 +90,10 @@ async function event(
     policyEpoch: settings.policyEpoch,
     type,
     payload,
+    // The edge is purged after the sites acknowledge; a sensitive-data
+    // purge is complete only once every destination has.
     destinations: process.env.REVALIDATE_WEBHOOK_SECRET
-      ? ["local", "sites"]
+      ? ["local", "sites", ...edgeDestinations()]
       : ["local"],
   });
 }
@@ -1416,9 +1419,18 @@ export async function applyDocumentationPurge(
   return updated;
 }
 export async function getPurge(teamId: string, purgeId: string) {
-  return db.query.documentationPurges.findFirst({
+  const purge = await db.query.documentationPurges.findFirst({
     where: and(eq(purges.teamId, teamId), eq(purges.purgeId, purgeId)),
   });
+  if (!purge) return purge;
+  const delivery = await db.query.documentationDeliveryOutbox.findFirst({
+    where: and(
+      eq(outbox.teamId, teamId),
+      eq(outbox.type, "purge"),
+      sql`${outbox.payload}->>'purgeId' = ${purgeId}`,
+    ),
+  });
+  return { ...purge, deliveredAt: delivery?.completedAt ?? null };
 }
 
 export async function deliverDocumentationEvent(
@@ -1426,6 +1438,15 @@ export async function deliverDocumentationEvent(
     destination: string,
     event: typeof outbox.$inferSelect,
   ) => Promise<void> = async (destination, event) => {
+    if (destination === "edge" || destination === "edge-repeat") {
+      const { findTeamById } = await import("../team/queries.js");
+      const team = await findTeamById(event.teamId);
+      if (!team) return;
+      return deliverEdgePurge(destination, event, team.teamId, [
+        `docs:${team.teamId}`,
+        `sitemap:${team.teamId}`,
+      ]);
+    }
     if (destination === "sites") {
       const { findTeamById } = await import("../team/queries.js");
       const { signWebhookPayload } = await import("../services/webhook-signing.js");
@@ -1512,7 +1533,14 @@ export async function deliverDocumentationEvent(
       .update(outbox)
       .set({ completedAt: new Date(), leaseToken: null, leaseExpiresAt: null })
       .where(and(eq(outbox.eventId, claimed.eventId), eq(outbox.leaseToken, token)));
-  } catch {
+  } catch (error) {
+    if (error instanceof NotYetDue) {
+      await db
+        .update(outbox)
+        .set({ nextAttemptAt: error.at, leaseToken: null, leaseExpiresAt: null })
+        .where(and(eq(outbox.eventId, claimed.eventId), eq(outbox.leaseToken, token)));
+      return true;
+    }
     await db
       .update(outbox)
       .set({
