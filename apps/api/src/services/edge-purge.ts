@@ -34,12 +34,53 @@ export function httpPurgeAdapter(url: string, secret: string): EdgePurgeAdapter 
   };
 }
 
+/**
+ * Hosted FrontLit on Cloudflare (for SaaS): purge by `Cache-Tag` in the zone
+ * every custom hostname is attached to. Tags carry the public team ID, so
+ * one team's purge never touches another's pages. Batched below
+ * Cloudflare's per-request tag limit.
+ */
+export function cloudflarePurgeAdapter(
+  zoneId: string,
+  apiToken: string,
+  baseUrl = "https://api.cloudflare.com/client/v4",
+): EdgePurgeAdapter {
+  return {
+    async purge({ tags }) {
+      for (let start = 0; start < tags.length; start += 30) {
+        const response = await fetch(`${baseUrl}/zones/${zoneId}/purge_cache`, {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${apiToken}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ tags: tags.slice(start, start + 30) }),
+          signal: AbortSignal.timeout(10_000),
+        });
+        const result = (await response.json().catch(() => null)) as {
+          success?: boolean;
+          errors?: { message?: string }[];
+        } | null;
+        if (!response.ok || !result?.success) {
+          throw new Error(
+            `Cloudflare purge failed (${response.status}): ${result?.errors?.[0]?.message ?? "no details"}`,
+          );
+        }
+      }
+    },
+  };
+}
+
 /** The configured adapter, or null when no edge cache needs purging. */
 export function edgePurgeAdapter(env = process.env): EdgePurgeAdapter | null {
   const adapter = env.EDGE_PURGE_ADAPTER || "http";
   if (adapter === "http") {
     if (!env.EDGE_PURGE_URL || !env.EDGE_PURGE_SECRET) return null;
     return httpPurgeAdapter(env.EDGE_PURGE_URL, env.EDGE_PURGE_SECRET);
+  }
+  if (adapter === "cloudflare") {
+    if (!env.CLOUDFLARE_ZONE_ID || !env.CLOUDFLARE_API_TOKEN) return null;
+    return cloudflarePurgeAdapter(env.CLOUDFLARE_ZONE_ID, env.CLOUDFLARE_API_TOKEN);
   }
   throw new Error(`Unknown EDGE_PURGE_ADAPTER "${adapter}"`);
 }

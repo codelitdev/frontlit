@@ -371,9 +371,62 @@ which prefetches on intent: hover, focus or touch.
 | `EDGE_PURGE_URL`, `EDGE_PURGE_SECRET`   | unset      | Target of the `http` adapter (set on `apps/api`)       |
 | `EDGE_PORT`, `VARNISH_SIZE`             | `8080`, `512M` | `deploy/edge-cache` only: Varnish port and cache size |
 | `ASSET_PREFIX`                          | unset      | Separate host for `/_next/static` (build time)          |
-| `IMAGE_LOADER`                          | `default`  | `default` (built-in optimizer) or a loader URL template |
+| `IMAGE_LOADER`                          | —          | Reserved, not implemented: images use the built-in optimizer (`lib/images.ts` is the single place to add a loader) |
+| `SITE_RUM`                              | on         | `off` stops the Web Vitals beacon                      |
+| `CLOUDFLARE_ZONE_ID`, `CLOUDFLARE_API_TOKEN` | unset | `cloudflare` purge adapter (set on `apps/api`)         |
 
 `SITES_BASE_URL` keeps its current meaning (links in emails).
+
+## 7a. Hosted FrontLit edge (Phase 4)
+
+Self-hosters don't need any of this. For hosted FrontLit the edge is a
+vendor CDN in `purge` mode, behind the same `EdgePurgeAdapter` (§5).
+
+**Vendors against the #74 criteria** (checked 2026-10-25; confirm prices
+before committing):
+
+| Criterion | Cloudflare for SaaS | CloudFront SaaS Manager | Bunny | Fastly |
+| --- | --- | --- | --- | --- |
+| Custom-hostname TLS at scale | Custom hostnames: 100 included, then $0.10/hostname/month, up to 50,000 on self-serve plans | Per-tenant certificates | Free SSL per hostname | TLS domains by tier (e.g. 20 included, +$20/domain/month on the entry tier) |
+| Apex domains | Enterprise add-on (apex proxying); otherwise the customer's DNS must flatten a CNAME | Yes (static IPs via anycast, extra cost) | A/ALIAS to Bunny | Yes (anycast IPs) |
+| Purge by tag | `Cache-Tag`, all plans | Tag invalidation (`CacheTagConfig`); billed per tag after 1,000/month | `CDN-Tag`, but reportedly one tag per header value (FrontLit sends several) | `Surrogate-Key`, < 300 ms |
+| Tiered cache / shield | Tiered Cache, free | Origin Shield | Origin Shield | Shielding |
+| `stale-if-error` | Yes | Yes | Yes | Yes |
+| Query string in key (`_rsc`) | Default | Configurable | Default | Default |
+
+**Recommendation: Cloudflare for SaaS.** Its tag purge needs no extra
+code: FrontLit already sends `Cache-Tag` and the `cloudflare` adapter
+purges the same tags. Hostname cost is low and tiered cache is included.
+CloudFront would bill each purged tag; every publish purges two to four
+tags twice. The open question is apex domains, below.
+
+**Where custom-domain TLS lives:**
+
+- *A. Cloudflare terminates TLS* (custom hostnames, HTTP validation). Caddy
+  and `/public/tls-ask` stay only for self-hosting. Custom domains point a
+  CNAME at the SaaS fallback origin; apex domains need apex proxying
+  (Enterprise) or a DNS provider that flattens CNAMEs.
+  `CUSTOM_DOMAIN_CNAME_TARGET` becomes the Cloudflare fallback hostname, and
+  `CUSTOM_DOMAIN_A_RECORDS` the apex-proxying IPs if bought.
+- *B. Caddy keeps TLS* and Cloudflare only proxies the platform subdomains.
+  Custom domains don't get the edge. Simpler, but it misses the point for
+  the sites that need it most.
+
+Recommended: A, with apex proxying only once customers ask for apex domains
+on the edge. Until then an apex keeps resolving to Caddy (origin) and is
+served by Layer 1 alone.
+
+**Configuration** (on `apps/api`): `EDGE_PURGE_ADAPTER=cloudflare`,
+`CLOUDFLARE_ZONE_ID`, `CLOUDFLARE_API_TOKEN` (permission: Zone → Cache
+Purge). On `apps/sites`: `EDGE_CACHE_MODE=purge`. In Cloudflare: enable
+Tiered Cache and leave "Cache Key" including the query string.
+
+**Real-user monitoring.** Public pages send Core Web Vitals to `POST /rum`
+on the API (one beacon per page view, anonymous; `SITE_RUM=off` disables
+it). The API exports them as Prometheus histograms with the edge cache
+status read from `Server-Timing` (`edge` from the Varnish recipe,
+`cfCacheStatus` from Cloudflare). `deploy/monitoring` has a Grafana
+dashboard for the targets in §9.
 
 ## 8. Phases
 

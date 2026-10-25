@@ -255,6 +255,20 @@ function scheduleDelivery() {
   }, 50);
 }
 
+/** Pending invalidations and the oldest one's age, for `/metrics`. */
+export async function siteCacheOutboxStats() {
+  const [row] = await db
+    .select({
+      pending: sql<number>`count(*)::int`,
+      oldest: sql<
+        number | null
+      >`extract(epoch from now() - min(${siteCacheOutbox.createdAt}))`,
+    })
+    .from(siteCacheOutbox)
+    .where(isNull(siteCacheOutbox.completedAt));
+  return { pending: row?.pending ?? 0, oldestSeconds: row?.oldest ?? null };
+}
+
 export function startSiteCacheWorker(intervalMs = 1000): () => void {
   if (edgeDestinations().length) {
     try {

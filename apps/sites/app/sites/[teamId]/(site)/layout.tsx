@@ -3,6 +3,7 @@ import { API_PUBLIC_URL } from "@/lib/config";
 import { loadSiteTheme } from "@/lib/load-site-theme";
 import { CodeInjector } from "@/components/code-injector";
 import { ChatWidget } from "@/components/chat-widget";
+import { WebVitalsBeacon } from "@/components/web-vitals-beacon";
 
 /** The public site: the team's code injection and floating chat widget.
  * `/embed` lives outside this group so the chat iframe gets neither
@@ -28,6 +29,9 @@ export default async function SiteLayout({
         body={settings?.codeInjectionBody}
       />
       {children}
+      {process.env.SITE_RUM !== "off" && (
+        <WebVitalsBeacon endpoint={`${API_PUBLIC_URL}/rum`} />
+      )}
       {chatbot?.enabled && (
         <ChatWidget
           apiBaseUrl={API_PUBLIC_URL}

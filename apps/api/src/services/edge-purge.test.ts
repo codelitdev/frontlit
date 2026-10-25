@@ -13,6 +13,8 @@ afterEach(() => {
   delete process.env.EDGE_PURGE_URL;
   delete process.env.EDGE_PURGE_SECRET;
   delete process.env.EDGE_PURGE_ADAPTER;
+  delete process.env.CLOUDFLARE_ZONE_ID;
+  delete process.env.CLOUDFLARE_API_TOKEN;
 });
 
 function configure() {
@@ -76,5 +78,56 @@ describe("edge purge", () => {
     vi.useFakeTimers({ now: createdAt.getTime() + 10_001 });
     await deliverEdgePurge("edge-repeat", { createdAt }, "team_a", ["docs:team_a"]);
     expect(fetchMock).toHaveBeenCalledOnce();
+  });
+});
+
+describe("cloudflare adapter", () => {
+  function configureCloudflare() {
+    process.env.EDGE_PURGE_ADAPTER = "cloudflare";
+    process.env.CLOUDFLARE_ZONE_ID = "zone123";
+    process.env.CLOUDFLARE_API_TOKEN = "cf-token";
+  }
+
+  it("purges tags in batches of 30 with the API token", async () => {
+    configureCloudflare();
+    const fetchMock = vi.fn(
+      async (_url: string | URL, _init?: RequestInit) =>
+        new Response(JSON.stringify({ success: true }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const tags = Array.from({ length: 45 }, (_, i) => `page:team_a:p${i}`);
+    await deliverEdgePurge("edge", { createdAt: new Date() }, "team_a", tags);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe("https://api.cloudflare.com/client/v4/zones/zone123/purge_cache");
+    expect((init?.headers as Record<string, string>).authorization).toBe(
+      "Bearer cf-token",
+    );
+    expect(JSON.parse(String(init?.body)).tags).toHaveLength(30);
+    expect(JSON.parse(String(fetchMock.mock.calls[1]![1]?.body)).tags).toHaveLength(15);
+  });
+
+  it("fails on an unsuccessful API answer so the outbox retries", async () => {
+    configureCloudflare();
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        new Response(
+          JSON.stringify({ success: false, errors: [{ message: "rate limited" }] }),
+          {
+            status: 429,
+          },
+        ),
+    );
+    await expect(
+      deliverEdgePurge("edge", { createdAt: new Date() }, "team_a", ["docs:team_a"]),
+    ).rejects.toThrow(/rate limited/);
+  });
+
+  it("is off until the zone and token are set", () => {
+    process.env.EDGE_PURGE_ADAPTER = "cloudflare";
+    expect(edgePurgeAdapter()).toBeNull();
+    configureCloudflare();
+    expect(edgePurgeAdapter()).not.toBeNull();
   });
 });
