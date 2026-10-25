@@ -92,6 +92,7 @@ export async function ThemedArticleFeed({
                         src={imageUrl}
                         alt={imageAlt}
                         theme={theme}
+                        sizes="(min-width: 1024px) 1024px, 100vw"
                         className="aspect-[16/9] max-h-72 w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     </div>

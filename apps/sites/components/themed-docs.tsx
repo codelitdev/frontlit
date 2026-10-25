@@ -359,6 +359,8 @@ export async function ThemedDocArticle({
                   src={imageUrl}
                   alt={imageAlt}
                   theme={theme}
+                  priority
+                  sizes="(min-width: 1024px) 768px, 100vw"
                   className="aspect-[2/1] max-h-[400px] w-full object-cover"
                 />
               </div>
