@@ -48,6 +48,14 @@ function cached(teamId: string, ...tags: string[]) {
  */
 export const BUILD_TEAM_ID = "_build";
 
+/** Build-time placeholders (`_build`, and the `-` Next uses for route
+ * handlers it prerenders) are never real teams: public team IDs always look
+ * like `team_…`. Cached reads skip the API for them, so `next build` works
+ * without a backend. */
+function isPlaceholderTeam(teamId: string): boolean {
+  return !/^team_[a-z0-9]+$/.test(teamId);
+}
+
 async function unwrapOrNull<T>(
   promise: Promise<{ status: number; body: unknown }>,
 ): Promise<T | null> {
@@ -89,7 +97,7 @@ export interface PublicSettings {
 export async function getSettings(teamId: string): Promise<PublicSettings | null> {
   "use cache";
   cached(teamId, siteTags.shell(teamId));
-  if (teamId === BUILD_TEAM_ID) return null;
+  if (isPlaceholderTeam(teamId)) return null;
   return unwrapOrNull(client.getSettings({ params: { teamId } }));
 }
 
@@ -134,7 +142,7 @@ export async function getPageBySlug(
 ): Promise<PublicPage | null> {
   "use cache";
   cached(teamId, siteTags.page(teamId, slug), siteTags.shell(teamId));
-  if (teamId === BUILD_TEAM_ID) return null;
+  if (isPlaceholderTeam(teamId)) return null;
   return unwrapOrNull(client.getPageBySlug({ params: { teamId }, query: { slug } }));
 }
 
@@ -145,7 +153,7 @@ export async function getPageBySlug(
 export async function getSiteChrome(teamId: string): Promise<WidgetInstance[]> {
   "use cache";
   cached(teamId, siteTags.shell(teamId));
-  if (teamId === BUILD_TEAM_ID) return [];
+  if (isPlaceholderTeam(teamId)) return [];
   const home = await unwrapOrNull<PublicPage>(
     client.getPageBySlug({ params: { teamId }, query: { slug: "" } }),
   );
@@ -179,7 +187,7 @@ export interface SitemapEntry {
 export async function getSitemap(teamId: string): Promise<SitemapEntry[]> {
   "use cache";
   cached(teamId, siteTags.sitemap(teamId));
-  if (teamId === BUILD_TEAM_ID) return [];
+  if (isPlaceholderTeam(teamId)) return [];
   const result = await unwrapOrNull<{ items: SitemapEntry[] }>(
     client.getSitemap({ params: { teamId } }),
   );
@@ -210,7 +218,7 @@ export async function getChatbotSettings(
 ): Promise<PublicChatbotSettings | null> {
   "use cache";
   cached(teamId, siteTags.shell(teamId));
-  if (teamId === BUILD_TEAM_ID) return null;
+  if (isPlaceholderTeam(teamId)) return null;
   return unwrapOrNull(client.getChatbotSettings({ params: { teamId } }));
 }
 
@@ -237,7 +245,7 @@ export async function listArticles(
 ): Promise<{ items: PublicDocument<ArticleMeta>[]; total: number }> {
   "use cache";
   cached(teamId, siteTags.blog(teamId));
-  if (teamId === BUILD_TEAM_ID) return { items: [], total: 0 };
+  if (isPlaceholderTeam(teamId)) return { items: [], total: 0 };
   const result = await unwrapOrNull<{
     items: PublicDocument<ArticleMeta>[];
     total: number;
@@ -251,7 +259,7 @@ export async function getArticleBySlug(
 ): Promise<PublicDocument<ArticleMeta> | null> {
   "use cache";
   cached(teamId, siteTags.blog(teamId));
-  if (teamId === BUILD_TEAM_ID) return null;
+  if (isPlaceholderTeam(teamId)) return null;
   return unwrapOrNull(client.getArticleBySlug({ params: { teamId, slug } }));
 }
 
@@ -289,7 +297,7 @@ export async function getDocumentationSnapshot(
 ): Promise<DocumentationSnapshot> {
   "use cache";
   cached(teamId, siteTags.docs(teamId));
-  if (teamId === BUILD_TEAM_ID) return EMPTY_DOCS;
+  if (isPlaceholderTeam(teamId)) return EMPTY_DOCS;
   const result = await unwrapOrNull<DocumentationSnapshot>(
     client.getDocumentationSnapshot({ params: { teamId }, query: {} }),
   );
@@ -334,7 +342,7 @@ export async function listProductUpdates(
 ): Promise<{ items: PublicDocument<ProductUpdateMeta>[]; total: number }> {
   "use cache";
   cached(teamId, siteTags.changelog(teamId));
-  if (teamId === BUILD_TEAM_ID) return { items: [], total: 0 };
+  if (isPlaceholderTeam(teamId)) return { items: [], total: 0 };
   const result = await unwrapOrNull<{
     items: PublicDocument<ProductUpdateMeta>[];
     total: number;
