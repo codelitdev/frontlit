@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveHost } from "./lib/api";
 import { decideHost, lookupHost, normalizeHost } from "./lib/host";
+import { edgeCacheHeaders } from "./lib/edge-cache";
 
 export async function proxy(request: NextRequest) {
   // Direct access to the internal /sites rewrite segment is never allowed.
@@ -87,6 +88,19 @@ export async function proxy(request: NextRequest) {
   // feeds and images too, and keeps the cached HTML host-independent.
   if (resolved!.hideFromSearch || host !== resolved!.canonicalHost)
     response.headers.set("X-Robots-Tag", "noindex");
+  // Optional HTTP cache / CDN in front (EDGE_CACHE_MODE, §5).
+  const edge = edgeCacheHeaders(
+    decision.teamId,
+    request.nextUrl.pathname,
+    undefined,
+    undefined,
+    {
+      rscHeader: request.headers.get("rsc") === "1",
+      rscParam: request.nextUrl.searchParams.has("_rsc"),
+    },
+  );
+  for (const [name, value] of Object.entries(edge ?? {}))
+    response.headers.set(name, value);
   return response;
 }
 

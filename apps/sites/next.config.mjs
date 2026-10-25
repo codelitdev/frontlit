@@ -15,6 +15,10 @@ const nextConfig = {
   outputFileTracingRoot: monorepoRoot,
   outputFileTracingIncludes: { "/**": ["./cache-handler.cjs"] },
   cacheComponents: true,
+  // proxy.ts must see the `rsc` header and `_rsc` parameter that tell HTML
+  // and RSC requests apart, to keep mismatched ones out of shared caches
+  // (lib/edge-cache.ts). Next strips both before the proxy by default.
+  skipProxyUrlNormalize: true,
   cacheHandlers: { default: cacheHandler, remote: cacheHandler },
   cacheLife: {
     // Public content is invalidated by tag on publish. The hour only bounds
@@ -27,6 +31,9 @@ const nextConfig = {
   // Version-skew protection. Read at build time: replicas of one image
   // already agree, so this matters only for separately built replicas.
   deploymentId: process.env.DEPLOYMENT_ID || undefined,
+  // Optional separate host for /_next/static (content-hashed, immutable).
+  // Read at build time.
+  assetPrefix: process.env.ASSET_PREFIX || undefined,
   images: {
     remotePatterns: imageRemoteHosts.map((hostname) => ({
       protocol: "https",
