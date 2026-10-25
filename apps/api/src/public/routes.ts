@@ -13,6 +13,11 @@ import {
   listPublishedDocuments,
 } from "../documents/queries";
 import { searchChunks } from "../documentation/queries";
+import {
+  readApiOperation,
+  readApiReference,
+  readApiSpec,
+} from "../documentation/openapi/service";
 import { getChatbotSettings } from "../chatbot/queries";
 import { findTeamById, findTeamByPublicId } from "../team/queries";
 import { runInboxAi } from "../inbox-ai/generate";
@@ -139,7 +144,11 @@ const ticketThreadLimiter = postgresPublicLimit({
  * draft-leak risk even without an explicit field-level strip. */
 const router = Router();
 router.use((req, res, next) => {
-  if (req.path.includes("/content/documentation") || req.path.endsWith("/sitemap"))
+  if (
+    req.path.includes("/content/documentation") ||
+    req.path.includes("/content/api-reference") ||
+    req.path.endsWith("/sitemap")
+  )
     res.setHeader("Cache-Control", "no-store");
   next();
 });
@@ -423,6 +432,18 @@ const impl = s.router(contract.public, {
           lastmod: (d.updatedAt ?? d.publishedAt)?.toISOString() ?? null,
         })),
       ];
+      const apiReference = await readApiReference(team.id);
+      if (apiReference)
+        items.push(
+          { kind: "doc", path: `/docs/${apiReference.mount}`, lastmod: null },
+          ...apiReference.groups.flatMap((group) =>
+            group.operations.map((operation) => ({
+              kind: "doc" as const,
+              path: `/docs/${operation.route}`,
+              lastmod: null,
+            })),
+          ),
+        );
       if (changelogs.length > 0) {
         const lastmod = changelogs.reduce<Date | null>(
           (latest, d) =>
@@ -530,6 +551,18 @@ const impl = s.router(contract.public, {
         policyEpoch: live.policyEpoch,
       },
     };
+  },
+  getApiReference: async ({ params }) => {
+    const team = await findTeamByPublicId(params.teamId);
+    const reference = team ? await readApiReference(team.id) : null;
+    if (!reference) return { status: 404, body: { error: "Not found" } };
+    return { status: 200, body: reference };
+  },
+  getApiOperation: async ({ params, query }) => {
+    const team = await findTeamByPublicId(params.teamId);
+    const operation = team ? await readApiOperation(team.id, query.route) : null;
+    if (!operation) return { status: 404, body: { error: "Not found" } };
+    return { status: 200, body: operation };
   },
   searchDocumentation: {
     middleware: [docsSearchLimiter as any],
@@ -996,6 +1029,27 @@ const impl = s.router(contract.public, {
 });
 
 createExpressEndpoints(contract.public, impl, router);
+
+/** The live API reference's spec as committed (YAML converted to JSON,
+ * hidden operations removed); served by the public site at /openapi.json. */
+router.get(
+  "/public/:teamId/content/api-reference/openapi.json",
+  publicReadLimiter,
+  async (req, res) => {
+    const team = await findTeamByPublicId(req.params.teamId);
+    const spec = team ? await readApiSpec(team.id) : null;
+    if (!spec) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.setHeader("ETag", `"${spec.hash}"`);
+    if (req.headers["if-none-match"] === `"${spec.hash}"`) {
+      res.status(304).end();
+      return;
+    }
+    res.type("application/json").send(spec.spec);
+  },
+);
 
 /** Caddy on-demand TLS `ask` adapter. Caddy sends `GET ?domain=` and
  * issues a certificate only when this returns 200. Same host authority as

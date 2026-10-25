@@ -8,6 +8,7 @@ import {
   documents,
   docSections,
   documentationSettings,
+  documentationGitBindings,
   documentationPublications,
   documentationGitFiles,
   media,
@@ -240,6 +241,22 @@ export async function draftReport(
     )
   )
     add("DUPLICATE_ROUTE", "Another draft uses this route.", "slug");
+  // The API reference owns /docs/<mount> (docs/openapi-support.md §4).
+  const apiBinding = await (
+    options.executor ?? db
+  ).query.documentationGitBindings.findFirst({
+    where: eq(documentationGitBindings.teamId, teamId),
+    columns: { apiSpecPath: true, apiMount: true },
+  });
+  const apiMount = apiBinding?.apiSpecPath ? apiBinding.apiMount : null;
+  const underApiMount = (slug: string) =>
+    !!apiMount && (slug === apiMount || slug.startsWith(`${apiMount}/`));
+  if (route && underApiMount(route))
+    add(
+      "RESERVED_ROUTE",
+      `/docs/${apiMount} is used by the API reference. Move this page or change its slug.`,
+      "slug",
+    );
   const assets = await (options.executor ?? db).query.media.findMany({
     where: eq(media.teamId, teamId),
   });
@@ -277,6 +294,8 @@ export async function draftReport(
     const target = new URL(href, base);
     if (!target.pathname.startsWith("/docs/")) continue;
     const slug = target.pathname.slice(6).replace(/\/$/, "");
+    // Links to API reference pages aren't validated in v1.
+    if (underApiMount(slug)) continue;
     const doc =
       slug === route
         ? draft

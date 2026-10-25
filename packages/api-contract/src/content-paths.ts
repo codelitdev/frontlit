@@ -1,7 +1,7 @@
 import type { DocumentKind } from "./schemas/documents";
 
 export function publicContentPath(
-  kind: DocumentKind | null | undefined,
+  kind: DocumentKind | "api-operation" | null | undefined,
   slug: string,
   anchor?: string | null,
 ): string {
@@ -10,7 +10,8 @@ export function publicContentPath(
   if (kind === "changelog") {
     return `/changelog${hash || `#${encodeURIComponent(slug)}`}`;
   }
-  return `/docs/${encodeURIComponent(slug)}${hash}`;
+  // Docs slugs and API reference routes can be nested (`api-reference/list-contacts`).
+  return `/docs/${slug.split("/").map(encodeURIComponent).join("/")}${hash}`;
 }
 
 export function workspaceContentPath(

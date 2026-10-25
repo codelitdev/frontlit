@@ -1780,6 +1780,23 @@ export function exportGitPages() {
     client.content.documentationGithub.exportPages({ body: {} }),
   );
 }
+export type ApiReferenceStatus = GitResponse<"getApiReference">;
+export type ApiReferencePreview = GitResponse<"previewApiReference">;
+export function getApiReferenceStatus() {
+  return unwrap<ApiReferenceStatus>(
+    client.content.documentationGithub.getApiReference({}),
+  );
+}
+export function previewApiReference(body: GitRequest<"previewApiReference">["body"]) {
+  return unwrap<ApiReferencePreview>(
+    client.content.documentationGithub.previewApiReference({ body }),
+  );
+}
+export function updateApiReference(body: GitRequest<"updateApiReference">["body"]) {
+  return unwrap<ApiReferenceStatus>(
+    client.content.documentationGithub.updateApiReference({ body }),
+  );
+}
 export function getDocumentationGitSource() {
   return unwrap<DocumentationGitSource>(client.content.documentationGithub.get({}));
 }

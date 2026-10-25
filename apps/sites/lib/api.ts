@@ -1,6 +1,10 @@
 import { cache } from "react";
 import { initClient } from "@ts-rest/core";
-import { contract } from "@frontlit/api-contract";
+import {
+  contract,
+  type ApiOperationSlice,
+  type ApiReferenceInfo,
+} from "@frontlit/api-contract";
 import type { TextEditorContent } from "@frontlit/text-editor";
 import type { WidgetInstance } from "@frontlit/page-builder/models";
 import { API_URL } from "./config";
@@ -271,6 +275,54 @@ export async function getDocumentationBySlug(
   return (
     (await getDocumentationSnapshot(teamId)).items.find((doc) => doc.slug === slug) ??
     null
+  );
+}
+
+export type PublicApiReference = {
+  mount: string;
+  commitSha: string;
+  info: ApiReferenceInfo;
+  groups: {
+    name: string;
+    operations: {
+      route: string;
+      title: string;
+      method: string;
+      path: string;
+      deprecated: boolean;
+    }[];
+  }[];
+};
+// Like docs, the API reference is read uncached (site-delivery.md §4.9).
+export const getApiReference = cache(
+  async (teamId: string): Promise<PublicApiReference | null> =>
+    unwrapOrNull<PublicApiReference>(
+      client.getApiReference({
+        params: { teamId },
+        fetchOptions: { cache: "no-store" },
+      }),
+    ),
+);
+export async function getApiOperation(
+  teamId: string,
+  route: string,
+): Promise<{ route: string; mount: string; operation: ApiOperationSlice } | null> {
+  return unwrapOrNull(
+    client.getApiOperation({
+      params: { teamId },
+      query: { route },
+      fetchOptions: { cache: "no-store" },
+    }),
+  );
+}
+/** The live spec text for `/openapi.json`, or null when there is none. */
+export async function getApiSpecResponse(teamId: string, ifNoneMatch: string | null) {
+  return fetch(
+    `${API_URL}/public/${encodeURIComponent(teamId)}/content/api-reference/openapi.json`,
+    {
+      cache: "no-store",
+      headers: ifNoneMatch ? { "if-none-match": ifNoneMatch } : {},
+    },
   );
 }
 

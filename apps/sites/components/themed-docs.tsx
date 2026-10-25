@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { BookOpen, ChevronRight, Folder } from "lucide-react";
+import { BookOpen, Braces, ChevronRight, Folder } from "lucide-react";
 import { TextRenderer } from "@frontlit/text-editor/renderer";
 import type { TextEditorContent } from "@frontlit/text-editor";
 import {
   Caption,
+  Collapsible,
   Header1,
   Header4,
   Image,
@@ -17,8 +18,9 @@ import {
 import { getRequestThemeStyle } from "@/lib/request-theme";
 import { DocsSearch } from "@/components/docs-search";
 import { collectionHref, type DocsCollection, type DocsNavItem } from "@/lib/docs-tree";
+import { MethodBadge } from "@/components/api-reference/method-badge";
 
-async function Breadcrumb({
+export async function Breadcrumb({
   items,
 }: {
   items: Array<{ label: string; href?: string }>;
@@ -85,14 +87,20 @@ export async function ThemedDocumentationFeed({
                 <PageCardContent theme={theme} className="flex h-full flex-col gap-4">
                   <div className="flex items-start gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                      <Folder className="h-5 w-5" />
+                      {collection.api ? (
+                        <Braces className="h-5 w-5" />
+                      ) : (
+                        <Folder className="h-5 w-5" />
+                      )}
                     </span>
                     <div className="min-w-0">
                       <Header4 theme={theme}>{collection.name}</Header4>
                       <Caption theme={theme}>
-                        {collection.items.length === 1
-                          ? "1 article"
-                          : `${collection.items.length} articles`}
+                        {collection.api
+                          ? `${collection.items.length} ${collection.items.length === 1 ? "endpoint" : "endpoints"}`
+                          : collection.items.length === 1
+                            ? "1 article"
+                            : `${collection.items.length} articles`}
                       </Caption>
                     </div>
                   </div>
@@ -211,7 +219,59 @@ export async function ThemedDocCollection({
   );
 }
 
-async function DocsSidebar({
+async function DocsNavList({
+  items,
+  currentSlug,
+}: {
+  items: DocsNavItem[];
+  currentSlug: string;
+}) {
+  const theme = await getRequestThemeStyle();
+  return (
+    <ul className="flex flex-col gap-1">
+      {items.map((item) => {
+        const isCurrent = item.slug === currentSlug;
+        return (
+          <li key={item.documentId}>
+            <Link
+              href={`/docs/${item.slug}`}
+              className={
+                item.method
+                  ? `flex items-start gap-2 ${isCurrent ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`
+                  : isCurrent
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:underline"
+              }
+              aria-current={isCurrent ? "page" : undefined}
+            >
+              {item.method ? (
+                <span className="mt-1 shrink-0">
+                  <MethodBadge method={item.method} theme={theme} compact />
+                </span>
+              ) : null}
+              {item.method ? (
+                // Endpoint lists are long; the smaller body style keeps them compact.
+                <Text2
+                  theme={theme}
+                  component="span"
+                  className={item.deprecated ? "line-through" : undefined}
+                >
+                  {item.title ?? item.slug}
+                </Text2>
+              ) : (
+                <Text1 theme={theme} component="span">
+                  {item.title ?? item.slug}
+                </Text1>
+              )}
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+export async function DocsSidebar({
   collections,
   currentSlug,
 }: {
@@ -241,28 +301,32 @@ async function DocsSidebar({
                 {collection.name}
               </Text2>
             )}
-            <ul className="flex flex-col gap-1 border-l border-border pl-3">
-              {collection.items.map((item) => {
-                const isCurrent = item.slug === currentSlug;
-                return (
-                  <li key={item.documentId}>
-                    <Link
-                      href={`/docs/${item.slug}`}
-                      className={
-                        isCurrent
-                          ? "font-medium text-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:underline"
-                      }
-                      aria-current={isCurrent ? "page" : undefined}
-                    >
-                      <Text1 theme={theme} component="span">
-                        {item.title ?? item.slug}
-                      </Text1>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+            {collection.api ? (
+              <div className="flex flex-col gap-1 border-l border-border pl-3">
+                {collection.api.groups.map((group) => (
+                  <Collapsible
+                    key={group.name}
+                    variant="plain"
+                    theme={theme}
+                    defaultOpen={
+                      collection.api!.groups.length === 1 ||
+                      group.items.some((item) => item.slug === currentSlug)
+                    }
+                    summary={
+                      <Caption theme={theme} className="uppercase tracking-wide">
+                        {group.name}
+                      </Caption>
+                    }
+                  >
+                    <DocsNavList items={group.items} currentSlug={currentSlug} />
+                  </Collapsible>
+                ))}
+              </div>
+            ) : (
+              <div className="border-l border-border pl-3">
+                <DocsNavList items={collection.items} currentSlug={currentSlug} />
+              </div>
+            )}
           </div>
         );
       })}

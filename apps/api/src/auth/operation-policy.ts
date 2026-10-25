@@ -303,6 +303,21 @@ export const REST_OPERATION_POLICIES = {
     "unsupported",
     "deny",
   ),
+  "content.documentationGithub.getApiReference": teamPermission(
+    "documentation:read",
+    MCP_SCOPES.documentationRead,
+    "deny",
+  ),
+  "content.documentationGithub.previewApiReference": teamPermission(
+    "documentation:manage",
+    MCP_SCOPES.documentationManage,
+    "deny",
+  ),
+  "content.documentationGithub.updateApiReference": teamPermission(
+    "documentation:manage",
+    "unsupported",
+    "deny",
+  ),
   "content.documentationGithub.setup": teamPermission(
     "documentation:manage",
     MCP_SCOPES.documentationManage,

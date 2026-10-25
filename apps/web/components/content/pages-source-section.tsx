@@ -20,7 +20,7 @@ import { Callout, Mono } from "@/components/content/documentation-connect-parts"
 type Binding = NonNullable<DocumentationGitSource["binding"]>;
 type Diagnostic = GitPagesPreview["diagnostics"][number];
 
-function DiagnosticList({ items }: { items: Diagnostic[] }) {
+export function DiagnosticList({ items }: { items: Diagnostic[] }) {
   return (
     <ul className="space-y-1.5 text-sm" aria-label="Problems">
       {items.map((item, index) => (

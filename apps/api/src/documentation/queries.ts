@@ -1,4 +1,5 @@
 import { searchPublishedDocumentation } from "./publications";
+import { searchApiReference } from "./openapi/service";
 import { DocsContentError, diagnostic } from "@frontlit/text-editor/docs";
 import { lockSettings, DraftConflict } from "./authoring";
 import { withDbTransaction } from "../db/transaction";
@@ -85,7 +86,7 @@ export interface SearchResult {
   anchor: string | null;
   content: string;
   similarity: number;
-  kind: "blog" | "doc" | "changelog";
+  kind: "blog" | "doc" | "changelog" | "api-operation";
   publicationId?: string | null;
   policyEpoch?: number;
   revisionId?: string;
@@ -104,7 +105,12 @@ export async function searchChunks(
   query: string,
   k = 6,
 ): Promise<SearchResult[]> {
-  const documentationResults = await searchPublishedDocumentation(teamId, query, k);
+  const documentationResults = [
+    ...(await searchPublishedDocumentation(teamId, query, k)),
+    ...(await searchApiReference(teamId, query, k)),
+  ]
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, k);
   const others = await db
     .select({ id: documentChunks.id })
     .from(documentChunks)

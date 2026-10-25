@@ -22,6 +22,7 @@ import {
 } from "@/components/content/documentation-connect-parts";
 import type { DocumentationGitSource } from "@/lib/api";
 import { PagesSourceSection } from "@/components/content/pages-source-section";
+import { ApiReferenceSourceSection } from "@/components/content/api-reference-source-section";
 import { cn } from "@/lib/utils";
 
 type Binding = NonNullable<DocumentationGitSource["binding"]>;
@@ -373,6 +374,8 @@ export function ManageSource({
         canManage={source.status === "connected"}
         onChanged={onRefresh}
       />
+      <SectionLabel>API reference</SectionLabel>
+      <ApiReferenceSourceSection canManage={source.status === "connected"} />
       <SectionLabel>Sync progress</SectionLabel>
       <div className="grid grid-cols-1 divide-y overflow-clip rounded-[0.625rem] border border-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         <ProgressCell

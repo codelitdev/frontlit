@@ -1,17 +1,52 @@
 import type { Metadata, ResolvingMetadata } from "next";
 import { notFound } from "next/navigation";
 import { extractDocHeadings } from "@/lib/extract-doc-headings";
-import { getDocumentationBySlug, getSettings } from "@/lib/api";
+import {
+  getApiOperation,
+  getApiReference,
+  getDocumentationBySlug,
+  getSettings,
+} from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
 import { getCanonicalHost, isNoindex } from "@/lib/request-host";
 import { serializeJsonLd, techArticleJsonLd } from "@/lib/json-ld";
 import { API_PUBLIC_URL } from "@/lib/config";
 import { SiteChrome } from "@/components/site-chrome";
 import { ThemedDocArticle } from "@/components/themed-docs";
-import { collectionHref, loadDocsTree } from "@/lib/docs-tree";
+import {
+  ThemedApiLanding,
+  ThemedApiOperation,
+} from "@/components/api-reference/api-reference";
+import { API_REFERENCE_LABEL, collectionHref, loadDocsTree } from "@/lib/docs-tree";
 
 interface Props {
   params: Promise<{ teamId: string; slug: string[] }>;
+}
+
+/** Paths under the API reference's mount belong to it, not to docs pages. */
+async function apiTarget(teamId: string, slug: string) {
+  const reference = await getApiReference(teamId);
+  if (!reference) return null;
+  if (slug === reference.mount) return { reference, operation: null };
+  if (!slug.startsWith(`${reference.mount}/`)) return null;
+  const found = await getApiOperation(teamId, slug);
+  return { reference, operation: found?.operation ?? null, missing: !found };
+}
+
+async function apiMetadata(
+  slug: string,
+  title: string,
+  description: string | undefined,
+): Promise<Metadata> {
+  const url = `https://${await getCanonicalHost()}/docs/${slug}`;
+  const index = !(await isNoindex());
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: { url, title, description },
+    robots: { index, follow: index },
+  };
 }
 
 export async function generateMetadata(
@@ -20,6 +55,27 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { teamId, slug: segments } = await params;
   const slug = segments.join("/");
+  const api = await apiTarget(teamId, slug);
+  if (api) {
+    if (!api.operation)
+      return api.missing
+        ? {}
+        : apiMetadata(
+            slug,
+            `${API_REFERENCE_LABEL} – ${api.reference.info.title}`,
+            undefined,
+          );
+    const text =
+      api.operation.description?.kind === "text"
+        ? api.operation.description.text
+        : undefined;
+    return apiMetadata(
+      slug,
+      `${api.operation.title} – ${API_REFERENCE_LABEL}`,
+      text?.slice(0, 200) ??
+        `${api.operation.method.toUpperCase()} ${api.operation.path}`,
+    );
+  }
   const [doc, settings, previous] = await Promise.all([
     getDocumentationBySlug(teamId, slug),
     getSettings(teamId),
@@ -56,6 +112,32 @@ export async function generateMetadata(
 export default async function DocPage({ params }: Props) {
   const { teamId, slug: segments } = await params;
   const slug = segments.join("/");
+  const api = await apiTarget(teamId, slug);
+  if (api) {
+    if (api.missing) notFound();
+    const collections = await loadDocsTree(teamId);
+    return (
+      <SiteChrome teamId={teamId}>
+        {api.operation ? (
+          <ThemedApiOperation
+            reference={api.reference}
+            operation={api.operation}
+            route={slug}
+            collections={collections}
+            teamId={teamId}
+            publicApiBaseUrl={API_PUBLIC_URL}
+          />
+        ) : (
+          <ThemedApiLanding
+            reference={api.reference}
+            collections={collections}
+            teamId={teamId}
+            publicApiBaseUrl={API_PUBLIC_URL}
+          />
+        )}
+      </SiteChrome>
+    );
+  }
   const [doc, collections] = await Promise.all([
     getDocumentationBySlug(teamId, slug),
     loadDocsTree(teamId),
