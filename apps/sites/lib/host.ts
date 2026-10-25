@@ -1,4 +1,5 @@
 import type { ResolvedHost } from "./api";
+import { getRedis, getRedisSubscriber } from "./redis";
 
 export type HostDecision =
   | { action: "unknown" }
@@ -78,10 +79,83 @@ export const hostCache: HostCache = ((
   globalThis as { __frontlitHostCache?: HostCache }
 ).__frontlitHostCache ??= createHostCache());
 
-export function invalidateCachedHosts(hosts: string[] | undefined): void {
-  if (!hosts) return;
-  for (const raw of hosts) {
-    const host = normalizeHost(raw);
-    if (host) hostCache.delete(host);
+const TTL_SECONDS = 60;
+const INVALIDATE_CHANNEL = "fl:host-invalidate";
+const redisKey = (host: string) => `fl:host:${host}`;
+
+type Shared = {
+  inflight: Map<string, Promise<ResolvedHost | null>>;
+  subscribed?: boolean;
+};
+const shared: Shared = ((
+  globalThis as { __frontlitHostLookup?: Shared }
+).__frontlitHostLookup ??= { inflight: new Map() });
+
+/** Other replicas publish the hosts they invalidated; drop them here too.
+ * node-redis re-subscribes by itself after a reconnect. */
+function subscribe() {
+  const subscriber = getRedisSubscriber();
+  if (shared.subscribed || !subscriber) return;
+  shared.subscribed = true;
+  subscriber
+    .subscribe(INVALIDATE_CHANNEL, (message) => {
+      for (const host of JSON.parse(message) as string[]) hostCache.delete(host);
+    })
+    .catch(() => {
+      shared.subscribed = false;
+    });
+}
+
+/**
+ * Host → team, cached in this process and, with `REDIS_URL`, in Redis so
+ * every replica shares lookups and invalidations (docs/site-delivery.md
+ * §4.7). Concurrent misses for one host share a single API call. Throws
+ * when the API is unreachable, so an outage is never cached as a 404.
+ */
+export async function lookupHost(
+  host: string,
+  resolve: (host: string) => Promise<ResolvedHost | null>,
+): Promise<ResolvedHost | null> {
+  const local = hostCache.get(host);
+  if (local !== undefined) return local;
+  const pending = shared.inflight.get(host);
+  if (pending) return pending;
+
+  const lookup = (async () => {
+    subscribe();
+    const redis = getRedis();
+    if (redis) {
+      const stored = await redis.get(redisKey(host)).catch(() => null);
+      if (stored !== null) {
+        const value = JSON.parse(stored) as ResolvedHost | null;
+        hostCache.set(host, value);
+        return value;
+      }
+    }
+    const value = await resolve(host);
+    hostCache.set(host, value);
+    await redis
+      ?.set(redisKey(host), JSON.stringify(value), { EX: TTL_SECONDS })
+      .catch(() => {});
+    return value;
+  })();
+  shared.inflight.set(host, lookup);
+  try {
+    return await lookup;
+  } finally {
+    shared.inflight.delete(host);
   }
+}
+
+/** Forgets hosts after a domain change, on every replica. */
+export async function invalidateCachedHosts(
+  hosts: string[] | undefined,
+): Promise<void> {
+  const list = (hosts ?? []).map(normalizeHost).filter(Boolean);
+  if (!list.length) return;
+  for (const host of list) hostCache.delete(host);
+  const redis = getRedis();
+  if (!redis) return;
+  await redis.del(list.map(redisKey)).catch(() => {});
+  await redis.publish(INVALIDATE_CHANNEL, JSON.stringify(list)).catch(() => {});
 }

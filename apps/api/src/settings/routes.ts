@@ -5,14 +5,12 @@ import { requireAuth } from "../auth/middleware";
 import { requireTeam } from "../auth/require-team";
 import { authorizeHandlers } from "../auth/authorize";
 import { settingsUpdateOperation } from "../auth/operation-policy";
-import { findTeamById } from "../team/queries";
 import {
   getTeamSettings,
   InvalidSiteThemeReferenceError,
   updateTeamSettings,
 } from "./queries";
 import { omitInternal, serializeDates } from "../utils/public";
-import { revalidateTeam } from "../services/revalidate";
 import {
   deleteEspConfig,
   getEspConfig,
@@ -48,8 +46,6 @@ const impl = s.router(
       update: async ({ body, req }) => {
         try {
           const settings = await updateTeamSettings((req as any).teamId, body);
-          const team = await findTeamById((req as any).teamId);
-          if (team) revalidateTeam(team.teamId).catch(() => {});
           return { status: 200, body: toPublicSettings(settings) };
         } catch (error) {
           if (error instanceof InvalidSiteThemeReferenceError) {

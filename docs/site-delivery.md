@@ -69,10 +69,31 @@ public data functions and route segments, `cacheTag` for invalidation and
 | Single container  | Next's default in-memory/disk handler                               | nothing         |
 | Several replicas  | Redis handler registered under `cacheHandlers`; `refreshTags()` makes invalidation reach every replica | `REDIS_URL`     |
 
-The Redis handler ships inside `apps/sites` and is used only when
-`REDIS_URL` is set. Multi-replica deployments also need a consistent build
-ID / `deploymentId` and a shared server-actions encryption key (Next.js
-self-hosting guide).
+The handler is `apps/sites/cache-handler.cjs`, registered for both `"use
+cache"` and `"use cache: remote"`. Without `REDIS_URL` it is Next's default
+in-memory handler. With `REDIS_URL`:
+
+- Entries live in process memory and in Redis. A replica that misses in
+  memory reads Redis before it calls the API, so a new replica serves
+  already-rendered data without touching the API.
+- `revalidateTag` writes the tag's timestamps to Redis and publishes them.
+  Every replica applies them at once to Next's process-wide tag manifest.
+  Full-page cache hits are checked against that manifest, and `refreshTags()`
+  only runs when a render calls a cached function, so a subscription is
+  what makes a page that's served straight from the cache refresh on every
+  replica. `refreshTags()` and every reconnect re-read Redis in case a
+  message was missed.
+- Redis never fails a request. Commands time out after 500 ms, aren't
+  queued while disconnected, and the cache falls back to memory. A replica
+  that boots without Redis connects in the background.
+
+Without `REVALIDATE_WEBHOOK_SECRET` nothing can invalidate the cache, so
+public reads use the `siteUnmanaged` profile (refresh every minute) instead
+of `site`.
+
+Multi-replica deployments also need the same `DEPLOYMENT_ID` on every
+instance of a release (it becomes `deploymentId`). The public site has no
+Server Actions, so it needs no shared encryption key.
 
 ### 4.2 Making routes cacheable
 
@@ -85,9 +106,19 @@ cookies, except the routes that stay uncached (§4.6).
 - **Canonical host:** add `canonicalHost` to `GET /public/:teamId/settings`
   and read it from the cached settings, replacing `x-frontlit-canonical-host`
   and `lib/request-host.ts`.
+- **Team and theme:** render code takes `teamId` from route params; nothing
+  reads `x-frontlit-team-id`.
+- **Search visibility:** a hidden site (`hideFromSearch`, also in public
+  settings) is noindex in its HTML. A non-canonical host that still serves
+  gets `X-Robots-Tag: noindex` from the proxy, so the HTML itself doesn't
+  depend on the host.
 - `proxy.ts` keeps host resolution and the rewrite. It may still add
   headers to the *response* (§5), but render code doesn't depend on
   request headers.
+- **Build:** teams aren't known at build time. Every dynamic segment's
+  `generateStaticParams` returns the `_build` placeholder, which Cache
+  Components requires and which never calls the API. Real teams and paths
+  render on first request and are cached from then on.
 
 ### 4.3 Cache tags
 
@@ -101,7 +132,6 @@ still cached.
 | `team:<team>`             | every cached entry of the team (domain changes, emergency flush)              |
 | `shell:<team>`            | settings (title, logo, theme, code injection), chatbot settings, and every page read, because the API hydrates the published header/footer (`sharedWidgets`) into each page |
 | `page:<team>:<slug>`      | one page-builder page by slug (`""` = homepage). System pages that frame built-in routes (`docs`, `blog`, `changelog`, `help`) use the same tag |
-| `pages:<team>`            | page lists (sitemap)                                                          |
 | `docs:<team>`             | docs snapshot: every docs article, navigation, collections                    |
 | `blog:<team>`             | blog index, posts, `blog/rss.xml`                                             |
 | `changelog:<team>`        | changelog feed, `changelog/rss.xml`                                           |
@@ -109,6 +139,11 @@ still cached.
 
 `<team>` is the public team ID. Rendered routes inherit the tags of the
 cached data they read, so a page tag never has to be computed separately.
+
+Docs articles, blog posts and other routes that wrap their own content
+only need the shared header and footer. They read them through
+`getSiteChrome()`, cached under `shell:<team>` alone, so publishing the
+homepage doesn't re-render them.
 
 ### 4.4 Lifetimes
 
@@ -130,11 +165,21 @@ cache.
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | Settings: branding, theme, code injection (`settings`)                     | `shell:<team>`                                                    |
 | Chatbot settings (`chatbot`)                                               | `shell:<team>`                                                    |
-| Page publish/unpublish/delete; slug change (`pages`)                       | `page:<team>:<old slug>`, `page:<team>:<new slug>`, `pages:<team>`, `sitemap:<team>`. If the publish promoted a changed header/footer draft: `shell:<team>` instead, since every page shows it |
+| Page publish/unpublish/delete; slug change; Git release (`pages`)          | Computed when a release is activated, by diffing it with the previous one: `page:<team>:<slug>` for every page whose slug or revision changed (old and new slug), plus `sitemap:<team>`. `shell:<team>` when the site snapshot (header, footer, theme, redirects) changed |
 | Blog post publish/unpublish/delete/slug (`documents`)                      | `blog:<team>`, `sitemap:<team>`                                   |
 | Changelog entry publish/unpublish/delete (`documents`)                     | `changelog:<team>`, `sitemap:<team>`                              |
 | Docs activation / policy change / sensitive-data purge (`documentation`)   | `docs:<team>`, `sitemap:<team>`                                   |
 | Domain verify/remove, subdomain visibility (`domains`)                     | `team:<team>` + `invalidateHosts`                                 |
+
+The events are written in the query layer (`activateRelease`,
+`updateTeamSettings`, `updateChatbotSettings`, the blog/changelog document
+queries, domain changes), so REST, MCP and Git sync all invalidate the same
+way. Page and release events are written in the transaction that changes
+the content (`site_cache_outbox`). The API worker delivers them within a
+second and retries with backoff. It posts to `SITES_REVALIDATE_URL`
+(default `SITES_BASE_URL`), so a container setup can use the internal
+service address. Queuing a docs publication wakes the publication worker
+instead of waiting for its two-second poll.
 
 Webhook contract: the existing `/api/webhooks/revalidate` payload becomes
 `{ eventId, teamId, tags[], invalidateHosts? }`. Sites accepts only the tag
@@ -154,6 +199,12 @@ pick it up through `refreshTags()` before their next request.
 previews, chat and search API calls, form submissions and the webhook routes
 stay dynamic. They keep reading request data and send
 `Cache-Control: private, no-store`.
+
+The ticket thread, pull request preview and `/embed/chat` read their token
+or `?layout=` inside `<Suspense>`: the surrounding chrome comes from the
+cache and the request-specific part renders per request. A missing or
+wrong token therefore shows the not-found page with status 200 and
+`noindex`, not 404. These pages are never indexed either way.
 
 ### 4.7 Host resolution
 
@@ -278,6 +329,13 @@ dependencies load when the browser is idle or on first interaction.
 
 - Fonts stay self-hosted with `preload: false`. Only the active theme's
   primary font gets a `<link rel="preload">`.
+
+### 6.5 Prefetching
+
+Public pages are fully cached, so `next/link`'s default viewport prefetch
+would download every visible link's page, data and preloaded hero image (a
+docs sidebar alone lists every article). Public-site links use `SiteLink`,
+which prefetches on intent: hover, focus or touch.
 - Tenant code injection never blocks rendering: injected scripts are
   deferred where possible.
 
@@ -286,6 +344,9 @@ dependencies load when the browser is idle or on first interaction.
 | Variable                                | Default    | Purpose                                                |
 | --------------------------------------- | ---------- | ------------------------------------------------------ |
 | `REDIS_URL`                             | unset      | Shared Layer 1 cache and host cache; needed with several replicas |
+| `DEPLOYMENT_ID`                         | unset      | Same value on every replica of one release (`deploymentId`) |
+| `REVALIDATE_WEBHOOK_SECRET`             | unset      | Required for publish-time invalidation; unset = pages refresh every minute |
+| `SITES_REVALIDATE_URL`                  | `SITES_BASE_URL` | Where apps/api posts invalidations (set on `apps/api`) |
 | `EDGE_CACHE_MODE`                       | `none`     | `none` \| `ttl` \| `purge` (§5)                        |
 | `EDGE_CACHE_TTL`                        | `60`       | `s-maxage` in `ttl` mode                               |
 | `EDGE_PURGE_ADAPTER`                    | `http`     | Purge adapter in `purge` mode (set on `apps/api`)      |
@@ -293,7 +354,7 @@ dependencies load when the browser is idle or on first interaction.
 | `ASSET_PREFIX`                          | unset      | Separate host for `/_next/static`                      |
 | `IMAGE_LOADER`                          | `default`  | `default` (built-in optimizer) or a loader URL template |
 
-`REVALIDATE_WEBHOOK_SECRET` and `SITES_BASE_URL` keep their current meaning.
+`SITES_BASE_URL` keeps its current meaning (links in emails).
 
 ## 8. Phases
 
@@ -318,3 +379,27 @@ dependencies load when the browser is idle or on first interaction.
 Measure with Lighthouse CI on a sample tenant (home, docs article, blog
 post), a Web Vitals beacon from public pages, and API metrics for public
 read volume, which should fall sharply after Phase 2.
+
+### 9.1 Measured (2026-10-25, local)
+
+Sample tenant: a homepage with 9 blocks and 8 images, 12 docs articles, 7
+blog posts and 3 changelog entries. One `next start` process; the API and
+Postgres on the same machine. Lighthouse 13 runs mobile with simulated
+throttling, median of 5. Load is autocannon with 10 connections for 15 s.
+API calls are counted by a proxy between sites and the API.
+
+| Measure                                   | Before Phase 2 (`main`) | Layer 1 cache |
+| ----------------------------------------- | ----------------------- | ------------- |
+| Throughput, home / docs article / blog post | 41 / 56 / 81 req/s      | 140 / 181 / 242 req/s |
+| p50 under load, home / docs article        | 236 / 176 ms            | 63 / 50 ms    |
+| Single-connection response, home / docs    | 22 / 26 ms              | 7 / 5 ms      |
+| API calls per docs view                    | 1.0                     | 0             |
+| Lighthouse TTFB, home / docs / blog        | 43 / 119 / 23 ms        | 17 / 10 / 7 ms |
+| Publish → visible (page, blog, changelog)  | up to 60 s              | 0.18–0.35 s   |
+| Publish → visible (docs publication)       | next request (no cache) | 0.43–0.54 s   |
+| Second replica sees a publish (Redis)      | up to 60 s              | 0.33–0.48 s   |
+| Cold replica's first 6 views (Redis)       | 12 API calls            | 0             |
+
+Phase 1 (#71) against the commit before it, Lighthouse: performance score
+55 → 91 (home), 73 → 93 (docs), 69 → 90 (blog post); TBT 1.1–1.3 s →
+0.14–0.23 s; JavaScript 643 KB → 192 KB.

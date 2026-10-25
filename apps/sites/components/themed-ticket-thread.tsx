@@ -6,7 +6,7 @@ import {
   PageCardContent,
   Section,
 } from "@frontlit/page-builder/primitives/server";
-import { getRequestThemeStyle } from "@/lib/request-theme";
+import { getTeamThemeStyle } from "@/lib/team-theme";
 import { CitationList } from "@/components/citation-list";
 import { TicketReplyForm } from "@/components/ticket-reply-form";
 import type { TicketMessage } from "@/lib/api";
@@ -28,7 +28,7 @@ export async function ThemedTicketThread({
   ticketId: string;
   token: string;
 }) {
-  const theme = await getRequestThemeStyle();
+  const theme = await getTeamThemeStyle(teamId);
   return (
     <Section theme={theme}>
       <div className="flex flex-col gap-8">

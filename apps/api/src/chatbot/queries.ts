@@ -7,6 +7,7 @@ import {
   type ChatbotWidgetVariant,
 } from "@frontlit/api-contract";
 import { db } from "../db/client";
+import { invalidateSiteCache, siteTags } from "../services/site-cache";
 import { chatbotSettings, type ChatbotWidgetStyleRow } from "../db/schema";
 
 export type ChatbotSettingsRow = typeof chatbotSettings.$inferSelect;
@@ -90,5 +91,7 @@ export async function updateChatbotSettings(
     })
     .where(eq(chatbotSettings.id, existing.id))
     .returning();
+  // Every public page mounts the widget from these settings.
+  await invalidateSiteCache(teamId, (publicTeamId) => [siteTags.shell(publicTeamId)]);
   return normalize(updated);
 }

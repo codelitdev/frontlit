@@ -50,8 +50,10 @@ describe("DM-DELIVERY signed documentation events", () => {
     process.env.REVALIDATE_WEBHOOK_SECRET = secret;
     expect((await POST(request(event))).status).toBe(200);
     expect((await POST(request(event))).status).toBe(200);
-    expect(revalidateTag).toHaveBeenCalledTimes(1);
-    expect(revalidateTag).toHaveBeenCalledWith("team:team_abc123", { expire: 0 });
+    expect(revalidateTag).toHaveBeenCalledTimes(2);
+    expect(revalidateTag).toHaveBeenCalledWith("docs:team_abc123", { expire: 0 });
+    expect(revalidateTag).toHaveBeenCalledWith("sitemap:team_abc123", { expire: 0 });
+    expect(revalidateTag).not.toHaveBeenCalledWith("team:team_abc123", { expire: 0 });
     expect((await POST(request({ ...event, policyEpoch: 1 }))).status).toBe(409);
   });
 });

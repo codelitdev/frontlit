@@ -24,8 +24,6 @@ import {
   type PageRevisionContent,
   type SiteReleaseSnapshot,
 } from "../db/schema";
-import { findTeamById } from "../team/queries";
-import { revalidateTeam } from "../services/revalidate";
 import type { GitTreeEntry } from "../documentation/github/importer";
 import { uploadMediaFile } from "../media/service";
 import { getTeamSettings } from "../settings/queries";
@@ -673,12 +671,6 @@ export async function activatePagesRelease(
     .update(documentationGitBindings)
     .set({ pagesSourceKey: release.sourceKey, updatedAt: new Date() })
     .where(eq(documentationGitBindings.teamId, teamId));
-  if (executor === db) await revalidatePages(teamId);
-}
-
-export async function revalidatePages(teamId: string) {
-  const team = await findTeamById(teamId);
-  if (team) revalidateTeam(team.teamId).catch(() => {});
 }
 
 /** The Git release built from the same commit as a docs publication goes

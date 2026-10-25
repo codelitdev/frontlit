@@ -1,4 +1,5 @@
 import { siteOriginForTeam } from "../utils/site-url";
+import { wakeDocumentationWorker } from "./worker-wake";
 import { activateGitRelease } from "../pages/git-import";
 import {
   checkGitPublicationHead,
@@ -373,7 +374,10 @@ export async function queuePublication(
       .where(eq(settingsTable.teamId, teamId));
     return job;
   };
-  return executor ? run(executor) : withDbTransaction(run);
+  if (executor) return run(executor);
+  const job = await withDbTransaction(run);
+  wakeDocumentationWorker();
+  return job;
 }
 
 /** Rebuild immutable retrieval membership without selecting or publishing drafts. */

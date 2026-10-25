@@ -6,20 +6,22 @@ import {
   Image,
   Section,
 } from "@frontlit/page-builder/primitives/server";
-import { getRequestThemeStyle } from "@/lib/request-theme";
+import { getTeamThemeStyle } from "@/lib/team-theme";
 
 export async function ThemedBlogPost({
+  teamId,
   title,
   publishedAt,
   content,
   featuredImage,
 }: {
+  teamId: string;
   title: string | null;
   publishedAt: string | null;
   content: TextEditorContent | null;
   featuredImage?: Record<string, unknown> | null;
 }) {
-  const theme = await getRequestThemeStyle();
+  const theme = await getTeamThemeStyle(teamId);
   const imageUrl =
     typeof featuredImage?.url === "string"
       ? featuredImage.url
