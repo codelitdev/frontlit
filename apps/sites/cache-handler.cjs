@@ -100,7 +100,10 @@ function createRedisCacheHandler(url) {
     connection.on("error", (error) => {
       if (Date.now() - lastLog < 30_000) return;
       lastLog = Date.now();
-      console.warn("[sites] Redis cache unavailable, using memory:", String(error?.code ?? error));
+      console.warn(
+        "[sites] Redis cache unavailable, using memory:",
+        String(error?.code ?? error),
+      );
     });
   }
   let lastSync = 0;
@@ -212,7 +215,10 @@ function createRedisCacheHandler(url) {
             .hSet(
               TAGS_HASH,
               Object.fromEntries(
-                Object.entries(updates).map(([tag, value]) => [tag, JSON.stringify(value)]),
+                Object.entries(updates).map(([tag, value]) => [
+                  tag,
+                  JSON.stringify(value),
+                ]),
               ),
             )
             .zAdd(
