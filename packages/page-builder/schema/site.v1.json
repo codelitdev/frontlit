@@ -3489,6 +3489,14 @@
           "minimum": 0,
           "maximum": 8,
           "default": 2
+        },
+        "githubRepo": {
+          "type": "string",
+          "description": "GitHub repository as \"owner/repo\" or a github.com URL. Shows a GitHub icon link; other values are ignored."
+        },
+        "showGithubStars": {
+          "type": "boolean",
+          "description": "Show the repository's star count next to the GitHub icon."
         }
       },
       "additionalProperties": false,

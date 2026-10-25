@@ -474,4 +474,46 @@ describe("team website domains", () => {
     const allowed = `ok-${crypto.randomUUID().slice(0, 8)}`;
     expect(await setTeamSubdomain(teamId, allowed)).toEqual({ ok: true });
   });
+
+  it("lets the platform team claim reserved subdomains and the platform apex", async () => {
+    const previousDomain = process.env.PLATFORM_SITE_DOMAIN;
+    const previousTeam = process.env.PLATFORM_TEAM_ID;
+    process.env.PLATFORM_SITE_DOMAIN = "frontlit.test";
+    try {
+      expect(await attachCustomDomain(teamId, "frontlit.test")).toEqual({
+        ok: false,
+        reason: "reserved",
+      });
+      expect(await setTeamSubdomain(teamId, "frontlit")).toEqual({
+        ok: false,
+        reason: "reserved",
+      });
+
+      process.env.PLATFORM_TEAM_ID = teamId;
+      expect(await setTeamSubdomain(teamId, "frontlit")).toEqual({ ok: true });
+      expect(await attachCustomDomain(teamId, "docs.frontlit.test")).toEqual({
+        ok: false,
+        reason: "reserved",
+      });
+      await attachAndPassAllChecks(teamId, "frontlit.test");
+      expect(await resolveHost("frontlit.test")).toMatchObject({
+        teamId,
+        canonicalHost: "frontlit.test",
+        redirect: false,
+      });
+      expect(await resolveHost("www.frontlit.test")).toMatchObject({
+        teamId,
+        redirect: true,
+      });
+      expect(await resolveHost("frontlit.frontlit.test")).toMatchObject({
+        teamId,
+        redirect: true,
+      });
+    } finally {
+      if (previousDomain === undefined) delete process.env.PLATFORM_SITE_DOMAIN;
+      else process.env.PLATFORM_SITE_DOMAIN = previousDomain;
+      if (previousTeam === undefined) delete process.env.PLATFORM_TEAM_ID;
+      else process.env.PLATFORM_TEAM_ID = previousTeam;
+    }
+  });
 });

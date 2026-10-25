@@ -83,6 +83,22 @@ export function HeaderEditor({
           onChange={(ctaHref) => update({ ctaHref })}
         />
       </FieldGroup>
+      <FieldGroup title="GitHub">
+        <TextField
+          label="Repository"
+          value={settings.githubRepo}
+          placeholder="owner/repo"
+          hint="Shows a GitHub icon linking to the repository."
+          onChange={(githubRepo) => update({ githubRepo })}
+        />
+        {settings.githubRepo && (
+          <ToggleField
+            label="Show star count"
+            value={settings.showGithubStars}
+            onChange={(showGithubStars) => update({ showGithubStars })}
+          />
+        )}
+      </FieldGroup>
       <FieldGroup title="Layout">
         <SelectField
           label="Link alignment"

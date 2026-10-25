@@ -1,0 +1,39 @@
+{
+  "name": "@frontlit/preview",
+  "version": "0.1.0-alpha.3",
+  "description": "Local, file-watching previews for FrontLit page JSON",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "frontlit-preview": "cli.mjs"
+  },
+  "files": [
+    "cli.mjs",
+    "server.mjs",
+    "site.mjs",
+    "client",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codelitdev/frontlit.git",
+    "directory": "packages/preview"
+  },
+  "scripts": {
+    "test": "node --test *.test.mjs",
+    "check-types": "node --check cli.mjs && node --check server.mjs && node --check site.mjs"
+  },
+  "dependencies": {
+    "@frontlit/page-builder": "workspace:*",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "vite": "^7.3.6"
+  }
+}

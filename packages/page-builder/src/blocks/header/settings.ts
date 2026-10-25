@@ -15,4 +15,7 @@ export interface HeaderSettings extends WidgetDefaultSettings {
   linkAlignment?: "left" | "center" | "right";
   layout?: "fixed" | "floating" | "centered";
   backdropBlur?: boolean;
+  /** `owner/repo` (or a github.com URL). Shows a GitHub icon link. */
+  githubRepo?: string;
+  showGithubStars?: boolean;
 }

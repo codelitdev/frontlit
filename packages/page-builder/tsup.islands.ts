@@ -19,7 +19,9 @@ export const islands: Record<string, string> = {
   "components/video-with-preview": "video-with-preview",
   "primitives/code-snippet": "code-snippet",
   "blocks/header/mobile-menu": "header-mobile-menu",
+  "blocks/header/github-stars": "header-github-stars",
   "blocks/marquee/marquee-track": "marquee-track",
+  "blocks/pricing/period-switch": "pricing-period-switch",
   "blocks/email-form/form": "email-form",
   "blocks/support-form/form": "support-form",
 };

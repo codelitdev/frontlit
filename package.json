@@ -53,7 +53,7 @@
     "test": "bun run --workspaces --if-present test",
     "check:drift": "bun run --filter @frontlit/api check:drift",
     "changeset": "changeset",
-    "release": "node scripts/resolve-workspace-ranges.mjs && changeset publish"
+    "release": "bun run --filter @frontlit/text-editor --filter @frontlit/media-uploader build && bun run --filter @frontlit/page-builder build && node scripts/resolve-workspace-ranges.mjs && changeset publish"
   },
   "keywords": [],
   "author": "",

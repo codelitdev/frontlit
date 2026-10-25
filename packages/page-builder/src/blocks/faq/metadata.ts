@@ -5,4 +5,5 @@ export const faqMetadata: WidgetMetadata = {
   displayName: "FAQs",
   description: "A list of frequently asked questions, rendered as an accordion.",
   compatibleWith: ["site", "landing", "blog", "post", "custom"],
+  icon: "CircleHelp",
 };

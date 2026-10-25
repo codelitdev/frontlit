@@ -4,11 +4,10 @@ import React from "react";
 import * as Icons from "lucide-react";
 import type { Widget } from "../models";
 
-function resolveIcon(name?: string): React.ComponentType<{ className?: string }> {
+/** The block's `metadata.icon` (a lucide-react name), or a generic layout icon. */
+export function resolveIcon(name?: string): Icons.LucideIcon {
   if (name && name in Icons) {
-    return (
-      Icons as unknown as Record<string, React.ComponentType<{ className?: string }>>
-    )[name];
+    return (Icons as unknown as Record<string, Icons.LucideIcon>)[name];
   }
   return Icons.LayoutTemplate;
 }

@@ -1,6 +1,6 @@
 {
   "name": "@frontlit/text-editor",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.3",
   "description": "A TipTap-based rich text editor and static renderer for React",
   "author": "FrontLit",
   "license": "MIT",
@@ -63,7 +63,6 @@
   ],
   "scripts": {
     "build": "tsup && tsup --config tsup.renderer.config.ts && node scripts/add-use-client.mjs && tailwindcss -i src/styles.css -o dist/styles.css && cp src/prose.css dist/prose.css && cp src/tokens.css dist/tokens.css",
-    "prepublishOnly": "bun run build",
     "dev": "tsup --watch",
     "clean": "rimraf dist",
     "check-types": "tsc --noEmit",

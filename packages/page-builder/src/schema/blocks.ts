@@ -52,6 +52,16 @@ export function blockSettingsSchemas(k: FieldKinds) {
         linkAlignment: horizontalAlignmentSchema.optional(),
         backdropBlur: z.boolean().optional(),
         logoCorners: radius.optional(),
+        githubRepo: z
+          .string()
+          .optional()
+          .describe(
+            'GitHub repository as "owner/repo" or a github.com URL. Shows a GitHub icon link; other values are ignored.',
+          ),
+        showGithubStars: z
+          .boolean()
+          .optional()
+          .describe("Show the repository's star count next to the GitHub icon."),
       })
       .strict(),
     hero: z
@@ -194,16 +204,41 @@ export function blockSettingsSchemas(k: FieldKinds) {
         ...titleSettingsShape,
         description: k.richText.optional(),
         headerAlignment: alignmentSchema.optional(),
+        pricingSwitcher: z
+          .boolean()
+          .optional()
+          .describe("Show a Monthly/Yearly switch above the plans."),
+        monthlyPriceCaption: z.string().optional().describe('Defaults to "Monthly".'),
+        yearlyPriceCaption: z
+          .string()
+          .optional()
+          .describe('Defaults to "Yearly", e.g. "Yearly (2 months free)".'),
+        defaultPeriod: z
+          .enum(["monthly", "yearly"])
+          .optional()
+          .describe("Period selected on load. Defaults to yearly."),
         tiers: z
           .array(
             z
               .object({
                 name: z.string(),
-                price: z.string().describe('Display string, e.g. "$29/mo".'),
+                price: z
+                  .string()
+                  .describe(
+                    'Display string, e.g. "$29/month". The monthly price when pricingSwitcher is on.',
+                  ),
+                priceYearly: z
+                  .string()
+                  .optional()
+                  .describe(
+                    'Shown when the switch is on Yearly, e.g. "$290/year". Falls back to price.',
+                  ),
                 description: z.string().optional(),
                 features: z.array(z.string()),
                 buttonCaption: z.string().optional(),
                 buttonAction: hrefSchema.optional(),
+                // Yearly button link. Falls back to buttonAction.
+                buttonActionYearly: hrefSchema.optional(),
                 highlighted: z.boolean().optional(),
               })
               .strict(),

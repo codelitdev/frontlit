@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { LayoutTemplate } from "lucide-react";
 import type { PageData, PageSeo, Theme, WidgetInstance } from "../models";
 import { PageRenderer } from "../renderer";
 import { getAddableBlocks, getWidget } from "../registry";
@@ -18,7 +17,7 @@ import { cn } from "../primitives/lib/utils";
 import type { PageBuilderLinkComponent } from "../components/nav-link";
 import { BuilderTopBar, type PreviewDevice } from "./top-bar";
 import { PreviewFrame } from "./preview-frame";
-import { BlockPicker } from "./block-picker";
+import { BlockPicker, resolveIcon } from "./block-picker";
 import { ConfirmDialog } from "./confirm-dialog";
 import { SettingsPanel } from "./settings-panel";
 import { BlockSettings } from "./block-settings";
@@ -306,7 +305,7 @@ export function PageBuilder({
             title={selectedDefinition.metadata.displayName}
             eyebrow="Block settings"
             description={selectedDefinition.metadata.description}
-            icon={LayoutTemplate}
+            icon={resolveIcon(selectedDefinition.metadata.icon)}
             onClose={closePanel}
           >
             <BlockSettings

@@ -58,6 +58,13 @@ export function getPlatformSiteDomain(): string {
     .replace(/\.$/, "");
 }
 
+/** FrontLit's own team, so it can dogfood the platform: it may claim
+ * reserved subdomain labels and attach the platform apex (and its `www.`)
+ * as its custom domain. */
+export function isPlatformTeam(teamId: string): boolean {
+  return !!process.env.PLATFORM_TEAM_ID && process.env.PLATFORM_TEAM_ID === teamId;
+}
+
 /** DNS target shown while verifying a custom domain. It is deliberately
  * independent from the platform-site suffix because an edge/load-balancer
  * hostname need not be `sites.<platform-domain>`. */
@@ -247,7 +254,7 @@ export async function setTeamSubdomain(
   teamId: string,
   subdomain: string,
 ): Promise<SetTeamSubdomainResult> {
-  if (RESERVED_SUBDOMAIN_LABELS.has(subdomain.toLowerCase()))
+  if (RESERVED_SUBDOMAIN_LABELS.has(subdomain.toLowerCase()) && !isPlatformTeam(teamId))
     return { ok: false, reason: "reserved" };
 
   const existing = await db.query.teams.findFirst({
@@ -295,7 +302,13 @@ export async function attachCustomDomain(
   const paired = pairedHostname(hostname);
   const hostnames = paired ? [hostname, paired] : [hostname];
   const platform = getPlatformSiteDomain();
-  if (hostnames.some((host) => host === platform || isPlatformHost(host)))
+  const platformApex = isPlatformTeam(teamId) ? [platform, `www.${platform}`] : [];
+  if (
+    hostnames.some(
+      (host) =>
+        (host === platform || isPlatformHost(host)) && !platformApex.includes(host),
+    )
+  )
     return { ok: false, reason: "reserved" };
 
   try {
@@ -538,19 +551,19 @@ export async function resolveHost(requestHost: string): Promise<ResolvedHost | n
   const hostname = normalizeHost(requestHost);
   if (!hostname) return null;
 
-  const subdomain = subdomainFromHost(hostname);
+  // Custom hosts win so the platform team's `www.<platform>` resolves as its
+  // custom domain rather than as the `www` subdomain.
+  const host = await db.query.customDomains.findFirst({
+    where: eq(customDomains.hostname, hostname),
+  });
+  const subdomain = host ? null : subdomainFromHost(hostname);
   let team: TeamRow | undefined;
-  if (subdomain) {
+  if (host) {
+    team = await db.query.teams.findFirst({ where: eq(teams.id, host.teamId) });
+  } else if (subdomain) {
     team = await db.query.teams.findFirst({
       where: eq(teams.subdomain, subdomain),
     });
-  } else {
-    const host = await db.query.customDomains.findFirst({
-      where: eq(customDomains.hostname, hostname),
-    });
-    team = host
-      ? await db.query.teams.findFirst({ where: eq(teams.id, host.teamId) })
-      : undefined;
   }
   if (!team?.subdomain) return null;
 
