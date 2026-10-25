@@ -84,9 +84,13 @@ sub vcl_backend_response {
 
 sub vcl_deliver {
     unset resp.http.xkey;
+    # X-Edge-Cache for people; Server-Timing lets the page's Web Vitals
+    # beacon count edge hits (performance.getEntriesByType("navigation")).
     if (obj.hits > 0) {
         set resp.http.X-Edge-Cache = "HIT";
+        set resp.http.Server-Timing = "edge;desc=HIT";
     } else {
         set resp.http.X-Edge-Cache = "MISS";
+        set resp.http.Server-Timing = "edge;desc=MISS";
     }
 }
