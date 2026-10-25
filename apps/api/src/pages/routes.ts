@@ -19,8 +19,6 @@ import { db } from "../db/client";
 import { activateRelease, getReleaseByReleaseId, listReleases } from "./releases";
 import { createPagePullRequest, PageOwnedByGitError } from "./git-pr";
 import { gitHubErrorResponse } from "../documentation/github/errors";
-import { findTeamById } from "../team/queries";
-import { revalidateTeam } from "../services/revalidate";
 import { InvalidPageLayoutError } from "./shared-widgets";
 import { InvalidSlugError, SlugConflictError } from "../utils/slug";
 
@@ -83,10 +81,6 @@ const impl = s.router(
               status: 404,
               body: { error: "Page not found" },
             };
-          if (body.slug !== undefined) {
-            const team = await findTeamById((req as any).teamId);
-            if (team) revalidateTeam(team.teamId).catch(() => {});
-          }
           return { status: 200, body: toPublicPage(page) };
         } catch (error) {
           if (
@@ -114,8 +108,6 @@ const impl = s.router(
           throw error;
         }
         if (!page) return { status: 404, body: { error: "Page not found" } };
-        const team = await findTeamById((req as any).teamId);
-        if (team) revalidateTeam(team.teamId).catch(() => {});
         return { status: 200, body: toPublicPage(page) };
       },
       discardDraft: async ({ params, req }) => {
@@ -134,8 +126,6 @@ const impl = s.router(
         if (!release || release.source === "preview")
           return { status: 404, body: { error: "Release not found" } };
         await activateRelease(db, release);
-        const team = await findTeamById(teamId);
-        if (team) revalidateTeam(team.teamId).catch(() => {});
         const item = (await listReleases(teamId)).find(
           (row) => row.releaseId === params.releaseId,
         )!;
@@ -171,8 +161,6 @@ const impl = s.router(
             },
           };
         }
-        const team = await findTeamById((req as any).teamId);
-        if (team) revalidateTeam(team.teamId).catch(() => {});
         return { status: 204, body: undefined };
       },
     },

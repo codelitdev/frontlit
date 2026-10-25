@@ -113,11 +113,13 @@ describe("proxy middleware", () => {
       const response = await proxy(
         new NextRequest(`http://${host}:3002/`, { headers: { host: `${host}:3002` } }),
       );
-      return {
-        robotsTag: response.headers.get("x-robots-tag"),
-        hidden: response.headers.get("x-middleware-request-x-frontlit-hidden"),
-        noindex: response.headers.get("x-middleware-request-x-frontlit-noindex"),
-      };
+      // Nothing about the request is passed to the render: cached HTML
+      // must not depend on the host it was first requested on.
+      const forwarded = [...response.headers.keys()].filter((key) =>
+        key.startsWith("x-middleware-request-"),
+      );
+      expect(forwarded).toEqual([]);
+      return response.headers.get("x-robots-tag");
     }
 
     it("indexes the canonical host of a live site", async () => {
@@ -126,7 +128,7 @@ describe("proxy middleware", () => {
           canonicalHost: "live.localhost",
           hideFromSearch: false,
         }),
-      ).toEqual({ robotsTag: null, hidden: "0", noindex: "0" });
+      ).toBeNull();
     });
 
     it("noindexes a subdomain kept serving next to a custom domain", async () => {
@@ -135,7 +137,7 @@ describe("proxy middleware", () => {
           canonicalHost: "kept.example.com",
           hideFromSearch: false,
         }),
-      ).toEqual({ robotsTag: "noindex", hidden: "0", noindex: "1" });
+      ).toBe("noindex");
     });
 
     it("noindexes every host of a hidden site", async () => {
@@ -144,7 +146,7 @@ describe("proxy middleware", () => {
           canonicalHost: "draft.localhost",
           hideFromSearch: true,
         }),
-      ).toEqual({ robotsTag: "noindex", hidden: "1", noindex: "1" });
+      ).toBe("noindex");
     });
   });
 });

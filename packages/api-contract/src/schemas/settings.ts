@@ -44,4 +44,9 @@ export const publicTeamSettingsSchema = z.object({
       z.object({ from: z.string(), to: z.string(), permanent: z.boolean().optional() }),
     )
     .optional(),
+  /** Host the site's links, canonical URLs and feeds point at; null while
+   * the site has no public host. */
+  canonicalHost: z.string().nullable(),
+  /** Pre-launch: robots disallow everything and pages are noindex. */
+  hideFromSearch: z.boolean(),
 });

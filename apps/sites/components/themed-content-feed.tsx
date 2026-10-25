@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { SiteLink as Link } from "@/components/site-link";
 import { TextRenderer } from "@frontlit/text-editor/renderer";
 import type { TextEditorContent } from "@frontlit/text-editor";
 import {
@@ -10,16 +10,18 @@ import {
   Subheader1,
   Text2,
 } from "@frontlit/page-builder/primitives/server";
-import { getRequestThemeStyle } from "@/lib/request-theme";
+import { getTeamThemeStyle } from "@/lib/team-theme";
+import type { ThemeStyle } from "@frontlit/page-builder/models";
 
-async function FeedHeading({
+function FeedHeading({
   title,
   subtitle,
+  theme,
 }: {
   title: string;
   subtitle?: string | null;
+  theme: ThemeStyle;
 }) {
-  const theme = await getRequestThemeStyle();
   return (
     <header className="flex flex-col gap-4">
       <Header1 theme={theme}>{title}</Header1>
@@ -41,10 +43,12 @@ function formatDate(value: string) {
 }
 
 export async function ThemedArticleFeed({
+  teamId,
   title,
   subtitle,
   items,
 }: {
+  teamId: string;
   title: string;
   subtitle?: string | null;
   items: Array<{
@@ -56,10 +60,10 @@ export async function ThemedArticleFeed({
     featuredImage?: Record<string, unknown> | null;
   }>;
 }) {
-  const theme = await getRequestThemeStyle();
+  const theme = await getTeamThemeStyle(teamId);
   return (
     <div className="flex flex-col gap-10">
-      <FeedHeading title={title} subtitle={subtitle} />
+      <FeedHeading title={title} subtitle={subtitle} theme={theme} />
       {items.length === 0 ? (
         <Text2 theme={theme}>No articles published yet.</Text2>
       ) : (
@@ -129,11 +133,13 @@ const LABEL_VARIANT: Record<
 };
 
 export async function ThemedProductUpdatesFeed({
+  teamId,
   title,
   subtitle,
   jsonLd,
   items,
 }: {
+  teamId: string;
   title: string;
   subtitle?: string | null;
   jsonLd: string;
@@ -145,11 +151,11 @@ export async function ThemedProductUpdatesFeed({
     meta: { version?: string | null; labels: string[] };
   }>;
 }) {
-  const theme = await getRequestThemeStyle();
+  const theme = await getTeamThemeStyle(teamId);
   return (
     <div className="flex flex-col gap-10">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />
-      <FeedHeading title={title} subtitle={subtitle} />
+      <FeedHeading title={title} subtitle={subtitle} theme={theme} />
       {items.length === 0 ? (
         <Text2 theme={theme}>No changelog entries published yet.</Text2>
       ) : (

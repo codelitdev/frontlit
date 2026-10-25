@@ -120,6 +120,8 @@ services:
             WEB_CLIENT: ${WEB_CLIENT:-http://localhost:3000}
             WEB_BASE_URL: ${WEB_BASE_URL:-http://localhost:3000}
             SITES_BASE_URL: ${SITES_BASE_URL:-http://localhost:3002}
+            # Cache invalidations go to the sites container directly.
+            SITES_REVALIDATE_URL: http://frontlit-sites:3002
             PLATFORM_SITE_DOMAIN: ${PLATFORM_SITE_DOMAIN:-localhost}
             PLATFORM_TEAM_ID: ${PLATFORM_TEAM_ID:-}
             CUSTOM_DOMAIN_CNAME_TARGET: ${CUSTOM_DOMAIN_CNAME_TARGET:-}
@@ -184,12 +186,16 @@ services:
         build:
             context: .
             dockerfile: apps/sites/Dockerfile
+            args:
+                IMAGE_REMOTE_HOSTS: ${IMAGE_REMOTE_HOSTS:-}
         restart: unless-stopped
         environment:
             NODE_ENV: production
             API_URL: http://frontlit-api:4000
             API_PUBLIC_URL: ${API_PUBLIC_URL:-http://localhost:4000}
             REVALIDATE_WEBHOOK_SECRET: ${REVALIDATE_WEBHOOK_SECRET:-}
+            # Optional: shared cache for several sites replicas.
+            REDIS_URL: ${SITES_REDIS_URL:-}
         depends_on:
             frontlit-api:
                 condition: service_healthy

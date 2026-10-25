@@ -1,4 +1,4 @@
-import { cache } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import { initClient } from "@ts-rest/core";
 import { contract } from "@frontlit/api-contract";
 import type { TextEditorContent } from "@frontlit/text-editor";
@@ -16,13 +16,44 @@ const client = initClient(contract.public, {
   baseHeaders: {},
 });
 
-/** Every published-content read is tagged `team:<teamId>` and time-bound
- * revalidated (architecture.md §12.2/§13.5 — "ISR + tag revalidation means
- * public traffic mostly never reaches the API"). `revalidateTag` isn't wired
- * to a publish-time webhook yet, so a 60s ceiling bounds staleness in the
- * meantime instead of serving indefinitely-stale content. */
-function teamCache(teamId: string) {
-  return { next: { revalidate: 60, tags: [`team:${teamId}`] } };
+/**
+ * Published-content reads are cached (docs/site-delivery.md §4): each one
+ * is a `"use cache"` function tagged with the families below, and the
+ * signed revalidate webhook expires those tags when content changes. The
+ * `site` cacheLife profile (next.config.mjs) is only a safety net for a
+ * lost invalidation. Pages inherit the tags of the reads they make.
+ */
+export const siteTags = {
+  team: (teamId: string) => `team:${teamId}`,
+  shell: (teamId: string) => `shell:${teamId}`,
+  page: (teamId: string, slug: string) => `page:${teamId}:${slug}`,
+  docs: (teamId: string) => `docs:${teamId}`,
+  blog: (teamId: string) => `blog:${teamId}`,
+  changelog: (teamId: string) => `changelog:${teamId}`,
+  sitemap: (teamId: string) => `sitemap:${teamId}`,
+};
+
+function cached(teamId: string, ...tags: string[]) {
+  // Without the webhook secret nothing invalidates the cache, so entries
+  // refresh every minute instead.
+  if (process.env.REVALIDATE_WEBHOOK_SECRET) cacheLife("site");
+  else cacheLife("siteUnmanaged");
+  cacheTag(siteTags.team(teamId), ...tags);
+}
+
+/**
+ * Routes under `/sites/[teamId]` prerender this placeholder at build time
+ * (`generateStaticParams` needs one value). It never reaches the API, so a
+ * build needs no running backend; real teams render on first request.
+ */
+export const BUILD_TEAM_ID = "_build";
+
+/** Build-time placeholders (`_build`, and the `-` Next uses for route
+ * handlers it prerenders) are never real teams: public team IDs always look
+ * like `team_…`. Cached reads skip the API for them, so `next build` works
+ * without a backend. */
+function isPlaceholderTeam(teamId: string): boolean {
+  return !/^team_[a-z0-9]+$/.test(teamId);
 }
 
 async function unwrapOrNull<T>(
@@ -57,20 +88,37 @@ export interface PublicSettings {
   codeInjectionHead: string | null;
   codeInjectionBody: string | null;
   redirects?: { from: string; to: string; permanent?: boolean }[];
+  /** Host links, canonical URLs and feeds point at. */
+  canonicalHost: string | null;
+  /** Pre-launch: noindex everywhere, robots disallow all. */
+  hideFromSearch: boolean;
 }
 
-export function getSettings(
+export async function getSettings(teamId: string): Promise<PublicSettings | null> {
+  "use cache";
+  cached(teamId, siteTags.shell(teamId));
+  if (isPlaceholderTeam(teamId)) return null;
+  return unwrapOrNull(client.getSettings({ params: { teamId } }));
+}
+
+/** A signed preview release's settings (its own theme). Never cached. */
+export function getPreviewSettings(
   teamId: string,
-  /** A signed preview release: its theme instead of the live one (uncached). */
-  preview?: { release: string; token: string },
+  preview: { release: string; token: string },
 ): Promise<PublicSettings | null> {
   return unwrapOrNull(
     client.getSettings({
       params: { teamId },
-      query: preview ?? {},
-      fetchOptions: preview ? { cache: "no-store" } : teamCache(teamId),
+      query: preview,
+      fetchOptions: { cache: "no-store" },
     }),
   );
+}
+
+/** The host canonical URLs use. Falls back to `localhost` only for a site
+ * that has no public host (it can't be reached anyway). */
+export async function getCanonicalHost(teamId: string): Promise<string> {
+  return (await getSettings(teamId))?.canonicalHost ?? "localhost";
 }
 
 export interface PublicPage {
@@ -86,17 +134,31 @@ export interface PublicPage {
   updatedAt: string | null;
 }
 
-/** Pass `""` (or omit) to resolve the homepage. */
-export function getPageBySlug(
+/** Pass `""` (or omit) to resolve the homepage. Pages carry the shell tag
+ * too: the API hydrates the published header and footer into each one. */
+export async function getPageBySlug(
   teamId: string,
   slug: string = "",
 ): Promise<PublicPage | null> {
-  return unwrapOrNull(
-    client.getPageBySlug({
-      params: { teamId },
-      query: { slug },
-      fetchOptions: teamCache(teamId),
-    }),
+  "use cache";
+  cached(teamId, siteTags.page(teamId, slug), siteTags.shell(teamId));
+  if (isPlaceholderTeam(teamId)) return null;
+  return unwrapOrNull(client.getPageBySlug({ params: { teamId }, query: { slug } }));
+}
+
+/** The shared header and footer, for routes that wrap their own content
+ * (docs articles, blog posts). Read from the homepage, which always carries
+ * them, but cached under the shell tag only: publishing the homepage's own
+ * content doesn't touch these routes. */
+export async function getSiteChrome(teamId: string): Promise<WidgetInstance[]> {
+  "use cache";
+  cached(teamId, siteTags.shell(teamId));
+  if (isPlaceholderTeam(teamId)) return [];
+  const home = await unwrapOrNull<PublicPage>(
+    client.getPageBySlug({ params: { teamId }, query: { slug: "" } }),
+  );
+  return (home?.layout ?? []).filter(
+    (widget) => widget.name === "header" || widget.name === "footer",
   );
 }
 
@@ -123,11 +185,11 @@ export interface SitemapEntry {
 }
 
 export async function getSitemap(teamId: string): Promise<SitemapEntry[]> {
+  "use cache";
+  cached(teamId, siteTags.sitemap(teamId));
+  if (isPlaceholderTeam(teamId)) return [];
   const result = await unwrapOrNull<{ items: SitemapEntry[] }>(
-    client.getSitemap({
-      params: { teamId },
-      fetchOptions: { cache: "no-store" },
-    }),
+    client.getSitemap({ params: { teamId } }),
   );
   return result?.items ?? [];
 }
@@ -154,12 +216,10 @@ export interface PublicChatbotSettings {
 export async function getChatbotSettings(
   teamId: string,
 ): Promise<PublicChatbotSettings | null> {
-  return unwrapOrNull(
-    client.getChatbotSettings({
-      params: { teamId },
-      fetchOptions: teamCache(teamId),
-    }),
-  );
+  "use cache";
+  cached(teamId, siteTags.shell(teamId));
+  if (isPlaceholderTeam(teamId)) return null;
+  return unwrapOrNull(client.getChatbotSettings({ params: { teamId } }));
 }
 
 export interface PublicDocument<M> {
@@ -183,29 +243,24 @@ export async function listArticles(
   teamId: string,
   params: { offset?: number; itemsPerPage?: number } = {},
 ): Promise<{ items: PublicDocument<ArticleMeta>[]; total: number }> {
+  "use cache";
+  cached(teamId, siteTags.blog(teamId));
+  if (isPlaceholderTeam(teamId)) return { items: [], total: 0 };
   const result = await unwrapOrNull<{
     items: PublicDocument<ArticleMeta>[];
     total: number;
-  }>(
-    client.listArticles({
-      params: { teamId },
-      query: params,
-      fetchOptions: teamCache(teamId),
-    }),
-  );
+  }>(client.listArticles({ params: { teamId }, query: params }));
   return result ?? { items: [], total: 0 };
 }
 
-export function getArticleBySlug(
+export async function getArticleBySlug(
   teamId: string,
   slug: string,
 ): Promise<PublicDocument<ArticleMeta> | null> {
-  return unwrapOrNull(
-    client.getArticleBySlug({
-      params: { teamId, slug },
-      fetchOptions: teamCache(teamId),
-    }),
-  );
+  "use cache";
+  cached(teamId, siteTags.blog(teamId));
+  if (isPlaceholderTeam(teamId)) return null;
+  return unwrapOrNull(client.getArticleBySlug({ params: { teamId, slug } }));
 }
 
 export interface DocumentationMeta {
@@ -228,26 +283,26 @@ export interface DocumentationSnapshot {
   items: PublicDocument<DocumentationMeta>[];
   sections: DocumentationSection[];
 }
-// React cache only deduplicates this authoritative read within one render.
-export const getDocumentationSnapshot = cache(
-  async (teamId: string): Promise<DocumentationSnapshot> => {
-    const result = await unwrapOrNull<DocumentationSnapshot>(
-      client.getDocumentationSnapshot({
-        params: { teamId },
-        query: {},
-        fetchOptions: { cache: "no-store" },
-      }),
-    );
-    return (
-      result ?? {
-        publicationId: null,
-        policyEpoch: 0,
-        items: [],
-        sections: [],
-      }
-    );
-  },
-);
+const EMPTY_DOCS: DocumentationSnapshot = {
+  publicationId: null,
+  policyEpoch: 0,
+  items: [],
+  sections: [],
+};
+
+/** One publication snapshot per render, so a docs page's body, navigation
+ * and collections always agree (docs-management.md §23.3). */
+export async function getDocumentationSnapshot(
+  teamId: string,
+): Promise<DocumentationSnapshot> {
+  "use cache";
+  cached(teamId, siteTags.docs(teamId));
+  if (isPlaceholderTeam(teamId)) return EMPTY_DOCS;
+  const result = await unwrapOrNull<DocumentationSnapshot>(
+    client.getDocumentationSnapshot({ params: { teamId }, query: {} }),
+  );
+  return result ?? EMPTY_DOCS;
+}
 export async function listDocumentationSections(
   teamId: string,
 ): Promise<DocumentationSection[]> {
@@ -285,16 +340,13 @@ export async function listProductUpdates(
   teamId: string,
   params: { offset?: number; itemsPerPage?: number } = {},
 ): Promise<{ items: PublicDocument<ProductUpdateMeta>[]; total: number }> {
+  "use cache";
+  cached(teamId, siteTags.changelog(teamId));
+  if (isPlaceholderTeam(teamId)) return { items: [], total: 0 };
   const result = await unwrapOrNull<{
     items: PublicDocument<ProductUpdateMeta>[];
     total: number;
-  }>(
-    client.listProductUpdates({
-      params: { teamId },
-      query: params,
-      fetchOptions: teamCache(teamId),
-    }),
-  );
+  }>(client.listProductUpdates({ params: { teamId }, query: params }));
   return result ?? { items: [], total: 0 };
 }
 

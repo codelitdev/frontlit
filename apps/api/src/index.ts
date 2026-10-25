@@ -12,6 +12,7 @@ import { startAuthorizationMaintenance } from "./team/maintenance";
 import { attachInboxLive } from "./tickets/live-server";
 import { startInboxAiWorker } from "./inbox-ai/worker";
 import { startDocumentIndexWorker } from "./documentation/worker";
+import { startSiteCacheWorker } from "./services/site-cache";
 
 import { createGracefulShutdown } from "@codelitdev/platform";
 import { pool } from "./db/client";
@@ -32,6 +33,7 @@ checkConfig()
     startInboxAiWorker();
     startDocumentIndexWorker();
     startDocumentationPublicationWorker();
+    startSiteCacheWorker();
     startAuthorizationMaintenance();
 
     const shutdown = createGracefulShutdown({

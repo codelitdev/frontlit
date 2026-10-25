@@ -1,5 +1,4 @@
-import { findTeamById } from "../team/queries";
-import { revalidateTeam } from "../services/revalidate";
+import { invalidateSiteCache, siteTags } from "../services/site-cache";
 import { getDomainSettings } from "./queries";
 
 export async function teamSiteHosts(internalTeamId: string): Promise<string[]> {
@@ -10,13 +9,14 @@ export async function teamSiteHosts(internalTeamId: string): Promise<string[]> {
   return hosts;
 }
 
-/** Best-effort ISR + host-map invalidation after a domain mutation. */
+/** A domain change can move the canonical host every page links to, so the
+ * whole site and the host map are refreshed. */
 export async function revalidateAfterDomainChange(
   internalTeamId: string,
   extraHosts: string[] = [],
 ): Promise<void> {
-  const team = await findTeamById(internalTeamId);
-  if (!team) return;
   const hosts = [...new Set([...extraHosts, ...(await teamSiteHosts(internalTeamId))])];
-  revalidateTeam(team.teamId, { invalidateHosts: hosts }).catch(() => {});
+  await invalidateSiteCache(internalTeamId, (teamId) => [siteTags.team(teamId)], {
+    invalidateHosts: hosts,
+  });
 }

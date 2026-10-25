@@ -1,6 +1,6 @@
 "use client";
 
-import NextLink from "next/link";
+import { SiteLink as NextLink } from "@/components/site-link";
 import {
   PageBuilderLinkProvider,
   type PageBuilderLinkProps,

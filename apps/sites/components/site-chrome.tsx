@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { getPageBySlug, getSettings } from "@/lib/api";
+import { getPageBySlug, getSettings, getSiteChrome } from "@/lib/api";
 import { API_PUBLIC_URL } from "@/lib/config";
 import { toSiteBranding } from "@frontlit/api-contract";
 import { loadSiteTheme } from "@/lib/load-site-theme";
@@ -23,13 +23,12 @@ export async function SiteChrome({
   pageSlug?: string;
   children?: ReactNode;
 }) {
-  const [requestedPage, settings, siteTheme] = await Promise.all([
-    getPageBySlug(teamId, pageSlug),
+  const [layout, settings, siteTheme] = await Promise.all([
+    // Detail routes only need the header and footer around their content.
+    pageSlug ? pageLayout(teamId, pageSlug) : getSiteChrome(teamId),
     getSettings(teamId),
     loadSiteTheme(teamId),
   ]);
-  const page =
-    requestedPage ?? (pageSlug ? await getPageBySlug(teamId, "") : requestedPage);
   const pageData = {
     teamId,
     pageSlug,
@@ -37,7 +36,7 @@ export async function SiteChrome({
     ...toSiteBranding(settings),
   };
   const dataSlots = await loadDataSlots(
-    page?.layout ?? [],
+    layout,
     { [CONTENT_FEED_SLOT]: contentFeedLoader },
     pageData,
   );
@@ -46,7 +45,7 @@ export async function SiteChrome({
     <SitePageRenderer
       // A site can expose system content before its layout is
       // published. An empty layout still supplies the team theme.
-      layout={page?.layout ?? []}
+      layout={layout}
       themeId={siteTheme.themeId}
       themeStyle={siteTheme.themeStyle}
       pageData={pageData}
@@ -55,4 +54,10 @@ export async function SiteChrome({
       {children}
     </SitePageRenderer>
   );
+}
+
+/** A standard index page's layout; before it's published, the homepage's. */
+async function pageLayout(teamId: string, slug: string) {
+  const page = (await getPageBySlug(teamId, slug)) ?? (await getPageBySlug(teamId, ""));
+  return page?.layout ?? [];
 }
