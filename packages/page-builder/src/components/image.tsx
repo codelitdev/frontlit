@@ -18,14 +18,25 @@ export type ImageAttributesResolver = (
   input: ImageAttributesInput,
 ) => React.ImgHTMLAttributes<HTMLImageElement> | null;
 
-let imageAttributesResolver: ImageAttributesResolver | null = null;
+// Kept on `globalThis`: each package entry (`/server`, `/primitives/server`)
+// bundles its own copy of this module, and they must share one resolver.
+const registry = globalThis as {
+  __frontlitImageResolver?: ImageAttributesResolver | null;
+};
 
 /**
  * Registers the host's resolver. Call once at server start-up; renders that
  * run without one emit the original URL.
  */
 export function setImageAttributesResolver(resolver: ImageAttributesResolver | null) {
-  imageAttributesResolver = resolver;
+  registry.__frontlitImageResolver = resolver;
+}
+
+/** The registered resolver's attributes for an image, if any. */
+export function resolveImageAttributes(
+  input: ImageAttributesInput,
+): React.ImgHTMLAttributes<HTMLImageElement> | null {
+  return registry.__frontlitImageResolver?.(input) ?? null;
 }
 
 export type ImageObjectFit = "cover" | "contain" | "fill" | "none" | "scale-down";
@@ -106,7 +117,7 @@ export const Image = (props: ImgProps) => {
     );
   }
 
-  const optimized = imageAttributesResolver?.({ src: source, alt, sizes, priority });
+  const optimized = resolveImageAttributes({ src: source, alt, sizes, priority });
 
   return (
     <div

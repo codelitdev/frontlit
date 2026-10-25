@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { SiteLink as Link } from "@/components/site-link";
 import { BookOpen, Braces, ChevronRight, Folder } from "lucide-react";
 import { TextRenderer } from "@frontlit/text-editor/renderer";
 import type { TextEditorContent } from "@frontlit/text-editor";
@@ -15,17 +15,19 @@ import {
   Text1,
   Text2,
 } from "@frontlit/page-builder/primitives/server";
-import { getRequestThemeStyle } from "@/lib/request-theme";
+import { getTeamThemeStyle } from "@/lib/team-theme";
+import type { ThemeStyle } from "@frontlit/page-builder/models";
 import { DocsSearch } from "@/components/docs-search";
 import { collectionHref, type DocsCollection, type DocsNavItem } from "@/lib/docs-tree";
 import { MethodBadge } from "@/components/api-reference/method-badge";
 
-export async function Breadcrumb({
+export function Breadcrumb({
   items,
+  theme,
 }: {
   items: Array<{ label: string; href?: string }>;
+  theme: ThemeStyle;
 }) {
-  const theme = await getRequestThemeStyle();
   return (
     <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1">
       {items.map((item, index) => {
@@ -59,10 +61,10 @@ export async function ThemedDocumentationFeed({
   title: string;
   subtitle?: string | null;
   collections: DocsCollection[];
-  teamId?: string;
+  teamId: string;
   publicApiBaseUrl?: string;
 }) {
-  const theme = await getRequestThemeStyle();
+  const theme = await getTeamThemeStyle(teamId);
   const hasCollections = collections.length > 0;
   return (
     <div className="flex flex-col gap-10">
@@ -156,14 +158,15 @@ export async function ThemedDocCollection({
   publicApiBaseUrl,
 }: {
   collection: DocsCollection;
-  teamId?: string;
+  teamId: string;
   publicApiBaseUrl?: string;
 }) {
-  const theme = await getRequestThemeStyle();
+  const theme = await getTeamThemeStyle(teamId);
   return (
     <Section theme={theme}>
       <div className="flex flex-col gap-8">
         <Breadcrumb
+          theme={theme}
           items={[{ label: "Help Center", href: "/docs" }, { label: collection.name }]}
         />
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -219,14 +222,15 @@ export async function ThemedDocCollection({
   );
 }
 
-async function DocsNavList({
+function DocsNavList({
   items,
   currentSlug,
+  theme,
 }: {
   items: DocsNavItem[];
   currentSlug: string;
+  theme: ThemeStyle;
 }) {
-  const theme = await getRequestThemeStyle();
   return (
     <ul className="flex flex-col gap-1">
       {items.map((item) => {
@@ -271,14 +275,15 @@ async function DocsNavList({
   );
 }
 
-export async function DocsSidebar({
+export function DocsSidebar({
   collections,
   currentSlug,
+  theme,
 }: {
   collections: DocsCollection[];
   currentSlug: string;
+  theme: ThemeStyle;
 }) {
-  const theme = await getRequestThemeStyle();
   return (
     <nav aria-label="Documentation" className="flex flex-col gap-6">
       <Link href="/docs" className="flex items-center gap-2 hover:underline">
@@ -318,13 +323,21 @@ export async function DocsSidebar({
                       </Caption>
                     }
                   >
-                    <DocsNavList items={group.items} currentSlug={currentSlug} />
+                    <DocsNavList
+                      items={group.items}
+                      currentSlug={currentSlug}
+                      theme={theme}
+                    />
                   </Collapsible>
                 ))}
               </div>
             ) : (
               <div className="border-l border-border pl-3">
-                <DocsNavList items={collection.items} currentSlug={currentSlug} />
+                <DocsNavList
+                  items={collection.items}
+                  currentSlug={currentSlug}
+                  theme={theme}
+                />
               </div>
             )}
           </div>
@@ -352,10 +365,10 @@ export async function ThemedDocArticle({
   collections: DocsCollection[];
   currentSlug: string;
   collection: DocsCollection | null;
-  teamId?: string;
+  teamId: string;
   publicApiBaseUrl?: string;
 }) {
-  const theme = await getRequestThemeStyle();
+  const theme = await getTeamThemeStyle(teamId);
   const imageUrl =
     typeof featuredImage?.url === "string"
       ? featuredImage.url
@@ -389,7 +402,7 @@ export async function ThemedDocArticle({
     <Section theme={theme}>
       <div className="flex flex-col gap-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <Breadcrumb items={crumbs} />
+          <Breadcrumb theme={theme} items={crumbs} />
           {teamId && publicApiBaseUrl ? (
             <div className="w-full lg:max-w-xs">
               <DocsSearch
@@ -403,7 +416,11 @@ export async function ThemedDocArticle({
         <div className="grid gap-10 lg:grid-cols-[220px_minmax(0,1fr)_200px]">
           <aside className="hidden lg:block">
             <div className="sticky top-24">
-              <DocsSidebar collections={collections} currentSlug={currentSlug} />
+              <DocsSidebar
+                collections={collections}
+                currentSlug={currentSlug}
+                theme={theme}
+              />
             </div>
           </aside>
           <article className="flex min-w-0 flex-col gap-8">
@@ -414,7 +431,11 @@ export async function ThemedDocArticle({
                 </Text2>
               </summary>
               <div className="mt-4">
-                <DocsSidebar collections={collections} currentSlug={currentSlug} />
+                <DocsSidebar
+                  collections={collections}
+                  currentSlug={currentSlug}
+                  theme={theme}
+                />
               </div>
             </details>
             {imageUrl && (
@@ -423,6 +444,8 @@ export async function ThemedDocArticle({
                   src={imageUrl}
                   alt={imageAlt}
                   theme={theme}
+                  priority
+                  sizes="(min-width: 1024px) 768px, 100vw"
                   className="aspect-[2/1] max-h-[400px] w-full object-cover"
                 />
               </div>

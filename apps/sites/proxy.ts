@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveHost } from "./lib/api";
-import { decideHost, hostCache, normalizeHost } from "./lib/host";
+import { decideHost, lookupHost, normalizeHost } from "./lib/host";
+import { edgeCacheHeaders } from "./lib/edge-cache";
 
 export async function proxy(request: NextRequest) {
-  const docs = /(?:^|\/)docs(?:\/|$)/.test(request.nextUrl.pathname);
-  const uncached = (response: NextResponse) => {
-    if (docs) response.headers.set("Cache-Control", "no-store");
-    return response;
-  };
-
   // Direct access to the internal /sites rewrite segment is never allowed.
   if (request.nextUrl.pathname.startsWith("/sites")) {
-    return uncached(new NextResponse(null, { status: 404 }));
+    return new NextResponse(null, { status: 404 });
   }
 
   // Page/site file JSON Schemas are the same on every host (frontlit.app
@@ -21,23 +16,20 @@ export async function proxy(request: NextRequest) {
   }
 
   const requestHost = request.headers.get("host");
-  if (!requestHost) return uncached(new NextResponse(null, { status: 404 }));
+  if (!requestHost) return new NextResponse(null, { status: 404 });
   const host = normalizeHost(requestHost);
-  if (!host) return uncached(new NextResponse(null, { status: 404 }));
+  if (!host) return new NextResponse(null, { status: 404 });
 
-  let resolved = hostCache.get(host);
-  if (resolved === undefined) {
-    try {
-      resolved = await resolveHost(host);
-      hostCache.set(host, resolved);
-    } catch {
-      // An API outage is not evidence of an unknown tenant. Avoid caching
-      // it as a 404 for the next minute.
-      return new NextResponse("Site temporarily unavailable", {
-        status: 503,
-        headers: { "Cache-Control": "no-store" },
-      });
-    }
+  let resolved;
+  try {
+    resolved = await lookupHost(host, resolveHost);
+  } catch {
+    // An API outage is not evidence of an unknown tenant, so it is never
+    // cached as a 404.
+    return new NextResponse("Site temporarily unavailable", {
+      status: 503,
+      headers: { "Cache-Control": "no-store" },
+    });
   }
 
   // Behind the TLS edge the app itself only sees plain HTTP; the edge's
@@ -66,7 +58,7 @@ export async function proxy(request: NextRequest) {
 
   // Unknown hosts do not map to any tenant site; refuse rather than falling through.
   if (decision.action === "unknown") {
-    return uncached(new NextResponse(null, { status: 404 }));
+    return new NextResponse(null, { status: 404 });
   }
 
   if (decision.action === "redirect") {
@@ -87,27 +79,29 @@ export async function proxy(request: NextRequest) {
     url.pathname = `/sites/${decision.teamId}/release-preview/${request.nextUrl.pathname.slice("/_preview/".length)}`;
   }
 
-  // The chat iframe never gets the team's code-injection snippets or its
-  // own floating widget button (architecture.md §12.5/§7.3) — flagged via
-  // a header instead of restructuring routes, since a nested layout can't
-  // opt out of what its parent renders.
-  const headers = new Headers(request.headers);
+  // The rendered response depends only on team and path, never on request
+  // headers, so it can be cached and shared (docs/site-delivery.md §4.2).
+  const response = NextResponse.rewrite(url);
   // Search visibility: a hidden (pre-launch) site is noindex everywhere; a
   // non-canonical host that still serves (subdomain with redirect off) is
-  // noindex so it never competes with the canonical host.
-  const hidden = resolved!.hideFromSearch;
-  const noindex = hidden || host !== resolved!.canonicalHost;
-  headers.set("x-frontlit-canonical-host", resolved!.canonicalHost);
-  headers.set("x-frontlit-team-id", decision.teamId);
-  headers.set("x-frontlit-hidden", hidden ? "1" : "0");
-  headers.set("x-frontlit-noindex", noindex ? "1" : "0");
-  if (request.nextUrl.pathname.startsWith("/embed/"))
-    headers.set("x-frontlit-embed", "1");
-
-  const response = NextResponse.rewrite(url, { request: { headers } });
-  // Covers non-HTML responses too (feeds, images) that carry no meta tag.
-  if (noindex) response.headers.set("X-Robots-Tag", "noindex");
-  return uncached(response);
+  // noindex so it never competes with the canonical host. A header covers
+  // feeds and images too, and keeps the cached HTML host-independent.
+  if (resolved!.hideFromSearch || host !== resolved!.canonicalHost)
+    response.headers.set("X-Robots-Tag", "noindex");
+  // Optional HTTP cache / CDN in front (EDGE_CACHE_MODE, §5).
+  const edge = edgeCacheHeaders(
+    decision.teamId,
+    request.nextUrl.pathname,
+    undefined,
+    undefined,
+    {
+      rscHeader: request.headers.get("rsc") === "1",
+      rscParam: request.nextUrl.searchParams.has("_rsc"),
+    },
+  );
+  for (const [name, value] of Object.entries(edge ?? {}))
+    response.headers.set(name, value);
+  return response;
 }
 
 export const config = {

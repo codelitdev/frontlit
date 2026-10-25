@@ -1,6 +1,7 @@
 import { revalidateTag } from "next/cache";
 import { z } from "zod";
 import { verifyWebhookSignature } from "@/lib/webhook-signing";
+import { checkReceipt, recordReceipt } from "@/lib/webhook-receipts";
 const eventSchema = z
   .object({
     eventId: z.string().regex(/^evt_[a-z0-9]+$/),
@@ -13,9 +14,6 @@ const eventSchema = z
     policyEpoch: z.number().int().nonnegative(),
   })
   .strict();
-// Side effects are idempotent even after restart. This receipt cache also
-// rejects conflicting replay inside the signature's five-minute window.
-const receipts = new Map<string, { body: string; expires: number }>();
 export async function POST(request: Request) {
   const secret = process.env.REVALIDATE_WEBHOOK_SECRET;
   if (!secret) return new Response("Not configured", { status: 404 });
@@ -37,14 +35,14 @@ export async function POST(request: Request) {
     return new Response("Invalid event", { status: 400 });
   }
   if (!parsed.success) return new Response("Invalid event", { status: 400 });
-  const now = Date.now();
-  for (const [key, value] of receipts) if (value.expires <= now) receipts.delete(key);
-  const existing = receipts.get(parsed.data.eventId);
-  if (existing && existing.body !== raw)
-    return new Response("Conflicting event", { status: 409 });
-  if (!existing) {
-    revalidateTag(`team:${parsed.data.teamId}`, { expire: 0 });
-    receipts.set(parsed.data.eventId, { body: raw, expires: now + 300000 });
+  const receipt = checkReceipt(parsed.data.eventId, raw);
+  if (receipt === "conflict") return new Response("Conflicting event", { status: 409 });
+  if (receipt === "new") {
+    // Every event (activation, policy change, purge) changes what the docs
+    // and the sitemap show, and nothing else.
+    revalidateTag(`docs:${parsed.data.teamId}`, { expire: 0 });
+    revalidateTag(`sitemap:${parsed.data.teamId}`, { expire: 0 });
+    recordReceipt(parsed.data.eventId, raw);
   }
   return Response.json({ acknowledged: parsed.data.eventId });
 }

@@ -38,5 +38,6 @@ export function publicPurge(row: any) {
     expiresAt,
     createdAt,
     completedAt,
+    deliveredAt: row.deliveredAt ?? null,
   });
 }

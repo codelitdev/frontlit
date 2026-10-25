@@ -35,7 +35,6 @@ import {
   activatePagesRelease,
   createPagesRelease,
   importPagesTree,
-  revalidatePages,
   pagesSourceKey,
   PagesImportError,
   type PagesManifest,
@@ -774,7 +773,6 @@ async function finishWithoutDocsPublication(
   pages: PagesManifest | null,
 ) {
   const teamSettings = pages ? await getTeamSettings(job.teamId) : undefined;
-  let activated = false;
   const done = await db.transaction(async (tx) => {
     await lockSettings(tx, job.teamId);
     const binding = await tx.query.documentationGitBindings.findFirst({
@@ -796,7 +794,6 @@ async function finishWithoutDocsPublication(
         settings: teamSettings,
       });
       await activatePagesRelease(job.teamId, release, tx);
-      activated = true;
     }
     await tx
       .update(bindings)
@@ -824,7 +821,6 @@ async function finishWithoutDocsPublication(
       .returning();
     return row;
   });
-  if (activated) await revalidatePages(job.teamId);
   return done;
 }
 

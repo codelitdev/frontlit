@@ -1,5 +1,5 @@
 {
-  "id": "1f6929b9-8047-4d61-862d-59f4a85043ac",
+  "id": "152e3740-f1f6-4d22-9c99-cc7078a5dd1f",
   "prevId": "f1ffa20b-9dc5-47ee-9502-651fb066f8f5",
   "version": "7",
   "dialect": "postgresql",
@@ -2653,273 +2653,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.documentation_api_operations": {
-      "name": "documentation_api_operations",
-      "schema": "",
-      "columns": {
-        "spec_id": {
-          "name": "spec_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "team_id": {
-          "name": "team_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "route": {
-          "name": "route",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "group": {
-          "name": "group",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "order": {
-          "name": "order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "method": {
-          "name": "method",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "path": {
-          "name": "path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "deprecated": {
-          "name": "deprecated",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "slice": {
-          "name": "slice",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "chunks": {
-          "name": "chunks",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "documentation_api_operations_route_idx": {
-          "name": "documentation_api_operations_route_idx",
-          "columns": [
-            {
-              "expression": "spec_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "route",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "documentation_api_operations_team_idx": {
-          "name": "documentation_api_operations_team_idx",
-          "columns": [
-            {
-              "expression": "team_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "documentation_api_operations_spec_id_documentation_api_specs_spec_id_fk": {
-          "name": "documentation_api_operations_spec_id_documentation_api_specs_spec_id_fk",
-          "tableFrom": "documentation_api_operations",
-          "tableTo": "documentation_api_specs",
-          "columnsFrom": [
-            "spec_id"
-          ],
-          "columnsTo": [
-            "spec_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "documentation_api_operations_team_id_teams_id_fk": {
-          "name": "documentation_api_operations_team_id_teams_id_fk",
-          "tableFrom": "documentation_api_operations",
-          "tableTo": "teams",
-          "columnsFrom": [
-            "team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.documentation_api_specs": {
-      "name": "documentation_api_specs",
-      "schema": "",
-      "columns": {
-        "spec_id": {
-          "name": "spec_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "team_id": {
-          "name": "team_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "commit_sha": {
-          "name": "commit_sha",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source_path": {
-          "name": "source_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source_blob_sha": {
-          "name": "source_blob_sha",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "mount": {
-          "name": "mount",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "spec": {
-          "name": "spec",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "spec_hash": {
-          "name": "spec_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "info": {
-          "name": "info",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "diagnostics": {
-          "name": "diagnostics",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "documentation_api_specs_team_idx": {
-          "name": "documentation_api_specs_team_idx",
-          "columns": [
-            {
-              "expression": "team_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "documentation_api_specs_team_id_teams_id_fk": {
-          "name": "documentation_api_specs_team_id_teams_id_fk",
-          "tableFrom": "documentation_api_specs",
-          "tableTo": "teams",
-          "columnsFrom": [
-            "team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.documentation_delivery_outbox": {
       "name": "documentation_delivery_outbox",
       "schema": "",
@@ -3419,19 +3152,6 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
-        },
-        "api_spec_path": {
-          "name": "api_spec_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "api_mount": {
-          "name": "api_mount",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'api-reference'"
         },
         "status": {
           "name": "status",
@@ -6406,12 +6126,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "active_api_spec_id": {
-          "name": "active_api_spec_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "requested_generation": {
           "name": "requested_generation",
           "type": "integer",
@@ -8224,6 +7938,131 @@
       },
       "indexes": {},
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.site_cache_outbox": {
+      "name": "site_cache_outbox",
+      "schema": "",
+      "columns": {
+        "event_id": {
+          "name": "event_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "team_id": {
+          "name": "team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tags": {
+          "name": "tags",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "invalidate_hosts": {
+          "name": "invalidate_hosts",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "destinations": {
+          "name": "destinations",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "acknowledgments": {
+          "name": "acknowledgments",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "next_attempt_at": {
+          "name": "next_attempt_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "lease_token": {
+          "name": "lease_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lease_expires_at": {
+          "name": "lease_expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "site_cache_outbox_poll_idx": {
+          "name": "site_cache_outbox_poll_idx",
+          "columns": [
+            {
+              "expression": "completed_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "next_attempt_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "site_cache_outbox_team_id_teams_id_fk": {
+          "name": "site_cache_outbox_team_id_teams_id_fk",
+          "tableFrom": "site_cache_outbox",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},

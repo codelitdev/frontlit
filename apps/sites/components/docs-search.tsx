@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import Link from "next/link";
+import { SiteLink as Link } from "@/components/site-link";
 import { Search } from "lucide-react";
 import {
   Header4,

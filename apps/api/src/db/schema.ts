@@ -1246,6 +1246,35 @@ export const outboxJobs = pgTable(
   (table) => [index("outbox_jobs_poll_idx").on(table.status, table.nextAttemptAt)],
 );
 
+/** Public-site cache invalidations (docs/site-delivery.md §4.5). Written in
+ * the transaction that changes published content, then delivered to each
+ * destination (`sites` = the signed revalidate webhook) with retries.
+ * `tags` hold public team IDs, ready to send. */
+export const siteCacheOutbox = pgTable(
+  "site_cache_outbox",
+  {
+    eventId: text("event_id")
+      .primaryKey()
+      .$defaultFn(() => genPublicId("evt")),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    tags: jsonb("tags").$type<string[]>().notNull(),
+    invalidateHosts: jsonb("invalidate_hosts").$type<string[]>(),
+    destinations: jsonb("destinations").$type<string[]>().notNull(),
+    acknowledgments: jsonb("acknowledgments").$type<string[]>().notNull().default([]),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
+    leaseToken: text("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("site_cache_outbox_poll_idx").on(table.completedAt, table.nextAttemptAt),
+  ],
+);
+
 export const pages = pgTable(
   "pages",
   {

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { SiteLink as Link } from "@/components/site-link";
 import { Download } from "lucide-react";
 import { TextRenderer } from "@frontlit/text-editor/renderer";
 import type { TextEditorContent } from "@frontlit/text-editor";
@@ -28,7 +28,7 @@ import {
   Text1,
   Text2,
 } from "@frontlit/page-builder/primitives/server";
-import { getRequestThemeStyle } from "@/lib/request-theme";
+import { getTeamThemeStyle } from "@/lib/team-theme";
 import { API_REFERENCE_LABEL, type DocsCollection } from "@/lib/docs-tree";
 import type { PublicApiReference } from "@/lib/api";
 import { DocsSearch } from "@/components/docs-search";
@@ -95,14 +95,14 @@ async function Shell({
   aside?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const theme = await getRequestThemeStyle();
+  const theme = await getTeamThemeStyle(teamId);
   return (
     <Section theme={theme}>
       {/* Columns follow the theme's container width, not the viewport:
           narrow themes (Editorial) drop the code column below the content. */}
       <div className="@container flex flex-col gap-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <Breadcrumb items={crumbs} />
+          <Breadcrumb items={crumbs} theme={theme} />
           <div className="w-full lg:max-w-xs">
             <DocsSearch teamId={teamId} publicApiBaseUrl={publicApiBaseUrl} size="sm" />
           </div>
@@ -116,7 +116,11 @@ async function Shell({
         >
           <aside className="hidden @3xl:block">
             <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-1 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]">
-              <DocsSidebar collections={collections} currentSlug={currentSlug} />
+              <DocsSidebar
+                collections={collections}
+                currentSlug={currentSlug}
+                theme={theme}
+              />
             </div>
           </aside>
           <article className="flex min-w-0 flex-col gap-8">
@@ -127,7 +131,11 @@ async function Shell({
                 </Text2>
               </summary>
               <div className="mt-4">
-                <DocsSidebar collections={collections} currentSlug={currentSlug} />
+                <DocsSidebar
+                  collections={collections}
+                  currentSlug={currentSlug}
+                  theme={theme}
+                />
               </div>
             </details>
             {children}
@@ -180,7 +188,7 @@ export async function ThemedApiLanding({
   teamId: string;
   publicApiBaseUrl: string;
 }) {
-  const theme = await getRequestThemeStyle();
+  const theme = await getTeamThemeStyle(teamId);
   const { info } = reference;
   return (
     <Shell
@@ -338,7 +346,7 @@ export async function ThemedApiOperation({
   teamId: string;
   publicApiBaseUrl: string;
 }) {
-  const theme = await getRequestThemeStyle();
+  const theme = await getTeamThemeStyle(teamId);
   const locations = (["path", "query", "header", "cookie"] as const)
     .map((location) => ({
       location,

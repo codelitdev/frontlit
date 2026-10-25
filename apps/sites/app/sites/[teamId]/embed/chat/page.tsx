@@ -1,17 +1,28 @@
+import { Suspense } from "react";
 import { getChatbotSettings } from "@/lib/api";
 import { API_PUBLIC_URL } from "@/lib/config";
 import { loadSiteTheme } from "@/lib/load-site-theme";
 import { ChatPanel } from "@/components/chat-panel";
 
-export default async function EmbedChatPage({
-  params,
-  searchParams,
-}: {
+interface Props {
   params: Promise<{ teamId: string }>;
   searchParams: Promise<{ layout?: string }>;
-}) {
-  const { teamId } = await params;
-  const { layout: layoutParam } = await searchParams;
+}
+
+/** `?layout=` is read per request; the settings behind it are cached. */
+export default function EmbedChatPage(props: Props) {
+  return (
+    <Suspense fallback={null}>
+      <EmbedChat {...props} />
+    </Suspense>
+  );
+}
+
+async function EmbedChat({ params, searchParams }: Props) {
+  const [{ teamId }, { layout: layoutParam }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const [settings, siteTheme] = await Promise.all([
     getChatbotSettings(teamId),
     loadSiteTheme(teamId),

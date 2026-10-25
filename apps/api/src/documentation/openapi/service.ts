@@ -17,6 +17,8 @@ import type { GitTreeEntry } from "../github/importer";
 import { requireGitManager } from "../github/setup";
 import { enqueueGitSync, readGitBindingAccess } from "../github/state";
 import { siteOriginForTeam } from "../../utils/site-url";
+import { edgeDestinations } from "../../services/edge-purge";
+import { wakeDocumentationWorker } from "../worker-wake";
 import { importOpenApiSpec, normalizeApiMount, type ImportedSpec } from "./import";
 import { OPENAPI_LIMITS, OpenApiImportError } from "./parse";
 
@@ -101,8 +103,9 @@ async function insertEvent(tx: Executor, teamId: string) {
     policyEpoch: settings?.policyEpoch ?? 0,
     type: "api_reference",
     payload: { apiSpecId: settings?.activeApiSpecId ?? null },
+    // Same destinations as a docs activation: the sites cache, then the edge.
     destinations: process.env.REVALIDATE_WEBHOOK_SECRET
-      ? ["local", "sites"]
+      ? ["local", "sites", ...edgeDestinations()]
       : ["local"],
   });
 }
@@ -241,6 +244,8 @@ export async function syncApiReference(input: {
       { ...target, generation: binding.generation, blobSha },
       result,
     );
+    // Deliver the cache invalidation now rather than on the next poll.
+    wakeDocumentationWorker();
   } catch (error) {
     if (error instanceof OpenApiImportError) {
       await recordFailure(teamId, target, error.diagnostics);
@@ -379,6 +384,7 @@ export async function updateApiReferenceSettings(
     }
     await enqueueGitSync(teamId, { trigger: "configuration" }, tx);
   });
+  wakeDocumentationWorker();
   return getApiReferenceStatus(teamId);
 }
 

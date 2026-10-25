@@ -42,7 +42,7 @@ import {
   verifyTicketAccess,
 } from "../tickets/queries";
 import { notifyTeamOfRequesterMessage } from "../tickets/notify";
-import { resolveHost } from "../domains/queries";
+import { getDomainSettings, resolveHost } from "../domains/queries";
 import { getTeamSettings } from "../settings/queries";
 import { getPublishedPageBySlug, listPublishedPages } from "../pages/queries";
 import { getActiveRelease, getReleaseByReleaseId } from "../pages/releases";
@@ -314,7 +314,10 @@ const impl = s.router(contract.public, {
       const team = await findTeamByPublicId(params.teamId);
       if (!team) return { status: 404, body: { error: "Team not found" } };
 
-      const settings = await getTeamSettings(team.id);
+      const [settings, domains] = await Promise.all([
+        getTeamSettings(team.id),
+        getDomainSettings(team.id),
+      ]);
       const { title, subtitle, logo, codeInjectionHead, codeInjectionBody, themeId } =
         settings;
       const savedTheme = themeId?.startsWith("thm_")
@@ -339,6 +342,8 @@ const impl = s.router(contract.public, {
           codeInjectionHead,
           codeInjectionBody,
           redirects: release?.site.redirects ?? [],
+          canonicalHost: domains?.canonicalHost ?? null,
+          hideFromSearch: domains?.hideFromSearch ?? false,
         },
       };
     },
