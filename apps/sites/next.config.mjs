@@ -24,8 +24,8 @@ const nextConfig = {
     // No REVALIDATE_WEBHOOK_SECRET: nothing invalidates, so refresh often.
     siteUnmanaged: { stale: 60, revalidate: 60, expire: 30 * 24 * 3600 },
   },
-  // Several replicas must agree on the build (asset URLs, cache keys). Set
-  // the same value on every instance of one release.
+  // Version-skew protection. Read at build time: replicas of one image
+  // already agree, so this matters only for separately built replicas.
   deploymentId: process.env.DEPLOYMENT_ID || undefined,
   images: {
     remotePatterns: imageRemoteHosts.map((hostname) => ({

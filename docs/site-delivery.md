@@ -91,8 +91,9 @@ Without `REVALIDATE_WEBHOOK_SECRET` nothing can invalidate the cache, so
 public reads use the `siteUnmanaged` profile (refresh every minute) instead
 of `site`.
 
-Multi-replica deployments also need the same `DEPLOYMENT_ID` on every
-instance of a release (it becomes `deploymentId`). The public site has no
+Replicas must run the same build. Several pods of one image already do;
+replicas built separately need the same `DEPLOYMENT_ID` at build time (it
+becomes `deploymentId`). The public site has no
 Server Actions, so it needs no shared encryption key.
 
 ### 4.2 Making routes cacheable
@@ -343,8 +344,9 @@ which prefetches on intent: hover, focus or touch.
 
 | Variable                                | Default    | Purpose                                                |
 | --------------------------------------- | ---------- | ------------------------------------------------------ |
-| `REDIS_URL`                             | unset      | Shared Layer 1 cache and host cache; needed with several replicas |
-| `DEPLOYMENT_ID`                         | unset      | Same value on every replica of one release (`deploymentId`) |
+| `REDIS_URL`                             | unset      | Shared Layer 1 cache and host cache; needed with several replicas (`SITES_REDIS_URL` in the self-host compose) |
+| `DEPLOYMENT_ID`                         | unset      | Build time. `deploymentId`; only for replicas built separately |
+| `IMAGE_REMOTE_HOSTS`                    | `cdn.medialit.cloud,images.unsplash.com` | Build time. Image hosts the optimizer accepts (`images.remotePatterns`) |
 | `REVALIDATE_WEBHOOK_SECRET`             | unset      | Required for publish-time invalidation; unset = pages refresh every minute |
 | `SITES_REVALIDATE_URL`                  | `SITES_BASE_URL` | Where apps/api posts invalidations (set on `apps/api`) |
 | `EDGE_CACHE_MODE`                       | `none`     | `none` \| `ttl` \| `purge` (§5)                        |

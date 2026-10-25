@@ -186,6 +186,8 @@ services:
         build:
             context: .
             dockerfile: apps/sites/Dockerfile
+            args:
+                IMAGE_REMOTE_HOSTS: ${IMAGE_REMOTE_HOSTS:-}
         restart: unless-stopped
         environment:
             NODE_ENV: production
