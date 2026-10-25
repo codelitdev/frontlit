@@ -200,6 +200,8 @@ services:
             # Optional HTTP cache / CDN in front (docs/site-delivery.md §5).
             EDGE_CACHE_MODE: ${EDGE_CACHE_MODE:-none}
             EDGE_CACHE_TTL: ${EDGE_CACHE_TTL:-60}
+            # "off" disables the Web Vitals beacon (deploy/monitoring).
+            SITE_RUM: ${SITE_RUM:-}
         depends_on:
             frontlit-api:
                 condition: service_healthy
