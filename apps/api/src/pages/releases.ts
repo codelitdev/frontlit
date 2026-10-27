@@ -19,6 +19,7 @@ import {
   type WidgetInstanceRow,
 } from "../db/schema";
 import { getTeamSettings } from "../settings/queries";
+import { invalidateSiteCache, releaseChangeTags } from "../services/site-cache";
 import { createRequiredPageLayout, hydrateSharedWidgets } from "./shared-widgets";
 
 type Executor = Pick<
@@ -226,10 +227,19 @@ export async function activateRelease(
   executor: Executor,
   release: { id: string; teamId: string },
 ) {
+  const before = await getActiveRelease(release.teamId, executor);
   await executor
     .update(teamSettings)
     .set({ activeReleaseId: release.id, updatedAt: new Date() })
     .where(eq(teamSettings.teamId, release.teamId));
+  const after = await loadRelease(executor, eq(siteReleases.id, release.id));
+  if (after) {
+    await invalidateSiteCache(
+      release.teamId,
+      (teamId) => releaseChangeTags(teamId, before, after),
+      { executor },
+    );
+  }
 }
 
 /** Inserts an immutable release. Does not activate it. */

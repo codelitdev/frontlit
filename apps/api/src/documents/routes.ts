@@ -21,8 +21,6 @@ import {
   attachDocumentIndex,
   attachOneDocumentIndex,
 } from "../documentation/index-status";
-import { findTeamById } from "../team/queries";
-import { revalidateTeam } from "../services/revalidate";
 import { InvalidSlugError, SlugConflictError } from "../utils/slug";
 import { DocsContentError } from "@frontlit/text-editor/docs";
 import {
@@ -128,10 +126,6 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
           }
           const doc = await updateDocument(kind, req.teamId, params.documentId, body);
           if (!doc) return { status: 404, body: { error: "Not found" } };
-          if (kind !== "doc" && body.slug !== undefined) {
-            const team = await findTeamById(req.teamId);
-            if (team) revalidateTeam(team.teamId).catch(() => {});
-          }
           return {
             status: 200,
             body: toPublicDocument(await attachOneDocumentIndex(kind, doc)),
@@ -174,8 +168,6 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
               : undefined,
           );
           if (!doc) return { status: 404, body: { error: "Not found" } };
-          const team = await findTeamById(req.teamId);
-          if (team) revalidateTeam(team.teamId).catch(() => {});
           return {
             status: 200,
             body: toPublicDocument(await attachOneDocumentIndex(kind, doc)),
@@ -236,8 +228,6 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
             query?.expectedDraftVersion,
           );
           if (!result.ok) return { status: 404, body: { error: "Not found" } };
-          const team = await findTeamById(req.teamId);
-          if (team) revalidateTeam(team.teamId).catch(() => {});
           return { status: 204, body: undefined };
         } catch (error) {
           if (error instanceof DocsContentError)

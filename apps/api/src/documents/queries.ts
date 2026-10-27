@@ -26,6 +26,7 @@ import { deleteChunksForDocument } from "../documentation/queries";
 
 import { isUnsplashUrl, registerMedia } from "../media/queries";
 import { logger } from "../services/log";
+import { invalidateSiteCache, siteTags } from "../services/site-cache";
 
 export type DocumentStatus = "draft" | "published" | "published_with_changes";
 
@@ -314,6 +315,15 @@ export async function getDocumentByDocumentId(
  * (architecture.md \u00a73). `meta` is shallow-merged into the existing draft
  * meta so callers can patch one field (e.g. `tags`) without resending all
  * of it. */
+/** Refreshes the public blog or changelog feed. Docs go live through
+ * publications, which notify the site themselves. */
+function invalidateFeed(kind: DocumentKind, teamId: string) {
+  return invalidateSiteCache(teamId, (publicTeamId) => [
+    kind === "blog" ? siteTags.blog(publicTeamId) : siteTags.changelog(publicTeamId),
+    siteTags.sitemap(publicTeamId),
+  ]);
+}
+
 export async function updateDocument(
   kind: DocumentKind,
   teamId: string,
@@ -394,6 +404,9 @@ export async function updateDocument(
         await deleteChunksForDocument(doc.id);
       }
     }
+    // A slug change moves the public URL immediately.
+    if (doc?.publishedAt && slug !== undefined && slug !== existing.slug)
+      await invalidateFeed(kind, teamId);
     return doc;
   } catch (error) {
     if (slug !== undefined && isUniqueConstraintViolation(error)) {
@@ -444,6 +457,7 @@ export async function publishDocument(
     if (isDocIndexable(doc.meta)) await enqueueDocumentIndex(teamId, doc.id);
     else await deleteChunksForDocument(doc.id);
   }
+  if (doc) await invalidateFeed(kind, teamId);
   return doc;
 }
 
@@ -494,6 +508,7 @@ export async function deleteDocument(
   if (!existing || existing.teamId !== teamId)
     return { ok: false as const, reason: "not_found" as const };
   await db.delete(documents).where(eq(documents.id, existing.id));
+  if (existing.publishedAt) await invalidateFeed(kind, teamId);
   return { ok: true as const };
 }
 

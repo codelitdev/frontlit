@@ -120,6 +120,8 @@ services:
             WEB_CLIENT: ${WEB_CLIENT:-http://localhost:3000}
             WEB_BASE_URL: ${WEB_BASE_URL:-http://localhost:3000}
             SITES_BASE_URL: ${SITES_BASE_URL:-http://localhost:3002}
+            # Cache invalidations go to the sites container directly.
+            SITES_REVALIDATE_URL: http://frontlit-sites:3002
             PLATFORM_SITE_DOMAIN: ${PLATFORM_SITE_DOMAIN:-localhost}
             PLATFORM_TEAM_ID: ${PLATFORM_TEAM_ID:-}
             CUSTOM_DOMAIN_CNAME_TARGET: ${CUSTOM_DOMAIN_CNAME_TARGET:-}
@@ -184,12 +186,22 @@ services:
         build:
             context: .
             dockerfile: apps/sites/Dockerfile
+            args:
+                IMAGE_REMOTE_HOSTS: ${IMAGE_REMOTE_HOSTS:-}
+                ASSET_PREFIX: ${ASSET_PREFIX:-}
         restart: unless-stopped
         environment:
             NODE_ENV: production
             API_URL: http://frontlit-api:4000
             API_PUBLIC_URL: ${API_PUBLIC_URL:-http://localhost:4000}
             REVALIDATE_WEBHOOK_SECRET: ${REVALIDATE_WEBHOOK_SECRET:-}
+            # Optional: shared cache for several sites replicas.
+            REDIS_URL: ${SITES_REDIS_URL:-}
+            # Optional HTTP cache / CDN in front (docs/site-delivery.md §5).
+            EDGE_CACHE_MODE: ${EDGE_CACHE_MODE:-none}
+            EDGE_CACHE_TTL: ${EDGE_CACHE_TTL:-60}
+            # "off" disables the Web Vitals beacon (deploy/monitoring).
+            SITE_RUM: ${SITE_RUM:-}
         depends_on:
             frontlit-api:
                 condition: service_healthy

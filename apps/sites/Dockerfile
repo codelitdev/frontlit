@@ -21,6 +21,11 @@ FROM deps AS builder
 WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED=1
+# Read by `next build` (next.config.mjs), not at runtime.
+ARG IMAGE_REMOTE_HOSTS
+ARG DEPLOYMENT_ID
+ARG ASSET_PREFIX
+ENV IMAGE_REMOTE_HOSTS=$IMAGE_REMOTE_HOSTS DEPLOYMENT_ID=$DEPLOYMENT_ID ASSET_PREFIX=$ASSET_PREFIX
 
 RUN bun run --filter @frontlit/api-contract build
 RUN bun run --filter @frontlit/text-editor build

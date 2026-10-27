@@ -265,6 +265,9 @@ export const documentationPurgeSchema = z.object({
   expiresAt: z.string(),
   createdAt: z.string(),
   completedAt: z.string().nullable(),
+  /** When every cache (site and, if configured, edge) dropped the purged
+   * content. Null while delivery is pending. */
+  deliveredAt: z.string().nullable(),
 });
 export const documentationLiveIdentitySchema = z.object({
   publicationId: z.string().nullable(),

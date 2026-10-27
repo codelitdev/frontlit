@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../db/client";
+import { invalidateSiteCache, siteTags } from "../services/site-cache";
 import { genId } from "../db/id";
 import { canonicalizeSettings } from "@frontlit/page-builder/schema";
 import {
@@ -127,5 +128,6 @@ export async function updateTeamSettings(
     .set({ ...patch, updatedAt: new Date() })
     .where(eq(teamSettings.id, existing.id))
     .returning();
+  await invalidateSiteCache(teamId, (publicTeamId) => [siteTags.shell(publicTeamId)]);
   return updated;
 }

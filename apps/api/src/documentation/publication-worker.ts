@@ -12,12 +12,17 @@ import {
   cleanupDocumentation,
 } from "./publications";
 import { logger } from "../services/log";
+import { onDocumentationWorkerWake } from "./worker-wake";
 export function startDocumentationPublicationWorker(intervalMs = 2000) {
   let stopped = false;
   let lastCleanup = 0;
   let lastGitReconcile = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let running = false;
+  let wokenWhileRunning = false;
   async function tick() {
     if (stopped) return;
+    running = true;
     try {
       // Bounded work per tick; an individual tenant cannot drain forever.
       if (Date.now() - lastGitReconcile > 60_000) {
@@ -45,10 +50,22 @@ export function startDocumentationPublicationWorker(intervalMs = 2000) {
         "Documentation publication worker failed",
       );
     }
-    if (!stopped) setTimeout(tick, intervalMs);
+    running = false;
+    if (!stopped) timer = setTimeout(tick, wokenWhileRunning ? 0 : intervalMs);
+    wokenWhileRunning = false;
   }
-  setTimeout(tick, intervalMs);
+  onDocumentationWorkerWake(() => {
+    if (running) {
+      wokenWhileRunning = true;
+      return;
+    }
+    clearTimeout(timer);
+    timer = setTimeout(tick, 0);
+  });
+  timer = setTimeout(tick, intervalMs);
   return () => {
     stopped = true;
+    clearTimeout(timer);
+    onDocumentationWorkerWake(null);
   };
 }

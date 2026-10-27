@@ -69,10 +69,32 @@ public data functions and route segments, `cacheTag` for invalidation and
 | Single container  | Next's default in-memory/disk handler                               | nothing         |
 | Several replicas  | Redis handler registered under `cacheHandlers`; `refreshTags()` makes invalidation reach every replica | `REDIS_URL`     |
 
-The Redis handler ships inside `apps/sites` and is used only when
-`REDIS_URL` is set. Multi-replica deployments also need a consistent build
-ID / `deploymentId` and a shared server-actions encryption key (Next.js
-self-hosting guide).
+The handler is `apps/sites/cache-handler.cjs`, registered for both `"use
+cache"` and `"use cache: remote"`. Without `REDIS_URL` it is Next's default
+in-memory handler. With `REDIS_URL`:
+
+- Entries live in process memory and in Redis. A replica that misses in
+  memory reads Redis before it calls the API, so a new replica serves
+  already-rendered data without touching the API.
+- `revalidateTag` writes the tag's timestamps to Redis and publishes them.
+  Every replica applies them at once to Next's process-wide tag manifest.
+  Full-page cache hits are checked against that manifest, and `refreshTags()`
+  only runs when a render calls a cached function, so a subscription is
+  what makes a page that's served straight from the cache refresh on every
+  replica. `refreshTags()` and every reconnect re-read Redis in case a
+  message was missed.
+- Redis never fails a request. Commands time out after 500 ms, aren't
+  queued while disconnected, and the cache falls back to memory. A replica
+  that boots without Redis connects in the background.
+
+Without `REVALIDATE_WEBHOOK_SECRET` nothing can invalidate the cache, so
+public reads use the `siteUnmanaged` profile (refresh every minute) instead
+of `site`.
+
+Replicas must run the same build. Several pods of one image already do;
+replicas built separately need the same `DEPLOYMENT_ID` at build time (it
+becomes `deploymentId`). The public site has no
+Server Actions, so it needs no shared encryption key.
 
 ### 4.2 Making routes cacheable
 
@@ -85,9 +107,19 @@ cookies, except the routes that stay uncached (§4.6).
 - **Canonical host:** add `canonicalHost` to `GET /public/:teamId/settings`
   and read it from the cached settings, replacing `x-frontlit-canonical-host`
   and `lib/request-host.ts`.
+- **Team and theme:** render code takes `teamId` from route params; nothing
+  reads `x-frontlit-team-id`.
+- **Search visibility:** a hidden site (`hideFromSearch`, also in public
+  settings) is noindex in its HTML. A non-canonical host that still serves
+  gets `X-Robots-Tag: noindex` from the proxy, so the HTML itself doesn't
+  depend on the host.
 - `proxy.ts` keeps host resolution and the rewrite. It may still add
   headers to the *response* (§5), but render code doesn't depend on
   request headers.
+- **Build:** teams aren't known at build time. Every dynamic segment's
+  `generateStaticParams` returns the `_build` placeholder, which Cache
+  Components requires and which never calls the API. Real teams and paths
+  render on first request and are cached from then on.
 
 ### 4.3 Cache tags
 
@@ -101,7 +133,6 @@ still cached.
 | `team:<team>`             | every cached entry of the team (domain changes, emergency flush)              |
 | `shell:<team>`            | settings (title, logo, theme, code injection), chatbot settings, and every page read, because the API hydrates the published header/footer (`sharedWidgets`) into each page |
 | `page:<team>:<slug>`      | one page-builder page by slug (`""` = homepage). System pages that frame built-in routes (`docs`, `blog`, `changelog`, `help`) use the same tag |
-| `pages:<team>`            | page lists (sitemap)                                                          |
 | `docs:<team>`             | docs snapshot: every docs article, navigation, collections                    |
 | `blog:<team>`             | blog index, posts, `blog/rss.xml`                                             |
 | `changelog:<team>`        | changelog feed, `changelog/rss.xml`                                           |
@@ -109,6 +140,11 @@ still cached.
 
 `<team>` is the public team ID. Rendered routes inherit the tags of the
 cached data they read, so a page tag never has to be computed separately.
+
+Docs articles, blog posts and other routes that wrap their own content
+only need the shared header and footer. They read them through
+`getSiteChrome()`, cached under `shell:<team>` alone, so publishing the
+homepage doesn't re-render them.
 
 ### 4.4 Lifetimes
 
@@ -130,11 +166,21 @@ cache.
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | Settings: branding, theme, code injection (`settings`)                     | `shell:<team>`                                                    |
 | Chatbot settings (`chatbot`)                                               | `shell:<team>`                                                    |
-| Page publish/unpublish/delete; slug change (`pages`)                       | `page:<team>:<old slug>`, `page:<team>:<new slug>`, `pages:<team>`, `sitemap:<team>`. If the publish promoted a changed header/footer draft: `shell:<team>` instead, since every page shows it |
+| Page publish/unpublish/delete; slug change; Git release (`pages`)          | Computed when a release is activated, by diffing it with the previous one: `page:<team>:<slug>` for every page whose slug or revision changed (old and new slug), plus `sitemap:<team>`. `shell:<team>` when the site snapshot (header, footer, theme, redirects) changed |
 | Blog post publish/unpublish/delete/slug (`documents`)                      | `blog:<team>`, `sitemap:<team>`                                   |
 | Changelog entry publish/unpublish/delete (`documents`)                     | `changelog:<team>`, `sitemap:<team>`                              |
 | Docs activation / policy change / sensitive-data purge (`documentation`)   | `docs:<team>`, `sitemap:<team>`                                   |
 | Domain verify/remove, subdomain visibility (`domains`)                     | `team:<team>` + `invalidateHosts`                                 |
+
+The events are written in the query layer (`activateRelease`,
+`updateTeamSettings`, `updateChatbotSettings`, the blog/changelog document
+queries, domain changes), so REST, MCP and Git sync all invalidate the same
+way. Page and release events are written in the transaction that changes
+the content (`site_cache_outbox`). The API worker delivers them within a
+second and retries with backoff. It posts to `SITES_REVALIDATE_URL`
+(default `SITES_BASE_URL`), so a container setup can use the internal
+service address. Queuing a docs publication wakes the publication worker
+instead of waiting for its two-second poll.
 
 Webhook contract: the existing `/api/webhooks/revalidate` payload becomes
 `{ eventId, teamId, tags[], invalidateHosts? }`. Sites accepts only the tag
@@ -154,6 +200,12 @@ pick it up through `refreshTags()` before their next request.
 previews, chat and search API calls, form submissions and the webhook routes
 stay dynamic. They keep reading request data and send
 `Cache-Control: private, no-store`.
+
+The ticket thread, pull request preview and `/embed/chat` read their token
+or `?layout=` inside `<Suspense>`: the surrounding chrome comes from the
+cache and the request-specific part renders per request. A missing or
+wrong token therefore shows the not-found page with status 200 and
+`noindex`, not 404. These pages are never indexed either way.
 
 ### 4.7 Host resolution
 
@@ -191,22 +243,25 @@ The mode is chosen with `EDGE_CACHE_MODE`.
 | `ttl`            | `CDN-Cache-Control: public, s-maxage=$EDGE_CACHE_TTL, stale-while-revalidate=86400, stale-if-error=604800`               | none; staleness capped at the TTL    |
 | `purge`          | `CDN-Cache-Control: public, s-maxage=31536000, stale-while-revalidate=86400, stale-if-error=604800`, plus `Surrogate-Key` and `Cache-Tag` | outbox → purge adapter              |
 
-In every mode the browser gets `Cache-Control: public, max-age=0,
-must-revalidate`. Uncached routes (§4.6) always send `private, no-store`,
-so they are never stored at the edge.
+In `ttl` and `purge` mode the browser gets `Cache-Control: public,
+max-age=0, must-revalidate`, and `Surrogate-Control` repeats the edge
+lifetime for caches that read it instead of `CDN-Cache-Control`. Uncached
+routes (§4.6: `/help/tickets/*`, `/_preview/*`, `/embed/chat`) send
+`private, no-store` in every mode, so they are never stored at the edge.
+The headers are set in `proxy.ts` (`lib/edge-cache.ts`); Next keeps them
+on the rendered response.
 
 **Edge tags** are computed in `proxy.ts` from the URL path, so the edge
 never needs page IDs. They use the same names as §4.3:
 
 | Path                         | Edge tags                                     |
 | ---------------------------- | --------------------------------------------- |
-| any                          | `team:<team>`                                 |
-| `/docs`, `/docs/*`           | `docs:<team>`                                 |
-| `/blog`, `/blog/*`           | `blog:<team>`                                 |
-| `/changelog`, `/changelog/*` | `changelog:<team>`                            |
+| any                          | `team:<team>`, `shell:<team>` (every route renders settings or chrome) |
+| `/docs`, `/docs/*`           | `docs:<team>`; `/docs` also `page:<team>:docs` |
+| `/blog`, `/blog/*`           | `blog:<team>`; `/blog` also `page:<team>:blog` |
+| `/changelog`, `/changelog/*` | `changelog:<team>`; `/changelog` also `page:<team>:changelog` |
 | `/sitemap.xml`               | `sitemap:<team>`                              |
 | other page paths             | `page:<team>:<slug>`                          |
-| every HTML route             | `shell:<team>` (the shell is baked into every page) |
 
 **Purge adapters.** The outbox gains an `edge` destination, used only in
 `purge` mode, that calls `purge(tags[])` on the configured adapter:
@@ -225,8 +280,12 @@ never needs page IDs. They use the same names as §4.3:
 3. A second edge purge about 10 seconds later, to catch renders that started
    before step 1 and finished after step 2.
 
+Both outboxes (`site_cache_outbox` and the documentation delivery outbox)
+deliver `sites`, then `edge`, then `edge-repeat`; `edge-repeat` waits
+until ten seconds after the event. A failed purge is retried with backoff.
 A sensitive-data purge counts as complete only after the edge destination
-acknowledges it.
+acknowledges it: its event completes then, and `GET …/purges/:purgeId`
+reports that time as `deliveredAt`.
 
 **RSC payloads.** Client navigations fetch RSC payloads from the same paths
 with an `_rsc` query parameter, and Next varies those responses on request
@@ -235,13 +294,22 @@ keep the `rsc`, `next-router-prefetch` and `_rsc` signals, so HTML and RSC
 payloads are never mixed up (Next.js `cdn-caching` guide). Every Layer 2
 setup must pass a client-navigation test behind the cache.
 
+A request whose `rsc` header and `_rsc` parameter disagree is never
+cacheable (`private, no-store`, in every mode). Next answers an `rsc`
+header without `_rsc` with a redirect; behind a cache that ignores `Vary`,
+storing that redirect at the page's own URL would send every later visitor
+to an RSC payload, and one crafted request is enough to do it. The proxy
+needs both signals to tell, so `skipProxyUrlNormalize` is on (Next strips
+them before the proxy by default).
+
 **Static assets.** `/_next/static/*` is content-hashed and already
 `immutable`; any layer caches it. An optional `ASSET_PREFIX` serves it from a
 separate host.
 
 **Self-hosted recipe (optional, documented).** Caddy (TLS, unchanged) →
 Varnish with the `xkey` module → `apps/sites`, with a small purge receiver
-wired to the `http` adapter. It is not part of the default compose stack.
+wired to the `http` adapter: [`deploy/edge-cache`](../deploy/edge-cache/README.md).
+It is not part of the default compose stack.
 
 ## 6. Page weight
 
@@ -278,6 +346,13 @@ dependencies load when the browser is idle or on first interaction.
 
 - Fonts stay self-hosted with `preload: false`. Only the active theme's
   primary font gets a `<link rel="preload">`.
+
+### 6.5 Prefetching
+
+Public pages are fully cached, so `next/link`'s default viewport prefetch
+would download every visible link's page, data and preloaded hero image (a
+docs sidebar alone lists every article). Public-site links use `SiteLink`,
+which prefetches on intent: hover, focus or touch.
 - Tenant code injection never blocks rendering: injected scripts are
   deferred where possible.
 
@@ -285,15 +360,73 @@ dependencies load when the browser is idle or on first interaction.
 
 | Variable                                | Default    | Purpose                                                |
 | --------------------------------------- | ---------- | ------------------------------------------------------ |
-| `REDIS_URL`                             | unset      | Shared Layer 1 cache and host cache; needed with several replicas |
-| `EDGE_CACHE_MODE`                       | `none`     | `none` \| `ttl` \| `purge` (§5)                        |
+| `REDIS_URL`                             | unset      | Shared Layer 1 cache and host cache; needed with several replicas (`SITES_REDIS_URL` in the self-host compose) |
+| `DEPLOYMENT_ID`                         | unset      | Build time. `deploymentId`; only for replicas built separately |
+| `IMAGE_REMOTE_HOSTS`                    | `cdn.medialit.cloud,images.unsplash.com` | Build time. Image hosts the optimizer accepts (`images.remotePatterns`) |
+| `REVALIDATE_WEBHOOK_SECRET`             | unset      | Required for publish-time invalidation; unset = pages refresh every minute |
+| `SITES_REVALIDATE_URL`                  | `SITES_BASE_URL` | Where apps/api posts invalidations (set on `apps/api`) |
+| `EDGE_CACHE_MODE`                       | `none`     | `none` \| `ttl` \| `purge` (§5), read at runtime     |
 | `EDGE_CACHE_TTL`                        | `60`       | `s-maxage` in `ttl` mode                               |
 | `EDGE_PURGE_ADAPTER`                    | `http`     | Purge adapter in `purge` mode (set on `apps/api`)      |
 | `EDGE_PURGE_URL`, `EDGE_PURGE_SECRET`   | unset      | Target of the `http` adapter (set on `apps/api`)       |
-| `ASSET_PREFIX`                          | unset      | Separate host for `/_next/static`                      |
-| `IMAGE_LOADER`                          | `default`  | `default` (built-in optimizer) or a loader URL template |
+| `EDGE_PORT`, `VARNISH_SIZE`             | `8080`, `512M` | `deploy/edge-cache` only: Varnish port and cache size |
+| `ASSET_PREFIX`                          | unset      | Separate host for `/_next/static` (build time)          |
+| `IMAGE_LOADER`                          | —          | Reserved, not implemented: images use the built-in optimizer (`lib/images.ts` is the single place to add a loader) |
+| `SITE_RUM`                              | on         | `off` stops the Web Vitals beacon                      |
+| `CLOUDFLARE_ZONE_ID`, `CLOUDFLARE_API_TOKEN` | unset | `cloudflare` purge adapter (set on `apps/api`)         |
 
-`REVALIDATE_WEBHOOK_SECRET` and `SITES_BASE_URL` keep their current meaning.
+`SITES_BASE_URL` keeps its current meaning (links in emails).
+
+## 7a. Hosted FrontLit edge (Phase 4)
+
+Self-hosters don't need any of this. For hosted FrontLit the edge is a
+vendor CDN in `purge` mode, behind the same `EdgePurgeAdapter` (§5).
+
+**Vendors against the #74 criteria** (checked 2026-10-25; confirm prices
+before committing):
+
+| Criterion | Cloudflare for SaaS | CloudFront SaaS Manager | Bunny | Fastly |
+| --- | --- | --- | --- | --- |
+| Custom-hostname TLS at scale | Custom hostnames: 100 included, then $0.10/hostname/month, up to 50,000 on self-serve plans | Per-tenant certificates | Free SSL per hostname | TLS domains by tier (e.g. 20 included, +$20/domain/month on the entry tier) |
+| Apex domains | Enterprise add-on (apex proxying); otherwise the customer's DNS must flatten a CNAME | Yes (static IPs via anycast, extra cost) | A/ALIAS to Bunny | Yes (anycast IPs) |
+| Purge by tag | `Cache-Tag`, all plans | Tag invalidation (`CacheTagConfig`); billed per tag after 1,000/month | `CDN-Tag`, but reportedly one tag per header value (FrontLit sends several) | `Surrogate-Key`, < 300 ms |
+| Tiered cache / shield | Tiered Cache, free | Origin Shield | Origin Shield | Shielding |
+| `stale-if-error` | Yes | Yes | Yes | Yes |
+| Query string in key (`_rsc`) | Default | Configurable | Default | Default |
+
+**Recommendation: Cloudflare for SaaS.** Its tag purge needs no extra
+code: FrontLit already sends `Cache-Tag` and the `cloudflare` adapter
+purges the same tags. Hostname cost is low and tiered cache is included.
+CloudFront would bill each purged tag; every publish purges two to four
+tags twice. The open question is apex domains, below.
+
+**Where custom-domain TLS lives:**
+
+- *A. Cloudflare terminates TLS* (custom hostnames, HTTP validation). Caddy
+  and `/public/tls-ask` stay only for self-hosting. Custom domains point a
+  CNAME at the SaaS fallback origin; apex domains need apex proxying
+  (Enterprise) or a DNS provider that flattens CNAMEs.
+  `CUSTOM_DOMAIN_CNAME_TARGET` becomes the Cloudflare fallback hostname, and
+  `CUSTOM_DOMAIN_A_RECORDS` the apex-proxying IPs if bought.
+- *B. Caddy keeps TLS* and Cloudflare only proxies the platform subdomains.
+  Custom domains don't get the edge. Simpler, but it misses the point for
+  the sites that need it most.
+
+Recommended: A, with apex proxying only once customers ask for apex domains
+on the edge. Until then an apex keeps resolving to Caddy (origin) and is
+served by Layer 1 alone.
+
+**Configuration** (on `apps/api`): `EDGE_PURGE_ADAPTER=cloudflare`,
+`CLOUDFLARE_ZONE_ID`, `CLOUDFLARE_API_TOKEN` (permission: Zone → Cache
+Purge). On `apps/sites`: `EDGE_CACHE_MODE=purge`. In Cloudflare: enable
+Tiered Cache and leave "Cache Key" including the query string.
+
+**Real-user monitoring.** Public pages send Core Web Vitals to `POST /rum`
+on the API (one beacon per page view, anonymous; `SITE_RUM=off` disables
+it). The API exports them as Prometheus histograms with the edge cache
+status read from `Server-Timing` (`edge` from the Varnish recipe,
+`cfCacheStatus` from Cloudflare). `deploy/monitoring` has a Grafana
+dashboard for the targets in §9.
 
 ## 8. Phases
 
@@ -318,3 +451,37 @@ dependencies load when the browser is idle or on first interaction.
 Measure with Lighthouse CI on a sample tenant (home, docs article, blog
 post), a Web Vitals beacon from public pages, and API metrics for public
 read volume, which should fall sharply after Phase 2.
+
+### 9.1 Measured (2026-10-25, local)
+
+Sample tenant: a homepage with 9 blocks and 8 images, 12 docs articles, 7
+blog posts and 3 changelog entries. One `next start` process; the API and
+Postgres on the same machine. Lighthouse 13 runs mobile with simulated
+throttling, median of 5. Load is autocannon with 10 connections for 15 s.
+API calls are counted by a proxy between sites and the API.
+
+| Measure                                   | Before Phase 2 (`main`) | Layer 1 cache |
+| ----------------------------------------- | ----------------------- | ------------- |
+| Throughput, home / docs article / blog post | 41 / 56 / 81 req/s      | 140 / 181 / 242 req/s |
+| p50 under load, home / docs article        | 236 / 176 ms            | 63 / 50 ms    |
+| Single-connection response, home / docs    | 22 / 26 ms              | 7 / 5 ms      |
+| API calls per docs view                    | 1.0                     | 0             |
+| Lighthouse TTFB, home / docs / blog        | 43 / 119 / 23 ms        | 17 / 10 / 7 ms |
+| Publish → visible (page, blog, changelog)  | up to 60 s              | 0.18–0.35 s   |
+| Publish → visible (docs publication)       | next request (no cache) | 0.43–0.54 s   |
+| Second replica sees a publish (Redis)      | up to 60 s              | 0.33–0.48 s   |
+| Cold replica's first 6 views (Redis)       | 12 API calls            | 0             |
+
+Layer 2, Varnish recipe in front of the same origin (`purge` mode):
+
+| Measure                                    | Origin (Layer 1)   | Through Varnish |
+| ------------------------------------------ | ------------------ | --------------- |
+| Throughput, home / docs article / blog post | 140 / 181 / 242 req/s | 4,908 / 6,215 / 7,361 req/s |
+| p50 under load                             | 36–63 ms           | 1 ms            |
+| Publish → visible at the edge              | —                  | 0.20–0.44 s (docs 0.42–0.54 s) |
+| `ttl` mode, `EDGE_CACHE_TTL=5`, no purge    | —                  | 5.0–5.1 s       |
+| Purge receiver down for 6 s                | —                  | retried; visible at 6.7 s |
+
+Phase 1 (#71) against the commit before it, Lighthouse: performance score
+55 → 91 (home), 73 → 93 (docs), 69 → 90 (blog post); TBT 1.1–1.3 s →
+0.14–0.23 s; JavaScript 643 KB → 192 KB.

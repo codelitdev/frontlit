@@ -1,7 +1,11 @@
 import { getDocumentationSnapshot } from "@/lib/api";
 import type { DataSlotLoader } from "@frontlit/page-builder/data-slots";
-import { getSettings, listArticles, listProductUpdates } from "@/lib/api";
-import { getCanonicalHost } from "@/lib/request-host";
+import {
+  getCanonicalHost,
+  getSettings,
+  listArticles,
+  listProductUpdates,
+} from "@/lib/api";
 import { changelogJsonLd, serializeJsonLd } from "@/lib/json-ld";
 import {
   ThemedArticleFeed,
@@ -32,6 +36,7 @@ async function ArticleFeed({ teamId }: { teamId: string }) {
 
   return (
     <ThemedArticleFeed
+      teamId={teamId}
       title={settings?.title ? `${settings.title} Blog` : "Blog"}
       subtitle={settings?.subtitle}
       items={items}
@@ -67,11 +72,12 @@ async function ProductUpdatesFeed({ teamId }: { teamId: string }) {
   const [settings, { items }, canonicalHost] = await Promise.all([
     getSettings(teamId),
     listProductUpdates(teamId, { itemsPerPage: 100 }),
-    getCanonicalHost(),
+    getCanonicalHost(teamId),
   ]);
 
   return (
     <ThemedProductUpdatesFeed
+      teamId={teamId}
       title="Changelog"
       subtitle={settings?.subtitle}
       jsonLd={serializeJsonLd(

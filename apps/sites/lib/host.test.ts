@@ -4,6 +4,7 @@ import {
   decideHost,
   hostCache,
   invalidateCachedHosts,
+  lookupHost,
   normalizeHost,
 } from "./host";
 
@@ -104,7 +105,7 @@ describe("createHostCache", () => {
     }
   });
 
-  it("deletes listed hosts from the same process-wide cache the proxy uses", () => {
+  it("deletes listed hosts from the same process-wide cache the proxy uses", async () => {
     hostCache.set("acme.localhost", {
       teamId: "team_abc",
       canonicalHost: "www.example.com",
@@ -117,7 +118,7 @@ describe("createHostCache", () => {
       redirect: false,
       hideFromSearch: false,
     });
-    invalidateCachedHosts(["Acme.Localhost:3002", "www.example.com"]);
+    await invalidateCachedHosts(["Acme.Localhost:3002", "www.example.com"]);
     expect(hostCache.get("acme.localhost")).toBeUndefined();
     expect(hostCache.get("www.example.com")).toBeUndefined();
   });
@@ -128,7 +129,39 @@ describe("createHostCache", () => {
     const other = await import("./host");
     expect(other.hostCache).toBe(hostCache);
     hostCache.set("acme.localhost", null);
-    other.invalidateCachedHosts(["acme.localhost"]);
+    await other.invalidateCachedHosts(["acme.localhost"]);
     expect(hostCache.get("acme.localhost")).toBeUndefined();
+  });
+});
+
+describe("lookupHost", () => {
+  const acme = {
+    teamId: "team_abc",
+    canonicalHost: "acme.frontlit.app",
+    redirect: false,
+    hideFromSearch: false,
+  };
+
+  it("shares one upstream call between concurrent misses and caches the answer", async () => {
+    hostCache.delete("acme.frontlit.app");
+    const resolve = vi.fn(async () => acme);
+    const results = await Promise.all([
+      lookupHost("acme.frontlit.app", resolve),
+      lookupHost("acme.frontlit.app", resolve),
+    ]);
+    expect(results).toEqual([acme, acme]);
+    expect(resolve).toHaveBeenCalledOnce();
+    await lookupHost("acme.frontlit.app", resolve);
+    expect(resolve).toHaveBeenCalledOnce();
+  });
+
+  it("does not cache a failed lookup", async () => {
+    hostCache.delete("down.frontlit.app");
+    await expect(
+      lookupHost("down.frontlit.app", async () => {
+        throw new Error("API down");
+      }),
+    ).rejects.toThrow("API down");
+    expect(hostCache.get("down.frontlit.app")).toBeUndefined();
   });
 });

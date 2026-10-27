@@ -24,7 +24,7 @@ describe("FrontLit content feed data-slot integration", () => {
 
   it("keeps public index routes as thin page-shell entry points", () => {
     for (const slug of ["blog", "docs", "changelog"]) {
-      const page = read(`app/sites/[teamId]/${slug}/page.tsx`);
+      const page = read(`app/sites/[teamId]/(site)/${slug}/page.tsx`);
       expect(page).toContain("<SiteChrome");
       expect(page).not.toMatch(/listArticles|listDocumentation|listProductUpdates/);
     }
