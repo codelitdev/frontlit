@@ -42,7 +42,8 @@
     "undici@>=7.0.0 <8.0.0": "7.30.1",
     "undici@>=6.0.0 <7.0.0": "6.29.1",
     "body-parser@>=1.0.0 <2.0.0": "1.20.9",
-    "body-parser@>=2.0.0 <3.0.0": "2.4.0"
+    "body-parser@>=2.0.0 <3.0.0": "2.4.0",
+    "zod@>=4.0.0 <5.0.0": "4.6.7"
   },
   "patchedDependencies": {
     "@anatine/zod-openapi@1.14.2": "patches/@anatine__zod-openapi@1.14.2.patch"
