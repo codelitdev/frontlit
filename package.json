@@ -21,7 +21,7 @@
     "@types/react-dom": "19.2.4",
     "esbuild": "0.28.2",
     "postcss": "8.5.28",
-    "qs": "6.16.0",
+    "qs": "6.17.1",
     "ts-deepmerge": "8.0.0",
     "@modelcontextprotocol/sdk": "1.32.1",
     "brace-expansion@>=1.0.0 <2.0.0": "1.1.21",
@@ -43,7 +43,10 @@
     "undici@>=6.0.0 <7.0.0": "6.29.1",
     "body-parser@>=1.0.0 <2.0.0": "1.20.9",
     "body-parser@>=2.0.0 <3.0.0": "2.4.0",
-    "zod@>=4.0.0 <5.0.0": "4.6.7"
+    "zod@>=4.0.0 <5.0.0": "4.6.7",
+    "systeminformation@>=5.0.0 <6.0.0": "5.33.18",
+    "@hono/node-server@>=2.0.0 <3.0.0": "2.1.5",
+    "@modelcontextprotocol/node@>=2.0.0 <3.0.0": "2.1.1"
   },
   "patchedDependencies": {
     "@anatine/zod-openapi@1.14.2": "patches/@anatine__zod-openapi@1.14.2.patch"
