@@ -1,5 +1,16 @@
 # @frontlit/page-builder
 
+## 0.1.0-alpha.7
+
+### Minor Changes
+
+- 9ec98c5: Add `Tabs`, `Table`, `Collapsible`, `NativeSelect` and `InlineCode` primitives (all themed; `Tabs` is a client island, the rest are server-safe), and export `CodeSnippet` from `@frontlit/page-builder/primitives/server`.
+
+### Patch Changes
+
+- 8784af1: Accessibility fixes in site chrome: the `Drawer` trigger props now go on the trigger element instead of a wrapping `span` (no more `aria-expanded` on a non-interactive element), and footer column titles are `h2` instead of `h4`, so headings no longer skip levels.
+- b81387d: `Section` clips its content with `overflow: clip` instead of `overflow: hidden`, so sticky elements inside a section (such as a docs sidebar) stick to the viewport again.
+
 ## 0.1.0-alpha.6
 
 ### Patch Changes

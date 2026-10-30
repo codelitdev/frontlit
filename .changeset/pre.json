@@ -17,8 +17,11 @@
     "local-page-preview",
     "media-uploader-upload-notice",
     "page-builder-137-pricing-header",
+    "page-builder-a11y-chrome",
+    "page-builder-api-reference-primitives",
     "page-builder-editor-feedback",
     "page-builder-image-primitive-optimizer",
+    "page-builder-section-sticky",
     "text-editor-flush-pending"
   ]
 }
