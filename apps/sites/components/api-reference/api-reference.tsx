@@ -33,6 +33,7 @@ import { API_REFERENCE_LABEL, type DocsCollection } from "@/lib/docs-tree";
 import type { PublicApiReference } from "@/lib/api";
 import { DocsSearch } from "@/components/docs-search";
 import { Breadcrumb, DocsSidebar, DocsSidebarFrame } from "@/components/themed-docs";
+import { breakAfterSlashes } from "@/components/api-reference/break-path";
 import { MethodBadge, StatusBadge } from "./method-badge";
 import { SchemaView, typeLabel } from "./schema-view";
 import { TryIt } from "./try-it";
@@ -413,7 +414,10 @@ export async function ThemedApiOperation({
             </Badge>
           ) : null}
         </span>
-        <Header1 theme={theme}>{operation.title}</Header1>
+        {/* Titles can be long paths with no spaces ("GET /v1/a/{b}/{c}"). */}
+        <Header1 theme={theme} className="[overflow-wrap:anywhere]">
+          {breakAfterSlashes(operation.title)}
+        </Header1>
         <RichText value={operation.description} theme={theme} />
         <div className="@5xl:hidden">{tryIt}</div>
       </header>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Caption, Collapsible, Text2 } from "@frontlit/page-builder/primitives/server";
 import { SiteLink as Link } from "@/components/site-link";
 import { MethodBadge } from "@/components/api-reference/method-badge";
+import { breakAfterSlashes } from "@/components/api-reference/break-path";
 import { useSiteThemeStyle } from "@/lib/site-theme-context";
 
 export type ApiNavItem = {
@@ -78,9 +79,9 @@ export function ApiNavList({
               <Text2
                 theme={theme}
                 component="span"
-                className={item.deprecated ? "line-through" : undefined}
+                className={`min-w-0 [overflow-wrap:anywhere] ${item.deprecated ? "line-through" : ""}`}
               >
-                {item.title}
+                {breakAfterSlashes(item.title)}
               </Text2>
             </Link>
           </li>
