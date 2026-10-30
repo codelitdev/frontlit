@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import { useMemo, useState } from "react";
 import type {
   ApiPlaygroundAuth,
@@ -8,7 +9,6 @@ import type {
 } from "@frontlit/api-contract";
 import {
   Badge,
-  Button,
   Caption,
   CodeSnippet,
   Collapsible,
@@ -21,12 +21,15 @@ import {
 } from "@frontlit/page-builder/primitives/server";
 import type { ThemeStyle } from "@frontlit/page-builder/models";
 import { StatusBadge } from "./method-badge";
+import { PanelSection, ServerUrl } from "./panel-section";
 import {
   buildRequest,
   explainFailure,
   missingInputs,
   paramKey,
+  playgroundSections,
   resolveServer,
+  sectionsWithMissing,
   sendRequest,
   type PlaygroundInput,
   type PlaygroundResult,
@@ -216,6 +219,8 @@ export function Playground({
     | { kind: "done"; result: PlaygroundResult }
     | { kind: "error"; message: string }
   >({ kind: "idle" });
+  // Sections forced open (a required input was left empty).
+  const [opened, setOpened] = useState<Set<string>>(new Set());
 
   const server = model.servers[input.serverIndex] ?? model.servers[0];
   const baseUrl = useMemo(
@@ -239,6 +244,17 @@ export function Playground({
   const send = async () => {
     const missing = missingInputs(model, input);
     if (missing.length) {
+      setOpened(sectionsWithMissing(model, input));
+      // After the sections re-mount open: focus the first empty required field.
+      const first = model.parameters.find(
+        (p) => p.required && !input.parameters[paramKey(p.in, p.name)]?.trim(),
+      );
+      const id = first
+        ? `pg-${paramKey(first.in, first.name)}`
+        : model.body && model.body.kind !== "json" && model.body.kind !== "text"
+          ? `pg-body-${model.body.fields.find((f) => f.required)?.name}`
+          : null;
+      requestAnimationFrame(() => (id ? document.getElementById(id)?.focus() : null));
       setState({ kind: "error", message: `Fill in ${missing.join(", ")} first.` });
       return;
     }
@@ -258,290 +274,278 @@ export function Playground({
     }
   };
 
-  const groups = (["path", "query", "header"] as const)
-    .map((location) => ({
-      location,
-      parameters: model.parameters.filter((p) => p.in === location),
-    }))
-    .filter((group) => group.parameters.length);
-  const authOptions = model.auth;
-  const schemes = authOptions[input.authOption] ?? [];
+  const schemes = model.auth[input.authOption] ?? [];
+  const parameterFields = (location: string) =>
+    model.parameters
+      .filter((p) => p.in === location)
+      .map((parameter) => {
+        const key = paramKey(parameter.in, parameter.name);
+        const id = `pg-${key}`;
+        return (
+          <Field
+            key={key}
+            id={id}
+            label={parameter.name}
+            required={parameter.required}
+            hint={parameter.description}
+            theme={theme}
+          >
+            <ValueInput
+              id={id}
+              field={parameter}
+              value={input.parameters[key] ?? ""}
+              onChange={(value) =>
+                update({ parameters: { ...input.parameters, [key]: value } })
+              }
+              theme={theme}
+            />
+          </Field>
+        );
+      });
+
+  const content: Record<string, React.ReactNode> = {
+    server: (
+      <>
+        {model.servers.length > 1 ? (
+          <Field id="pg-server" label="Server" theme={theme}>
+            <NativeSelect
+              theme={theme}
+              id="pg-server"
+              value={input.serverIndex}
+              onChange={(e) => setServer(Number(e.target.value), {})}
+            >
+              {model.servers.map((s, index) => (
+                <option key={s.url} value={index}>
+                  {s.description ? `${s.description} — ${s.url}` : s.url}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+        ) : null}
+        {server.variables.map((variable) => {
+          const id = `pg-var-${variable.name}`;
+          const value = input.serverVariables[variable.name] ?? "";
+          const change = (next: string) =>
+            setServer(input.serverIndex, {
+              ...input.serverVariables,
+              [variable.name]: next,
+            });
+          return (
+            <Field
+              key={variable.name}
+              id={id}
+              label={variable.name}
+              hint={variable.description}
+              theme={theme}
+            >
+              {variable.enum?.length ? (
+                <NativeSelect
+                  theme={theme}
+                  id={id}
+                  value={value || variable.default}
+                  onChange={(e) => change(e.target.value)}
+                >
+                  {variable.enum.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </NativeSelect>
+              ) : (
+                <Input
+                  theme={theme}
+                  id={id}
+                  value={value}
+                  placeholder={variable.default}
+                  onChange={(e) => change(e.target.value)}
+                />
+              )}
+            </Field>
+          );
+        })}
+      </>
+    ),
+    auth: (
+      <>
+        {model.auth.length > 1 ? (
+          <NativeSelect
+            theme={theme}
+            aria-label="Authentication method"
+            value={input.authOption}
+            onChange={(e) => update({ authOption: Number(e.target.value) })}
+          >
+            {model.auth.map((option, index) => (
+              <option key={index} value={index}>
+                {option
+                  .map((s) =>
+                    s.kind === "apiKey"
+                      ? `API key (${s.name})`
+                      : s.kind === "bearer"
+                        ? "Bearer token"
+                        : s.kind === "basic"
+                          ? "Basic auth"
+                          : s.key,
+                  )
+                  .join(" + ")}
+              </option>
+            ))}
+          </NativeSelect>
+        ) : null}
+        <AuthFields
+          schemes={schemes}
+          input={input}
+          setCredential={setCredential}
+          theme={theme}
+        />
+        <Caption theme={theme} className="leading-5">
+          Credentials stay in this browser tab and are never sent to this site.
+        </Caption>
+      </>
+    ),
+    path: parameterFields("path"),
+    query: parameterFields("query"),
+    header: parameterFields("header"),
+    body: model.body ? (
+      <>
+        <span>
+          <Badge theme={theme} variant="outline">
+            {model.body.mediaType}
+          </Badge>
+        </span>
+        {model.body.kind === "json" || model.body.kind === "text" ? (
+          <Textarea
+            theme={theme}
+            aria-label="Request body"
+            rows={10}
+            spellCheck={false}
+            className="font-jetbrains-mono text-sm"
+            value={input.body}
+            onChange={(e) => update({ body: e.target.value })}
+          />
+        ) : (
+          model.body.fields.map((field) => {
+            const id = `pg-body-${field.name}`;
+            return (
+              <Field
+                key={field.name}
+                id={id}
+                label={field.name}
+                required={field.required}
+                hint={field.description}
+                theme={theme}
+              >
+                {field.binary ? (
+                  <Input
+                    theme={theme}
+                    id={id}
+                    type="file"
+                    onChange={(e) =>
+                      update({
+                        files: {
+                          ...input.files,
+                          [field.name]: e.target.files?.[0] ?? null,
+                        },
+                      })
+                    }
+                  />
+                ) : (
+                  <ValueInput
+                    id={id}
+                    field={field}
+                    value={input.fields[field.name] ?? ""}
+                    onChange={(value) =>
+                      update({ fields: { ...input.fields, [field.name]: value } })
+                    }
+                    theme={theme}
+                  />
+                )}
+              </Field>
+            );
+          })
+        )}
+      </>
+    ) : null,
+  };
 
   return (
     <form
       id={formId}
       aria-label="Try this request"
-      className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
         void send();
       }}
     >
-      <section className="flex flex-col gap-3" aria-label="Server">
-        {/* Rarely changed, so collapsed: the bar above shows the default. */}
-        {model.servers.length > 1 || server.variables.length ? (
-          <Collapsible variant="plain" theme={theme} summary="Server">
-            <div className="flex flex-col gap-3 pt-2">
-              {model.servers.length > 1 ? (
-                <Field id="pg-server" label="Server" theme={theme}>
-                  <NativeSelect
-                    theme={theme}
-                    id="pg-server"
-                    value={input.serverIndex}
-                    onChange={(e) => setServer(Number(e.target.value), {})}
-                  >
-                    {model.servers.map((s, index) => (
-                      <option key={s.url} value={index}>
-                        {s.description ? `${s.description} — ${s.url}` : s.url}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                </Field>
-              ) : null}
-              {server.variables.map((variable) => {
-                const id = `pg-var-${variable.name}`;
-                const value = input.serverVariables[variable.name] ?? "";
-                const change = (next: string) =>
-                  setServer(input.serverIndex, {
-                    ...input.serverVariables,
-                    [variable.name]: next,
-                  });
-                return (
-                  <Field
-                    key={variable.name}
-                    id={id}
-                    label={variable.name}
-                    hint={variable.description}
-                    theme={theme}
-                  >
-                    {variable.enum?.length ? (
-                      <NativeSelect
-                        theme={theme}
-                        id={id}
-                        value={value || variable.default}
-                        onChange={(e) => change(e.target.value)}
-                      >
-                        {variable.enum.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </NativeSelect>
-                    ) : (
-                      <Input
-                        theme={theme}
-                        id={id}
-                        value={value}
-                        placeholder={variable.default}
-                        onChange={(e) => change(e.target.value)}
-                      />
-                    )}
-                  </Field>
-                );
-              })}
-            </div>
-          </Collapsible>
-        ) : null}
-        <Caption theme={theme} className="break-all leading-5">
-          Requests go from your browser straight to{" "}
-          <InlineCode theme={theme}>{baseUrl}</InlineCode>.
-        </Caption>
-      </section>
-
-      {authOptions.length ? (
-        <section className="flex flex-col gap-3" aria-label="Authentication">
-          <Text2 theme={theme} className="font-medium">
-            Authentication
-          </Text2>
-          {authOptions.length > 1 ? (
-            <NativeSelect
-              theme={theme}
-              aria-label="Authentication method"
-              value={input.authOption}
-              onChange={(e) => update({ authOption: Number(e.target.value) })}
-            >
-              {authOptions.map((option, index) => (
-                <option key={index} value={index}>
-                  {option
-                    .map((s) =>
-                      s.kind === "apiKey"
-                        ? `API key (${s.name})`
-                        : s.kind === "bearer"
-                          ? "Bearer token"
-                          : s.kind === "basic"
-                            ? "Basic auth"
-                            : s.key,
-                    )
-                    .join(" + ")}
-                </option>
-              ))}
-            </NativeSelect>
-          ) : null}
-          <AuthFields
-            schemes={schemes}
-            input={input}
-            setCredential={setCredential}
-            theme={theme}
-          />
-          <Caption theme={theme} className="leading-5">
-            Credentials stay in this browser tab and are never sent to this site.
-          </Caption>
-        </section>
-      ) : null}
-
-      {groups.map((group) => (
-        <section
-          key={group.location}
-          className="flex flex-col gap-3"
-          aria-label={`${group.location} parameters`}
+      {playgroundSections(model).map((section) => (
+        <PanelSection
+          // Re-mounting opens a section that has a missing required input.
+          key={`${section.id}${opened.has(section.id) ? ":open" : ""}`}
+          label={section.label}
+          detail={
+            section.id === "server" ? (
+              <ServerUrl url={baseUrl} theme={theme} />
+            ) : undefined
+          }
+          collapsible={section.editable !== false}
+          theme={theme}
+          defaultOpen={opened.has(section.id)}
         >
-          <Text2 theme={theme} className="font-medium capitalize">
-            {group.location} parameters
-          </Text2>
-          {group.parameters.map((parameter) => {
-            const key = paramKey(parameter.in, parameter.name);
-            const id = `pg-${key}`;
-            return (
-              <Field
-                key={key}
-                id={id}
-                label={parameter.name}
-                required={parameter.required}
-                hint={parameter.description}
-                theme={theme}
-              >
-                <ValueInput
-                  id={id}
-                  field={parameter}
-                  value={input.parameters[key] ?? ""}
-                  onChange={(value) =>
-                    update({ parameters: { ...input.parameters, [key]: value } })
-                  }
-                  theme={theme}
-                />
-              </Field>
-            );
-          })}
-        </section>
+          {content[section.id]}
+        </PanelSection>
       ))}
-
-      {model.body ? (
-        <section className="flex flex-col gap-3" aria-label="Request body">
-          <span className="flex items-center gap-2">
-            <Text2 theme={theme} className="font-medium">
-              Body
+      {state.kind !== "idle" ? (
+        <div
+          aria-live="polite"
+          className="flex flex-col gap-3 border-t border-border p-4"
+        >
+          {state.kind === "sending" ? <Caption theme={theme}>Sending…</Caption> : null}
+          {state.kind === "error" ? (
+            <Text2 theme={theme} className="text-destructive">
+              {state.message}
             </Text2>
-            <Badge theme={theme} variant="outline">
-              {model.body.mediaType}
-            </Badge>
-          </span>
-          {model.body.kind === "json" || model.body.kind === "text" ? (
-            <Textarea
-              theme={theme}
-              aria-label="Request body"
-              rows={10}
-              spellCheck={false}
-              className="font-jetbrains-mono text-sm"
-              value={input.body}
-              onChange={(e) => update({ body: e.target.value })}
-            />
-          ) : (
-            model.body.fields.map((field) => {
-              const id = `pg-body-${field.name}`;
-              return (
-                <Field
-                  key={field.name}
-                  id={id}
-                  label={field.name}
-                  required={field.required}
-                  hint={field.description}
-                  theme={theme}
-                >
-                  {field.binary ? (
-                    <Input
-                      theme={theme}
-                      id={id}
-                      type="file"
-                      onChange={(e) =>
-                        update({
-                          files: {
-                            ...input.files,
-                            [field.name]: e.target.files?.[0] ?? null,
-                          },
-                        })
-                      }
-                    />
-                  ) : (
-                    <ValueInput
-                      id={id}
-                      field={field}
-                      value={input.fields[field.name] ?? ""}
-                      onChange={(value) =>
-                        update({ fields: { ...input.fields, [field.name]: value } })
-                      }
-                      theme={theme}
-                    />
-                  )}
-                </Field>
-              );
-            })
-          )}
-        </section>
-      ) : null}
-
-      <div className="flex items-center gap-3">
-        <Button theme={theme} type="submit" disabled={state.kind === "sending"}>
-          {state.kind === "sending" ? "Sending…" : "Send request"}
-        </Button>
-      </div>
-
-      <div aria-live="polite" className="flex flex-col gap-3">
-        {state.kind === "error" ? (
-          <Text2 theme={theme} className="text-destructive">
-            {state.message}
-          </Text2>
-        ) : null}
-        {state.kind === "done" ? (
-          <>
-            <span className="flex items-center gap-2">
-              <StatusBadge status={String(state.result.status)} theme={theme} />
-              <Caption theme={theme}>
-                {state.result.statusText ? `${state.result.statusText} · ` : ""}
-                {state.result.durationMs} ms
-              </Caption>
-            </span>
-            {state.result.text !== undefined ? (
-              state.result.text ? (
-                <CodeSnippet
-                  theme={theme}
-                  code={state.result.text}
-                  className="max-h-80 overflow-auto"
-                />
+          ) : null}
+          {state.kind === "done" ? (
+            <>
+              <span className="flex items-center gap-2">
+                <StatusBadge status={String(state.result.status)} theme={theme} />
+                <Caption theme={theme}>
+                  {state.result.statusText ? `${state.result.statusText} · ` : ""}
+                  {state.result.durationMs} ms
+                </Caption>
+              </span>
+              {state.result.text !== undefined ? (
+                state.result.text ? (
+                  <CodeSnippet
+                    theme={theme}
+                    code={state.result.text}
+                    className="max-h-80 overflow-auto"
+                  />
+                ) : (
+                  <Caption theme={theme}>Empty response body.</Caption>
+                )
               ) : (
-                <Caption theme={theme}>Empty response body.</Caption>
-              )
-            ) : (
-              <Caption theme={theme}>
-                {state.result.contentType || "Binary"} response, {state.result.size}{" "}
-                bytes.
-              </Caption>
-            )}
-            {state.result.headers.length ? (
-              <Collapsible theme={theme} summary="Response headers">
-                <ul className="flex flex-col gap-1">
-                  {state.result.headers.map(([name, value]) => (
-                    <li key={name}>
-                      <Caption theme={theme} className="break-all leading-5">
-                        <InlineCode theme={theme}>{name}</InlineCode> {value}
-                      </Caption>
-                    </li>
-                  ))}
-                </ul>
-              </Collapsible>
-            ) : null}
-          </>
-        ) : null}
-      </div>
+                <Caption theme={theme}>
+                  {state.result.contentType || "Binary"} response, {state.result.size}{" "}
+                  bytes.
+                </Caption>
+              )}
+              {state.result.headers.length ? (
+                <Collapsible theme={theme} summary="Response headers">
+                  <ul className="flex flex-col gap-1">
+                    {state.result.headers.map(([name, value]) => (
+                      <li key={name}>
+                        <Caption theme={theme} className="break-all leading-5">
+                          <InlineCode theme={theme}>{name}</InlineCode> {value}
+                        </Caption>
+                      </li>
+                    ))}
+                  </ul>
+                </Collapsible>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      ) : null}
     </form>
   );
 }

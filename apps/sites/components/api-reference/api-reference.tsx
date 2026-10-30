@@ -43,11 +43,14 @@ function RichText({ value, theme }: { value?: ApiRichText; theme: ThemeStyle }) 
   if (!value) return null;
   if (value.kind === "doc")
     return (
-      <TextRenderer
-        json={value.content as unknown as TextEditorContent}
-        theme={theme}
-        profile="documentation"
-      />
+      // The renderer's block margins would add to the surrounding gaps.
+      <div className="[&_.tiptap-renderer>:first-child]:mt-0! [&_.tiptap-renderer>:last-child]:mb-0!">
+        <TextRenderer
+          json={value.content as unknown as TextEditorContent}
+          theme={theme}
+          profile="documentation"
+        />
+      </div>
     );
   return (
     <Text1 theme={theme} className="whitespace-pre-line">
@@ -236,21 +239,23 @@ export async function ThemedApiLanding({
       {reference.groups.map((group) => (
         <section key={group.name} className="flex flex-col gap-3" id={group.name}>
           <Header3 theme={theme}>{group.name}</Header3>
-          <ul className="flex flex-col gap-2">
-            {group.operations.map((operation) => (
-              <li key={operation.route}>
-                <Link href={`/docs/${operation.route}`} className="block">
-                  <PageCard theme={theme} isLink>
-                    <PageCardContent
-                      theme={theme}
-                      className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3"
-                    >
-                      <span className="flex min-w-0 items-center gap-2 sm:w-1/2">
-                        <MethodBadge method={operation.method} theme={theme} compact />
-                        <InlineCode theme={theme} variant="muted" className="truncate">
-                          {operation.path}
-                        </InlineCode>
-                      </span>
+          {/* One card per group with a row per endpoint: compact, like an index. */}
+          <PageCard theme={theme} className="overflow-hidden">
+            <ul className="divide-y divide-border">
+              {group.operations.map((operation) => (
+                <li key={operation.route}>
+                  <Link
+                    href={`/docs/${operation.route}`}
+                    className="flex flex-col gap-1 px-4 py-3 transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:gap-3"
+                  >
+                    <span className="flex min-w-0 items-center gap-2 sm:w-1/2">
+                      <MethodBadge method={operation.method} theme={theme} compact />
+                      <InlineCode theme={theme} variant="muted" className="truncate">
+                        {operation.path}
+                      </InlineCode>
+                    </span>
+                    {/* A bare-path title would repeat the path. */}
+                    {operation.title !== operation.path ? (
                       <Text2
                         theme={theme}
                         component="span"
@@ -258,12 +263,12 @@ export async function ThemedApiLanding({
                       >
                         {operation.title}
                       </Text2>
-                    </PageCardContent>
-                  </PageCard>
-                </Link>
-              </li>
-            ))}
-          </ul>
+                    ) : null}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </PageCard>
         </section>
       ))}
     </Shell>

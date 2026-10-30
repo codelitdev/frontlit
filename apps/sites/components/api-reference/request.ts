@@ -40,6 +40,56 @@ const paramKey = (location: string, name: string) => `${location}:${name}`;
 export { paramKey };
 
 /** Required values that are still empty, as readable labels. */
+export type PlaygroundSection = { id: string; label: string; editable?: boolean };
+
+/** The form's collapsible sections, in order. The request panel renders the
+ * same list before the form loads, so nothing shifts when it mounts. */
+export function playgroundSections(model: ApiPlaygroundModel): PlaygroundSection[] {
+  const server = model.servers[0];
+  return [
+    ...(server
+      ? [
+          {
+            id: "server",
+            label: "Server",
+            editable: model.servers.length > 1 || server.variables.length > 0,
+          },
+        ]
+      : []),
+    ...(model.auth.length ? [{ id: "auth", label: "Authentication" }] : []),
+    ...(["path", "query", "header"] as const)
+      .filter((location) => model.parameters.some((p) => p.in === location))
+      .map((location) => ({
+        id: location,
+        label: `${location[0].toUpperCase()}${location.slice(1)} parameters`,
+      })),
+    ...(model.body ? [{ id: "body", label: "Body" }] : []),
+  ];
+}
+
+/** Sections holding a required input that is still empty. */
+export function sectionsWithMissing(model: ApiPlaygroundModel, input: PlaygroundInput) {
+  const ids = new Set(
+    model.parameters
+      .filter((p) => p.required && !input.parameters[paramKey(p.in, p.name)]?.trim())
+      .map((p) => p.in as string),
+  );
+  if (model.body?.required) {
+    const empty =
+      model.body.kind === "json" || model.body.kind === "text"
+        ? !input.body.trim()
+        : model.body.fields.some(
+            (field) =>
+              field.required &&
+              !(field.binary
+                ? input.files[field.name]
+                : input.fields[field.name]?.trim()),
+          );
+    if (empty) ids.add("body");
+  }
+  return ids;
+}
+
 export function missingInputs(model: ApiPlaygroundModel, input: PlaygroundInput) {
   const missing = model.parameters
     .filter((p) => p.required && !input.parameters[paramKey(p.in, p.name)]?.trim())

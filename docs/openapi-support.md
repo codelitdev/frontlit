@@ -314,10 +314,10 @@ public", and in the admin panel (§6.6).
   Columns follow the width of the theme's container, not the viewport: when
   it is narrower than 1,024px (Editorial), the code panels move below the
   content.
-- Under the description, a request panel shows the server URL, the method
-  and the path, with a "Try it" button. It is plain server-rendered HTML;
-  "Try it" opens the playground form inline below it, the way Fumadocs
-  places its request block, and the panel's button then sends the request.
+- Under the description, a request panel (like Fumadocs') shows the method,
+  the path and a Send button, then collapsed rows: Server (with its URL),
+  Authentication, each parameter location, Body. The page's HTML carries the
+  same collapsed rows, so the form mounting after hydration shifts nothing.
 - Reads are cached like docs (`"use cache"` tagged `docs:<team>`) and
   invalidated by the API reference activation event (§6.2).
 - `lib/docs-tree.ts` / `DocsSidebar` and the docs home page: the API Section
@@ -384,9 +384,9 @@ theme (`ThemeStyle`), in light and dark mode, like the rest of the site:
 ### 6.5 Playground
 
 `<ApiPlayground>` is a client component themed with `useSiteThemeStyle()`.
-It loads on demand (§8.3) and renders inline in the request panel. Opening
-it moves focus to the first visible field; the panel's close button hides it
-and returns focus to "Try it". The server fields are collapsed by default.
+It loads after hydration (§8.3) and fills the request panel's collapsed rows.
+Send validates first: rows with an empty required input open and focus moves
+to the first one. The response appears under the rows.
 
 **Inputs**
 - One input per parameter, grouped by path, query and header.
@@ -492,15 +492,13 @@ response, and the playground costs nothing until it is used.
 
 ### 8.3 Playground loads on intent
 
-- The page server-renders only the request panel (server, method, path and
-  "Try it"). The playground's code is a separate chunk loaded with a dynamic
-  `import()`:
-  - prefetched when the browser is idle or the button is hovered or focused;
-  - mounted inline on click, with focus moved to its first field.
+- The page server-renders the request panel with its rows collapsed. The
+  playground's code is a separate chunk (about 4.3 KB gzipped) loaded with a
+  dynamic `import()` once the page hydrates, then mounted into the panel.
 
   This is the same pattern as the chat widget (`site-delivery.md` §6.2).
-- The form opens on a user action, so the layout shift it causes doesn't
-  count toward CLS.
+- The rows are the same before and after the form mounts (collapsed), so it
+  causes no layout shift.
 - Props are a compact playground model precomputed at import: parameters,
   body fields, servers, auth requirements and an example body string. The
   full slice is never serialized into the RSC payload.
