@@ -417,7 +417,9 @@ export async function ThemedApiOperation({
         </Header2>
         <RichText value={operation.description} theme={theme} />
         {/* Server, method and path; "Try it" opens the request form here. */}
-        <RequestPanel model={operation.playground} />
+        <div className="pt-3">
+          <RequestPanel model={operation.playground} />
+        </div>
       </header>
 
       {operation.security ? (
