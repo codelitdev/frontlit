@@ -1,5 +1,5 @@
 import { SiteLink as Link } from "@/components/site-link";
-import { Download } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { TextRenderer } from "@frontlit/text-editor/renderer";
 import type { TextEditorContent } from "@frontlit/text-editor";
 import type {
@@ -215,8 +215,9 @@ export async function ThemedApiLanding({
         <RichText value={info.description} theme={theme} />
         <div>
           <Button theme={theme} variant="outline" asChild>
-            <a href="/openapi.json" download>
-              <Download aria-hidden="true" />
+            {/* Opens the hosted spec: its URL is what tools import. */}
+            <a href="/openapi.json" target="_blank" rel="noopener">
+              <ExternalLink aria-hidden="true" />
               openapi.json
             </a>
           </Button>
