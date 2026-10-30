@@ -215,13 +215,17 @@ export async function ThemedApiLanding({
       <div className="grid gap-4 sm:grid-cols-2">
         <PageCard theme={theme}>
           <PageCardContent theme={theme} className="flex flex-col gap-2">
-            <Header4 theme={theme}>Base URL</Header4>
+            <Header4 as="h2" theme={theme}>
+              Base URL
+            </Header4>
             <ServerList servers={info.servers} theme={theme} />
           </PageCardContent>
         </PageCard>
         <PageCard theme={theme}>
           <PageCardContent theme={theme} className="flex flex-col gap-2">
-            <Header4 theme={theme}>Authentication</Header4>
+            <Header4 as="h2" theme={theme}>
+              Authentication
+            </Header4>
             {info.securitySchemes.length ? (
               <ul className="flex flex-col gap-1">
                 {info.securitySchemes.map((scheme) => (
@@ -238,7 +242,9 @@ export async function ThemedApiLanding({
       </div>
       {reference.groups.map((group) => (
         <section key={group.name} className="flex flex-col gap-3" id={group.name}>
-          <Header3 theme={theme}>{group.name}</Header3>
+          <Header3 as="h2" theme={theme}>
+            {group.name}
+          </Header3>
           {/* One card per group with a row per endpoint: compact, like an index. */}
           <PageCard theme={theme} className="overflow-hidden">
             <ul className="divide-y divide-border">
@@ -357,7 +363,9 @@ export async function ThemedApiOperation({
   const aside = (
     <>
       <section className="flex flex-col gap-2" aria-label="Code samples">
-        <Header4 theme={theme}>Request</Header4>
+        <Header4 as="h2" theme={theme}>
+          Request
+        </Header4>
         <Tabs
           theme={theme}
           label="Code samples"
@@ -369,7 +377,9 @@ export async function ThemedApiOperation({
       </section>
       {examples.length ? (
         <section className="flex flex-col gap-2" aria-label="Response examples">
-          <Header4 theme={theme}>Response</Header4>
+          <Header4 as="h2" theme={theme}>
+            Response
+          </Header4>
           <Tabs
             theme={theme}
             label="Response examples"
@@ -429,7 +439,9 @@ export async function ThemedApiOperation({
 
       {operation.security ? (
         <section id="authentication" className="flex scroll-mt-24 flex-col gap-3">
-          <Header3 theme={theme}>Authentication</Header3>
+          <Header3 as="h2" theme={theme}>
+            Authentication
+          </Header3>
           {operation.security.length ? (
             <ul className="flex flex-col gap-1">
               {operation.security.map((requirement, index) => (
@@ -459,10 +471,12 @@ export async function ThemedApiOperation({
 
       {locations.length ? (
         <section id="parameters" className="flex scroll-mt-24 flex-col gap-4">
-          <Header3 theme={theme}>Parameters</Header3>
+          <Header3 as="h2" theme={theme}>
+            Parameters
+          </Header3>
           {locations.map((group) => (
             <div key={group.location} className="flex flex-col gap-2">
-              <Header4 theme={theme} className="capitalize">
+              <Header4 as="h3" theme={theme} className="capitalize">
                 {group.location} parameters
               </Header4>
               <ParameterTable
@@ -478,7 +492,9 @@ export async function ThemedApiOperation({
       {operation.requestBody ? (
         <section id="request-body" className="flex scroll-mt-24 flex-col gap-3">
           <span className="flex flex-wrap items-center gap-3">
-            <Header3 theme={theme}>Request body</Header3>
+            <Header3 as="h2" theme={theme}>
+              Request body
+            </Header3>
             {operation.requestBody.content.map((content) => (
               <Badge key={content.contentType} theme={theme} variant="outline">
                 {content.contentType}
@@ -502,7 +518,9 @@ export async function ThemedApiOperation({
       ) : null}
 
       <section id="responses" className="flex scroll-mt-24 flex-col gap-3">
-        <Header3 theme={theme}>Responses</Header3>
+        <Header3 as="h2" theme={theme}>
+          Responses
+        </Header3>
         {operation.responses.map((response, index) => (
           <Collapsible
             key={response.status}
