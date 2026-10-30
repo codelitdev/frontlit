@@ -4,7 +4,6 @@ import { TextRenderer } from "@frontlit/text-editor/renderer";
 import type { TextEditorContent } from "@frontlit/text-editor";
 import {
   Caption,
-  Collapsible,
   Header1,
   Header4,
   Image,
@@ -19,7 +18,7 @@ import { getTeamThemeStyle } from "@/lib/team-theme";
 import type { ThemeStyle } from "@frontlit/page-builder/models";
 import { DocsSearch } from "@/components/docs-search";
 import { collectionHref, type DocsCollection, type DocsNavItem } from "@/lib/docs-tree";
-import { MethodBadge } from "@/components/api-reference/method-badge";
+import { ApiNavGroups } from "@/components/api-reference/api-nav";
 
 export function Breadcrumb({
   items,
@@ -240,33 +239,15 @@ function DocsNavList({
             <Link
               href={`/docs/${item.slug}`}
               className={
-                item.method
-                  ? `flex items-start gap-2 ${isCurrent ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`
-                  : isCurrent
-                    ? "font-medium text-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:underline"
+                isCurrent
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:underline"
               }
               aria-current={isCurrent ? "page" : undefined}
             >
-              {item.method ? (
-                <span className="mt-1 shrink-0">
-                  <MethodBadge method={item.method} theme={theme} compact />
-                </span>
-              ) : null}
-              {item.method ? (
-                // Endpoint lists are long; the smaller body style keeps them compact.
-                <Text2
-                  theme={theme}
-                  component="span"
-                  className={item.deprecated ? "line-through" : undefined}
-                >
-                  {item.title ?? item.slug}
-                </Text2>
-              ) : (
-                <Text1 theme={theme} component="span">
-                  {item.title ?? item.slug}
-                </Text1>
-              )}
+              <Text1 theme={theme} component="span">
+                {item.title ?? item.slug}
+              </Text1>
             </Link>
           </li>
         );
@@ -275,14 +256,63 @@ function DocsNavList({
   );
 }
 
+/**
+ * The docs sidebar, rendered once: a column on wide layouts and a
+ * "Browse articles" toggle above the content on narrow ones. The toggle is a
+ * checkbox, so it needs no JavaScript and the sidebar isn't duplicated.
+ * `container` follows the theme's container width (API reference pages)
+ * instead of the viewport.
+ */
+export function DocsSidebarFrame({
+  theme,
+  layout = "viewport",
+  children,
+}: {
+  theme: ThemeStyle;
+  layout?: "viewport" | "container";
+  children: React.ReactNode;
+}) {
+  const wide = layout === "container";
+  return (
+    <aside className="min-w-0">
+      <input
+        id="docs-nav-toggle"
+        type="checkbox"
+        className={`peer sr-only ${wide ? "@3xl:hidden" : "lg:hidden"}`}
+      />
+      <label
+        htmlFor="docs-nav-toggle"
+        className={`inline-flex cursor-pointer rounded-sm peer-focus-visible:ring-2 peer-focus-visible:ring-ring ${wide ? "@3xl:hidden" : "lg:hidden"}`}
+      >
+        <Text2 theme={theme} component="span" className="font-medium">
+          Browse articles
+        </Text2>
+      </label>
+      <div
+        className={
+          wide
+            ? "mt-4 hidden peer-checked:block @3xl:sticky @3xl:top-24 @3xl:mt-0 @3xl:block @3xl:max-h-[calc(100vh-7rem)] @3xl:overflow-y-auto @3xl:pr-1 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]"
+            : "mt-4 hidden peer-checked:block lg:sticky lg:top-24 lg:mt-0 lg:block"
+        }
+      >
+        {children}
+      </div>
+    </aside>
+  );
+}
+
 export function DocsSidebar({
   collections,
   currentSlug,
   theme,
+  teamId,
+  publicApiBaseUrl,
 }: {
   collections: DocsCollection[];
   currentSlug: string;
   theme: ThemeStyle;
+  teamId: string;
+  publicApiBaseUrl?: string;
 }) {
   return (
     <nav aria-label="Documentation" className="flex flex-col gap-6">
@@ -307,47 +337,26 @@ export function DocsSidebar({
               </Text2>
             )}
             {collection.api ? (
-              <div className="flex flex-col gap-1 border-l border-border pl-3">
-                {collection.api.groups.map((group) =>
-                  // Only the current group lists its endpoints; the others link
-                  // to their section on the landing page. A large spec would
-                  // otherwise put every endpoint in every page's HTML.
-                  collection.api!.groups.length === 1 ||
-                  group.items.some((item) => item.slug === currentSlug) ? (
-                    <Collapsible
-                      key={group.name}
-                      variant="plain"
-                      theme={theme}
-                      defaultOpen
-                      summary={
-                        <Caption theme={theme} className="uppercase tracking-wide">
-                          {group.name}
-                        </Caption>
-                      }
-                    >
-                      <DocsNavList
-                        items={group.items}
-                        currentSlug={currentSlug}
-                        theme={theme}
-                      />
-                    </Collapsible>
-                  ) : (
-                    <Link
-                      key={group.name}
-                      href={`${collection.api!.href}#${encodeURIComponent(group.name)}`}
-                      className="flex items-center gap-2 py-1 text-foreground hover:underline"
-                    >
-                      <ChevronRight
-                        aria-hidden="true"
-                        className="h-4 w-4 shrink-0 text-muted-foreground"
-                      />
-                      <Caption theme={theme} className="uppercase tracking-wide">
-                        {group.name}
-                      </Caption>
-                    </Link>
-                  ),
-                )}
-              </div>
+              <ApiNavGroups
+                teamId={teamId}
+                publicApiBaseUrl={publicApiBaseUrl}
+                landingHref={collection.api.href}
+                currentSlug={currentSlug}
+                groups={collection.api.groups.map((group) => ({
+                  name: group.name,
+                  // Only the current group's endpoints ship with the page.
+                  items:
+                    collection.api!.groups.length === 1 ||
+                    group.items.some((item) => item.slug === currentSlug)
+                      ? group.items.map((item) => ({
+                          slug: item.slug,
+                          title: item.title ?? item.slug,
+                          method: item.method ?? "get",
+                          deprecated: item.deprecated,
+                        }))
+                      : null,
+                }))}
+              />
             ) : (
               <div className="border-l border-border pl-3">
                 <DocsNavList
@@ -431,30 +440,16 @@ export async function ThemedDocArticle({
           ) : null}
         </div>
         <div className="grid gap-10 lg:grid-cols-[220px_minmax(0,1fr)_200px]">
-          <aside className="hidden lg:block">
-            <div className="sticky top-24">
-              <DocsSidebar
-                collections={collections}
-                currentSlug={currentSlug}
-                theme={theme}
-              />
-            </div>
-          </aside>
+          <DocsSidebarFrame theme={theme}>
+            <DocsSidebar
+              collections={collections}
+              currentSlug={currentSlug}
+              theme={theme}
+              teamId={teamId}
+              publicApiBaseUrl={publicApiBaseUrl}
+            />
+          </DocsSidebarFrame>
           <article className="flex min-w-0 flex-col gap-8">
-            <details className="lg:hidden">
-              <summary className="cursor-pointer">
-                <Text2 theme={theme} className="font-medium">
-                  Browse articles
-                </Text2>
-              </summary>
-              <div className="mt-4">
-                <DocsSidebar
-                  collections={collections}
-                  currentSlug={currentSlug}
-                  theme={theme}
-                />
-              </div>
-            </details>
             {imageUrl && (
               <div className="overflow-hidden rounded-lg">
                 <Image

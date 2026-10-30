@@ -320,6 +320,12 @@ public", and in the admin panel (§6.6).
   is merged in from the `api` endpoint, after the docs Sections, with
   operations under tag labels ordered by the spec's `tags`, then spec order.
   Its Section link goes to `/docs/<mount>`.
+- The sidebar is rendered once per page; narrow layouts show it behind a
+  CSS-only "Browse articles" toggle. Only the current tag group's operations
+  ship with the page. The other groups load from the public `api-reference`
+  endpoint on first use (pointer, focus or a click in the sidebar) and, without
+  JavaScript, link to their section on the landing page. A 213-operation spec
+  keeps operation pages around 240 KB instead of ~950 KB.
 
 ### 6.4 Page-builder primitives
 
@@ -470,8 +476,9 @@ response, and the playground costs nothing until it is used.
 - The full reference (method, path, parameters, schema tree, responses,
   examples, code samples) is server-rendered HTML.
 - Interactivity uses native elements where possible: `<details>` for schema
-  expansion, response sections and sidebar tag groups. The only hydrated
-  part is `Tabs`.
+  expansion, response sections and sidebar tag groups. The hydrated parts
+  are `Tabs` and the sidebar's tag groups, which fetch the other groups'
+  operations on first use.
 - Bounded HTML size:
   - the schema tree expands two levels by default, and deeper levels are
     collapsed `<details>`;

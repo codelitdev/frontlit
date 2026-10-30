@@ -32,7 +32,7 @@ import { getTeamThemeStyle } from "@/lib/team-theme";
 import { API_REFERENCE_LABEL, type DocsCollection } from "@/lib/docs-tree";
 import type { PublicApiReference } from "@/lib/api";
 import { DocsSearch } from "@/components/docs-search";
-import { Breadcrumb, DocsSidebar } from "@/components/themed-docs";
+import { Breadcrumb, DocsSidebar, DocsSidebarFrame } from "@/components/themed-docs";
 import { MethodBadge, StatusBadge } from "./method-badge";
 import { SchemaView, typeLabel } from "./schema-view";
 import { TryIt } from "./try-it";
@@ -114,32 +114,16 @@ async function Shell({
               : "grid gap-10 @3xl:grid-cols-[220px_minmax(0,1fr)]"
           }
         >
-          <aside className="hidden @3xl:block">
-            <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-1 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]">
-              <DocsSidebar
-                collections={collections}
-                currentSlug={currentSlug}
-                theme={theme}
-              />
-            </div>
-          </aside>
-          <article className="flex min-w-0 flex-col gap-8">
-            <details className="@3xl:hidden">
-              <summary className="cursor-pointer">
-                <Text2 theme={theme} className="font-medium" component="span">
-                  Browse articles
-                </Text2>
-              </summary>
-              <div className="mt-4">
-                <DocsSidebar
-                  collections={collections}
-                  currentSlug={currentSlug}
-                  theme={theme}
-                />
-              </div>
-            </details>
-            {children}
-          </article>
+          <DocsSidebarFrame theme={theme} layout="container">
+            <DocsSidebar
+              collections={collections}
+              currentSlug={currentSlug}
+              theme={theme}
+              teamId={teamId}
+              publicApiBaseUrl={publicApiBaseUrl}
+            />
+          </DocsSidebarFrame>
+          <article className="flex min-w-0 flex-col gap-8">{children}</article>
           {aside ? (
             <aside className="min-w-0 @3xl:col-start-2 @5xl:col-start-auto">
               <div className="flex flex-col gap-6 @5xl:sticky @5xl:top-24">{aside}</div>
