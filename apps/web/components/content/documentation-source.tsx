@@ -556,18 +556,21 @@ export function DocumentationSource({
     verificationAttempt.current = attempt;
     verifyMergedSetup();
   }, [migration?.planId, migration?.status, migration?.pullRequest?.status, setupId]);
-  const polling = open && !wizardMode && source != null && syncInProgress(source);
+  // While the connected dialog is open, poll: quickly during a sync, and
+  // slowly otherwise so a sync started by a push is noticed too.
+  const watching = open && !wizardMode && source?.binding != null;
+  const pollMs = source && syncInProgress(source) ? 5000 : 30000;
   useEffect(() => {
-    if (!polling) return;
+    if (!watching) return;
     const timer = setInterval(
       () =>
         void getDocumentationGitSource()
           .then(setSource)
           .catch(() => {}),
-      5000,
+      pollMs,
     );
     return () => clearInterval(timer);
-  }, [polling]);
+  }, [watching, pollMs]);
   const repoLabel = migration?.repositoryName ?? repositoryName ?? "your repository";
   const fileCount = migration?.total ?? 0;
   const filesLabel = `${fileCount} ${fileCount === 1 ? "file" : "files"}`;
