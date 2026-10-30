@@ -308,28 +308,45 @@ export function DocsSidebar({
             )}
             {collection.api ? (
               <div className="flex flex-col gap-1 border-l border-border pl-3">
-                {collection.api.groups.map((group) => (
-                  <Collapsible
-                    key={group.name}
-                    variant="plain"
-                    theme={theme}
-                    defaultOpen={
-                      collection.api!.groups.length === 1 ||
-                      group.items.some((item) => item.slug === currentSlug)
-                    }
-                    summary={
+                {collection.api.groups.map((group) =>
+                  // Only the current group lists its endpoints; the others link
+                  // to their section on the landing page. A large spec would
+                  // otherwise put every endpoint in every page's HTML.
+                  collection.api!.groups.length === 1 ||
+                  group.items.some((item) => item.slug === currentSlug) ? (
+                    <Collapsible
+                      key={group.name}
+                      variant="plain"
+                      theme={theme}
+                      defaultOpen
+                      summary={
+                        <Caption theme={theme} className="uppercase tracking-wide">
+                          {group.name}
+                        </Caption>
+                      }
+                    >
+                      <DocsNavList
+                        items={group.items}
+                        currentSlug={currentSlug}
+                        theme={theme}
+                      />
+                    </Collapsible>
+                  ) : (
+                    <Link
+                      key={group.name}
+                      href={`${collection.api!.href}#${encodeURIComponent(group.name)}`}
+                      className="flex items-center gap-2 py-1 text-foreground hover:underline"
+                    >
+                      <ChevronRight
+                        aria-hidden="true"
+                        className="h-4 w-4 shrink-0 text-muted-foreground"
+                      />
                       <Caption theme={theme} className="uppercase tracking-wide">
                         {group.name}
                       </Caption>
-                    }
-                  >
-                    <DocsNavList
-                      items={group.items}
-                      currentSlug={currentSlug}
-                      theme={theme}
-                    />
-                  </Collapsible>
-                ))}
+                    </Link>
+                  ),
+                )}
               </div>
             ) : (
               <div className="border-l border-border pl-3">
