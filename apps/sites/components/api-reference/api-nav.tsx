@@ -69,10 +69,10 @@ export function ApiNavList({
           <li key={item.slug}>
             <Link
               href={`/docs/${item.slug}`}
-              className={`flex items-start gap-2 ${isCurrent ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              className={`flex items-baseline gap-2 ${isCurrent ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
               aria-current={isCurrent ? "page" : undefined}
             >
-              <span className="mt-1 shrink-0">
+              <span className="shrink-0">
                 <MethodBadge method={item.method} theme={theme} compact />
               </span>
               {/* Endpoint lists are long; the smaller body style keeps them compact. */}
