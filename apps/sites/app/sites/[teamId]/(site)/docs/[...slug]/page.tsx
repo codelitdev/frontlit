@@ -80,7 +80,8 @@ export async function generateMetadata(
     return apiMetadata(
       teamId,
       slug,
-      `${api.operation.title} – ${API_REFERENCE_LABEL}`,
+      // A bare-path title needs its method to tell GET and POST /x apart.
+      `${api.operation.title === api.operation.path ? `${api.operation.method.toUpperCase()} ` : ""}${api.operation.title} – ${API_REFERENCE_LABEL}`,
       text?.slice(0, 200) ??
         `${api.operation.method.toUpperCase()} ${api.operation.path}`,
     );

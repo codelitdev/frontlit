@@ -195,6 +195,30 @@ paths:
     expect(result.operations[0].slice.codeSamples[0].source).toContain("{baseUrl}/a");
   });
 
+  it("titles operations like Fumadocs when there's no summary", () => {
+    const { operations } = importOpenApiSpec({
+      text: `openapi: 3.0.3
+info: { title: Demo, version: "1" }
+servers: [{ url: https://api.example.com }]
+paths:
+  /a: { get: { summary: Read A, responses: { "200": { description: OK } } } }
+  /b:
+    summary: Path summary
+    get: { responses: { "200": { description: OK } } }
+  /c: { delete: { operationId: deleteMedia, responses: { "200": { description: OK } } } }
+  /d/{id}: { post: { responses: { "200": { description: OK } } } }
+`,
+      file: "openapi.yaml",
+      mount: "api",
+    });
+    expect(operations.map((o) => o.title)).toEqual([
+      "Read A",
+      "Path summary",
+      "Delete Media",
+      "/d/{id}",
+    ]);
+  });
+
   it("tells undescribed authentication apart from none", () => {
     const security = (rootSecurity: string) =>
       importOpenApiSpec({

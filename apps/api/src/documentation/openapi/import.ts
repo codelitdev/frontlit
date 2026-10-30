@@ -75,6 +75,17 @@ export function slugify(value: string) {
     .replace(/-+$/g, "");
 }
 
+/** `deleteMedia` → "Delete Media", `media.get-count` → "Get count". */
+export function operationIdTitle(id: string) {
+  const words = id
+    .split(".")
+    .at(-1)!
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[-_]+/g, " ")
+    .trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 export function normalizeApiMount(value: string | undefined | null) {
   return slugify(value ?? "") || "api-reference";
 }
@@ -446,8 +457,10 @@ export function importOpenApiSpec(input: {
           );
         operationIds.set(operationId, pointer(at));
       }
-      const summary = text(operation.summary);
-      const title = summary || `${method.toUpperCase()} ${path}`;
+      const summary = text(operation.summary) || text(item.summary);
+      // Same order as Fumadocs and Redoc: summary, then the operationId in
+      // words, then the bare path (the method badge already shows the verb).
+      const title = summary || (operationId ? operationIdTitle(operationId) : path);
       const slug =
         slugify(operationId ?? "") || slugify(summary) || slugify(`${method} ${path}`);
       const route = `${mount}/${slug}`;
