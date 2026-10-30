@@ -607,7 +607,8 @@ export function DocumentationProposals({
                         {proposal.title}
                       </span>
                       <span className="text-muted-foreground text-xs">
-                        {proposal.captured.length} files ·{" "}
+                        {proposal.captured.length}{" "}
+                        {proposal.captured.length === 1 ? "file" : "files"} ·{" "}
                         {new Date(proposal.createdAt).toLocaleString()}
                       </span>
                     </span>
