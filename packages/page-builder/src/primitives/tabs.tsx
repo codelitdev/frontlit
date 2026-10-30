@@ -66,7 +66,7 @@ export function Tabs({ items, label, defaultIndex = 0, theme, className }: TabsP
             tabIndex={index === active ? 0 : -1}
             onClick={() => setActive(index)}
             className={cn(
-              "shrink-0 whitespace-nowrap border-b-2 px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+              "shrink-0 whitespace-nowrap border-b-2 px-2 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
               typography?.fontFamily,
               typography?.fontSize ?? "text-sm",
               typography?.letterSpacing,

@@ -118,11 +118,176 @@ export function generateCodeSamples(model: ApiPlaygroundModel): ApiCodeSample[] 
   }
   const python = `import requests\n\nresponse = requests.request(\n    ${JSON.stringify(method)},\n    ${JSON.stringify(url)},\n${pyHeaders}${pyBody})\ndata = response.json()`;
 
+  const sample = { method, url, headers, json, formFields, kind: body?.kind };
   return [
     { label: "cURL", lang: "shell", source: curl.join(" \\\n") },
     { label: "JavaScript", lang: "javascript", source: javascript },
     { label: "Python", lang: "python", source: python },
+    { label: "Go", lang: "go", source: goSample(sample) },
+    { label: "Java", lang: "java", source: javaSample(sample) },
+    { label: "C#", lang: "csharp", source: csharpSample(sample) },
   ];
+}
+
+type FormField = { name: string; binary?: boolean; example?: string };
+type Sample = {
+  method: string;
+  url: string;
+  headers: [string, string][];
+  json?: string;
+  formFields: FormField[];
+  kind?: string;
+};
+
+const str = (value: string) => JSON.stringify(value);
+const fieldValue = (field: FormField) => field.example ?? "value";
+
+/** Go with net/http only. */
+function goSample({ method, url, headers, json, formFields, kind }: Sample) {
+  const imports = new Set(["fmt", "io", "net/http"]);
+  const setup: string[] = [];
+  let bodyArg = "nil";
+  let contentType: string | null = null;
+  if (json) {
+    imports.add("strings");
+    setup.push(
+      json.includes("`")
+        ? `body := strings.NewReader(${str(json)})`
+        : `body := strings.NewReader(\`${json}\`)`,
+    );
+    bodyArg = "body";
+  } else if (formFields.length && kind === "multipart") {
+    ["bytes", "mime/multipart", "os"].forEach((i) => imports.add(i));
+    setup.push("var body bytes.Buffer", "form := multipart.NewWriter(&body)");
+    let files = 0;
+    for (const field of formFields) {
+      // Unique names so several file fields still compile.
+      const n = field.binary ? (++files > 1 ? String(files) : "") : "";
+      setup.push(
+        field.binary
+          ? `file${n}, _ := os.Open("file")\ndefer file${n}.Close()\npart${n}, _ := form.CreateFormFile(${str(field.name)}, "file")\nio.Copy(part${n}, file${n})`
+          : `form.WriteField(${str(field.name)}, ${str(fieldValue(field))})`,
+      );
+    }
+    setup.push("form.Close()");
+    bodyArg = "&body";
+    contentType = "form.FormDataContentType()";
+  } else if (formFields.length) {
+    ["net/url", "strings"].forEach((i) => imports.add(i));
+    setup.push(
+      `body := strings.NewReader(url.Values{${formFields
+        .map((f) => `${str(f.name)}: {${str(fieldValue(f))}}`)
+        .join(", ")}}.Encode())`,
+    );
+    bodyArg = "body";
+    contentType = str("application/x-www-form-urlencoded");
+  }
+  const lines = [
+    "package main",
+    "",
+    `import (\n${[...imports]
+      .sort()
+      .map((i) => `\t${str(i)}`)
+      .join("\n")}\n)`,
+    "",
+    "func main() {",
+    ...setup.flatMap((line) => line.split("\n")).map((line) => `\t${line}`),
+    `\treq, _ := http.NewRequest(${str(method)}, ${str(url)}, ${bodyArg})`,
+    ...headers.map(([k, v]) => `\treq.Header.Set(${str(k)}, ${str(v)})`),
+    ...(contentType ? [`\treq.Header.Set("Content-Type", ${contentType})`] : []),
+    "\tres, err := http.DefaultClient.Do(req)",
+    "\tif err != nil {",
+    "\t\tpanic(err)",
+    "\t}",
+    "\tdefer res.Body.Close()",
+    "\tdata, _ := io.ReadAll(res.Body)",
+    "\tfmt.Println(string(data))",
+    "}",
+  ];
+  return lines.join("\n");
+}
+
+/** Java 11+ with java.net.http only. */
+function javaSample({ method, url, headers, json, formFields, kind }: Sample) {
+  let publisher = "HttpRequest.BodyPublishers.noBody()";
+  const notes: string[] = [];
+  const extraHeaders: [string, string][] = [];
+  if (json) {
+    // A text block keeps the JSON readable; backslashes stay literal.
+    publisher = `HttpRequest.BodyPublishers.ofString("""\n${json.replace(/\\/g, "\\\\")}\n""")`;
+  } else if (formFields.length && kind === "multipart") {
+    notes.push(
+      "// multipart/form-data: build the body with a library such as OkHttp,",
+      `// with the fields ${formFields.map((f) => f.name).join(", ")}.`,
+    );
+  } else if (formFields.length) {
+    publisher = `HttpRequest.BodyPublishers.ofString(${str(
+      formFields
+        .map(
+          (f) => `${encodeURIComponent(f.name)}=${encodeURIComponent(fieldValue(f))}`,
+        )
+        .join("&"),
+    )})`;
+    extraHeaders.push(["Content-Type", "application/x-www-form-urlencoded"]);
+  }
+  return [
+    "import java.net.URI;",
+    "import java.net.http.HttpClient;",
+    "import java.net.http.HttpRequest;",
+    "import java.net.http.HttpResponse;",
+    "",
+    ...notes,
+    "HttpRequest request = HttpRequest.newBuilder()",
+    `    .uri(URI.create(${str(url)}))`,
+    ...[...headers, ...extraHeaders].map(
+      ([k, v]) => `    .header(${str(k)}, ${str(v)})`,
+    ),
+    `    .method(${str(method)}, ${publisher})`,
+    "    .build();",
+    "HttpResponse<String> response = HttpClient.newHttpClient()",
+    "    .send(request, HttpResponse.BodyHandlers.ofString());",
+    "System.out.println(response.body());",
+  ].join("\n");
+}
+
+/** C# with System.Net.Http only. */
+function csharpSample({ method, url, headers, json, formFields, kind }: Sample) {
+  const verb = method.charAt(0) + method.slice(1).toLowerCase();
+  const known = ["Get", "Post", "Put", "Patch", "Delete", "Head", "Options"];
+  const lines = [
+    "using var client = new HttpClient();",
+    `var request = new HttpRequestMessage(${
+      known.includes(verb) ? `HttpMethod.${verb}` : `new HttpMethod(${str(method)})`
+    }, ${str(url)});`,
+    // Content-Type belongs to the content in .NET, not the request headers.
+    ...headers
+      .filter(([k]) => k.toLowerCase() !== "content-type")
+      .map(([k, v]) => `request.Headers.Add(${str(k)}, ${str(v)});`),
+  ];
+  if (json)
+    lines.push(
+      `request.Content = new StringContent("""\n${json}\n""", System.Text.Encoding.UTF8, "application/json");`,
+    );
+  else if (formFields.length && kind === "multipart") {
+    lines.push("var form = new MultipartFormDataContent();");
+    for (const field of formFields)
+      lines.push(
+        field.binary
+          ? `form.Add(new StreamContent(File.OpenRead("file")), ${str(field.name)}, "file");`
+          : `form.Add(new StringContent(${str(fieldValue(field))}), ${str(field.name)});`,
+      );
+    lines.push("request.Content = form;");
+  } else if (formFields.length)
+    lines.push(
+      `request.Content = new FormUrlEncodedContent(new Dictionary<string, string>\n{\n${formFields
+        .map((f) => `    [${str(f.name)}] = ${str(fieldValue(f))},`)
+        .join("\n")}\n});`,
+    );
+  lines.push(
+    "var response = await client.SendAsync(request);",
+    "Console.WriteLine(await response.Content.ReadAsStringAsync());",
+  );
+  return lines.join("\n");
 }
 
 function toPython(json: string) {

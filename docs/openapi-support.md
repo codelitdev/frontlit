@@ -223,10 +223,11 @@ Each is a diagnostic when exceeded.
   - the overview chunk includes the auth requirements.
 - Precompute everything a page needs and store it in the slice: example
   bodies (our own small generator: the spec's example, default, const or
-  first enum value, else a value built from the types), code samples (curl, JavaScript, Python, plus
-  `x-codeSamples`), parsed descriptions and the playground model (§8.3).
-  Code samples use the first server and placeholder credentials; they don't
-  follow the server picked in "Try it".
+  first enum value, else a value built from the types), code samples (cURL, JavaScript, Python, Go,
+  Java and C#, each with only its standard library, plus `x-codeSamples`),
+  parsed descriptions and the playground model (§8.3). Code samples use the
+  first server and placeholder credentials; they don't follow the server
+  picked in the request panel.
 - Auth requirements follow OpenAPI's rules: an operation's own `security`
   overrides the global one; `security: []` marks a public endpoint; several
   requirement objects mean "any one of these"; the schemes inside one object

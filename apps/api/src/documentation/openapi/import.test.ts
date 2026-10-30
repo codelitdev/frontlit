@@ -40,7 +40,17 @@ describe("importOpenApiSpec", () => {
       "cURL",
       "JavaScript",
       "Python",
+      "Go",
+      "Java",
+      "C#",
     ]);
+    const sample = (label: string) =>
+      upload.slice.codeSamples.find((s) => s.label === label)!.source;
+    expect(sample("Go")).toContain('form.CreateFormFile("file"');
+    expect(sample("C#")).toContain("new MultipartFormDataContent()");
+    expect(sample("Java")).toContain(
+      'URI.create("https://api.medialit.cloud/media/create")',
+    );
     expect(upload.slice.codeSamples[0].source).toContain("https://api.medialit.cloud");
 
     // Public endpoints (`security: []`) need no auth; signatureAuth is a header key.
