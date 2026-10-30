@@ -17,6 +17,7 @@ import {
   CodeSnippet,
   Collapsible,
   Header1,
+  Header2,
   Header3,
   Header4,
   InlineCode,
@@ -414,10 +415,12 @@ export async function ThemedApiOperation({
             </Badge>
           ) : null}
         </span>
-        {/* Titles can be long paths with no spaces ("GET /v1/a/{b}/{c}"). */}
-        <Header1 theme={theme} className="[overflow-wrap:anywhere]">
+        {/* The page's h1 at the Header2 size: endpoint titles are often long
+            paths, and the sections below use Header3. Paths can have no
+            spaces ("GET /v1/a/{b}/{c}"), so they also wrap at each "/". */}
+        <Header2 as="h1" theme={theme} className="[overflow-wrap:anywhere]">
           {breakAfterSlashes(operation.title)}
-        </Header1>
+        </Header2>
         <RichText value={operation.description} theme={theme} />
         <div className="@5xl:hidden">{tryIt}</div>
       </header>
