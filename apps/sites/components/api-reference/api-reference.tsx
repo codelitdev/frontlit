@@ -433,31 +433,35 @@ export async function ThemedApiOperation({
         <div className="@5xl:hidden">{tryIt}</div>
       </header>
 
-      <section id="authentication" className="flex scroll-mt-24 flex-col gap-3">
-        <Header3 theme={theme}>Authentication</Header3>
-        {operation.security.length ? (
-          <ul className="flex flex-col gap-1">
-            {operation.security.map((requirement, index) => (
-              <li key={index}>
-                <Text2 theme={theme}>
-                  {index > 0 ? "Or " : ""}
-                  {requirement.map((key, i) => {
-                    const scheme = operation.securitySchemes.find((s) => s.key === key);
-                    return (
-                      <span key={key}>
-                        {i > 0 ? " and " : ""}
-                        {scheme ? schemeLabel(scheme, theme) : key}
-                      </span>
-                    );
-                  })}
-                </Text2>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <Text2 theme={theme}>No authentication required.</Text2>
-        )}
-      </section>
+      {operation.security ? (
+        <section id="authentication" className="flex scroll-mt-24 flex-col gap-3">
+          <Header3 theme={theme}>Authentication</Header3>
+          {operation.security.length ? (
+            <ul className="flex flex-col gap-1">
+              {operation.security.map((requirement, index) => (
+                <li key={index}>
+                  <Text2 theme={theme}>
+                    {index > 0 ? "Or " : ""}
+                    {requirement.map((key, i) => {
+                      const scheme = operation.securitySchemes.find(
+                        (s) => s.key === key,
+                      );
+                      return (
+                        <span key={key}>
+                          {i > 0 ? " and " : ""}
+                          {scheme ? schemeLabel(scheme, theme) : key}
+                        </span>
+                      );
+                    })}
+                  </Text2>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <Text2 theme={theme}>No authentication required.</Text2>
+          )}
+        </section>
+      ) : null}
 
       {locations.length ? (
         <section id="parameters" className="flex scroll-mt-24 flex-col gap-4">

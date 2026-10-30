@@ -194,4 +194,24 @@ paths:
     expect(result.operations[0].slice.playground.unavailable).toBeTruthy();
     expect(result.operations[0].slice.codeSamples[0].source).toContain("{baseUrl}/a");
   });
+
+  it("tells undescribed authentication apart from none", () => {
+    const security = (rootSecurity: string) =>
+      importOpenApiSpec({
+        text: `openapi: 3.0.3
+info: { title: Demo, version: "1" }
+servers: [{ url: https://api.example.com }]
+components:
+  securitySchemes: { key: { type: apiKey, in: header, name: x-key } }
+${rootSecurity}
+paths:
+  /open: { get: { summary: Open, security: [], responses: { "200": { description: OK } } } }
+  /plain: { get: { summary: Plain, responses: { "200": { description: OK } } } }
+`,
+        file: "openapi.yaml",
+        mount: "api",
+      }).operations.map((o) => o.slice.security);
+    expect(security("")).toEqual([[], null]);
+    expect(security("security: [{ key: [] }]")).toEqual([[], [["key"]]]);
+  });
 });

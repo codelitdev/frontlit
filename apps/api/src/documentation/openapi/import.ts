@@ -255,7 +255,7 @@ function chunksFor(operation: ApiOperationSlice, root: Json): ApiChunk[] {
       return `${name} (${type}${flags})${description ? `: ${description}` : ""}`;
     });
   };
-  const auth = operation.security.length
+  const auth = operation.security?.length
     ? `Authentication: ${operation.security
         .map((requirement) =>
           requirement
@@ -501,6 +501,10 @@ export function importOpenApiSpec(input: {
           content: mediaContents(root, response?.content, "response"),
         };
       });
+      // No `security` on the operation or the root: the spec doesn't say,
+      // which is not the same as `security: []` (no authentication).
+      const authDescribed =
+        Array.isArray(operation.security) || Array.isArray(root.security);
       const security = (
         Array.isArray(operation.security)
           ? operation.security
@@ -620,7 +624,7 @@ export function importOpenApiSpec(input: {
         parameters,
         requestBody,
         responses,
-        security: requirements,
+        security: authDescribed ? requirements : null,
         securitySchemes: usedSchemes,
         servers: operationServers,
         schemas,

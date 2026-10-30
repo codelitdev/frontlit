@@ -127,7 +127,8 @@ export interface ApiOperationSlice {
   parameters: ApiParameter[];
   requestBody?: ApiRequestBody;
   responses: ApiResponse[];
-  security: ApiSecurityRequirement[];
+  /** `null` when the spec doesn't describe authentication for this operation. */
+  security: ApiSecurityRequirement[] | null;
   securitySchemes: ApiSecurityScheme[];
   servers: ApiServer[];
   /** Components this operation references, keyed by `#/components/schemas/X`. */
