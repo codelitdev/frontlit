@@ -128,7 +128,7 @@ export const documentationSearchResultSchema = z.object({
   anchor: z.string().nullable(),
   content: z.string(),
   similarity: z.number(),
-  kind: z.enum(["blog", "doc", "changelog"]).optional(),
+  kind: z.enum(["blog", "doc", "changelog", "api-operation"]).optional(),
 });
 
 export const documentationVersionBodySchema = z

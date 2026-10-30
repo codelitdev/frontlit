@@ -22,6 +22,11 @@ import {
   previewGitPages,
 } from "../../pages/git-source";
 import { createPagesSetupPullRequest } from "../../pages/git-export";
+import {
+  getApiReferenceStatus,
+  previewApiReference,
+  updateApiReferenceSettings,
+} from "../openapi/service";
 import { submitGitProposal, getGitProposal, listGitProposals } from "./proposals";
 import { getGitCheck, listGitChecks } from "./check-reports";
 import { resolveGitPublisherCredential } from "./publisher";
@@ -64,6 +69,12 @@ const implementation = s.router(
         run(() => enableGitPages(req.teamId, req.authz, body)),
       disablePages: async ({ req }: any) =>
         run(() => disableGitPages(req.teamId, req.authz)),
+      getApiReference: async ({ req }: any) =>
+        run(() => getApiReferenceStatus(req.teamId)),
+      previewApiReference: async ({ req, body }: any) =>
+        run(() => previewApiReference(req.teamId, req.authz, body)),
+      updateApiReference: async ({ req, body }: any) =>
+        run(() => updateApiReferenceSettings(req.teamId, req.authz, body)),
       exportPages: async ({ req }: any) =>
         run(() => {
           requireGitManager(req.teamId, req.authz, true);
@@ -153,6 +164,9 @@ const implementation = s.router(
     },
     {
       previewPages: "content.documentationGithub.previewPages",
+      getApiReference: "content.documentationGithub.getApiReference",
+      previewApiReference: "content.documentationGithub.previewApiReference",
+      updateApiReference: "content.documentationGithub.updateApiReference",
       enablePages: "content.documentationGithub.enablePages",
       disablePages: "content.documentationGithub.disablePages",
       exportPages: "content.documentationGithub.exportPages",

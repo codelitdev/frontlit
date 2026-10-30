@@ -932,7 +932,7 @@ export const ticketMessageAuthors = ["requester", "agent", "bot"] as const;
 export type TicketMessageAuthor = (typeof ticketMessageAuthors)[number];
 
 export type TicketMessageSource = {
-  kind?: "blog" | "doc" | "changelog";
+  kind?: "blog" | "doc" | "changelog" | "api-operation";
   revisionId?: string;
   publicationId?: string | null;
   policyEpoch?: number;
@@ -1058,7 +1058,7 @@ export type InboxAiRetrievalHit = {
   heading: string | null;
   anchor: string | null;
   similarity: number;
-  kind?: "blog" | "doc" | "changelog";
+  kind?: "blog" | "doc" | "changelog" | "api-operation";
 };
 
 export const inboxAiRuns = pgTable(
@@ -1321,6 +1321,8 @@ export const documentationSettings = pgTable("documentation_settings", {
     .default("editor"),
   draftVersion: integer("draft_version").notNull().default(1),
   activePublicationId: text("active_publication_id"),
+  /** The live API reference (docs/openapi-support.md); independent of docs. */
+  activeApiSpecId: text("active_api_spec_id"),
   requestedGeneration: integer("requested_generation").notNull().default(0),
   policyEpoch: integer("policy_epoch").notNull().default(0),
   purgeGeneration: integer("purge_generation").notNull().default(0),
@@ -1463,7 +1465,7 @@ export const documentationDeliveryOutbox = pgTable("documentation_delivery_outbo
   publicationId: text("publication_id"),
   policyEpoch: integer("policy_epoch").notNull(),
   type: text("type", {
-    enum: ["activation", "policy", "purge"],
+    enum: ["activation", "policy", "purge", "api_reference"],
   }).notNull(),
   payload: jsonb("payload").$type<Record<string, any>>().notNull().default({}),
   destinations: jsonb("destinations").$type<string[]>().notNull().default(["local"]),
@@ -1475,6 +1477,64 @@ export const documentationDeliveryOutbox = pgTable("documentation_delivery_outbo
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+/** API reference imported from a team's OpenAPI spec in Git
+ * (docs/openapi-support.md). Only the live spec and the latest failed
+ * attempt are kept. Specs and slices are `text` because `jsonb` reorders
+ * object keys. */
+export const documentationApiSpecs = pgTable(
+  "documentation_api_specs",
+  {
+    specId: text("spec_id")
+      .primaryKey()
+      .$defaultFn(() => genPublicId("aspec")),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    status: text("status", { enum: ["active", "failed"] }).notNull(),
+    commitSha: text("commit_sha").notNull(),
+    sourcePath: text("source_path").notNull(),
+    sourceBlobSha: text("source_blob_sha"),
+    mount: text("mount").notNull(),
+    /** The served `/openapi.json`; null for a failed attempt. */
+    spec: text("spec"),
+    specHash: text("spec_hash"),
+    info: jsonb("info").$type<Record<string, unknown>>(),
+    diagnostics: jsonb("diagnostics")
+      .$type<Record<string, unknown>[]>()
+      .notNull()
+      .default([]),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("documentation_api_specs_team_idx").on(t.teamId, t.status)],
+);
+export const documentationApiOperations = pgTable(
+  "documentation_api_operations",
+  {
+    specId: text("spec_id")
+      .notNull()
+      .references(() => documentationApiSpecs.specId, { onDelete: "cascade" }),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    /** Relative to `/docs`, like docs memberships: `api-reference/list-contacts`. */
+    route: text("route").notNull(),
+    title: text("title").notNull(),
+    group: text("group").notNull(),
+    order: integer("order").notNull(),
+    method: text("method").notNull(),
+    path: text("path").notNull(),
+    deprecated: boolean("deprecated").notNull().default(false),
+    slice: text("slice").notNull(),
+    chunks: jsonb("chunks")
+      .$type<{ heading: string | null; anchor: string | null; content: string }[]>()
+      .notNull(),
+  },
+  (t) => [
+    uniqueIndex("documentation_api_operations_route_idx").on(t.specId, t.route),
+    index("documentation_api_operations_team_idx").on(t.teamId),
+  ],
+);
 export const documentationPurges = pgTable(
   "documentation_purges",
   {
@@ -1711,6 +1771,10 @@ export const documentationGitBindings = pgTable(
     docsSourceKey: text("docs_source_key"),
     /** Problems and warnings from the last pages import. */
     pagesDiagnostics: jsonb("pages_diagnostics").$type<Record<string, unknown>[]>(),
+    /** Repo-relative path of the OpenAPI spec; null turns the API reference off. */
+    apiSpecPath: text("api_spec_path"),
+    /** The API reference is served under `/docs/<apiMount>`. */
+    apiMount: text("api_mount").notNull().default("api-reference"),
     status: text("status", {
       enum: ["connected", "paused", "access_lost", "disconnected"],
     }).notNull(),

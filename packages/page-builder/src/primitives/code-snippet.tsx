@@ -38,7 +38,7 @@ export function CodeSnippet({ code, prompt, theme, className }: CodeSnippetProps
     >
       <pre
         className={cn(
-          "min-w-0 flex-1 overflow-x-auto whitespace-pre px-4 py-3 text-left",
+          "min-w-0 flex-1 overflow-x-auto whitespace-pre px-4 py-3 text-left [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]",
           typography?.fontFamily ?? "font-jetbrains-mono",
           typography?.fontSize ?? "text-sm",
           typography?.fontWeight,

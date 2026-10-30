@@ -54,7 +54,7 @@ export type InboxAiResult = {
     slug: string;
     title: string | null;
     anchor: string | null;
-    kind?: "blog" | "doc" | "changelog";
+    kind?: "blog" | "doc" | "changelog" | "api-operation";
     revisionId?: string;
     publicationId?: string | null;
     policyEpoch?: number;
@@ -90,7 +90,7 @@ function toRetrieval(
     heading: string | null;
     anchor: string | null;
     similarity: number;
-    kind?: "blog" | "doc" | "changelog";
+    kind?: "blog" | "doc" | "changelog" | "api-operation";
     revisionId?: string;
     publicationId?: string | null;
     policyEpoch?: number;

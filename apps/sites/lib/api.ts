@@ -1,6 +1,10 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { initClient } from "@ts-rest/core";
-import { contract } from "@frontlit/api-contract";
+import {
+  contract,
+  type ApiOperationSlice,
+  type ApiReferenceInfo,
+} from "@frontlit/api-contract";
 import type { TextEditorContent } from "@frontlit/text-editor";
 import type { WidgetInstance } from "@frontlit/page-builder/models";
 import { API_URL } from "./config";
@@ -327,6 +331,57 @@ export async function getDocumentationBySlug(
     (await getDocumentationSnapshot(teamId)).items.find((doc) => doc.slug === slug) ??
     null
   );
+}
+
+export type PublicApiReference = {
+  mount: string;
+  commitSha: string;
+  info: ApiReferenceInfo;
+  groups: {
+    name: string;
+    operations: {
+      route: string;
+      title: string;
+      method: string;
+      path: string;
+      deprecated: boolean;
+    }[];
+  }[];
+};
+/** The live API reference (docs/openapi-support.md). Cached like docs under
+ * `docs:<team>`; the API's activation event expires the tag. */
+export async function getApiReference(
+  teamId: string,
+): Promise<PublicApiReference | null> {
+  "use cache";
+  cached(teamId, siteTags.docs(teamId));
+  if (isPlaceholderTeam(teamId)) return null;
+  return unwrapOrNull<PublicApiReference>(
+    client.getApiReference({ params: { teamId } }),
+  );
+}
+export async function getApiOperation(
+  teamId: string,
+  route: string,
+): Promise<{ route: string; mount: string; operation: ApiOperationSlice } | null> {
+  "use cache";
+  cached(teamId, siteTags.docs(teamId));
+  if (isPlaceholderTeam(teamId)) return null;
+  return unwrapOrNull(client.getApiOperation({ params: { teamId }, query: { route } }));
+}
+/** The live spec text served at `/openapi.json`, with its content hash. */
+export async function getApiSpec(
+  teamId: string,
+): Promise<{ spec: string; etag: string } | null> {
+  "use cache";
+  cached(teamId, siteTags.docs(teamId));
+  if (isPlaceholderTeam(teamId)) return null;
+  const response = await fetch(
+    `${API_URL}/public/${encodeURIComponent(teamId)}/content/api-reference/openapi.json`,
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`Public API request failed (${response.status})`);
+  return { spec: await response.text(), etag: response.headers.get("etag") ?? "" };
 }
 
 export interface ProductUpdateMeta {

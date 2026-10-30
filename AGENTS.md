@@ -1,5 +1,12 @@
 # Development Guidelines for FrontLit
 
+## Architecture Guidelines
+
+- Strive for a simpler design and add more complexity only when it is required to solve a problem.
+- Avoid over-engineering.
+- Don't go for premature-optimizations.
+- We haven't hit planet scale yet, so don't try to cater to edge cases which our users may not even encounter.
+
 ## Development Tips
 
 - The platform is in early stages of development. We don't even have a production deployment yet. So, feel free to scratch migrations and write those from scratch as many times as you need, reset database etc.. No need to worry about being backwards compatible.

@@ -1,5 +1,7 @@
 import {
+  getApiReference,
   getDocumentationSnapshot,
+  type PublicApiReference,
   type PublicDocument,
   type DocumentationMeta,
   type DocumentationSection,
@@ -11,6 +13,9 @@ export type DocsNavItem = {
   title: string | null;
   excerpt: string | null;
   featuredImage?: Record<string, unknown> | null;
+  /** API reference operations show their HTTP method. */
+  method?: string;
+  deprecated?: boolean;
 };
 
 export type DocsCollection = {
@@ -18,6 +23,9 @@ export type DocsCollection = {
   name: string;
   slug: string | null;
   items: DocsNavItem[];
+  /** Set for the API reference (docs/openapi-support.md): its own landing
+   * page and its operations grouped by tag. */
+  api?: { href: string; groups: { name: string; items: DocsNavItem[] }[] };
 };
 
 function toNavItem(doc: PublicDocument<DocumentationMeta>): DocsNavItem {
@@ -71,11 +79,49 @@ export function buildDocsTree(
   return collections;
 }
 
+/** What readers look for in docs navigation; the spec's own title (e.g.
+ * "Medialit API") is shown on the landing page instead. */
+export const API_REFERENCE_LABEL = "API Reference";
+
+/** The API reference as a docs Section, placed after the docs Sections. */
+export function apiCollection(reference: PublicApiReference): DocsCollection {
+  const groups = reference.groups.map((group) => ({
+    name: group.name,
+    items: group.operations.map((operation) => ({
+      documentId: operation.route,
+      slug: operation.route,
+      title: operation.title,
+      excerpt: null,
+      method: operation.method,
+      deprecated: operation.deprecated,
+    })),
+  }));
+  return {
+    sectionId: `api:${reference.mount}`,
+    name: API_REFERENCE_LABEL,
+    slug: reference.mount,
+    items: groups.flatMap((group) => group.items),
+    api: { href: `/docs/${reference.mount}`, groups },
+  };
+}
+
 export async function loadDocsTree(teamId: string): Promise<DocsCollection[]> {
-  const { sections, items } = await getDocumentationSnapshot(teamId);
-  return buildDocsTree(sections, items);
+  const [{ sections, items }, reference] = await Promise.all([
+    getDocumentationSnapshot(teamId),
+    getApiReference(teamId),
+  ]);
+  const collections = buildDocsTree(sections, items);
+  if (!reference) return collections;
+  const more = collections.findIndex((collection) => collection.sectionId === null);
+  collections.splice(
+    more === -1 ? collections.length : more,
+    0,
+    apiCollection(reference),
+  );
+  return collections;
 }
 
 export function collectionHref(collection: DocsCollection): string | null {
+  if (collection.api) return collection.api.href;
   return collection.slug ? `/docs/collections/${collection.slug}` : null;
 }

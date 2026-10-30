@@ -1,5 +1,5 @@
 import type { Metadata, ResolvingMetadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { BUILD_TEAM_ID, getCanonicalHost, getSettings } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
 import { API_PUBLIC_URL } from "@/lib/config";
@@ -48,6 +48,7 @@ export default async function DocCollectionPage({ params }: Props) {
   const collections = await loadDocsTree(teamId);
   const collection = collections.find((item) => item.slug === sectionSlug);
   if (!collection) notFound();
+  if (collection.api) redirect(collection.api.href);
 
   return (
     <SiteChrome teamId={teamId}>

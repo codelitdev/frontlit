@@ -6,6 +6,10 @@ import {
 import { GitHubDocsError } from "./app";
 const messages: Record<string, string> = {
   PAGES_ALREADY_SYNCED: "Pages already sync from this repository.",
+  API_SPEC_PATH_INVALID:
+    "Enter the spec's path in the repository, like apps/api/openapi.json. It must end in .json, .yaml or .yml.",
+  API_MOUNT_CONFLICT:
+    "That URL path is reserved or already used by docs pages. Choose another one.",
   GITHUB_NOTHING_TO_SYNC:
     "Choose docs, landing pages or both to sync from the repository.",
   PAGES_DIRECTORY_EXISTS:
