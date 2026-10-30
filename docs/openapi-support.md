@@ -308,12 +308,16 @@ public", and in the admin panel (§6.6).
     component) inside the existing docs layout: method badge and path,
     authentication, parameter tables, request-body schema tree
     (`oneOf`/`anyOf`/`allOf`), responses per status with schemas and
-    examples, code-sample tabs, and the "Try it" button.
+    examples, code-sample tabs, and the request panel.
 - Layout: on wide themes the operation page has three columns (docs sidebar,
-  content, a sticky code panel with "Try it", code samples and response
-  examples). Columns follow the width of the theme's container, not the
-  viewport: when it is narrower than 1,024px (Editorial), the code panels
-  move below the content and "Try it" sits under the description.
+  content, a sticky code panel with code samples and response examples).
+  Columns follow the width of the theme's container, not the viewport: when
+  it is narrower than 1,024px (Editorial), the code panels move below the
+  content.
+- Under the description, a request panel shows the server URL, the method
+  and the path, with a "Try it" button. It is plain server-rendered HTML;
+  "Try it" opens the playground form inline below it, the way Fumadocs
+  places its request block, and the panel's button then sends the request.
 - Reads are cached like docs (`"use cache"` tagged `docs:<team>`) and
   invalidated by the API reference activation event (§6.2).
 - `lib/docs-tree.ts` / `DocsSidebar` and the docs home page: the API Section
@@ -368,7 +372,7 @@ theme (`ThemeStyle`), in light and dark mode, like the rest of the site:
   body text and captions, and `typography.code` for paths, schemas and code
   samples.
 - Surfaces use the theme's interactives: code panels and boxes through
-  `interactives.card`, the playground panel through `interactives.dialog`,
+  `interactives.card` (the request panel and its form included),
   inputs through `interactives.input`, buttons through
   `interactives.button`. Borders, radius and shadows therefore change with
   the theme; for example, Neobrutalism's heavy borders and Terminal's
@@ -380,8 +384,9 @@ theme (`ThemeStyle`), in light and dark mode, like the rest of the site:
 ### 6.5 Playground
 
 `<ApiPlayground>` is a client component themed with `useSiteThemeStyle()`.
-It loads on demand (§8.3) into a native `<dialog>`. Escape closes it and
-focus returns to the "Try it" button.
+It loads on demand (§8.3) and renders inline in the request panel. Opening
+it moves focus to the first visible field; the panel's close button hides it
+and returns focus to "Try it". The server fields are collapsed by default.
 
 **Inputs**
 - One input per parameter, grouped by path, query and header.
@@ -487,14 +492,15 @@ response, and the playground costs nothing until it is used.
 
 ### 8.3 Playground loads on intent
 
-- The page server-renders only the "Try it" button. The playground's code is
-  a separate chunk loaded with a dynamic `import()`:
+- The page server-renders only the request panel (server, method, path and
+  "Try it"). The playground's code is a separate chunk loaded with a dynamic
+  `import()`:
   - prefetched when the browser is idle or the button is hovered or focused;
-  - mounted on click, with focus moved into the dialog.
+  - mounted inline on click, with focus moved to its first field.
 
   This is the same pattern as the chat widget (`site-delivery.md` §6.2).
-- The dialog opens on a user action, so it causes no layout shift that
-  counts toward CLS.
+- The form opens on a user action, so the layout shift it causes doesn't
+  count toward CLS.
 - Props are a compact playground model precomputed at import: parameters,
   body fields, servers, auth requirements and an example body string. The
   full slice is never serialized into the RSC payload.

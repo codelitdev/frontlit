@@ -37,7 +37,7 @@ import { Breadcrumb, DocsSidebar, DocsSidebarFrame } from "@/components/themed-d
 import { breakAfterSlashes } from "@/components/api-reference/break-path";
 import { MethodBadge, StatusBadge } from "./method-badge";
 import { SchemaView, typeLabel } from "./schema-view";
-import { TryIt } from "./try-it";
+import { RequestPanel } from "./try-it";
 
 function RichText({ value, theme }: { value?: ApiRichText; theme: ThemeStyle }) {
   if (!value) return null;
@@ -349,10 +349,8 @@ export async function ThemedApiOperation({
     0,
     operation.responses.findIndex((r) => /^2/.test(r.status)),
   );
-  const tryIt = <TryIt model={operation.playground} title={operation.title} />;
   const aside = (
     <>
-      <div className="hidden @5xl:block">{tryIt}</div>
       <section className="flex flex-col gap-2" aria-label="Code samples">
         <Header4 theme={theme}>Request</Header4>
         <Tabs
@@ -404,17 +402,13 @@ export async function ThemedApiOperation({
       aside={aside}
     >
       <header className="flex flex-col gap-3">
-        <span className="flex min-w-0 flex-wrap items-center gap-2">
-          <MethodBadge method={operation.method} theme={theme} />
-          <InlineCode theme={theme} className="break-all">
-            {operation.path}
-          </InlineCode>
-          {operation.deprecated ? (
+        {operation.deprecated ? (
+          <span>
             <Badge theme={theme} variant="destructive">
               Deprecated
             </Badge>
-          ) : null}
-        </span>
+          </span>
+        ) : null}
         {/* The page's h1 at the Header2 size: endpoint titles are often long
             paths, and the sections below use Header3. Paths can have no
             spaces ("GET /v1/a/{b}/{c}"), so they also wrap at each "/". */}
@@ -422,7 +416,8 @@ export async function ThemedApiOperation({
           {breakAfterSlashes(operation.title)}
         </Header2>
         <RichText value={operation.description} theme={theme} />
-        <div className="@5xl:hidden">{tryIt}</div>
+        {/* Server, method and path; "Try it" opens the request form here. */}
+        <RequestPanel model={operation.playground} />
       </header>
 
       {operation.security ? (
