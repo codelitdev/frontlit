@@ -115,6 +115,10 @@ paths:
       summary: List things
       x-internal: true
       responses: { "200": { description: OK } }
+  /health:
+    get:
+      x-excluded: true
+      responses: { "200": { description: OK } }
 components:
   schemas:
     Thing:
@@ -138,6 +142,7 @@ components:
     const served = JSON.parse(result.spec);
     expect(served.paths["/things"].get).toBeUndefined();
     expect(served.paths["/things"].post).toBeDefined();
+    expect(served.paths).not.toHaveProperty("/health");
   });
 
   it("reports blocking problems with locations", () => {

@@ -25,7 +25,14 @@ const shortSha = (sha: string) => sha.slice(0, 7);
  * (docs/openapi-support.md). The spec can live anywhere in the repo; every
  * push re-imports it when it changed.
  */
-export function ApiReferenceSourceSection({ canManage }: { canManage: boolean }) {
+export function ApiReferenceSourceSection({
+  canManage,
+  syncKey,
+}: {
+  canManage: boolean;
+  /** Changes when a sync starts or finishes, so the panel reloads. */
+  syncKey: string;
+}) {
   const [status, setStatus] = useState<ApiReferenceStatus | null>(null);
   const [editing, setEditing] = useState(false);
   const [specPath, setSpecPath] = useState("");
@@ -44,7 +51,7 @@ export function ApiReferenceSourceSection({ canManage }: { canManage: boolean })
   }, []);
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+  }, [refresh, syncKey]);
 
   async function act(run: () => Promise<unknown>) {
     setBusy(true);

@@ -375,7 +375,10 @@ export function ManageSource({
         onChanged={onRefresh}
       />
       <SectionLabel>API reference</SectionLabel>
-      <ApiReferenceSourceSection canManage={source.status === "connected"} />
+      <ApiReferenceSourceSection
+        canManage={source.status === "connected"}
+        syncKey={`${source.sync?.status}:${binding.observedSha}:${binding.lastSuccessfulSyncAt}`}
+      />
       <SectionLabel>Sync progress</SectionLabel>
       <div className="grid grid-cols-1 divide-y overflow-clip rounded-[0.625rem] border border-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         <ProgressCell

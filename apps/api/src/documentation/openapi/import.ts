@@ -427,7 +427,10 @@ export function importOpenApiSpec(input: {
       if (!isObject(operation)) continue;
       const at = ["paths", path, method];
       if (isHidden(operation)) {
-        delete served.paths?.[path]?.[method];
+        const servedItem = served.paths?.[path];
+        delete servedItem?.[method];
+        if (isObject(servedItem) && ![...METHODS, "$ref"].some((k) => k in servedItem))
+          delete served.paths[path];
         continue;
       }
       const operationId = text(operation.operationId) || undefined;
