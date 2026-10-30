@@ -71,7 +71,9 @@ export async function generateMetadata(
             teamId,
             slug,
             `${API_REFERENCE_LABEL} – ${api.reference.info.title}`,
-            undefined,
+            api.reference.info.description?.kind === "text"
+              ? api.reference.info.description.text.slice(0, 200)
+              : `${api.reference.info.title}: ${api.reference.groups.reduce((n, g) => n + g.operations.length, 0)} endpoints.`,
           );
     const text =
       api.operation.description?.kind === "text"
