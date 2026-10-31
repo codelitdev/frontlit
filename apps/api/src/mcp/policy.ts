@@ -190,6 +190,10 @@ const toolScopes = {
   set_primary_custom_domain: MCP_SCOPES.domainsWrite,
   verify_custom_domain: MCP_SCOPES.domainsWrite,
   remove_custom_domain: MCP_SCOPES.domainsWrite,
+  add_redirect_domain: MCP_SCOPES.domainsWrite,
+  update_redirect_domain: MCP_SCOPES.domainsWrite,
+  verify_redirect_domain: MCP_SCOPES.domainsWrite,
+  remove_redirect_domain: MCP_SCOPES.domainsWrite,
 
   get_team_settings: MCP_SCOPES.settingsRead,
   update_team_settings: MCP_SCOPES.settingsWrite,
@@ -220,6 +224,8 @@ export const HIGH_IMPACT_MCP_TOOLS = new Set<McpToolName>([
   "send_broadcast",
   "attach_custom_domain",
   "remove_custom_domain",
+  "add_redirect_domain",
+  "remove_redirect_domain",
 ]);
 
 export type McpHumanRequirement =

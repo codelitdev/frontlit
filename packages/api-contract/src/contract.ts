@@ -160,8 +160,10 @@ import {
   updateTicketBodySchema,
 } from "./schemas/help-desk";
 import {
+  addRedirectDomainBodySchema,
   attachCustomDomainBodySchema,
   domainSettingsSchema,
+  updateRedirectDomainBodySchema,
   resolveHostQuerySchema,
   resolveHostResponseSchema,
   setRedirectSubdomainBodySchema,
@@ -1560,6 +1562,42 @@ const domainsContract = c.router(
       path: "/domain/custom",
       responses: { 200: domainSettingsSchema, 404: errorSchema },
       summary: "Remove the team's custom domain",
+    },
+    addRedirectDomain: {
+      method: "POST",
+      path: "/domain/redirect-domains",
+      body: addRedirectDomainBodySchema,
+      responses: { 200: domainSettingsSchema, 409: errorSchema },
+      summary: "Add a redirect domain (starts DNS verification)",
+      description:
+        "A redirect domain serves nothing itself: once verified, every request 301-redirects to the website's canonical host. Use it to keep an old host's links working, e.g. `docs.example.com` with path prefix `/docs` sends `/cli` to `example.com/docs/cli`.",
+    },
+    updateRedirectDomain: {
+      method: "PATCH",
+      path: "/domain/redirect-domains/:hostname",
+      pathParams: z.object({ hostname: z.string() }),
+      body: updateRedirectDomainBodySchema,
+      responses: { 200: domainSettingsSchema, 404: errorSchema },
+      summary: "Change a redirect domain's path prefix or per-path rules",
+      description:
+        "Rules match the exact request path (ignoring a trailing slash) and win over the prefix, e.g. `/api/uploadMedia` -> `/docs/api/upload-media`. Sending `rules` replaces the whole list.",
+    },
+    verifyRedirectDomain: {
+      method: "POST",
+      path: "/domain/redirect-domains/:hostname/verify",
+      pathParams: z.object({ hostname: z.string() }),
+      body: c.noBody(),
+      responses: { 200: domainSettingsSchema, 404: errorSchema },
+      summary: "Re-check DNS for a redirect domain",
+      description:
+        "Looks up the host's own ownership TXT record and its routing record. The host starts redirecting once both pass. Re-runnable.",
+    },
+    removeRedirectDomain: {
+      method: "DELETE",
+      path: "/domain/redirect-domains/:hostname",
+      pathParams: z.object({ hostname: z.string() }),
+      responses: { 200: domainSettingsSchema, 404: errorSchema },
+      summary: "Remove a redirect domain",
     },
   },
   { metadata: { tag: "Domains" } },

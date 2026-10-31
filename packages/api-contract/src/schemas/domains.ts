@@ -35,6 +35,65 @@ export const domainVerificationSchema = z.object({
   txtSatisfied: z.boolean().nullable(),
 });
 
+const hostnameSchema = z
+  .string()
+  .min(1)
+  .max(255)
+  .toLowerCase()
+  .regex(
+    /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/,
+    "Must be a valid domain name",
+  );
+
+const sitePathSchema = z
+  .string()
+  .max(500)
+  .regex(/^\/\S*$/, 'Must be a site path starting with "/".');
+
+/** An exact old path on the redirect host and where it goes on the site. */
+export const redirectRuleSchema = z.object({
+  from: sitePathSchema,
+  to: sitePathSchema,
+});
+
+/** Put in front of every redirected path, e.g. `/docs`. Empty keeps paths. */
+export const redirectPathPrefixSchema = z
+  .string()
+  .max(200)
+  .regex(
+    /^(\/[A-Za-z0-9._~-]+)*$/,
+    'Must be empty or a path like "/docs" with no trailing slash.',
+  );
+
+export const redirectRulesSchema = z
+  .array(redirectRuleSchema)
+  .max(500)
+  .refine(
+    (rules) =>
+      new Set(rules.map((rule) => rule.from.replace(/\/+$/, "") || "/")).size ===
+      rules.length,
+    "Each old path can only have one rule.",
+  );
+
+/** A host that only 301-redirects to the team's website. Rules match the
+ * exact request path first; any other path gets `pathPrefix` in front. */
+export const redirectDomainSchema = z.object({
+  hostname: z.string(),
+  pathPrefix: z.string(),
+  rules: z.array(redirectRuleSchema),
+  status: domainStatusSchema,
+  verifiedAt: z.string().nullable(),
+  /** The routing record to create: A records (apex) or a CNAME. */
+  record: z.object({
+    type: z.enum(["A", "CNAME"]),
+    values: z.array(z.string()),
+  }),
+  /** Null until the team has run a DNS check. */
+  routingSatisfied: z.boolean().nullable(),
+  /** This host's own ownership TXT record. */
+  verification: domainVerificationSchema,
+});
+
 export const domainSettingsSchema = z.object({
   subdomain: subdomainSchema.nullable(),
   /** Empty when no custom domain is attached. */
@@ -54,6 +113,8 @@ export const domainSettingsSchema = z.object({
   /** `PLATFORM_SITE_DOMAIN` — used to render `.{suffix}` before a slug
    * is claimed. */
   platformDomain: z.string(),
+  /** Extra hosts that 301 to the website, e.g. an old docs host. */
+  redirectDomains: z.array(redirectDomainSchema),
 });
 
 export const setTeamSubdomainBodySchema = z.object({
@@ -79,15 +140,17 @@ export const setHideFromSearchBodySchema = z.object({
 });
 
 export const attachCustomDomainBodySchema = z.object({
-  hostname: z
-    .string()
-    .min(1)
-    .max(255)
-    .toLowerCase()
-    .regex(
-      /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/,
-      "Must be a valid domain name",
-    ),
+  hostname: hostnameSchema,
+});
+
+export const addRedirectDomainBodySchema = z.object({
+  hostname: hostnameSchema,
+  pathPrefix: redirectPathPrefixSchema.default(""),
+});
+
+export const updateRedirectDomainBodySchema = z.object({
+  pathPrefix: redirectPathPrefixSchema.optional(),
+  rules: redirectRulesSchema.optional(),
 });
 
 export const setPrimaryCustomDomainBodySchema = z.object({
@@ -111,4 +174,8 @@ export const resolveHostResponseSchema = z.object({
   /** Team-wide pre-launch switch: every host serves `noindex`, robots.txt
    * disallows everything and the sitemap is empty. */
   hideFromSearch: z.boolean(),
+  /** Set for a redirect domain: where its paths go on `canonicalHost`. */
+  redirectTo: z
+    .object({ pathPrefix: z.string(), rules: z.array(redirectRuleSchema) })
+    .optional(),
 });
