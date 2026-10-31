@@ -1,38 +1,35 @@
 import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
-import { domainSettingsSchema } from "@frontlit/api-contract";
 import {
+  domainSettingsSchema,
+  redirectPathPrefixSchema,
+  redirectRulesSchema,
+} from "@frontlit/api-contract";
+import {
+  addRedirectDomain,
   attachCustomDomain,
   getDomainSettings,
   removeCustomDomain,
+  removeRedirectDomain,
   setPrimaryCustomDomain,
   setRedirectSubdomain,
   setHideFromSearch,
   setTeamSubdomain,
+  updateRedirectDomain,
   verifyCustomDomain,
+  verifyRedirectDomain,
 } from "../../domains/queries";
 import { revalidateAfterDomainChange } from "../../domains/revalidate";
+import { toPublicSettings } from "../../domains/public-settings";
 import { AUTH_ERROR, INTERNAL_ERROR, errorResult, jsonResult } from "./responses";
 import { getTeamId } from "./auth";
-
-function toPublicSettings(
-  settings: NonNullable<Awaited<ReturnType<typeof getDomainSettings>>>,
-) {
-  return {
-    ...settings,
-    customDomains: settings.customDomains.map((host) => ({
-      ...host,
-      verifiedAt: host.verifiedAt?.toISOString() ?? null,
-    })),
-  };
-}
 
 export function registerDomainTools(server: McpToolRegistrar): void {
   server.registerTool(
     "get_domain_settings",
     {
       description:
-        "Gets the current team's domain settings: default subdomain, the custom domain's hosts (an apex/www pair) with their per-host DNS records and status, the shared ownership TXT record, the canonical host, and whether the subdomain redirects to it.",
+        "Gets the current team's domain settings: default subdomain, the custom domain's hosts (an apex/www pair) with their per-host DNS records and status, the shared ownership TXT record, the canonical host, whether the subdomain redirects to it, and the redirect domains with their DNS records, path prefix and rules.",
       inputSchema: {},
       outputSchema: domainSettingsSchema,
       annotations: {
@@ -250,6 +247,127 @@ export function registerDomainTools(server: McpToolRegistrar): void {
           teamId,
           previous?.customDomains.map((host) => host.hostname) ?? [],
         );
+        return jsonResult(toPublicSettings((await getDomainSettings(teamId))!));
+      } catch {
+        return INTERNAL_ERROR;
+      }
+    },
+  );
+
+  const notAdded = "That redirect domain is not added to this team";
+
+  server.registerTool(
+    "add_redirect_domain",
+    {
+      description:
+        "Adds a redirect domain to the current team and starts DNS verification. Once verified it serves nothing itself: every request 301-redirects to the website's canonical host, with `pathPrefix` put in front of the path. Use it to keep an old host's links working, e.g. `docs.example.com` with prefix `/docs` sends `/cli` to `example.com/docs/cli`. The host needs its own TXT record (see get_domain_settings) plus the usual routing record.",
+      inputSchema: {
+        hostname: z.string().min(1),
+        pathPrefix: redirectPathPrefixSchema.optional(),
+      },
+      outputSchema: domainSettingsSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async (args: any, extra: any) => {
+      const teamId = getTeamId(extra);
+      if (!teamId) return AUTH_ERROR;
+      try {
+        const result = await addRedirectDomain(
+          teamId,
+          args.hostname,
+          args.pathPrefix ?? "",
+        );
+        if (!result.ok) return errorResult(result.reason);
+        return jsonResult(toPublicSettings((await getDomainSettings(teamId))!));
+      } catch {
+        return INTERNAL_ERROR;
+      }
+    },
+  );
+
+  server.registerTool(
+    "update_redirect_domain",
+    {
+      description:
+        "Changes a redirect domain's path prefix and/or its per-path rules. A rule sends one exact old path (trailing slash ignored) to a site path and wins over the prefix, e.g. `/api/uploadMedia` -> `/docs/api/upload-media`. Sending `rules` replaces the whole list.",
+      inputSchema: {
+        hostname: z.string().min(1),
+        pathPrefix: redirectPathPrefixSchema.optional(),
+        rules: redirectRulesSchema.optional(),
+      },
+      outputSchema: domainSettingsSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async (args: any, extra: any) => {
+      const teamId = getTeamId(extra);
+      if (!teamId) return AUTH_ERROR;
+      try {
+        const updated = await updateRedirectDomain(teamId, args.hostname, {
+          ...(args.pathPrefix !== undefined ? { pathPrefix: args.pathPrefix } : {}),
+          ...(args.rules !== undefined ? { rules: args.rules } : {}),
+        });
+        if (!updated) return errorResult(notAdded);
+        await revalidateAfterDomainChange(teamId);
+        return jsonResult(toPublicSettings((await getDomainSettings(teamId))!));
+      } catch {
+        return INTERNAL_ERROR;
+      }
+    },
+  );
+
+  server.registerTool(
+    "verify_redirect_domain",
+    {
+      description:
+        "Re-checks a redirect domain's own ownership TXT record and its routing record. It starts redirecting once both pass.",
+      inputSchema: { hostname: z.string().min(1) },
+      outputSchema: domainSettingsSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async (args: any, extra: any) => {
+      const teamId = getTeamId(extra);
+      if (!teamId) return AUTH_ERROR;
+      try {
+        if (!(await verifyRedirectDomain(teamId, args.hostname)))
+          return errorResult(notAdded);
+        await revalidateAfterDomainChange(teamId);
+        return jsonResult(toPublicSettings((await getDomainSettings(teamId))!));
+      } catch {
+        return INTERNAL_ERROR;
+      }
+    },
+  );
+
+  server.registerTool(
+    "remove_redirect_domain",
+    {
+      description:
+        "Removes a redirect domain from the current team. Its links stop redirecting.",
+      inputSchema: { hostname: z.string().min(1) },
+      outputSchema: domainSettingsSchema,
+      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+    },
+    async (args: any, extra: any) => {
+      const teamId = getTeamId(extra);
+      if (!teamId) return AUTH_ERROR;
+      try {
+        if (!(await removeRedirectDomain(teamId, args.hostname)))
+          return errorResult(notAdded);
+        await revalidateAfterDomainChange(teamId, [args.hostname]);
         return jsonResult(toPublicSettings((await getDomainSettings(teamId))!));
       } catch {
         return INTERNAL_ERROR;

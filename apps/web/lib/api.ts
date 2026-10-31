@@ -1495,6 +1495,50 @@ export interface DomainSettings {
   redirectSubdomain: boolean;
   hideFromSearch: boolean;
   platformDomain: string;
+  redirectDomains: RedirectDomain[];
+}
+
+export interface RedirectRule {
+  from: string;
+  to: string;
+}
+
+export interface RedirectDomain {
+  hostname: string;
+  pathPrefix: string;
+  rules: RedirectRule[];
+  status: "pending" | "verified" | "failed";
+  verifiedAt: string | null;
+  record: { type: "A" | "CNAME"; values: string[] };
+  routingSatisfied: boolean | null;
+  verification: { txtName: string; txtValue: string; txtSatisfied: boolean | null };
+}
+
+export function addRedirectDomain(hostname: string, pathPrefix: string) {
+  return unwrap<DomainSettings>(
+    client.domains.addRedirectDomain({ body: { hostname, pathPrefix } }),
+  );
+}
+
+export function updateRedirectDomain(
+  hostname: string,
+  changes: { pathPrefix?: string; rules?: RedirectRule[] },
+) {
+  return unwrap<DomainSettings>(
+    client.domains.updateRedirectDomain({ params: { hostname }, body: changes }),
+  );
+}
+
+export function verifyRedirectDomain(hostname: string) {
+  return unwrap<DomainSettings>(
+    client.domains.verifyRedirectDomain({ params: { hostname } }),
+  );
+}
+
+export function removeRedirectDomain(hostname: string) {
+  return unwrap<DomainSettings>(
+    client.domains.removeRedirectDomain({ params: { hostname } }),
+  );
 }
 
 export function getDomainSettings() {
