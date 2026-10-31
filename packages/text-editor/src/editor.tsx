@@ -20,6 +20,8 @@ import type { ReactEditorProps } from "./types";
 import { cn } from "./lib/cn";
 import { useImagePicker } from "./image-picker";
 import { createDocsExtensions } from "./docs/extensions";
+import { withDocsBlockViews } from "./components/docs-block-views";
+import { Gapcursor, TrailingNode } from "@tiptap/extensions";
 import Placeholder from "@tiptap/extension-placeholder";
 import { isSafeDocsUrl } from "./docs/urls";
 
@@ -79,12 +81,21 @@ const Editor: EditorType = Object.assign(
 
     const extensions = useMemo(
       () =>
-        profile === "documentation"
-          ? [
-              ...createDocsExtensions(),
-              Placeholder.configure({ placeholder: placeholder || "Write something…" }),
-            ]
-          : createExtensions({ placeholder }),
+        withDocsBlockViews(
+          profile === "documentation"
+            ? [
+                ...createDocsExtensions(),
+                Placeholder.configure({
+                  placeholder: placeholder || "Write something…",
+                }),
+                // Editing only: lets authors type before or after a block that
+                // starts or ends the doc. Empty paragraphs are not saved to Markdown.
+                Gapcursor,
+                TrailingNode,
+              ]
+            : createExtensions({ placeholder }),
+          profile ?? "default",
+        ),
       [placeholder, profile],
     );
 

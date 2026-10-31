@@ -12,6 +12,7 @@ const srcDir = path.resolve("src");
 // "use client" banner and imported (not bundled) by the renderer entry.
 const islands: Record<string, string> = {
   "components/copy-code-button": "copy-code-button",
+  "components/docs-tabs": "docs-tabs",
 };
 
 const shared = {

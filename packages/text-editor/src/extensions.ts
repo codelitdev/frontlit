@@ -17,6 +17,7 @@ import xml from "highlight.js/lib/languages/xml";
 import type { Extensions } from "@tiptap/core";
 import { createId } from "./create-id";
 import { CodeMirrorNode } from "./components/custom-code-mirror";
+import { CodeBlockTitle, createDocsBlockExtensions } from "./docs/blocks";
 
 lowlight.registerLanguage("javascript", javascript);
 lowlight.registerLanguage("typescript", typescript);
@@ -32,6 +33,7 @@ export const createExtensions = ({
   placeholder,
 }: ExtensionOptions = {}): Extensions => [
   StarterKit.configure({
+    code: false,
     codeBlock: false,
     // Configured/replaced explicitly below (custom options or a
     // `.extend()`) — disabled here to avoid tiptap's duplicate-extension
@@ -96,4 +98,6 @@ export const createExtensions = ({
   }),
   Highlight,
   CodeMirrorNode,
+  CodeBlockTitle,
+  ...createDocsBlockExtensions(),
 ];

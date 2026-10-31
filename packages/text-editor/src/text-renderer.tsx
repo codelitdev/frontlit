@@ -11,6 +11,7 @@ import type { TextRendererTheme } from "./renderer-theme";
 import { cn } from "./lib/cn";
 import { RenderedCodeBlock } from "./components/rendered-code-block";
 import { extractDocsHeadings } from "./docs/headings";
+import { docsBlockMapping } from "./components/docs-blocks";
 
 interface TextRendererProps {
   profile?: "default" | "documentation";
@@ -157,8 +158,13 @@ export function TextRenderer({
             </Tag>
           );
         },
+        ...docsBlockMapping,
         codeBlock: ({ node, children }) => (
-          <RenderedCodeBlock node={node} language={node?.attrs?.language}>
+          <RenderedCodeBlock
+            node={node}
+            language={node?.attrs?.language}
+            title={node?.attrs?.title}
+          >
             {children}
           </RenderedCodeBlock>
         ),

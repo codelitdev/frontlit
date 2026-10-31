@@ -7,6 +7,7 @@ import {
   type DocsDiagnostic,
 } from "./diagnostics";
 import { isSafeDocsUrl } from "./urls";
+import { CALLOUT_TYPES, type TypeTableRow } from "./blocks";
 
 export const DOCS_LIMITS = {
   bytes: 1024 * 1024,
@@ -20,6 +21,19 @@ const record = (value: unknown): value is Record<string, unknown> =>
   !Array.isArray(value) &&
   [Object.prototype, null].includes(Object.getPrototypeOf(value));
 const nullableString = (v: unknown) => v === null || typeof v === "string";
+// Titles and labels may be empty while an author is typing; autosave must not fail.
+const label = (v: unknown) => typeof v === "string";
+const nullableLabel = nullableString;
+const typeTableRow = (v: unknown) =>
+  record(v) &&
+  Object.keys(v).every((key) =>
+    ["name", "type", "default", "description", "required"].includes(key),
+  ) &&
+  label(v.name) &&
+  typeof v.type === "string" &&
+  nullableString(v.default) &&
+  nullableString(v.description) &&
+  typeof v.required === "boolean";
 const attributes: Record<string, Record<string, (v: unknown) => boolean>> = {
   heading: { level: (v) => Number.isInteger(v) && Number(v) >= 1 && Number(v) <= 6 },
   orderedList: {
@@ -28,6 +42,25 @@ const attributes: Record<string, Record<string, (v: unknown) => boolean>> = {
   },
   codeBlock: {
     language: (v) => v === null || (typeof v === "string" && /^[\w+-]+$/.test(v)),
+    title: nullableLabel,
+  },
+  callout: {
+    type: (v) => v === null || CALLOUT_TYPES.includes(v as never),
+    title: nullableLabel,
+  },
+  tab: { label },
+  card: {
+    title: label,
+    href: nullableString,
+    icon: (v) => v === null || (typeof v === "string" && /^[A-Za-z][\w-]*$/.test(v)),
+  },
+  accordions: { type: (v) => v === null || v === "single" || v === "multiple" },
+  accordion: { title: label },
+  typeTable: {
+    rows: (v) =>
+      Array.isArray(v) &&
+      v.every(typeTableRow) &&
+      new Set(v.map((row) => row.name)).size === v.length,
   },
   image: {
     src: (v) => typeof v === "string",
@@ -149,12 +182,6 @@ export function validateDocsContent(input: unknown): {
           )
             add("UNSAFE_URL", "Link URL is unsafe.", `${mp}.attrs.href`);
         });
-        if (seen.has("code") && seen.size > 1)
-          add(
-            "INVALID_DOCUMENT",
-            "Inline code cannot carry other marks.",
-            `${path}.marks`,
-          );
       }
     }
     if (
@@ -162,6 +189,13 @@ export function validateDocsContent(input: unknown): {
       (!record(node.attrs) || !isSafeDocsUrl(node.attrs.src, true))
     )
       add("UNSAFE_URL", "Images require a stable HTTPS URL.", `${path}.attrs.src`);
+    if (
+      node.type === "card" &&
+      record(node.attrs) &&
+      typeof node.attrs.href === "string" &&
+      !isSafeDocsUrl(node.attrs.href)
+    )
+      add("UNSAFE_URL", "Card link URL is unsafe.", `${path}.attrs.href`);
     if (
       node.type === "heading" &&
       (!record(node.attrs) || !Number.isInteger(node.attrs.level))
@@ -214,6 +248,20 @@ export function validateDocsContent(input: unknown): {
     ...node,
     ...(node.type === "image"
       ? { attrs: { ...node.attrs, alt: node.attrs?.alt ?? "" } }
+      : {}),
+    // Type table rows are one attribute value; give them a fixed key order.
+    ...(node.type === "typeTable"
+      ? {
+          attrs: {
+            rows: (node.attrs?.rows ?? []).map((row: TypeTableRow) => ({
+              name: row.name,
+              type: row.type,
+              default: row.default,
+              description: row.description,
+              required: row.required,
+            })),
+          },
+        }
       : {}),
     ...(node.content ? { content: node.content.map(normalize) } : {}),
   });

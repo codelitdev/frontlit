@@ -20,6 +20,7 @@ import {
   Undo2,
 } from "lucide-react";
 import LinkEditorPopover from "./components/link-editor-popover.js";
+import { docsBlockTemplates } from "./components/docs-block-views";
 
 interface ToolbarProps {
   profile?: "default" | "documentation";
@@ -335,6 +336,25 @@ const Toolbar = ({
                   <ImageIcon className="size-4" />
                   {isUploadingImage ? "Uploading image…" : "Image"}
                 </button>
+
+                {profile === "documentation" && (
+                  <>
+                    <div className="my-1 h-px bg-border" />
+                    {Object.entries(docsBlockTemplates).map(([name, block]) => (
+                      <button
+                        key={name}
+                        type="button"
+                        className="flex w-full rounded px-2.5 py-2 text-sm hover:bg-muted"
+                        onClick={() => {
+                          editor.chain().focus().insertContent(block.content).run();
+                          setActivePopover(null);
+                        }}
+                      >
+                        {block.label}
+                      </button>
+                    ))}
+                  </>
+                )}
 
                 {editor.isActive("table") && (
                   <>
