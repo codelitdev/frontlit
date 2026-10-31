@@ -1,5 +1,11 @@
 # @frontlit/text-editor
 
+## 0.1.0-alpha.4
+
+### Minor Changes
+
+- 08c80fc: Add editable documentation blocks for callouts, tabs, steps, cards, accordions, code groups, and type tables, with Markdown import and export.
+
 ## 0.1.0-alpha.3
 
 ### Minor Changes

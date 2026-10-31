@@ -14,6 +14,7 @@
     "@frontlit/text-editor": "0.1.0-alpha.2"
   },
   "changesets": [
+    "docs-rich-blocks",
     "local-page-preview",
     "media-uploader-upload-notice",
     "page-builder-137-pricing-header",
