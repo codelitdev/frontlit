@@ -2,6 +2,10 @@ import { initContract } from "@ts-rest/core";
 import { z } from "zod";
 import { errorSchema, itemsList, paginated } from "./schemas/common";
 import {
+  publicApiOperationSchema,
+  publicApiReferenceSchema,
+} from "./schemas/api-reference";
+import {
   apiKeySchema,
   createApiKeyBodySchema,
   createdApiKeySchema,
@@ -1178,6 +1182,19 @@ const publicContract = c.router(
         404: errorSchema,
         409: documentationValidationErrorSchema,
       },
+    },
+    getApiReference: {
+      method: "GET",
+      path: "/public/:teamId/content/api-reference",
+      responses: { 200: publicApiReferenceSchema, 404: errorSchema },
+      summary: "Get a team's live API reference: navigation and landing data",
+    },
+    getApiOperation: {
+      method: "GET",
+      path: "/public/:teamId/content/api-reference/operation",
+      query: z.object({ route: z.string().min(1).max(300) }),
+      responses: { 200: publicApiOperationSchema, 404: errorSchema },
+      summary: "Get one operation page of a team's API reference",
     },
     getDocumentationByPath: {
       method: "GET",

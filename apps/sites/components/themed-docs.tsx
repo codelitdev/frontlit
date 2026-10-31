@@ -1,5 +1,5 @@
 import { SiteLink as Link } from "@/components/site-link";
-import { BookOpen, ChevronRight, Folder } from "lucide-react";
+import { BookOpen, Braces, ChevronRight, Folder } from "lucide-react";
 import { TextRenderer } from "@frontlit/text-editor/renderer";
 import type { TextEditorContent } from "@frontlit/text-editor";
 import {
@@ -18,8 +18,9 @@ import { getTeamThemeStyle } from "@/lib/team-theme";
 import type { ThemeStyle } from "@frontlit/page-builder/models";
 import { DocsSearch } from "@/components/docs-search";
 import { collectionHref, type DocsCollection, type DocsNavItem } from "@/lib/docs-tree";
+import { ApiNavGroups } from "@/components/api-reference/api-nav";
 
-function Breadcrumb({
+export function Breadcrumb({
   items,
   theme,
 }: {
@@ -87,14 +88,20 @@ export async function ThemedDocumentationFeed({
                 <PageCardContent theme={theme} className="flex h-full flex-col gap-4">
                   <div className="flex items-start gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                      <Folder className="h-5 w-5" />
+                      {collection.api ? (
+                        <Braces className="h-5 w-5" />
+                      ) : (
+                        <Folder className="h-5 w-5" />
+                      )}
                     </span>
                     <div className="min-w-0">
                       <Header4 theme={theme}>{collection.name}</Header4>
                       <Caption theme={theme}>
-                        {collection.items.length === 1
-                          ? "1 article"
-                          : `${collection.items.length} articles`}
+                        {collection.api
+                          ? `${collection.items.length} ${collection.items.length === 1 ? "endpoint" : "endpoints"}`
+                          : collection.items.length === 1
+                            ? "1 article"
+                            : `${collection.items.length} articles`}
                       </Caption>
                     </div>
                   </div>
@@ -214,14 +221,98 @@ export async function ThemedDocCollection({
   );
 }
 
-function DocsSidebar({
+function DocsNavList({
+  items,
+  currentSlug,
+  theme,
+}: {
+  items: DocsNavItem[];
+  currentSlug: string;
+  theme: ThemeStyle;
+}) {
+  return (
+    <ul className="flex flex-col gap-1">
+      {items.map((item) => {
+        const isCurrent = item.slug === currentSlug;
+        return (
+          <li key={item.documentId}>
+            <Link
+              href={`/docs/${item.slug}`}
+              className={
+                isCurrent
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:underline"
+              }
+              aria-current={isCurrent ? "page" : undefined}
+            >
+              <Text1 theme={theme} component="span">
+                {item.title ?? item.slug}
+              </Text1>
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/**
+ * The docs sidebar, rendered once: a column on wide layouts and a
+ * "Browse articles" toggle above the content on narrow ones. The toggle is a
+ * checkbox, so it needs no JavaScript and the sidebar isn't duplicated.
+ * `container` follows the theme's container width (API reference pages)
+ * instead of the viewport.
+ */
+export function DocsSidebarFrame({
+  theme,
+  layout = "viewport",
+  children,
+}: {
+  theme: ThemeStyle;
+  layout?: "viewport" | "container";
+  children: React.ReactNode;
+}) {
+  const wide = layout === "container";
+  return (
+    <aside className="min-w-0">
+      <input
+        id="docs-nav-toggle"
+        type="checkbox"
+        className={`peer sr-only ${wide ? "@3xl:hidden" : "lg:hidden"}`}
+      />
+      <label
+        htmlFor="docs-nav-toggle"
+        className={`inline-flex cursor-pointer rounded-sm peer-focus-visible:ring-2 peer-focus-visible:ring-ring ${wide ? "@3xl:hidden" : "lg:hidden"}`}
+      >
+        <Text2 theme={theme} component="span" className="font-medium">
+          Browse articles
+        </Text2>
+      </label>
+      <div
+        className={
+          wide
+            ? "mt-4 hidden peer-checked:block @3xl:sticky @3xl:top-24 @3xl:mt-0 @3xl:block @3xl:max-h-[calc(100vh-7rem)] @3xl:overflow-y-auto @3xl:pr-1 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]"
+            : "mt-4 hidden peer-checked:block lg:sticky lg:top-24 lg:mt-0 lg:block"
+        }
+      >
+        {children}
+      </div>
+    </aside>
+  );
+}
+
+export function DocsSidebar({
   collections,
   currentSlug,
   theme,
+  teamId,
+  publicApiBaseUrl,
 }: {
   collections: DocsCollection[];
   currentSlug: string;
   theme: ThemeStyle;
+  teamId: string;
+  publicApiBaseUrl?: string;
 }) {
   return (
     <nav aria-label="Documentation" className="flex flex-col gap-6">
@@ -245,28 +336,36 @@ function DocsSidebar({
                 {collection.name}
               </Text2>
             )}
-            <ul className="flex flex-col gap-1 border-l border-border pl-3">
-              {collection.items.map((item) => {
-                const isCurrent = item.slug === currentSlug;
-                return (
-                  <li key={item.documentId}>
-                    <Link
-                      href={`/docs/${item.slug}`}
-                      className={
-                        isCurrent
-                          ? "font-medium text-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:underline"
-                      }
-                      aria-current={isCurrent ? "page" : undefined}
-                    >
-                      <Text1 theme={theme} component="span">
-                        {item.title ?? item.slug}
-                      </Text1>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+            {collection.api ? (
+              <ApiNavGroups
+                teamId={teamId}
+                publicApiBaseUrl={publicApiBaseUrl}
+                landingHref={collection.api.href}
+                currentSlug={currentSlug}
+                groups={collection.api.groups.map((group) => ({
+                  name: group.name,
+                  // Only the current group's endpoints ship with the page.
+                  items:
+                    collection.api!.groups.length === 1 ||
+                    group.items.some((item) => item.slug === currentSlug)
+                      ? group.items.map((item) => ({
+                          slug: item.slug,
+                          title: item.title ?? item.slug,
+                          method: item.method ?? "get",
+                          deprecated: item.deprecated,
+                        }))
+                      : null,
+                }))}
+              />
+            ) : (
+              <div className="border-l border-border pl-3">
+                <DocsNavList
+                  items={collection.items}
+                  currentSlug={currentSlug}
+                  theme={theme}
+                />
+              </div>
+            )}
           </div>
         );
       })}
@@ -341,30 +440,16 @@ export async function ThemedDocArticle({
           ) : null}
         </div>
         <div className="grid gap-10 lg:grid-cols-[220px_minmax(0,1fr)_200px]">
-          <aside className="hidden lg:block">
-            <div className="sticky top-24">
-              <DocsSidebar
-                collections={collections}
-                currentSlug={currentSlug}
-                theme={theme}
-              />
-            </div>
-          </aside>
+          <DocsSidebarFrame theme={theme}>
+            <DocsSidebar
+              collections={collections}
+              currentSlug={currentSlug}
+              theme={theme}
+              teamId={teamId}
+              publicApiBaseUrl={publicApiBaseUrl}
+            />
+          </DocsSidebarFrame>
           <article className="flex min-w-0 flex-col gap-8">
-            <details className="lg:hidden">
-              <summary className="cursor-pointer">
-                <Text2 theme={theme} className="font-medium">
-                  Browse articles
-                </Text2>
-              </summary>
-              <div className="mt-4">
-                <DocsSidebar
-                  collections={collections}
-                  currentSlug={currentSlug}
-                  theme={theme}
-                />
-              </div>
-            </details>
             {imageUrl && (
               <div className="overflow-hidden rounded-lg">
                 <Image

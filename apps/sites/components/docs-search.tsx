@@ -85,6 +85,8 @@ export function DocsSearch({
           placeholder="Search for articles…"
           aria-label="Search documentation"
           aria-controls={listId}
+          role="combobox"
+          aria-autocomplete="list"
           aria-expanded={open}
           className={size === "lg" ? "h-12 pl-10 text-base shadow-sm" : "h-10 pl-10"}
         />

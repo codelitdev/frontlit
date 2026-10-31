@@ -52,7 +52,7 @@ export const ticketAiRetrievalSchema = z.object({
   heading: z.string().nullable().optional(),
   anchor: z.string().nullable(),
   similarity: z.number().optional(),
-  kind: z.enum(["blog", "doc", "changelog"]).optional(),
+  kind: z.enum(["blog", "doc", "changelog", "api-operation"]).optional(),
 });
 
 export const ticketAiRunSchema = z.object({

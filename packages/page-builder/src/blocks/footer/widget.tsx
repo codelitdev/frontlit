@@ -112,7 +112,7 @@ export function FooterWidget({
           <div className="flex flex-col flex-wrap gap-8 lg:!flex-row">
             {columns.map((column) => (
               <div key={column.id} className="flex flex-col gap-3 lg:min-w-[140px]">
-                <Header4 theme={overriddenTheme} className="text-sm">
+                <Header4 theme={overriddenTheme} as="h2" className="text-sm">
                   {column.title}
                 </Header4>
                 <div className="flex flex-col gap-2">

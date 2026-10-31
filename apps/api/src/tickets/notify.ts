@@ -18,7 +18,7 @@ export type TicketMailSource = {
   slug: string;
   title: string | null;
   anchor?: string | null;
-  kind?: "blog" | "doc" | "changelog";
+  kind?: "blog" | "doc" | "changelog" | "api-operation";
 };
 
 function uniqueMailSources(sources: TicketMailSource[]): TicketMailSource[] {

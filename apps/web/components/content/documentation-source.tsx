@@ -6,6 +6,7 @@ import { Check, ExternalLink, Github, GitPullRequest, Loader2 } from "lucide-rea
 import {
   ManageShell,
   ManageSource,
+  syncInProgress,
 } from "@/components/content/documentation-source-manage";
 import { Badge } from "@/components/ui/codelit/badge";
 import { Button } from "@/components/ui/codelit/button";
@@ -555,8 +556,24 @@ export function DocumentationSource({
     verificationAttempt.current = attempt;
     verifyMergedSetup();
   }, [migration?.planId, migration?.status, migration?.pullRequest?.status, setupId]);
+  // While the connected dialog is open, poll: quickly during a sync, and
+  // slowly otherwise so a sync started by a push is noticed too.
+  const watching = open && !wizardMode && source?.binding != null;
+  const pollMs = source && syncInProgress(source) ? 5000 : 30000;
+  useEffect(() => {
+    if (!watching) return;
+    const timer = setInterval(
+      () =>
+        void getDocumentationGitSource()
+          .then(setSource)
+          .catch(() => {}),
+      pollMs,
+    );
+    return () => clearInterval(timer);
+  }, [watching, pollMs]);
   const repoLabel = migration?.repositoryName ?? repositoryName ?? "your repository";
   const fileCount = migration?.total ?? 0;
+  const filesLabel = `${fileCount} ${fileCount === 1 ? "file" : "files"}`;
   const isEmptyRepo = Boolean(migration?.initializeEmptyRepositoryRequired);
   const draftCount = migration?.unpublishedDraftCount ?? 0;
   const noGitHub = !setupId;
@@ -601,7 +618,7 @@ export function DocumentationSource({
         title: "FrontLit checks the files and connects",
         note: "Usually takes a few seconds.",
         state: at[2],
-        waiting: `Checking ${fileCount} files`,
+        waiting: `Checking ${filesLabel}`,
       },
     ];
   };
@@ -1124,7 +1141,7 @@ export function DocumentationSource({
           disabled={busy}
         >
           {isEmptyRepo
-            ? `I approve adding ${migration.selection.directory}/.gitkeep to ${migration.selection.branch} and opening a pull request with these ${fileCount} files.`
+            ? `I approve adding ${migration.selection.directory}/.gitkeep to ${migration.selection.branch} and opening a pull request with ${fileCount === 1 ? "this file" : `these ${filesLabel}`}.`
             : fileCount
               ? `I approve opening a pull request with ${fileCount === 1 ? "this file" : `these ${fileCount} files`}.`
               : `I approve opening a pull request that creates the empty ${migration.selection.directory}/ folder.`}
@@ -1195,7 +1212,7 @@ export function DocumentationSource({
         <StatusBanner>Pull request opened</StatusBanner>
         <StepIntro
           title="Merge it in GitHub to finish"
-          lead={`Review the ${fileCount} files and merge when you're happy. FrontLit picks up the merge on its own, so you can close this window.`}
+          lead={`Review the ${filesLabel} and merge when you're happy. FrontLit picks up the merge on its own, so you can close this window.`}
         />
         <div className="flex items-center gap-3.5 rounded-[0.625rem] border border-border p-4">
           <span className="grid size-10 shrink-0 place-items-center rounded-[0.625rem] bg-[var(--success-soft)] text-[var(--success)]">
@@ -1208,7 +1225,7 @@ export function DocumentationSource({
               {migration.pullRequest?.pullRequestNumber
                 ? ` · #${migration.pullRequest.pullRequestNumber}`
                 : ""}{" "}
-              · {fileCount} files
+              · {filesLabel}
             </span>
           </span>
           {migration.pullRequest?.pullRequestUrl && (
@@ -1417,7 +1434,8 @@ export function DocumentationSource({
                 <Mono>{preflight.directory}/</Mono>
               </SummaryRow>
               <SummaryRow label="Docs" action={null}>
-                {preflight.publishedCount} public of {preflight.fileCount} files
+                {preflight.publishedCount} public of {preflight.fileCount}{" "}
+                {preflight.fileCount === 1 ? "file" : "files"}
               </SummaryRow>
             </>
           ) : (

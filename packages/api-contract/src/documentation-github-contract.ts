@@ -35,6 +35,11 @@ import {
   gitPagesExportSchema,
   gitPagesStateSchema,
 } from "./schemas/documentation-github";
+import {
+  apiReferencePreviewSchema,
+  apiReferenceSettingsBodySchema,
+  apiReferenceStatusSchema,
+} from "./schemas/api-reference";
 const c = initContract();
 const errors = {
   400: documentationGitErrorSchema,
@@ -85,6 +90,32 @@ export const documentationGithubContract = c.router(
       summary: "Stop syncing pages",
       description:
         "Hands pages back to the builder. The last release stays live until the next publish.",
+    },
+    getApiReference: {
+      method: "GET",
+      path: `${prefix}/api-reference`,
+      responses: { 200: apiReferenceStatusSchema, ...errors },
+      summary: "Get the API reference status",
+      description:
+        "The OpenAPI spec path and URL path, the live API reference and the latest failed import with its diagnostics.",
+    },
+    previewApiReference: {
+      method: "POST",
+      path: `${prefix}/api-reference/preview`,
+      body: apiReferenceSettingsBodySchema,
+      responses: { 200: apiReferencePreviewSchema, ...errors },
+      summary: "Preview an OpenAPI spec",
+      description:
+        "Dry-runs the spec import on the connected branch's head: the operation pages it would publish and any problems.",
+    },
+    updateApiReference: {
+      method: "PUT",
+      path: `${prefix}/api-reference`,
+      body: apiReferenceSettingsBodySchema,
+      responses: { 200: apiReferenceStatusSchema, ...errors },
+      summary: "Set the OpenAPI spec",
+      description:
+        "Saves the spec path and URL path and syncs right away. A null spec path unpublishes the API reference.",
     },
     listChecks: {
       method: "GET",

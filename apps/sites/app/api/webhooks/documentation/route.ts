@@ -5,7 +5,7 @@ import { checkReceipt, recordReceipt } from "@/lib/webhook-receipts";
 const eventSchema = z
   .object({
     eventId: z.string().regex(/^evt_[a-z0-9]+$/),
-    type: z.enum(["activation", "policy", "purge"]),
+    type: z.enum(["activation", "policy", "purge", "api_reference"]),
     teamId: z.string().regex(/^team_[a-z0-9]+$/),
     publicationId: z
       .string()

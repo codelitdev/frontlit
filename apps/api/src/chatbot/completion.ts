@@ -8,7 +8,7 @@ export interface ChatSource {
   slug: string;
   title: string | null;
   anchor: string | null;
-  kind?: "blog" | "doc" | "changelog";
+  kind?: "blog" | "doc" | "changelog" | "api-operation";
   revisionId?: string;
   publicationId?: string | null;
   policyEpoch?: number;

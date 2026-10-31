@@ -3,7 +3,11 @@ import { makeTestDb, seedTeam, type TestDb } from "../test/db";
 vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 vi.mock("./index-jobs", () => ({ enqueueDocumentIndex: vi.fn() }));
 import { db as testDb } from "../db/client";
-import { documents, documentationSettings } from "../db/schema";
+import {
+  documents,
+  documentationGitBindings,
+  documentationSettings,
+} from "../db/schema";
 import {
   saveDocumentation,
   validateDocumentation,
@@ -62,6 +66,41 @@ describe("D2 versioned authoring", () => {
     await expect(
       changeDocumentation(teamId, doc.documentId, 2, "publish"),
     ).rejects.toThrow();
+  });
+  it("reserves the API reference URL path and skips validating links into it", async () => {
+    const { account, team } = await seedTeam(db);
+    await db.insert(documentationGitBindings).values({
+      teamId: team.id,
+      installationId: "7",
+      repositoryId: "9",
+      ownerId: "8",
+      ownerLogin: "org",
+      repositoryName: "docs",
+      repositoryPrivate: true,
+      branch: "main",
+      directory: "docs",
+      status: "connected",
+      grantActorAccountId: account.id,
+      grantGithubUserId: "123",
+      repositoryAdminVerified: true,
+      capabilities: { read: true, proposals: false, directCommit: false },
+      apiSpecPath: "openapi.json",
+      apiMount: "api",
+    });
+    const reserved = (await saveDocumentation(team.id, null, {
+      title: "Intro",
+      slug: "api/intro",
+      markdown: "Hello",
+    }))!;
+    expect(reserved.publishable).toBe(false);
+    expect(reserved.diagnostics.map((x: any) => x.code)).toContain("RESERVED_ROUTE");
+    const linking = (await saveDocumentation(team.id, null, {
+      title: "Guide",
+      slug: "guide",
+      markdown: "See [uploads](/docs/api/upload-media#parameters).",
+    }))!;
+    expect(linking.diagnostics.map((x: any) => x.code)).not.toContain("BROKEN_LINK");
+    expect(linking.publishable).toBe(true);
   });
   it("allows duplicate draft routes and blocks publication", async () => {
     await create("First", "same");

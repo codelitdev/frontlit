@@ -138,7 +138,9 @@ export async function recordDocumentationEvidence(input: {
         messageId: message.id,
         dedupeKey,
         trigger: input.trigger,
-        retrieved: input.retrieved?.slice(0, 8) ?? [],
+        // Only docs pages are editable evidence; generated API reference
+        // pages (no revision) never become improvement targets.
+        retrieved: input.retrieved?.filter((r) => r.revisionId).slice(0, 8) ?? [],
         expiresAt: new Date(Date.now() + 30 * 86400000),
       })
       .returning();

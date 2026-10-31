@@ -41,9 +41,12 @@ export function Drawer({
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <span ref={triggerWrapRef}>{trigger}</span>
-      </SheetTrigger>
+      {/* The trigger itself gets the trigger props (a span with
+          type="button" around a button is invalid ARIA); the span only
+          finds the theme root. */}
+      <span ref={triggerWrapRef} className="contents">
+        <SheetTrigger asChild>{trigger}</SheetTrigger>
+      </span>
       <SheetContent
         side={side}
         style={style}

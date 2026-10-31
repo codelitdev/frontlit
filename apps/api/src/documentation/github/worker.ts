@@ -24,6 +24,7 @@ import {
 import { lockSettings } from "../authoring";
 import { captureRevision, digest } from "../publications";
 import { captureRetrievalConfiguration } from "../retrieval";
+import { syncApiReference } from "../openapi/service";
 import { DocsGitHubApp, getDocsGitHubAppConfig, GitHubDocsError } from "./app";
 import {
   importDocumentationTree,
@@ -589,6 +590,15 @@ export async function processGitSync(teamId?: string, injectedApp?: DocsGitHubAp
         sha,
       );
     };
+    // The API reference goes first: it never fails the sync, and the early
+    // returns below (docs off, commit already live) must not skip it.
+    await syncApiReference({
+      teamId: job.teamId,
+      binding: binding!,
+      head,
+      readTree,
+      readBlob,
+    });
     // A merged pages setup PR turns pages sync on in this same sync.
     const source = binding!.pagesDirectory
       ? binding!

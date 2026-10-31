@@ -21,7 +21,11 @@ import {
   SummaryRow,
 } from "@/components/content/documentation-connect-parts";
 import type { DocumentationGitSource } from "@/lib/api";
-import { PagesSourceSection } from "@/components/content/pages-source-section";
+import {
+  DiagnosticList,
+  PagesSourceSection,
+} from "@/components/content/pages-source-section";
+import { ApiReferenceSourceSection } from "@/components/content/api-reference-source-section";
 import { cn } from "@/lib/utils";
 
 type Binding = NonNullable<DocumentationGitSource["binding"]>;
@@ -83,6 +87,11 @@ type Health = {
   body: string;
 };
 
+/** A sync is underway ("Syncing"); the dialog polls until it settles. */
+export function syncInProgress(source: DocumentationGitSource) {
+  return Boolean(source.binding) && health(source, source.binding!).tone === "info";
+}
+
 function health(source: DocumentationGitSource, binding: Binding): Health {
   if (source.status === "access_lost")
     return {
@@ -102,22 +111,21 @@ function health(source: DocumentationGitSource, binding: Binding): Health {
       title: "Sync paused",
       body: "New commits aren't being picked up. Your site keeps showing the last good version.",
     };
+  const syncing: Health = {
+    tone: "info",
+    title: "Syncing",
+    body: `Checking the newest commit on ${binding.branch}. Your site still shows the previous version.`,
+  };
+  // A new run goes first: retrying after a failure must show (and poll) as syncing.
+  if (source.sync?.status === "queued" || source.sync?.status === "running")
+    return syncing;
   if (source.sync?.status === "failed" || binding.lastDiagnostic)
     return {
       tone: "warning",
       title: "Latest sync didn't go live",
       body: "Your site keeps showing the last good version. Fix the problem in GitHub and sync again.",
     };
-  if (
-    source.sync?.status === "queued" ||
-    source.sync?.status === "running" ||
-    binding.observedSha !== binding.liveSha
-  )
-    return {
-      tone: "info",
-      title: "Syncing",
-      body: `Checking the newest commit on ${binding.branch}. Your site still shows the previous version.`,
-    };
+  if (binding.observedSha !== binding.liveSha) return syncing;
   return {
     tone: "success",
     title: "In sync",
@@ -323,9 +331,13 @@ export function ManageSource({
         onRefresh={onRefresh}
         busy={busy}
       />
-      {(binding.lastDiagnostic || source.sync?.diagnostic) && (
+      {state.tone !== "info" && (binding.lastDiagnostic || source.sync?.diagnostic) && (
         <Callout tone="warning" title="What went wrong">
-          {binding.lastDiagnostic ?? source.sync?.diagnostic}
+          {source.sync?.diagnostics.length ? (
+            <DiagnosticList items={source.sync.diagnostics} />
+          ) : (
+            (binding.lastDiagnostic ?? source.sync?.diagnostic)
+          )}
         </Callout>
       )}
       {binding.lastPrReconcileError && (
@@ -372,6 +384,11 @@ export function ManageSource({
         binding={binding}
         canManage={source.status === "connected"}
         onChanged={onRefresh}
+      />
+      <SectionLabel>API reference</SectionLabel>
+      <ApiReferenceSourceSection
+        canManage={source.status === "connected"}
+        syncKey={`${source.sync?.status}:${binding.observedSha}:${binding.lastSuccessfulSyncAt}`}
       />
       <SectionLabel>Sync progress</SectionLabel>
       <div className="grid grid-cols-1 divide-y overflow-clip rounded-[0.625rem] border border-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
