@@ -227,7 +227,7 @@ does not collide with the customer-facing `/docs` route in `apps/sites`.
 | Team settings (§12.5)                          | `GET/PATCH /settings` (branding + code injection; the shared shell moves through page publish)                                                                                      | `get_team_settings`, `update_team_settings`                                                                                                 |
 | Ask the docs (§7)                              | `POST /public/:teamId/chat` (public, persisted thread)                                                                                                                              | — (visitor widget only for now; no MCP twin yet)                                                                                            |
 | Help desk (§11)                                | `GET/POST /tickets`, `GET/PATCH /tickets/:ticketId`, `POST /tickets/:ticketId/messages` (submission is also public at `POST /public/:teamId/tickets`)                               | `create_ticket`, `list_tickets`, `get_ticket`, `reply_to_ticket`, `update_ticket_status`, `assign_ticket`                                   |
-| Domains (§12.1)                                | `GET/PATCH /domain`, `PATCH /domain/subdomain-redirect`, `POST /domain/custom`, `PATCH /domain/custom/primary`, `POST /domain/custom/verify`, `DELETE /domain/custom` | `get_domain_settings`, `set_team_subdomain`, `set_subdomain_redirect`, `attach_custom_domain`, `set_primary_custom_domain`, `verify_custom_domain`, `remove_custom_domain` |
+| Domains (§12.1)                                | `GET/PATCH /domain`, `PATCH /domain/subdomain-redirect`, `POST /domain/custom`, `PATCH /domain/custom/primary`, `POST /domain/custom/verify`, `DELETE /domain/custom`, `POST /domain/redirect-domains`, `PATCH/DELETE /domain/redirect-domains/:hostname`, `POST /domain/redirect-domains/:hostname/verify` | `get_domain_settings`, `set_team_subdomain`, `set_subdomain_redirect`, `attach_custom_domain`, `set_primary_custom_domain`, `verify_custom_domain`, `remove_custom_domain`, `add_redirect_domain`, `update_redirect_domain`, `verify_redirect_domain`, `remove_redirect_domain` |
 | Media (§9)                                     | `POST /media/presigned`, `POST /media`, `GET/PATCH/DELETE /media…`                                                                                                                  | `get_media_upload_signature`, `register_media`, `list_media`, `get_media`, `update_media`, `delete_media`                                   |
 | Contacts (§10.2, read-through to SendLit)      | `POST/GET /contacts` (with filter params), `GET/DELETE /contacts/:contactId`, `POST/DELETE /contacts/:contactId/tags/:tag` (capture itself is public: `POST /public/:teamId/leads`) | `list_contacts`, `create_contact`, `get_contact`, `delete_contact`, `add_contact_tag`, `remove_contact_tag`                                 |
 | Segments (§10.2, read-through to SendLit)      | `GET/POST/PATCH/DELETE /email/segments…`                                                                                                                                            | `list_segments`, `create_segment`, `update_segment`, `delete_segment`                                                                       |
@@ -1292,15 +1292,30 @@ Attach/verify flow (module `apps/api/src/domains/`):
    `PATCH /domain/search-visibility { hideFromSearch }` hides the site from
    search engines (§12.3). The first verified custom domain turns that off.
 
+**Redirect domains** keep an old host's links working after a move, e.g.
+docs that used to live on `docs.example.com`. A team can add any number;
+each serves nothing and only 301-redirects to the canonical host. The
+`redirect_domains` row holds the hostname, a `pathPrefix` put in front of
+every path (`/docs`: `docs.example.com/cli` → `example.com/docs/cli`) and
+`rules`, exact old paths sent elsewhere first (`/api/uploadMedia` →
+`/docs/api/upload-media`, trailing slash ignored, the request query kept
+unless the rule has its own). Each host proves ownership with its own
+`TXT _frontlit-verify.<host>` token plus the usual routing record, so it
+can sit in any zone; it redirects only once both pass. A hostname is either
+a custom or a redirect domain, never both, and belongs to one team.
+
 TLS: terminate at the edge with on-demand certificates (Caddy on-demand TLS
 or the hosting platform's domains API, e.g. Vercel). The on-demand `ask`
 endpoint (`GET /public/tls-ask?domain=…`) uses the same host authority as
 `GET /public/resolve-host`, so every host that serves *or redirects* —
-including the other half of a verified pair — gets a certificate.
+including the other half of a verified pair and a verified redirect
+domain — gets a certificate.
 
 Per §2, everything here is REST + MCP (see matrix): `get_domain_settings`,
 `set_team_subdomain`, `set_subdomain_redirect`, `attach_custom_domain`,
-`set_primary_custom_domain`, `verify_custom_domain`, `remove_custom_domain`.
+`set_primary_custom_domain`, `verify_custom_domain`, `remove_custom_domain`,
+`add_redirect_domain`, `update_redirect_domain`, `verify_redirect_domain`,
+`remove_redirect_domain`.
 
 ### 12.2 Public site delivery (`apps/sites`)
 
@@ -1309,7 +1324,9 @@ normalizes the request `Host` (including a local-development port) and sends
 the complete hostname to `GET /public/resolve-host`. The API is the sole host
 authority: it performs an exact custom-host match or recognizes
 `*.<PLATFORM_SITE_DOMAIN>`, extracts the one-label subdomain and queries
-`teams.subdomain`, and answers `{ teamId, canonicalHost, redirect }`.
+`teams.subdomain`, and answers `{ teamId, canonicalHost, redirect }`
+(plus `redirectTo { pathPrefix, rules }` for a redirect domain, which the
+middleware applies to the path before redirecting).
 `apps/sites` has no domain-suffix configuration of its own,
 which prevents configuration drift. It caches the result briefly,
 deletes those cache keys when the API's domain-change webhook lists

@@ -130,6 +130,39 @@ export const customDomains = pgTable(
   ],
 );
 
+export type RedirectRule = { from: string; to: string };
+
+/** Extra hosts that only 301 to the team's website, e.g. an old docs host
+ * (`docs.example.com/cli` -> `example.com/docs/cli`). `pathPrefix` is put in
+ * front of every path; `rules` send exact old paths to new ones first. Each
+ * host proves ownership with its own TXT token. */
+export const redirectDomains = pgTable(
+  "redirect_domains",
+  {
+    id: text("id").primaryKey().$defaultFn(genId),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    hostname: text("hostname").notNull().unique(),
+    pathPrefix: text("path_prefix").notNull().default(""),
+    rules: jsonb("rules").$type<RedirectRule[]>().notNull().default([]),
+    verificationToken: text("verification_token").notNull(),
+    txtSatisfied: boolean("txt_satisfied"),
+    routingSatisfied: boolean("routing_satisfied"),
+    status: text("status", { enum: customDomainStatuses }).notNull().default("pending"),
+    verifiedAt: timestamp("verified_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("redirect_domains_team_idx").on(table.teamId),
+    check(
+      "redirect_domains_verified_at_check",
+      sql`("status" <> 'verified' OR "verified_at" IS NOT NULL)`,
+    ),
+  ],
+);
+
 export const teamMembers = pgTable(
   "team_members",
   {

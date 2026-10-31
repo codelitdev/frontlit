@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  addRedirectDomainBodySchema,
   contract,
   domainSettingsSchema,
   setHideFromSearchBodySchema,
   setPrimaryCustomDomainBodySchema,
   setRedirectSubdomainBodySchema,
+  updateRedirectDomainBodySchema,
 } from "@frontlit/api-contract";
 
 describe("domains contract", () => {
@@ -45,6 +47,7 @@ describe("domains contract", () => {
       redirectSubdomain: true,
       hideFromSearch: false,
       platformDomain: "frontlit.app",
+      redirectDomains: [],
     });
     expect(settings.customDomains).toHaveLength(2);
     expect(setRedirectSubdomainBodySchema.parse({ redirectSubdomain: false })).toEqual({
@@ -57,5 +60,44 @@ describe("domains contract", () => {
     expect(
       setPrimaryCustomDomainBodySchema.parse({ hostname: "WWW.Example.com" }),
     ).toEqual({ hostname: "www.example.com" });
+  });
+
+  it("validates redirect domain prefixes and per-path rules", () => {
+    expect(contract.domains.updateRedirectDomain.path).toBe(
+      "/domain/redirect-domains/:hostname",
+    );
+    expect(addRedirectDomainBodySchema.parse({ hostname: "Docs.Example.com" })).toEqual(
+      {
+        hostname: "docs.example.com",
+        pathPrefix: "",
+      },
+    );
+    for (const pathPrefix of ["/docs", "/docs/v2", ""])
+      expect(updateRedirectDomainBodySchema.safeParse({ pathPrefix }).success).toBe(
+        true,
+      );
+    for (const pathPrefix of ["docs", "/docs/", "/a b", "https://x.com"])
+      expect(updateRedirectDomainBodySchema.safeParse({ pathPrefix }).success).toBe(
+        false,
+      );
+    expect(
+      updateRedirectDomainBodySchema.safeParse({
+        rules: [{ from: "/api/uploadMedia", to: "/docs/api/upload-media" }],
+      }).success,
+    ).toBe(true);
+    // A rule must be a site path, and each old path has one rule.
+    expect(
+      updateRedirectDomainBodySchema.safeParse({
+        rules: [{ from: "/a", to: "https://evil.example" }],
+      }).success,
+    ).toBe(false);
+    expect(
+      updateRedirectDomainBodySchema.safeParse({
+        rules: [
+          { from: "/a", to: "/b" },
+          { from: "/a/", to: "/c" },
+        ],
+      }).success,
+    ).toBe(false);
   });
 });

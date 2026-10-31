@@ -77,6 +77,8 @@ export interface ResolvedHost {
   /** True when this host should 301 to `canonicalHost`. */
   redirect: boolean;
   hideFromSearch: boolean;
+  /** Set for a redirect domain: where its paths go on `canonicalHost`. */
+  redirectTo?: { pathPrefix: string; rules: { from: string; to: string }[] };
 }
 
 export function resolveHost(host: string): Promise<ResolvedHost | null> {
