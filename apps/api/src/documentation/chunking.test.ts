@@ -149,4 +149,46 @@ describe("extractChunks", () => {
     ]);
     expect(chunks[1].content).toBe("Setup works.");
   });
+
+  it("indexes rich blocks: step headings split chunks and attribute text is searchable", () => {
+    const chunks = extractChunks({
+      type: "doc",
+      content: [
+        {
+          type: "steps",
+          content: [
+            { type: "step", content: [heading("Install"), paragraph("Run it.")] },
+            { type: "step", content: [heading("Configure"), paragraph("Set it.")] },
+          ],
+        },
+        {
+          type: "callout",
+          attrs: { type: "warning", title: "Heads up" },
+          content: [paragraph("Keep keys secret.")],
+        },
+        {
+          type: "cards",
+          content: [
+            {
+              type: "card",
+              attrs: { title: "Quick start" },
+              content: [paragraph("Begin.")],
+            },
+          ],
+        },
+        {
+          type: "typeTable",
+          attrs: {
+            rows: [
+              { name: "apiKey", type: "string", default: null, description: "Key." },
+            ],
+          },
+        },
+      ],
+    });
+    expect(chunks.map((chunk) => chunk.anchor)).toEqual(["install", "configure"]);
+    expect(chunks[1].content).toBe(
+      "Set it.\n\nHeads up\n\nKeep keys secret.\n\nQuick start\nBegin.\n\napiKey string Key.",
+    );
+  });
 });

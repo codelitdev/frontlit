@@ -11,7 +11,12 @@ export interface DocChunk {
 const CHUNK_TARGET_WORDS = 300;
 const MIN_CHUNK_WORDS = 20;
 
-type TipTapNode = { type?: string; text?: string; content?: TipTapNode[] };
+type TipTapNode = {
+  type?: string;
+  text?: string;
+  attrs?: Record<string, any>;
+  content?: TipTapNode[];
+};
 
 /** Plain text of one TipTap node, its marks/attrs ignored \u2014 chunking only
  * needs the words, not formatting. */
@@ -24,26 +29,53 @@ function extractText(node: TipTapNode): string {
 function extractDocsText(node: TipTapNode): string {
   if (node.text) return node.text;
   if (node.type === "hardBreak") return "\n";
-  return (node.content ?? [])
-    .map(extractDocsText)
-    .join(node.type === "paragraph" || node.type === "heading" ? "" : "\n");
+  if (node.type === "typeTable")
+    return (node.attrs?.rows ?? [])
+      .map((row: Record<string, unknown>) =>
+        [row.name, row.type, row.default, row.description].filter(Boolean).join(" "),
+      )
+      .join("\n");
+  const children = (node.content ?? []).map(extractDocsText);
+  // A card's title is an attribute; its children are the description.
+  if (node.type === "card") children.unshift(node.attrs?.title ?? "");
+  return children.join(
+    node.type === "paragraph" || node.type === "heading" ? "" : "\n",
+  );
 }
 
+/** Blocks whose children are read as top-level blocks, so their headings start chunks. */
+const CONTAINERS = [
+  "blockquote",
+  "bulletList",
+  "orderedList",
+  "listItem",
+  "table",
+  "tableRow",
+  "tableHeader",
+  "tableCell",
+  "callout",
+  "tabs",
+  "tab",
+  "steps",
+  "step",
+  "cards",
+  "accordions",
+  "accordion",
+  "codeGroup",
+];
+
 function docsBlocks(nodes: TipTapNode[]): TipTapNode[] {
-  return nodes.flatMap((node) =>
-    [
-      "blockquote",
-      "bulletList",
-      "orderedList",
-      "listItem",
-      "table",
-      "tableRow",
-      "tableHeader",
-      "tableCell",
-    ].includes(node.type ?? "")
-      ? docsBlocks(node.content ?? [])
-      : [node],
-  );
+  return nodes.flatMap((node) => {
+    if (!CONTAINERS.includes(node.type ?? "")) return [node];
+    // Callout and accordion titles and tab labels are attributes; keep them searchable.
+    const label = node.attrs?.title ?? node.attrs?.label;
+    return [
+      ...(typeof label === "string" && label
+        ? [{ type: "paragraph", content: [{ text: label }] }]
+        : []),
+      ...docsBlocks(node.content ?? []),
+    ];
+  });
 }
 
 function wordCount(text: string): number {
