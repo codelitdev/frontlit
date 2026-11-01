@@ -18,15 +18,18 @@ export function RenderedCodeBlock({
   node,
   children,
   language,
+  title,
 }: {
   node?: { textContent?: string; content?: unknown };
   children?: React.ReactNode;
   language?: string;
+  title?: string | null;
 }): React.JSX.Element {
   const source = extractTextFromNode(node) || textFromChildren(children);
 
   return (
     <div className="te-code-block">
+      {title && <div className="te-code-block__title">{title}</div>}
       <pre>
         <code className={language ? `language-${language}` : undefined}>
           {children}

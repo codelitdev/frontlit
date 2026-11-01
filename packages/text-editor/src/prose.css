@@ -399,3 +399,308 @@
   border-radius: 0.5rem;
   margin: 1rem auto;
 }
+
+/* Rich docs blocks. Colours come from the site theme tokens; callout accents
+   mix a fixed hue into them so they read in light and dark themes. */
+.tiptap-renderer .te-code-block__title {
+  border: 1px solid var(--border, hsl(214.3 31.8% 91.4%));
+  border-bottom: none;
+  border-radius: 0.5rem 0.5rem 0 0;
+  color: var(--muted-foreground, hsl(215.4 16.3% 46.9%));
+  font-family:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+  font-size: 0.8125rem;
+  padding: 0.5rem 1rem;
+  padding-right: 2.75rem;
+}
+
+.tiptap-renderer .te-code-block__title + pre {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.tiptap-renderer .te-callout {
+  --te-callout-accent: var(--primary, hsl(222.2 47.4% 11.2%));
+  display: flex;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--te-callout-accent) 35%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--te-callout-accent) 7%, transparent);
+}
+
+.tiptap-renderer .te-callout[data-type="tip"] {
+  --te-callout-accent: hsl(142 71% 36%);
+}
+
+.tiptap-renderer .te-callout[data-type="warning"] {
+  --te-callout-accent: hsl(38 92% 45%);
+}
+
+.tiptap-renderer .te-callout[data-type="danger"] {
+  --te-callout-accent: hsl(0 72% 51%);
+}
+
+.tiptap-renderer .te-callout[data-type="note"] {
+  --te-callout-accent: var(--muted-foreground, hsl(215.4 16.3% 46.9%));
+}
+
+.tiptap-renderer .te-callout__icon {
+  flex-shrink: 0;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: 0.2rem;
+  color: var(--te-callout-accent);
+}
+
+.tiptap-renderer .te-callout__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.tiptap-renderer .te-callout__body > :first-child {
+  margin-top: 0;
+}
+
+.tiptap-renderer .te-callout__body > :last-child {
+  margin-bottom: 0;
+}
+
+.tiptap-renderer .te-callout__title {
+  font-weight: 600;
+}
+
+.tiptap-renderer .te-tabs {
+  margin: 1rem 0;
+}
+
+.tiptap-renderer .te-tabs__list {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border, hsl(214.3 31.8% 91.4%));
+}
+
+.tiptap-renderer .te-tabs__tab {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 0.5rem 0.75rem;
+  color: var(--muted-foreground, hsl(215.4 16.3% 46.9%));
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tiptap-renderer .te-tabs__tab[aria-selected="true"] {
+  border-bottom-color: var(--primary, hsl(222.2 47.4% 11.2%));
+  color: var(--foreground, hsl(222.2 84% 4.9%));
+}
+
+.tiptap-renderer .te-tabs__panel > :first-child {
+  margin-top: 0.75rem;
+}
+
+.tiptap-renderer .te-code-group .te-code-block__title {
+  display: none;
+}
+
+.tiptap-renderer .te-steps {
+  counter-reset: te-step;
+  margin: 1rem 0;
+  padding-left: 0;
+}
+
+.tiptap-renderer .te-steps > .te-step {
+  counter-increment: te-step;
+  list-style: none;
+  position: relative;
+  padding-left: 2.75rem;
+  padding-bottom: 0.5rem;
+}
+
+.tiptap-renderer .te-steps > .te-step::before {
+  content: counter(te-step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--border, hsl(214.3 31.8% 91.4%));
+  border-radius: 9999px;
+  background: var(--muted, hsl(210 40% 96.1%));
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.tiptap-renderer .te-steps > .te-step::after {
+  content: "";
+  position: absolute;
+  left: 0.875rem;
+  top: 2.25rem;
+  bottom: 0.25rem;
+  border-left: 1px solid var(--border, hsl(214.3 31.8% 91.4%));
+}
+
+.tiptap-renderer .te-steps > .te-step > :first-child {
+  margin-top: 0;
+}
+
+.tiptap-renderer .te-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.tiptap-renderer .te-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem;
+  border: 1px solid var(--border, hsl(214.3 31.8% 91.4%));
+  border-radius: 0.5rem;
+  background: var(--card, transparent);
+  color: inherit;
+  text-decoration: none;
+}
+
+.tiptap-renderer a.te-card:hover {
+  background: var(--muted, hsl(210 40% 96.1%));
+}
+
+.tiptap-renderer .te-card__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-bottom: 0.25rem;
+  color: var(--muted-foreground, hsl(215.4 16.3% 46.9%));
+}
+
+.tiptap-renderer .te-card__title {
+  font-weight: 600;
+}
+
+.tiptap-renderer .te-card__body {
+  color: var(--muted-foreground, hsl(215.4 16.3% 46.9%));
+  font-size: 0.875rem;
+}
+
+.tiptap-renderer .te-card__body > * {
+  margin: 0;
+}
+
+.tiptap-renderer .te-accordions {
+  margin: 1rem 0;
+  border: 1px solid var(--border, hsl(214.3 31.8% 91.4%));
+  border-radius: 0.5rem;
+}
+
+.tiptap-renderer .te-accordion + .te-accordion {
+  border-top: 1px solid var(--border, hsl(214.3 31.8% 91.4%));
+}
+
+.tiptap-renderer .te-accordion__title {
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tiptap-renderer .te-accordion__body {
+  padding: 0 1rem;
+}
+
+.tiptap-renderer .te-type-table {
+  overflow-x: auto;
+}
+
+.tiptap-renderer .te-type-table table {
+  table-layout: auto;
+}
+
+.tiptap-renderer .te-type-table__required {
+  color: var(--muted-foreground, hsl(215.4 16.3% 46.9%));
+  font-size: 0.75rem;
+}
+
+/* Rich docs blocks in the editor: a labelled frame per block with its props. */
+.tiptap-editor .ProseMirror .te-block {
+  margin: 0.75rem 0;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.tiptap-editor .ProseMirror .te-block__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--muted);
+  border-radius: 0.5rem 0.5rem 0 0;
+  font-size: 0.75rem;
+}
+
+.tiptap-editor .ProseMirror .te-block__label {
+  font-weight: 600;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tiptap-editor .ProseMirror .te-block__content {
+  padding: 0.25rem 0.75rem;
+}
+
+.tiptap-editor .ProseMirror .te-block-item {
+  margin: 0.5rem 0;
+  border: 1px dashed var(--border);
+  border-radius: 0.375rem;
+}
+
+.tiptap-editor .ProseMirror .te-block-item > .te-block__bar {
+  background: transparent;
+}
+
+.tiptap-editor .ProseMirror .te-block[data-block="steps"] > .te-block__content {
+  counter-reset: te-step;
+}
+
+.tiptap-editor .ProseMirror .te-block-item[data-block="step"]::before {
+  counter-increment: te-step;
+  content: "Step " counter(te-step);
+  display: block;
+  padding: 0.25rem 0.75rem 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.tiptap-editor .ProseMirror .te-block-code {
+  margin: 0.75rem 0;
+}
+
+.tiptap-editor .ProseMirror .te-block-code pre {
+  margin-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.tiptap-editor .ProseMirror .te-block-table {
+  table-layout: auto;
+  margin: 0.5rem 0;
+}
+
+.tiptap-editor .ProseMirror .te-block-table th,
+.tiptap-editor .ProseMirror .te-block-table td {
+  padding: 0.25rem;
+}

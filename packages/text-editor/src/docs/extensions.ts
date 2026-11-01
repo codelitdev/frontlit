@@ -1,15 +1,19 @@
 import { getSchema, Node, type Extensions } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
+import CodeBlock from "@tiptap/extension-code-block";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
 import { isSafeDocsUrl } from "./urls";
+import { CodeBlockTitle, createDocsBlockExtensions } from "./blocks";
 import type { Schema } from "@tiptap/pm/model";
 
 /** DM-VALIDATE: schema-only extensions; no React, upload controls, or node views. */
 export function createDocsExtensions(): Extensions {
   return [
     StarterKit.configure({
+      code: false,
+      codeBlock: false,
       document: false,
       underline: false,
       link: false,
@@ -28,6 +32,9 @@ export function createDocsExtensions(): Extensions {
     TableRow,
     TableCell.extend({ content: "paragraph" }),
     TableHeader.extend({ content: "paragraph" }),
+    CodeBlock,
+    CodeBlockTitle,
+    ...createDocsBlockExtensions(),
   ];
 }
 

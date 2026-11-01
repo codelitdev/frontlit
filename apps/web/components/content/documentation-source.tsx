@@ -279,7 +279,7 @@ export function DocumentationSource({
       sessionStorage.removeItem(installRedirectKey);
       return;
     }
-    if (!repositories.installUrl || sessionStorage.getItem(installRedirectKey)) return;
+    if (sessionStorage.getItem(installRedirectKey)) return;
     sessionStorage.setItem(installRedirectKey, "1");
     window.location.assign(repositories.installUrl);
   }, [repositories, installRedirectKey]);
@@ -770,7 +770,7 @@ export function DocumentationSource({
           lead="Pick the GitHub account and repository that will hold your docs or pages."
         />
         {!repositories && <p className="text-muted-foreground text-sm">Loading…</p>}
-        {repositories?.installUrl && (
+        {repositories && repositories.installations.length === 0 && (
           <Callout tone="info" title="No accessible installation yet">
             Install the GitHub App, or wait for organization approval, then refresh the
             list.
@@ -779,7 +779,7 @@ export function DocumentationSource({
                 size="sm"
                 variant="outline"
                 onClick={() =>
-                  window.open(repositories.installUrl!, "_blank", "noopener,noreferrer")
+                  window.open(repositories.installUrl, "_blank", "noopener,noreferrer")
                 }
               >
                 Open App installation
@@ -811,6 +811,10 @@ export function DocumentationSource({
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-muted-foreground text-xs">
+                Organization missing? Use “Add an organization or account” below. On
+                GitHub, an organization owner installs the app or approves your request.
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="git-repository">Repository</Label>
@@ -848,6 +852,18 @@ export function DocumentationSource({
                   }
                 >
                   Refresh list
+                </LinkButton>
+                <LinkButton
+                  disabled={busy}
+                  onClick={() =>
+                    window.open(
+                      repositories.installUrl,
+                      "_blank",
+                      "noopener,noreferrer",
+                    )
+                  }
+                >
+                  Add an organization or account
                 </LinkButton>
                 {repositories.nextPage && (
                   <LinkButton

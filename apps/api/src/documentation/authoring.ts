@@ -272,6 +272,8 @@ export async function draftReport(
     }
     for (const mark of node.marks ?? [])
       if (mark.type === "link") links.push({ href: mark.attrs.href, path });
+    if (node.type === "card" && node.attrs?.href)
+      links.push({ href: node.attrs.href, path: `${path}.attrs.href` });
     for (const [i, child] of (node.content ?? []).entries())
       walk(child, `${path}.content[${i}]`);
   }

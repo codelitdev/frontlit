@@ -205,14 +205,11 @@ export async function listSetupRepositories(
     (input.page ?? 1) > 100
   )
     throw new GitHubDocsError("GITHUB_INVALID_REQUEST", 400);
+  // Always offered: a user with one installation may still need to add an organization.
+  const installUrl = `https://github.com/apps/${encodeURIComponent(config.appSlug)}/installations/new`;
   const installationId = input.installationId ?? installations[0]?.id;
   if (installationId === undefined)
-    return {
-      installations: [],
-      repositories: [],
-      nextPage: null,
-      installUrl: `https://github.com/apps/${encodeURIComponent(config.appSlug)}/installations/new`,
-    };
+    return { installations: [], repositories: [], nextPage: null, installUrl };
   if (!installations.some((i) => i.id === installationId))
     throw new GitHubDocsError("GITHUB_REPOSITORY_NOT_AUTHORIZED", 403);
   const page = input.page ?? 1;
@@ -238,7 +235,7 @@ export async function listSetupRepositories(
         defaultBranch: r.default_branch,
       })),
     nextPage: batch.repositories.length === 100 ? page + 1 : null,
-    installUrl: null,
+    installUrl,
   };
 }
 
