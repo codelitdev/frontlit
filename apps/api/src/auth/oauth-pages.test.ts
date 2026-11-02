@@ -78,6 +78,13 @@ describe("FrontLit OAuth pages", () => {
     },
   );
 
+  it("brands the hosted login with the FrontLit logo, favicon, and color", async () => {
+    const response = await request("/login?redirect=http://localhost:3000/pages/foo");
+    expect(response.body).toContain('src="http://localhost:3000/icon.svg"');
+    expect(response.body).toContain('href="http://localhost:3000/icon.svg"');
+    expect(response.body).toContain("html{--brand-primary:oklch(0.47 0.14 230)}");
+  });
+
   it("no longer serves an OAuth team picker", async () => {
     const response = await request("/oauth/select-team?client_id=abc");
     expect(response.status).toBe(404);
