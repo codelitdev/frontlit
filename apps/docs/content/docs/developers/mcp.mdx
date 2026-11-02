@@ -30,10 +30,23 @@ Registration remains available for clients such as MCP Inspector. Both use
 authorization code with PKCE, resource binding, user consent, and explicit
 tool scopes.
 
-An OAuth user must already belong to a FrontLit team. If the account has no
-team, FrontLit pauses before consent and links to the teams screen. Create or
-join a team, return to the OAuth page, and continue. Multi-team accounts are
-asked which team the connection should use.
+An OAuth connection belongs to your account, not to one team. There is no
+team picker: one connection works in every team you're a member of, including
+teams you join later, and each call is limited to your role and permissions in
+that team. Leaving a team stops the connection's access to it on the next call.
+
+Team-scoped tools take a `teamId` argument. Call `list_teams` to see your teams
+with your permissions in each, then pass the chosen `teamId`. It is optional
+only when you belong to a single team; otherwise the tool returns
+`team_required` with the list of teams, and the assistant should ask you which
+one to use. Results of tools that change something end with a line naming the
+team they acted in.
+
+Tickets, contacts, documentation improvements, and GitHub proposals contain
+text written by people outside your team. FrontLit marks those tools as
+untrusted so assistants treat their text as data, not instructions. Review
+what an assistant plans to change, especially when it has been reading
+outside-written content.
 
 FrontLit configures an identity-only registration baseline (`openid profile
 email`). Better Auth represents the combined identity and allowed MCP scopes
@@ -70,7 +83,8 @@ For example, clients that accept a JSON header configuration can use:
 
 The submitted secret is verified at the HTTP boundary and is never copied
 into MCP tool context or logs. API keys cannot call account-only tools such as
-`list_teams`, `create_team`, or `delete_team`.
+`list_teams`, `create_team`, or `delete_team`. A key only works in its own
+team; a `teamId` naming any other team returns `team_mismatch`.
 
 ## Local development
 
@@ -101,8 +115,12 @@ checks against the public hostname before starting OAuth.
 - Some clients try `GET /mcp` as standalone SSE after a failed POST. The
   resulting `404 Cannot GET /mcp` is expected and is usually secondary to the
   earlier POST failure; do not add SSE to hide it.
-- `409 no_team` means authentication succeeded but the user has no tenant.
-  Create or join a team and reconnect.
+- `no_team` means authentication succeeded but the user has no team yet.
+  Create one with `create_team`, or join a team; no reconnect is needed.
+- `team_required` means you belong to several teams and the call had no
+  `teamId`. Pass one from `list_teams`.
+- `not_a_team_member` means the `teamId` names a team you don't belong to (or
+  were removed from).
 - `invalid_client_metadata` involving Device Authorization or JWT Bearer means
   the client's published CIMD grants changed or the exact compatibility rule
   no longer matched. FrontLit does not globally relax grant validation.

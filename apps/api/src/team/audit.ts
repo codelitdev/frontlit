@@ -5,6 +5,7 @@ import {
   authorizationAuditEvents,
   type AuthorizationAuditEventType,
 } from "../db/schema";
+import { currentOAuthClientId } from "../auth/oauth-client-context";
 
 const DEFAULT_RETENTION_DAYS = 180;
 
@@ -25,6 +26,11 @@ export type AuditEventInput = {
   metadata?: Record<string, unknown>;
 };
 
+function withOAuthClient(metadata: Record<string, unknown>): Record<string, unknown> {
+  const oauthClientId = currentOAuthClientId();
+  return oauthClientId ? { ...metadata, oauthClientId } : metadata;
+}
+
 export async function insertAuditEvent(
   tx: Pick<typeof db, "insert">,
   input: AuditEventInput,
@@ -37,7 +43,7 @@ export async function insertAuditEvent(
     targetEmail: input.targetEmail ?? null,
     beforePermissions: input.beforePermissions ? [...input.beforePermissions] : null,
     afterPermissions: input.afterPermissions ? [...input.afterPermissions] : null,
-    metadata: input.metadata ?? {},
+    metadata: withOAuthClient(input.metadata ?? {}),
     expiresAt: auditExpiresAt(),
   });
 }

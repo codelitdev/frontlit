@@ -11,7 +11,7 @@ const openApiDocument = generateOpenApi(
     info: {
       title: "FrontLit API",
       description:
-        "FrontLit REST API for building and serving sites. Authenticate with a team-scoped API key or a Better Auth OAuth2 bearer token.",
+        "FrontLit REST API for building and serving sites. Authenticate with a team-scoped API key or an OAuth2 bearer token. OAuth tokens belong to the user's account and work in every team they are a member of: choose the team per request with the `X-Frontlit-Team-Id` header (optional only when the user belongs to one team). Every request is limited to the user's role and permissions in that team. Team selection errors: `team_required` (409, lists your teams), `no_team` (409), `invalid_team_id` (400), `not_a_team_member` (403), `team_mismatch` (403, an API key used with another team).",
       version: "0.1.0",
     },
     servers: [

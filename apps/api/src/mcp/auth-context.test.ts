@@ -2,13 +2,12 @@ import { describe, expect, it } from "vitest";
 import { createFrontLitMcpAuthInfo } from "./auth-context";
 
 describe("FrontLit MCP auth context", () => {
-  it("keeps tenant identity separate from OAuth client identity", () => {
+  it("projects OAuth as an account-wide principal with no team", () => {
     const auth = createFrontLitMcpAuthInfo({
       authKind: "oauth",
       oauthToken: "oauth-token",
       clientId: "oauth-client",
       scopes: ["pages:read"],
-      teamId: "team-1",
       account: { id: "account-1", email: "owner@example.com" },
     });
 
@@ -18,11 +17,12 @@ describe("FrontLit MCP auth context", () => {
       scopes: ["pages:read"],
       extra: {
         authKind: "oauth",
-        teamId: "team-1",
+        accountId: "account-1",
         account: { id: "account-1" },
       },
     });
-    expect(auth?.clientId).not.toBe(auth?.extra.teamId);
+    // The tool registry resolves the team per call.
+    expect(auth?.extra.teamId).toBeUndefined();
   });
 
   it("never places the submitted API-key secret in AuthInfo", () => {

@@ -6,7 +6,7 @@ vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 
 import { db as testDb } from "../db/client";
 import { listPages } from "../pages/queries";
-import { accounts, authSession, authUser, pages } from "../db/schema";
+import { accounts, authUser, pages } from "../db/schema";
 import {
   createAccountWithDefaultTeam,
   ensureFrontLitAccountForUser,
@@ -15,9 +15,7 @@ import {
 import {
   createTeam,
   findOrCreateTeamByExternalId,
-  getOAuthTeamSelection,
   listTeamsForAccount,
-  setOAuthTeamSelection,
 } from "./queries";
 
 describe("createTeam", () => {
@@ -223,52 +221,5 @@ describe("account team lifecycle", () => {
         where: eq(pages.teamId, teams[0].id),
       }),
     ).toHaveLength(7);
-  });
-});
-
-describe("OAuth team selection", () => {
-  const db = testDb as unknown as TestDb;
-
-  it("persists one live team choice per Better Auth session", async () => {
-    const userId = `auth-${crypto.randomUUID()}`;
-    const email = `oauth-${crypto.randomUUID()}@example.com`;
-    await db.insert(authUser).values({
-      id: userId,
-      email,
-      name: "OAuth User",
-      emailVerified: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-    const account = await ensureFrontLitAccountForUser({
-      id: userId,
-      email,
-      name: "OAuth User",
-    });
-    const firstTeam = await createTeam({
-      ownerAccountId: account.id,
-      ownerEmail: account.email,
-      name: "First Team",
-    });
-    const secondTeam = await createTeam({
-      ownerAccountId: account.id,
-      ownerEmail: account.email,
-      name: "Second Team",
-    });
-    const sessionId = `session-${crypto.randomUUID()}`;
-    await db.insert(authSession).values({
-      id: sessionId,
-      token: `token-${crypto.randomUUID()}`,
-      userId,
-      expiresAt: new Date(Date.now() + 60_000),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    await setOAuthTeamSelection(sessionId, firstTeam.id);
-    expect(await getOAuthTeamSelection(sessionId)).toBe(firstTeam.id);
-
-    await setOAuthTeamSelection(sessionId, secondTeam.id);
-    expect(await getOAuthTeamSelection(sessionId)).toBe(secondTeam.id);
   });
 });

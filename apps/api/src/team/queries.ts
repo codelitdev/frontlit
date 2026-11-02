@@ -5,17 +5,11 @@ import {
 } from "@frontlit/api-contract";
 import { db } from "../db/client";
 import { withDbTransaction } from "../db/transaction";
-import {
-  accounts,
-  oauthPostLoginTeamSelections,
-  teamMembers,
-  teams,
-} from "../db/schema";
+import { accounts, teamMembers, teams } from "../db/schema";
 import { createApiKey } from "../apikey/queries";
 import { provisionSendlitForTeam } from "../email/provisioning";
 import { seedStandardPages } from "../pages/seed";
 import { deleteTeamMediaFiles } from "../media/queries";
-import { revokeAllTeamOAuthFamilies } from "../auth/oauth-revocation";
 
 export type Team = typeof teams.$inferSelect;
 export type TeamMember = typeof teamMembers.$inferSelect;
@@ -95,10 +89,7 @@ export async function renameTeam(teamId: string, name: string) {
 
 export async function deleteTeam(teamId: string) {
   await deleteTeamMediaFiles(teamId);
-  await withDbTransaction(async (tx) => {
-    await revokeAllTeamOAuthFamilies(teamId, tx);
-    await tx.delete(teams).where(eq(teams.id, teamId));
-  });
+  await db.delete(teams).where(eq(teams.id, teamId));
 }
 
 export async function findTeamByExternalId(externalId: string) {
@@ -203,26 +194,4 @@ export async function findOrCreateTeamByExternalId(input: {
     customDomainCnameTarget: input.customDomainCnameTarget,
     customDomainTxtRecordName: input.customDomainTxtRecordName,
   });
-}
-
-export async function setOAuthTeamSelection(
-  sessionId: string,
-  teamId: string,
-): Promise<void> {
-  await db
-    .insert(oauthPostLoginTeamSelections)
-    .values({ sessionId, teamId })
-    .onConflictDoUpdate({
-      target: oauthPostLoginTeamSelections.sessionId,
-      set: { teamId, updatedAt: new Date() },
-    });
-}
-
-export async function getOAuthTeamSelection(sessionId: string): Promise<string | null> {
-  const [selection] = await db
-    .select({ teamId: oauthPostLoginTeamSelections.teamId })
-    .from(oauthPostLoginTeamSelections)
-    .where(eq(oauthPostLoginTeamSelections.sessionId, sessionId))
-    .limit(1);
-  return selection?.teamId ?? null;
 }

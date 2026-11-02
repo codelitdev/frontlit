@@ -149,19 +149,6 @@ function withResolvedTeam(
     if (!resolved) {
       return { status: 404, body: { error: "Team not found" } };
     }
-    const request = args.req as any;
-    if (
-      request.authKind === "oauth" &&
-      (request.oauthTeamInvalid || request.claimedTeamId !== resolved.team.id)
-    ) {
-      return {
-        status: 403,
-        body: {
-          error: "not_a_team_member",
-          error_description: "This OAuth token is not valid for the requested team.",
-        },
-      };
-    }
     (args.req as any).teamId = resolved.team.id;
     return withOperation(operation, (inner) => handler(inner, resolved))(args);
   };
