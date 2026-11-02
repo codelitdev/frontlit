@@ -1653,6 +1653,12 @@ replies) gets three stacked defenses:
    server-side (`TURNSTILE_SECRET_KEY`) before accepting. Site key is
    FrontLit-global, not per-team — zero tenant setup. Self-hosters can
    set `CAPTCHA_PROVIDER=none` to fall back to honeypot-only.
+
+The hosted sign-in page is guarded the same way when `TURNSTILE_SITE_KEY`
+is also set: it renders the widget, and Better Auth's `captcha` plugin
+verifies the token on the request that emails a sign-in code
+(`/email-otp/send-verification-otp`). Entering the code is not gated — it
+already proves control of the inbox. Tokens must come from the API's host.
 3. **Escalation**: when the rate limiter flags an IP (or the team-global
    daily cap nears), the endpoints flip from invisible to interactive
    challenge for that key.

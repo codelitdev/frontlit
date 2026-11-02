@@ -3,6 +3,7 @@ import { createOAuthPagesRouter } from "@codelitdev/oauth-server-kit/express";
 import {
   auth,
   authBasePath,
+  hostedLoginCaptcha,
   hostedLoginMethods,
   oauthTeamSelectionAdapter,
   webClientUrl,
@@ -18,6 +19,7 @@ router.use(
     allowedRedirectOrigins: [webClientUrl],
     defaultRedirectUrl: new URL("/", webClientUrl).toString(),
     loginMethods: hostedLoginMethods,
+    captcha: hostedLoginCaptcha,
     legacyHostOnlySessionCookieNames: process.env.AUTH_COOKIE_DOMAIN
       ? [
           "__Secure-better-auth.session_token",
