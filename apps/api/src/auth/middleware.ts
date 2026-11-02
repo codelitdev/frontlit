@@ -10,6 +10,7 @@ import {
   mcpProtectedResourceMetadataUrl,
   mcpResourceUrl,
 } from "./better-auth";
+import { runWithOAuthClient } from "./oauth-client-context";
 
 type AuthResolver = (input: AuthInput) => Promise<AuthResult>;
 
@@ -71,11 +72,8 @@ export function createAuthMiddleware(
           productRequest.clientId = result.clientId;
           productRequest.oauthAudiences = result.audiences;
           productRequest.oauthIssuedAt = result.oauthIssuedAt;
-          productRequest.oauthTeamInvalid = result.oauthTeamInvalid;
-          productRequest.claimedTeamId = result.claimedTeamId;
-          if (result.teamId) {
-            productRequest.teamId = result.teamId;
-          }
+          runWithOAuthClient(result.clientId, next);
+          return;
         }
       }
       next();

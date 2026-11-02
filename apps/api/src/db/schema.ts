@@ -28,7 +28,7 @@ export {
   authOAuthConsent,
   authOAuthClientAssertion,
 } from "./auth-schema";
-import { authSession, authUser } from "./auth-schema";
+import { authUser } from "./auth-schema";
 
 /**
  * ID convention: every table has an internal UUIDv7 `id` (surrogate PK,
@@ -278,25 +278,6 @@ export const authorizationAuditEvents = pgTable(
     ),
     index("authorization_audit_expires_idx").on(table.expiresAt),
   ],
-);
-
-/**
- * Team selected during an OAuth authorization flow. Generic OAuth/MCP
- * clients do not send FrontLit's dashboard-specific team header, so the
- * selected internal team id is carried through Better Auth's referenceId and
- * emitted as a `team_id` access-token claim.
- */
-export const oauthPostLoginTeamSelections = pgTable(
-  "oauth_post_login_team_selections",
-  {
-    sessionId: text("session_id")
-      .primaryKey()
-      .references(() => authSession.id, { onDelete: "cascade" }),
-    teamId: text("team_id")
-      .notNull()
-      .references(() => teams.id, { onDelete: "cascade" }),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  },
 );
 
 export const apiKeys = pgTable(

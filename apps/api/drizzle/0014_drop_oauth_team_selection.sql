@@ -1,0 +1,1 @@
+DROP TABLE "oauth_post_login_team_selections" CASCADE;

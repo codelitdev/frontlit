@@ -24,7 +24,6 @@ import {
   teams,
   tickets,
 } from "../db/schema";
-import { revokeTeamBoundOAuthFamilies } from "../auth/oauth-revocation";
 import { deleteApiKey, getApiKeysByTeamId } from "../apikey/queries";
 import { insertAuditEvent } from "./audit";
 import {
@@ -495,12 +494,6 @@ export async function removeOrLeaveMember(input: {
       actorAccountId: input.actorAccountId,
       targetMemberId: target.memberId,
       beforePermissions: targetEffective,
-    });
-
-    await revokeTeamBoundOAuthFamilies({
-      accountId: target.accountId,
-      teamId: input.teamId,
-      executor: tx,
     });
     return { teamPublicId: team.teamId };
   });

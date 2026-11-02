@@ -13,10 +13,6 @@ import * as schema from "../db/schema";
 import { logger } from "../services/log";
 import { MailNotConfiguredError, sendMail } from "../utils/mail";
 import { ensureFrontLitAccountForUser } from "../account/queries";
-import {
-  createFrontLitOAuthTeamSelectionHooks,
-  oauthTeamSelectionAdapter,
-} from "./oauth-team-selection";
 import { MCP_SCOPES_SUPPORTED } from "../mcp/policy";
 import { fetchClientMetadataResource } from "./cimd-fetch";
 import { AUTH_COOKIE_PREFIX } from "./cookie-prefix";
@@ -92,8 +88,6 @@ async function sendOtpEmail(email: string, otp: string) {
     throw error;
   }
 }
-
-export { oauthTeamSelectionAdapter };
 
 export const hostedLoginMethods: HostedLoginMethod[] = [
   { type: "email-otp" },
@@ -276,10 +270,6 @@ export const auth = betterAuth({
           modelName: "authOAuthClientAssertion",
         },
       },
-      ...createFrontLitOAuthTeamSelectionHooks({
-        page: `${authBaseUrl}/oauth/select-team`,
-        adapter: oauthTeamSelectionAdapter,
-      }),
     }),
     cimd({
       fetchClientMetadataResource,

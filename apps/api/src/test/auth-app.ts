@@ -11,8 +11,6 @@ export type TestPrincipal = {
   teamId?: string;
   scopes?: string[];
   audiences?: string[];
-  oauthTeamInvalid?: boolean;
-  claimedTeamId?: string;
   sessionAuthenticatedAt?: Date;
   apiKeyId?: string;
   oauthIssuedAt?: Date;
@@ -68,9 +66,6 @@ export function principalFromHeader(
       oauthToken: "test-oauth",
       clientId: "test-client",
       scopes: principal.scopes ?? [],
-      teamId: principal.oauthTeamInvalid ? undefined : principal.teamId,
-      claimedTeamId: principal.claimedTeamId ?? principal.teamId,
-      oauthTeamInvalid: principal.oauthTeamInvalid,
       oauthIssuedAt: principal.oauthIssuedAt
         ? new Date(principal.oauthIssuedAt)
         : undefined,

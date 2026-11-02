@@ -182,11 +182,29 @@ SendLit and progressively extracted into `@codelitdev/oauth-server-kit`:
   FrontLit supplies its persistence adapters (accounts, API keys,
   memberships) and Better Auth configuration.
 - `requireAuth` and `mcpAuth` are thin mode-specific wrappers around that
-  resolver. `requireTeam` runs after them: API keys carry one fixed team;
-  OAuth tokens may carry a membership-checked `team_id` claim; browser
-  sessions use `X-Frontlit-Team-Id`. When credentials do not already fix a
-  team, a sole membership may be selected automatically and ambiguous
-  multi-team requests fail closed.
+  resolver. OAuth tokens belong to the account, not a team: one connection
+  works in every team the user belongs to. Every request picks its team
+  through `resolveTeamContext` (`auth/team-context.ts`), which runs the live
+  membership check: REST uses `X-Frontlit-Team-Id` (or the `/teams/:teamId`
+  path), MCP uses a `teamId` argument the tool registry adds to every
+  team-scoped tool. A sole membership is used when no team is named;
+  ambiguous multi-team requests fail with `team_required`. API keys stay
+  bound to one team and reject any other (`team_mismatch`).
+- Leaving or deleting a team revokes no tokens. The per-request membership
+  check is the only revocation path, so every way into a team must call
+  `resolveTeamContext`. Tokens follow membership: a team joined later is
+  reachable without reconnecting, and re-adding a member restores access.
+- One token can act in all of a user's teams, so text written by outsiders
+  (tickets, contacts, GitHub proposals) could try to steer an agent into
+  another team. MCP marks those tools as untrusted, its instructions say to
+  act only in teams the user named, mutating results name the team, and
+  authorization audit events record the OAuth `clientId`.
+- A future SDK and CLI use the same contract: the `X-Frontlit-Team-Id`
+  header and the error codes exported from `@frontlit/api-contract`. The
+  CLI keeps a local default team (`frontlit teams use`) as a preference only;
+  `--team` and `FRONTLIT_TEAM_ID` override it. CLI login should use the
+  authorization code flow with PKCE and a `127.0.0.1` loopback redirect, and
+  store tokens in the OS keychain. See `apps/api/docs/account-wide-oauth.md`.
 - Middleware is scoped on each router prefix (`/pages`, `/tickets`, and so
   on), rather than installed globally. Public, provisioning, OAuth, MCP,
   health, OpenAPI and Swagger routes therefore keep their intentional auth

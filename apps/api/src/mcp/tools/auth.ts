@@ -1,9 +1,9 @@
 import type { ServerContext } from "@modelcontextprotocol/server";
 import { getFrontLitMcpAuthInfo } from "../auth-context";
 
-/** A key always resolves to exactly one team. OAuth resolves from its verified
- * `team_id` claim (or the account's sole team); otherwise `requireTeam`
- * rejects the connection before SDK dispatch. */
+/** The team this tool call runs in. A key always has its one team; for OAuth
+ * the tool registry resolves the `teamId` argument (or the account's sole
+ * team) against live membership before the handler runs. */
 export function getTeamId(extra: any): string | null {
   return getFrontLitMcpAuthInfo(extra as ServerContext)?.extra.teamId ?? null;
 }

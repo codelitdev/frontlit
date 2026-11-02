@@ -100,5 +100,12 @@ request to succeed, **both** the current team permission and the token's scope
 must allow the action. Changing team permissions takes effect immediately,
 even for a token that still has a matching scope.
 
+An OAuth connection belongs to a person's account and works in every team they
+are a member of. When someone joins your team, the apps they've already
+connected can act in it within their permissions; when they leave or are
+removed, those apps lose access to your team on their next request. Changes a
+connected app makes to members or API keys are recorded with its OAuth client
+ID.
+
 See [Authentication](/developers/authentication) for API keys, browser team
 selection, and OAuth authentication details.

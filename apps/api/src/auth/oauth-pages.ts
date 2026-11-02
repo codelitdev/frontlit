@@ -1,13 +1,6 @@
 import { Router } from "express";
 import { createOAuthPagesRouter } from "@codelitdev/oauth-server-kit/express";
-import {
-  auth,
-  authBasePath,
-  hostedLoginMethods,
-  oauthTeamSelectionAdapter,
-  webClientUrl,
-} from "./better-auth";
-import { createFrontLitOAuthTeamPages } from "./oauth-team-pages";
+import { authBasePath, hostedLoginMethods, webClientUrl } from "./better-auth";
 
 const router = Router();
 
@@ -25,14 +18,6 @@ router.use(
           "__Secure-better-auth.dont_remember",
         ]
       : undefined,
-  }),
-);
-router.use(
-  createFrontLitOAuthTeamPages({
-    auth,
-    adapter: oauthTeamSelectionAdapter,
-    authBasePath,
-    webClientUrl,
   }),
 );
 
