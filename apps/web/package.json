@@ -12,7 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@codelitdev/design-system": "0.4.2",
+    "@codelitdev/design-system": "0.5.0",
     "@frontlit/api-contract": "workspace:*",
     "@frontlit/media-uploader": "workspace:*",
     "@frontlit/page-builder": "workspace:*",
