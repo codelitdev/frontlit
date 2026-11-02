@@ -92,6 +92,20 @@
       "when": 1792922899930,
       "tag": "0012_openapi_reference",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793442278464,
+      "tag": "0013_redirect_domains",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793602449001,
+      "tag": "0014_drop_oauth_team_selection",
+      "breakpoints": true
     }
   ]
 }

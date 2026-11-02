@@ -24,12 +24,34 @@ export function decideHost(
   if (!resolved) return { action: "unknown" };
   if (resolved.redirect) {
     const port = requestUrl.port ? `:${requestUrl.port}` : "";
+    const target = resolved.redirectTo
+      ? redirectDomainTarget(resolved.redirectTo, requestUrl)
+      : `${requestUrl.pathname}${requestUrl.search}`;
     return {
       action: "redirect",
-      location: `${requestUrl.protocol}//${resolved.canonicalHost}${port}${requestUrl.pathname}${requestUrl.search}`,
+      location: `${requestUrl.protocol}//${resolved.canonicalHost}${port}${target}`,
     };
   }
   return { action: "rewrite", teamId: resolved.teamId };
+}
+
+/** Path and query on the website for a request to a redirect domain. A
+ * rule for the exact path (trailing slash ignored) wins; any other path
+ * keeps its query and gets the prefix: `/cli` -> `/docs/cli`. */
+export function redirectDomainTarget(
+  redirectTo: NonNullable<ResolvedHost["redirectTo"]>,
+  requestUrl: { pathname: string; search: string },
+): string {
+  const path = requestUrl.pathname.replace(/\/+$/, "") || "/";
+  const rule = redirectTo.rules.find(
+    (candidate) => (candidate.from.replace(/\/+$/, "") || "/") === path,
+  );
+  if (rule) return rule.to.includes("?") ? rule.to : `${rule.to}${requestUrl.search}`;
+  const prefixed =
+    requestUrl.pathname === "/"
+      ? redirectTo.pathPrefix || "/"
+      : `${redirectTo.pathPrefix}${requestUrl.pathname}`;
+  return `${prefixed}${requestUrl.search}`;
 }
 
 /** Normalize a browser/edge Host header before using it as a cache key or

@@ -1,9 +1,15 @@
 import { randomBytes } from "node:crypto";
 import { promises as dns } from "node:dns";
-import { eq, inArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import { supportsRowLocks, withDbTransaction } from "../db/transaction";
-import { customDomains, teams, type CustomDomainStatus } from "../db/schema";
+import {
+  customDomains,
+  redirectDomains,
+  teams,
+  type CustomDomainStatus,
+  type RedirectRule,
+} from "../db/schema";
 
 /** Labels that must never be claimed as a team slug. */
 export const RESERVED_SUBDOMAIN_LABELS = new Set([
@@ -153,6 +159,13 @@ function ownershipHostname(hostname: string): string {
   return paired && isApexHostname(paired) ? paired : hostname;
 }
 
+/** Platform hosts belong to FrontLit, except the platform team's own apex. */
+function isReservedHost(teamId: string, host: string): boolean {
+  const platform = getPlatformSiteDomain();
+  const platformApex = isPlatformTeam(teamId) ? [platform, `www.${platform}`] : [];
+  return (host === platform || isPlatformHost(host)) && !platformApex.includes(host);
+}
+
 type TeamRow = typeof teams.$inferSelect;
 type CustomDomainRow = typeof customDomains.$inferSelect;
 
@@ -166,6 +179,13 @@ function canonicalHostFor(
   const custom = verified.find((host) => host.primary) ?? verified[0];
   if (custom) return custom.hostname;
   return team.subdomain ? getSubdomainHost(team.subdomain) : null;
+}
+
+function listRedirectDomains(teamId: string) {
+  return db.query.redirectDomains.findMany({
+    where: eq(redirectDomains.teamId, teamId),
+    orderBy: (table, { asc }) => [asc(table.hostname)],
+  });
 }
 
 function listCustomDomains(teamId: string): Promise<CustomDomainRow[]> {
@@ -197,6 +217,16 @@ export type DomainSettings = {
   redirectSubdomain: boolean;
   hideFromSearch: boolean;
   platformDomain: string;
+  redirectDomains: {
+    hostname: string;
+    pathPrefix: string;
+    rules: RedirectRule[];
+    status: CustomDomainStatus;
+    verifiedAt: Date | null;
+    record: { type: "A" | "CNAME"; values: string[] };
+    routingSatisfied: boolean | null;
+    verification: { txtName: string; txtValue: string; txtSatisfied: boolean | null };
+  }[];
 };
 
 function routingRecord(
@@ -218,6 +248,7 @@ export async function getDomainSettings(
   });
   if (!team) return null;
   const hosts = await listCustomDomains(teamId);
+  const redirects = await listRedirectDomains(teamId);
 
   return {
     subdomain: team.subdomain
@@ -243,6 +274,20 @@ export async function getDomainSettings(
     redirectSubdomain: team.redirectSubdomain,
     hideFromSearch: team.hideFromSearch,
     platformDomain: getPlatformSiteDomain(),
+    redirectDomains: redirects.map((host) => ({
+      hostname: host.hostname,
+      pathPrefix: host.pathPrefix,
+      rules: host.rules,
+      status: host.status,
+      verifiedAt: host.verifiedAt,
+      record: routingRecord(team, host.hostname),
+      routingSatisfied: host.routingSatisfied,
+      verification: {
+        txtName: `${getCustomDomainTxtRecordName(team)}.${host.hostname}`,
+        txtValue: host.verificationToken,
+        txtSatisfied: host.txtSatisfied,
+      },
+    })),
   };
 }
 
@@ -301,14 +346,7 @@ export async function attachCustomDomain(
   const hostname = normalizeHost(value);
   const paired = pairedHostname(hostname);
   const hostnames = paired ? [hostname, paired] : [hostname];
-  const platform = getPlatformSiteDomain();
-  const platformApex = isPlatformTeam(teamId) ? [platform, `www.${platform}`] : [];
-  if (
-    hostnames.some(
-      (host) =>
-        (host === platform || isPlatformHost(host)) && !platformApex.includes(host),
-    )
-  )
+  if (hostnames.some((host) => isReservedHost(teamId, host)))
     return { ok: false, reason: "reserved" };
 
   try {
@@ -332,6 +370,11 @@ export async function attachCustomDomain(
       if (existing.some((row) => row.teamId === teamId))
         return { ok: false, reason: "already_attached" };
       if (existing.length > 0) return { ok: false, reason: "taken" };
+      const redirecting = await tx
+        .select({ hostname: redirectDomains.hostname })
+        .from(redirectDomains)
+        .where(inArray(redirectDomains.hostname, hostnames));
+      if (redirecting.length > 0) return { ok: false, reason: "taken" };
 
       await tx.insert(customDomains).values(
         hostnames.map((host) => ({
@@ -529,6 +572,111 @@ export async function verifyCustomDomain(teamId: string): Promise<boolean> {
   return true;
 }
 
+export type AddRedirectDomainResult =
+  | { ok: true }
+  | { ok: false; reason: "subdomain_required" | "reserved" | "taken" };
+
+/** Adds a host that only 301-redirects to the website, e.g. an old docs
+ * host. It has its own TXT token, so it can live in any zone. */
+export async function addRedirectDomain(
+  teamId: string,
+  value: string,
+  pathPrefix: string,
+): Promise<AddRedirectDomainResult> {
+  const hostname = normalizeHost(value);
+  if (isReservedHost(teamId, hostname)) return { ok: false, reason: "reserved" };
+  const team = await db.query.teams.findFirst({ where: eq(teams.id, teamId) });
+  if (!team?.subdomain) return { ok: false, reason: "subdomain_required" };
+  const used = await db.query.customDomains.findFirst({
+    where: eq(customDomains.hostname, hostname),
+  });
+  if (used) return { ok: false, reason: "taken" };
+  try {
+    await db.insert(redirectDomains).values({
+      teamId,
+      hostname,
+      pathPrefix,
+      verificationToken: randomBytes(16).toString("hex"),
+    });
+    return { ok: true };
+  } catch (error) {
+    if (isUniqueViolation(error)) return { ok: false, reason: "taken" };
+    throw error;
+  }
+}
+
+export async function updateRedirectDomain(
+  teamId: string,
+  value: string,
+  changes: { pathPrefix?: string; rules?: RedirectRule[] },
+): Promise<boolean> {
+  const updated = await db
+    .update(redirectDomains)
+    .set({ ...changes, updatedAt: new Date() })
+    .where(
+      and(
+        eq(redirectDomains.teamId, teamId),
+        eq(redirectDomains.hostname, normalizeHost(value)),
+      ),
+    )
+    .returning({ id: redirectDomains.id });
+  return updated.length > 0;
+}
+
+export async function removeRedirectDomain(
+  teamId: string,
+  value: string,
+): Promise<boolean> {
+  const removed = await db
+    .delete(redirectDomains)
+    .where(
+      and(
+        eq(redirectDomains.teamId, teamId),
+        eq(redirectDomains.hostname, normalizeHost(value)),
+      ),
+    )
+    .returning({ id: redirectDomains.id });
+  return removed.length > 0;
+}
+
+/** Same checks as a custom domain: the host's TXT token and its routing
+ * record. It starts redirecting once both pass. */
+export async function verifyRedirectDomain(
+  teamId: string,
+  value: string,
+): Promise<boolean> {
+  const team = await db.query.teams.findFirst({ where: eq(teams.id, teamId) });
+  const host = await db.query.redirectDomains.findFirst({
+    where: and(
+      eq(redirectDomains.teamId, teamId),
+      eq(redirectDomains.hostname, normalizeHost(value)),
+    ),
+  });
+  if (!team || !host) return false;
+  const txtSatisfied = await verifyDnsTxtRecord(
+    host.hostname,
+    host.verificationToken,
+    getCustomDomainTxtRecordName(team),
+  );
+  const routingSatisfied = await verifyDnsRouting(
+    host.hostname,
+    getCustomDomainCnameTarget(team),
+  );
+  const verified = txtSatisfied && routingSatisfied;
+  const now = new Date();
+  await db
+    .update(redirectDomains)
+    .set({
+      status: verified ? "verified" : "failed",
+      verifiedAt: verified ? now : host.verifiedAt,
+      txtSatisfied,
+      routingSatisfied,
+      updatedAt: now,
+    })
+    .where(eq(redirectDomains.id, host.id));
+  return true;
+}
+
 export type ResolvedHost = {
   teamId: string;
   canonicalHost: string;
@@ -536,6 +684,8 @@ export type ResolvedHost = {
   redirect: boolean;
   /** Team-wide pre-launch switch: noindex everywhere, robots disallow all. */
   hideFromSearch: boolean;
+  /** Set for a redirect domain: where its paths go on `canonicalHost`. */
+  redirectTo?: { pathPrefix: string; rules: RedirectRule[] };
 };
 
 /** Resolves an incoming host to exactly one team website.
@@ -556,6 +706,28 @@ export async function resolveHost(requestHost: string): Promise<ResolvedHost | n
   const host = await db.query.customDomains.findFirst({
     where: eq(customDomains.hostname, hostname),
   });
+  if (!host) {
+    // A redirect domain only answers once its own DNS is verified.
+    const redirect = await db.query.redirectDomains.findFirst({
+      where: eq(redirectDomains.hostname, hostname),
+    });
+    if (redirect) {
+      if (redirect.status !== "verified") return null;
+      const owner = await db.query.teams.findFirst({
+        where: eq(teams.id, redirect.teamId),
+      });
+      const target =
+        owner && canonicalHostFor(owner, await listCustomDomains(owner.id));
+      if (!owner || !target) return null;
+      return {
+        teamId: owner.id,
+        canonicalHost: target,
+        redirect: true,
+        hideFromSearch: owner.hideFromSearch,
+        redirectTo: { pathPrefix: redirect.pathPrefix, rules: redirect.rules },
+      };
+    }
+  }
   const subdomain = host ? null : subdomainFromHost(hostname);
   let team: TeamRow | undefined;
   if (host) {

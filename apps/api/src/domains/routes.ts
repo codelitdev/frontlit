@@ -5,31 +5,31 @@ import { requireAuth } from "../auth/middleware";
 import { requireTeam } from "../auth/require-team";
 import { authorizeHandlers } from "../auth/authorize";
 import {
+  addRedirectDomain,
   attachCustomDomain,
   getDomainSettings,
   removeCustomDomain,
+  removeRedirectDomain,
   setPrimaryCustomDomain,
   setRedirectSubdomain,
   setHideFromSearch,
   setTeamSubdomain,
+  updateRedirectDomain,
   verifyCustomDomain,
+  verifyRedirectDomain,
 } from "./queries";
 import { revalidateAfterDomainChange } from "./revalidate";
+import { toPublicSettings } from "./public-settings";
 
 const router = Router();
 router.use("/domain", requireAuth, requireTeam);
 
 const s = initServer();
 
-function toPublicSettings(
-  settings: NonNullable<Awaited<ReturnType<typeof getDomainSettings>>>,
-) {
+async function settingsResponse(teamId: string) {
   return {
-    ...settings,
-    customDomains: settings.customDomains.map((host) => ({
-      ...host,
-      verifiedAt: host.verifiedAt?.toISOString() ?? null,
-    })),
+    status: 200 as const,
+    body: toPublicSettings((await getDomainSettings(teamId))!),
   };
 }
 
@@ -152,6 +152,41 @@ const impl = s.router(
           body: toPublicSettings((await getDomainSettings((req as any).teamId))!),
         };
       },
+      addRedirectDomain: async ({ body, req }) => {
+        const teamId = (req as any).teamId;
+        const result = await addRedirectDomain(teamId, body.hostname, body.pathPrefix);
+        if (!result.ok) {
+          const messages = {
+            subdomain_required:
+              "Choose a FrontLit subdomain before adding a redirect domain",
+            reserved: "That hostname is reserved for default team subdomains",
+            taken: "That domain is already in use as a custom or redirect domain",
+          };
+          return { status: 409, body: { error: messages[result.reason] } };
+        }
+        return settingsResponse(teamId);
+      },
+      updateRedirectDomain: async ({ params, body, req }) => {
+        const teamId = (req as any).teamId;
+        if (!(await updateRedirectDomain(teamId, params.hostname, body)))
+          return { status: 404, body: { error: "That redirect domain is not added" } };
+        await revalidateAfterDomainChange(teamId);
+        return settingsResponse(teamId);
+      },
+      verifyRedirectDomain: async ({ params, req }) => {
+        const teamId = (req as any).teamId;
+        if (!(await verifyRedirectDomain(teamId, params.hostname)))
+          return { status: 404, body: { error: "That redirect domain is not added" } };
+        await revalidateAfterDomainChange(teamId);
+        return settingsResponse(teamId);
+      },
+      removeRedirectDomain: async ({ params, req }) => {
+        const teamId = (req as any).teamId;
+        if (!(await removeRedirectDomain(teamId, params.hostname)))
+          return { status: 404, body: { error: "That redirect domain is not added" } };
+        await revalidateAfterDomainChange(teamId, [params.hostname]);
+        return settingsResponse(teamId);
+      },
     },
     {
       get: "domains.get",
@@ -162,6 +197,10 @@ const impl = s.router(
       setPrimaryCustomDomain: "domains.setPrimaryCustomDomain",
       verifyCustomDomain: "domains.verifyCustomDomain",
       removeCustomDomain: "domains.removeCustomDomain",
+      addRedirectDomain: "domains.addRedirectDomain",
+      updateRedirectDomain: "domains.updateRedirectDomain",
+      verifyRedirectDomain: "domains.verifyRedirectDomain",
+      removeRedirectDomain: "domains.removeRedirectDomain",
     },
   ),
 );

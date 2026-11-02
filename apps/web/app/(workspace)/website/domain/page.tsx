@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Copy, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import {
   attachCustomDomain,
   getDomainSettings,
@@ -19,93 +19,20 @@ import { ScrollablePage } from "@/components/workspace/scrollable-page";
 import { Banner } from "@/components/workspace/banner";
 import { DeleteConfirm } from "@/components/workspace/delete-confirm";
 import { Button } from "@/components/ui/codelit/button";
-import { IconButton } from "@/components/ui/codelit/icon-button";
 import { Input } from "@/components/ui/codelit/input";
 import { Label } from "@/components/ui/codelit/label";
 import { Switch } from "@/components/ui/codelit/switch";
-import { Badge, type badgeVariants } from "@/components/ui/codelit/badge";
+import { Badge } from "@/components/ui/codelit/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/codelit/card";
-import type { VariantProps } from "class-variance-authority";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
 import { siteUrl } from "@/lib/site-url";
-
-const STATUS_VARIANT: Record<
-  string,
-  NonNullable<VariantProps<typeof badgeVariants>["variant"]>
-> = {
-  pending: "warning",
-  verified: "success",
-  failed: "destructive",
-};
+import { DnsRecordRow, DnsRecordsTable, STATUS_VARIANT } from "./dns-records";
+import { RedirectDomainsCard } from "./redirect-domains";
 
 function platformSuffix(settings: DomainSettings): string {
   if (settings.subdomain?.hostname)
     return settings.subdomain.hostname.split(".").slice(1).join(".");
   return settings.platformDomain;
-}
-
-function recordState(value: boolean | null): string {
-  if (value === null) return "not checked";
-  return value ? "satisfied" : "unsatisfied";
-}
-
-function RecordStateBadge({ value }: { value: boolean | null }) {
-  return <Badge variant={value ? "success" : "warning"}>{recordState(value)}</Badge>;
-}
-
-function DnsRecordRow({
-  type,
-  name,
-  value,
-  satisfied,
-}: {
-  type: string;
-  name: string;
-  value: string;
-  satisfied: boolean | null;
-}) {
-  return (
-    <tr className="border-b last:border-0">
-      <td className="px-3 py-2 align-middle">{type}</td>
-      <td className="max-w-[14rem] break-all px-3 py-2 align-middle font-mono">
-        {name}
-      </td>
-      <td className="max-w-[16rem] break-all px-3 py-2 align-middle font-mono">
-        {value}
-      </td>
-      <td className="px-3 py-2 align-middle">
-        <RecordStateBadge value={satisfied} />
-      </td>
-      <td className="px-2 py-2 align-middle">
-        <CopyValueButton value={value} />
-      </td>
-    </tr>
-  );
-}
-
-function CopyValueButton({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard can be unavailable over insecure origins.
-    }
-  }
-
-  return (
-    <IconButton
-      type="button"
-      size="sm"
-      aria-label={copied ? "Copied" : "Copy value"}
-      onClick={() => void copy()}
-    >
-      {copied ? <Check /> : <Copy />}
-    </IconButton>
-  );
 }
 
 export default function DomainPage() {
@@ -279,40 +206,25 @@ export default function DomainPage() {
                     <p className="text-xs font-medium">
                       Add these DNS records, then verify:
                     </p>
-                    <div className="overflow-x-auto rounded-md border">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="border-b bg-muted/50 text-left">
-                            <th className="px-3 py-2 font-medium">Type</th>
-                            <th className="px-3 py-2 font-medium">Name</th>
-                            <th className="px-3 py-2 font-medium">Value</th>
-                            <th className="px-3 py-2 font-medium">Status</th>
-                            <th className="w-10 px-2 py-2">
-                              <span className="sr-only">Copy</span>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {settings.customDomains.flatMap((host) =>
-                            host.record.values.map((value) => (
-                              <DnsRecordRow
-                                key={`${host.hostname}-${value}`}
-                                type={host.record.type}
-                                name={host.hostname}
-                                value={value}
-                                satisfied={host.routingSatisfied}
-                              />
-                            )),
-                          )}
+                    <DnsRecordsTable>
+                      {settings.customDomains.flatMap((host) =>
+                        host.record.values.map((value) => (
                           <DnsRecordRow
-                            type="TXT"
-                            name={settings.verification.txtName}
-                            value={settings.verification.txtValue}
-                            satisfied={settings.verification.txtSatisfied}
+                            key={`${host.hostname}-${value}`}
+                            type={host.record.type}
+                            name={host.hostname}
+                            value={value}
+                            satisfied={host.routingSatisfied}
                           />
-                        </tbody>
-                      </table>
-                    </div>
+                        )),
+                      )}
+                      <DnsRecordRow
+                        type="TXT"
+                        name={settings.verification.txtName}
+                        value={settings.verification.txtValue}
+                        satisfied={settings.verification.txtSatisfied}
+                      />
+                    </DnsRecordsTable>
                   </div>
                 )}
 
@@ -398,6 +310,8 @@ export default function DomainPage() {
             )}
           </CardContent>
         </Card>
+
+        <RedirectDomainsCard settings={settings} busy={busy} run={run} />
 
         <Card>
           <CardHeader>

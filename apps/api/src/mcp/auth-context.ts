@@ -3,9 +3,16 @@ import type { Account } from "../account/queries";
 
 type McpAccount = Pick<Account, "id" | "email">;
 
+/** At the HTTP layer an OAuth token carries no team; the tool registry
+ * resolves the call's team and fills `teamId`, `isOwner`, `permissions` and
+ * `membershipId` per tool call. An API key always has its one team. */
 export type FrontLitMcpAuthExtra = {
   authKind: "oauth" | "api_key";
-  teamId: string;
+  teamId?: string;
+  /** Public team ID of the resolved team, for result notes and logs. */
+  teamPublicId?: string;
+  teamName?: string;
+  accountId?: string;
   account: McpAccount | null;
   isOwner?: boolean;
   permissions?: string[];
@@ -30,15 +37,6 @@ export function createFrontLitMcpAuthInfo(input: unknown): FrontLitMcpAuthInfo |
   if (!input || typeof input !== "object") return null;
   const req = input as McpAuthRequest;
   const teamId = typeof req.teamId === "string" ? req.teamId : null;
-  const authz = (
-    req as {
-      authz?: {
-        isOwner?: boolean;
-        permissions?: string[];
-        membershipId?: string;
-      };
-    }
-  ).authz;
 
   if (req.authKind === "oauth") {
     if (typeof req.oauthToken !== "string" || typeof req.clientId !== "string") {
@@ -52,11 +50,8 @@ export function createFrontLitMcpAuthInfo(input: unknown): FrontLitMcpAuthInfo |
         : [],
       extra: {
         authKind: "oauth",
-        teamId: teamId ?? "",
+        accountId: req.account?.id,
         account: req.account ? { id: req.account.id, email: req.account.email } : null,
-        isOwner: authz?.isOwner,
-        permissions: authz?.permissions,
-        membershipId: authz?.membershipId,
       },
     };
   }
@@ -86,8 +81,7 @@ export function getFrontLitMcpAuthInfo(ctx: ServerContext): FrontLitMcpAuthInfo 
   if (
     !authInfo ||
     !extra ||
-    (extra.authKind !== "oauth" && extra.authKind !== "api_key") ||
-    typeof extra.teamId !== "string"
+    (extra.authKind !== "oauth" && extra.authKind !== "api_key")
   ) {
     return null;
   }

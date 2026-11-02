@@ -182,11 +182,29 @@ SendLit and progressively extracted into `@codelitdev/oauth-server-kit`:
   FrontLit supplies its persistence adapters (accounts, API keys,
   memberships) and Better Auth configuration.
 - `requireAuth` and `mcpAuth` are thin mode-specific wrappers around that
-  resolver. `requireTeam` runs after them: API keys carry one fixed team;
-  OAuth tokens may carry a membership-checked `team_id` claim; browser
-  sessions use `X-Frontlit-Team-Id`. When credentials do not already fix a
-  team, a sole membership may be selected automatically and ambiguous
-  multi-team requests fail closed.
+  resolver. OAuth tokens belong to the account, not a team: one connection
+  works in every team the user belongs to. Every request picks its team
+  through `resolveTeamContext` (`auth/team-context.ts`), which runs the live
+  membership check: REST uses `X-Frontlit-Team-Id` (or the `/teams/:teamId`
+  path), MCP uses a `teamId` argument the tool registry adds to every
+  team-scoped tool. A sole membership is used when no team is named;
+  ambiguous multi-team requests fail with `team_required`. API keys stay
+  bound to one team and reject any other (`team_mismatch`).
+- Leaving or deleting a team revokes no tokens. The per-request membership
+  check is the only revocation path, so every way into a team must call
+  `resolveTeamContext`. Tokens follow membership: a team joined later is
+  reachable without reconnecting, and re-adding a member restores access.
+- One token can act in all of a user's teams, so text written by outsiders
+  (tickets, contacts, GitHub proposals) could try to steer an agent into
+  another team. MCP marks those tools as untrusted, its instructions say to
+  act only in teams the user named, mutating results name the team, and
+  authorization audit events record the OAuth `clientId`.
+- A future SDK and CLI use the same contract: the `X-Frontlit-Team-Id`
+  header and the error codes exported from `@frontlit/api-contract`. The
+  CLI keeps a local default team (`frontlit teams use`) as a preference only;
+  `--team` and `FRONTLIT_TEAM_ID` override it. CLI login should use the
+  authorization code flow with PKCE and a `127.0.0.1` loopback redirect, and
+  store tokens in the OS keychain. See `apps/api/docs/account-wide-oauth.md`.
 - Middleware is scoped on each router prefix (`/pages`, `/tickets`, and so
   on), rather than installed globally. Public, provisioning, OAuth, MCP,
   health, OpenAPI and Swagger routes therefore keep their intentional auth
@@ -227,7 +245,7 @@ does not collide with the customer-facing `/docs` route in `apps/sites`.
 | Team settings (§12.5)                          | `GET/PATCH /settings` (branding + code injection; the shared shell moves through page publish)                                                                                      | `get_team_settings`, `update_team_settings`                                                                                                 |
 | Ask the docs (§7)                              | `POST /public/:teamId/chat` (public, persisted thread)                                                                                                                              | — (visitor widget only for now; no MCP twin yet)                                                                                            |
 | Help desk (§11)                                | `GET/POST /tickets`, `GET/PATCH /tickets/:ticketId`, `POST /tickets/:ticketId/messages` (submission is also public at `POST /public/:teamId/tickets`)                               | `create_ticket`, `list_tickets`, `get_ticket`, `reply_to_ticket`, `update_ticket_status`, `assign_ticket`                                   |
-| Domains (§12.1)                                | `GET/PATCH /domain`, `PATCH /domain/subdomain-redirect`, `POST /domain/custom`, `PATCH /domain/custom/primary`, `POST /domain/custom/verify`, `DELETE /domain/custom` | `get_domain_settings`, `set_team_subdomain`, `set_subdomain_redirect`, `attach_custom_domain`, `set_primary_custom_domain`, `verify_custom_domain`, `remove_custom_domain` |
+| Domains (§12.1)                                | `GET/PATCH /domain`, `PATCH /domain/subdomain-redirect`, `POST /domain/custom`, `PATCH /domain/custom/primary`, `POST /domain/custom/verify`, `DELETE /domain/custom`, `POST /domain/redirect-domains`, `PATCH/DELETE /domain/redirect-domains/:hostname`, `POST /domain/redirect-domains/:hostname/verify` | `get_domain_settings`, `set_team_subdomain`, `set_subdomain_redirect`, `attach_custom_domain`, `set_primary_custom_domain`, `verify_custom_domain`, `remove_custom_domain`, `add_redirect_domain`, `update_redirect_domain`, `verify_redirect_domain`, `remove_redirect_domain` |
 | Media (§9)                                     | `POST /media/presigned`, `POST /media`, `GET/PATCH/DELETE /media…`                                                                                                                  | `get_media_upload_signature`, `register_media`, `list_media`, `get_media`, `update_media`, `delete_media`                                   |
 | Contacts (§10.2, read-through to SendLit)      | `POST/GET /contacts` (with filter params), `GET/DELETE /contacts/:contactId`, `POST/DELETE /contacts/:contactId/tags/:tag` (capture itself is public: `POST /public/:teamId/leads`) | `list_contacts`, `create_contact`, `get_contact`, `delete_contact`, `add_contact_tag`, `remove_contact_tag`                                 |
 | Segments (§10.2, read-through to SendLit)      | `GET/POST/PATCH/DELETE /email/segments…`                                                                                                                                            | `list_segments`, `create_segment`, `update_segment`, `delete_segment`                                                                       |
@@ -1292,15 +1310,30 @@ Attach/verify flow (module `apps/api/src/domains/`):
    `PATCH /domain/search-visibility { hideFromSearch }` hides the site from
    search engines (§12.3). The first verified custom domain turns that off.
 
+**Redirect domains** keep an old host's links working after a move, e.g.
+docs that used to live on `docs.example.com`. A team can add any number;
+each serves nothing and only 301-redirects to the canonical host. The
+`redirect_domains` row holds the hostname, a `pathPrefix` put in front of
+every path (`/docs`: `docs.example.com/cli` → `example.com/docs/cli`) and
+`rules`, exact old paths sent elsewhere first (`/api/uploadMedia` →
+`/docs/api/upload-media`, trailing slash ignored, the request query kept
+unless the rule has its own). Each host proves ownership with its own
+`TXT _frontlit-verify.<host>` token plus the usual routing record, so it
+can sit in any zone; it redirects only once both pass. A hostname is either
+a custom or a redirect domain, never both, and belongs to one team.
+
 TLS: terminate at the edge with on-demand certificates (Caddy on-demand TLS
 or the hosting platform's domains API, e.g. Vercel). The on-demand `ask`
 endpoint (`GET /public/tls-ask?domain=…`) uses the same host authority as
 `GET /public/resolve-host`, so every host that serves *or redirects* —
-including the other half of a verified pair — gets a certificate.
+including the other half of a verified pair and a verified redirect
+domain — gets a certificate.
 
 Per §2, everything here is REST + MCP (see matrix): `get_domain_settings`,
 `set_team_subdomain`, `set_subdomain_redirect`, `attach_custom_domain`,
-`set_primary_custom_domain`, `verify_custom_domain`, `remove_custom_domain`.
+`set_primary_custom_domain`, `verify_custom_domain`, `remove_custom_domain`,
+`add_redirect_domain`, `update_redirect_domain`, `verify_redirect_domain`,
+`remove_redirect_domain`.
 
 ### 12.2 Public site delivery (`apps/sites`)
 
@@ -1309,7 +1342,9 @@ normalizes the request `Host` (including a local-development port) and sends
 the complete hostname to `GET /public/resolve-host`. The API is the sole host
 authority: it performs an exact custom-host match or recognizes
 `*.<PLATFORM_SITE_DOMAIN>`, extracts the one-label subdomain and queries
-`teams.subdomain`, and answers `{ teamId, canonicalHost, redirect }`.
+`teams.subdomain`, and answers `{ teamId, canonicalHost, redirect }`
+(plus `redirectTo { pathPrefix, rules }` for a redirect domain, which the
+middleware applies to the path before redirecting).
 `apps/sites` has no domain-suffix configuration of its own,
 which prevents configuration drift. It caches the result briefly,
 deletes those cache keys when the API's domain-change webhook lists

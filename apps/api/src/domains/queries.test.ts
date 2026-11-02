@@ -15,6 +15,7 @@ import { promises as dns } from "node:dns";
 import { db as testDb } from "../db/client";
 import { teams } from "../db/schema";
 import {
+  addRedirectDomain,
   attachCustomDomain,
   getCustomDomainCnameTarget,
   getPlatformSiteDomain,
@@ -23,12 +24,15 @@ import {
   normalizeHost,
   pairedHostname,
   removeCustomDomain,
+  removeRedirectDomain,
   resolveHost,
   setHideFromSearch,
   setPrimaryCustomDomain,
   setRedirectSubdomain,
   setTeamSubdomain,
+  updateRedirectDomain,
   verifyCustomDomain,
+  verifyRedirectDomain,
 } from "./queries";
 
 function uniqueName(label: string): string {
@@ -515,5 +519,113 @@ describe("team website domains", () => {
       if (previousTeam === undefined) delete process.env.PLATFORM_TEAM_ID;
       else process.env.PLATFORM_TEAM_ID = previousTeam;
     }
+  });
+
+  describe("redirect domains", () => {
+    const redirectHost = () => `docs.${crypto.randomUUID().slice(0, 8)}.com`;
+    const redirectSettings = async (id: string, hostname: string) =>
+      (await getDomainSettings(id))!.redirectDomains.find(
+        (host) => host.hostname === hostname,
+      )!;
+
+    it("only redirects once its own TXT and routing records pass", async () => {
+      const hostname = redirectHost();
+      expect(await addRedirectDomain(teamId, hostname.toUpperCase(), "/docs")).toEqual({
+        ok: true,
+      });
+      const added = await redirectSettings(teamId, hostname);
+      expect(added).toMatchObject({
+        pathPrefix: "/docs",
+        rules: [],
+        status: "pending",
+        record: { type: "CNAME", values: [getCustomDomainCnameTarget()] },
+        verification: { txtName: `_frontlit-verify.${hostname}`, txtSatisfied: null },
+      });
+      expect(await resolveHost(hostname)).toBeNull();
+
+      await mockDns({ txt: [[added.verification.txtValue]] });
+      expect(await verifyRedirectDomain(teamId, hostname)).toBe(true);
+      expect(await redirectSettings(teamId, hostname)).toMatchObject({
+        status: "failed",
+        verification: { txtSatisfied: true },
+        routingSatisfied: false,
+      });
+      expect(await resolveHost(hostname)).toBeNull();
+
+      await mockDns({
+        txt: [[added.verification.txtValue]],
+        cname: [getCustomDomainCnameTarget()],
+      });
+      expect(await verifyRedirectDomain(teamId, hostname)).toBe(true);
+      expect((await redirectSettings(teamId, hostname)).status).toBe("verified");
+      const subdomainHost = (await getDomainSettings(teamId))!.subdomain!.hostname;
+      expect(await resolveHost(`${hostname}:443`)).toEqual({
+        teamId,
+        canonicalHost: subdomainHost,
+        redirect: true,
+        hideFromSearch: true,
+        redirectTo: { pathPrefix: "/docs", rules: [] },
+      });
+    });
+
+    it("targets the verified custom domain and carries rule changes", async () => {
+      const apex = `${crypto.randomUUID().slice(0, 8)}.com`;
+      await attachAndPassAllChecks(teamId, apex);
+      const hostname = redirectHost();
+      await addRedirectDomain(teamId, hostname, "");
+      const { verification } = await redirectSettings(teamId, hostname);
+      await mockDns({
+        txt: [[verification.txtValue]],
+        cname: [getCustomDomainCnameTarget()],
+      });
+      await verifyRedirectDomain(teamId, hostname);
+
+      const rules = [{ from: "/api/uploadMedia", to: "/docs/api/upload-media" }];
+      expect(
+        await updateRedirectDomain(teamId, hostname, { pathPrefix: "/docs", rules }),
+      ).toBe(true);
+      expect(await resolveHost(hostname)).toEqual({
+        teamId,
+        canonicalHost: apex,
+        redirect: true,
+        hideFromSearch: false,
+        redirectTo: { pathPrefix: "/docs", rules },
+      });
+
+      expect(await removeRedirectDomain(teamId, hostname)).toBe(true);
+      expect(await resolveHost(hostname)).toBeNull();
+      expect(await removeRedirectDomain(teamId, hostname)).toBe(false);
+    });
+
+    it("keeps custom and redirect hosts apart and scoped to their team", async () => {
+      const apex = `${crypto.randomUUID().slice(0, 8)}.com`;
+      await attachCustomDomain(teamId, apex);
+      expect(await addRedirectDomain(teamId, `www.${apex}`, "")).toEqual({
+        ok: false,
+        reason: "taken",
+      });
+      expect(
+        await addRedirectDomain(teamId, `docs.${getPlatformSiteDomain()}`, ""),
+      ).toEqual({ ok: false, reason: "reserved" });
+
+      const hostname = redirectHost();
+      await addRedirectDomain(teamId, hostname, "");
+      const { team: other } = await seedTeam(db, { name: uniqueName("Other") });
+      expect(await addRedirectDomain(other.id, hostname, "")).toEqual({
+        ok: false,
+        reason: "taken",
+      });
+      expect(await attachCustomDomain(other.id, hostname)).toEqual({
+        ok: false,
+        reason: "taken",
+      });
+      // Another team can't change, verify or remove it.
+      expect(await updateRedirectDomain(other.id, hostname, { pathPrefix: "/x" })).toBe(
+        false,
+      );
+      expect(await verifyRedirectDomain(other.id, hostname)).toBe(false);
+      expect(await removeRedirectDomain(other.id, hostname)).toBe(false);
+      expect((await redirectSettings(teamId, hostname)).pathPrefix).toBe("");
+    });
   });
 });

@@ -28,7 +28,7 @@ export {
   authOAuthConsent,
   authOAuthClientAssertion,
 } from "./auth-schema";
-import { authSession, authUser } from "./auth-schema";
+import { authUser } from "./auth-schema";
 
 /**
  * ID convention: every table has an internal UUIDv7 `id` (surrogate PK,
@@ -125,6 +125,39 @@ export const customDomains = pgTable(
     index("custom_domains_team_idx").on(table.teamId),
     check(
       "custom_domains_verified_at_check",
+      sql`("status" <> 'verified' OR "verified_at" IS NOT NULL)`,
+    ),
+  ],
+);
+
+export type RedirectRule = { from: string; to: string };
+
+/** Extra hosts that only 301 to the team's website, e.g. an old docs host
+ * (`docs.example.com/cli` -> `example.com/docs/cli`). `pathPrefix` is put in
+ * front of every path; `rules` send exact old paths to new ones first. Each
+ * host proves ownership with its own TXT token. */
+export const redirectDomains = pgTable(
+  "redirect_domains",
+  {
+    id: text("id").primaryKey().$defaultFn(genId),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    hostname: text("hostname").notNull().unique(),
+    pathPrefix: text("path_prefix").notNull().default(""),
+    rules: jsonb("rules").$type<RedirectRule[]>().notNull().default([]),
+    verificationToken: text("verification_token").notNull(),
+    txtSatisfied: boolean("txt_satisfied"),
+    routingSatisfied: boolean("routing_satisfied"),
+    status: text("status", { enum: customDomainStatuses }).notNull().default("pending"),
+    verifiedAt: timestamp("verified_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("redirect_domains_team_idx").on(table.teamId),
+    check(
+      "redirect_domains_verified_at_check",
       sql`("status" <> 'verified' OR "verified_at" IS NOT NULL)`,
     ),
   ],
@@ -245,25 +278,6 @@ export const authorizationAuditEvents = pgTable(
     ),
     index("authorization_audit_expires_idx").on(table.expiresAt),
   ],
-);
-
-/**
- * Team selected during an OAuth authorization flow. Generic OAuth/MCP
- * clients do not send FrontLit's dashboard-specific team header, so the
- * selected internal team id is carried through Better Auth's referenceId and
- * emitted as a `team_id` access-token claim.
- */
-export const oauthPostLoginTeamSelections = pgTable(
-  "oauth_post_login_team_selections",
-  {
-    sessionId: text("session_id")
-      .primaryKey()
-      .references(() => authSession.id, { onDelete: "cascade" }),
-    teamId: text("team_id")
-      .notNull()
-      .references(() => teams.id, { onDelete: "cascade" }),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  },
 );
 
 export const apiKeys = pgTable(

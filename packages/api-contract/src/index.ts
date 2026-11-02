@@ -4,6 +4,7 @@ export * from "./schemas/common";
 export * from "./schemas/permissions";
 export * from "./schemas/memberships";
 export * from "./schemas/teams";
+export * from "./schemas/team-selection";
 export * from "./schemas/pages";
 export * from "./schemas/themes";
 export * from "./schemas/media";

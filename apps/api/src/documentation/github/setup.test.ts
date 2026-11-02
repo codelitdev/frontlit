@@ -248,6 +248,8 @@ describe("account-bound GitHub setup proof", () => {
       mock as unknown as DocsGitHubApp,
     );
     expect(result.repositories).toHaveLength(1);
+    // Offered even with an installation, so another organization can be added.
+    expect(result.installUrl).toMatch(/\/installations\/new$/);
     expect(result.installations).toEqual([
       { installationId: 7, accountLogin: "org", accountType: "Organization" },
     ]);

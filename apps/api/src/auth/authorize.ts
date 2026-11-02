@@ -11,6 +11,7 @@ import {
   type RestOperation,
 } from "./operation-policy";
 import { authBaseUrl, mcpResourceUrl, webClientUrl } from "./better-auth";
+import type { TeamContext } from "./team-context";
 
 export type AuthzContext = {
   authKind: "session" | "oauth" | "apikey";
@@ -81,17 +82,10 @@ export function buildAuthzContext(input: {
   };
 }
 
-export function membershipGenerationValid(
-  membershipCreatedAt: Date | undefined,
-  oauthIssuedAt: Date | undefined,
-): boolean {
-  if (!membershipCreatedAt || !oauthIssuedAt) return false;
-  return oauthIssuedAt.getTime() >= membershipCreatedAt.getTime();
-}
-
 export async function loadTeamAuthz(
   req: Request,
   teamInternalId: string,
+  preloaded?: TeamContext,
 ): Promise<AuthzContext> {
   const anyReq = req as any;
   if (
@@ -102,7 +96,8 @@ export async function loadTeamAuthz(
     return anyReq.authz as AuthzContext;
   }
 
-  const team = await findTeamById(teamInternalId);
+  const loaded = preloaded?.team.id === teamInternalId ? preloaded : undefined;
+  const team = loaded ? loaded.team : await findTeamById(teamInternalId);
   const authKind = anyReq.authKind as AuthzContext["authKind"];
   if (authKind === "apikey") {
     const context: AuthzContext = {
@@ -118,9 +113,11 @@ export async function loadTeamAuthz(
     return context;
   }
 
-  const membership = anyReq.accountId
-    ? await getTeamMembership(teamInternalId, anyReq.accountId)
-    : null;
+  const membership = loaded
+    ? loaded.membership
+    : anyReq.accountId
+      ? await getTeamMembership(teamInternalId, anyReq.accountId)
+      : null;
   const isOwner = Boolean(
     team && anyReq.accountId && team.ownerAccountId === anyReq.accountId,
   );

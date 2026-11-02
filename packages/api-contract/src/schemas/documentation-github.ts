@@ -175,7 +175,7 @@ export const documentationGitRepositoriesSchema = z.object({
     }),
   ),
   nextPage: z.number().int().positive().nullable(),
-  installUrl: z.string().url().nullable(),
+  installUrl: z.string().url(),
 });
 /** Dry run of a pages folder at the branch head: what would go live. */
 export const gitPagesPreviewSchema = z.object({

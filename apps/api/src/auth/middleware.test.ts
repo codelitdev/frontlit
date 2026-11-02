@@ -11,6 +11,7 @@ vi.mock("./better-auth", () => ({
 }));
 
 import { createAuthMiddleware } from "./middleware.js";
+import { currentOAuthClientId } from "./oauth-client-context.js";
 
 async function requestFor(result: AuthResult | Error, resourceMetadataUrl?: string) {
   const resolver = vi.fn(async () => {
@@ -21,9 +22,11 @@ async function requestFor(result: AuthResult | Error, resourceMetadataUrl?: stri
   app.get(
     "/protected",
     createAuthMiddleware("mcp", resolver, resourceMetadataUrl),
-    (request, response) => {
+    async (request, response) => {
       const productRequest = request as any;
+      await new Promise((resolve) => setTimeout(resolve, 1));
       response.json({
+        contextClientId: currentOAuthClientId() ?? null,
         auth: request.auth,
         authKind: productRequest.authKind,
         accountId: productRequest.accountId,
@@ -68,7 +71,7 @@ const account = {
 };
 
 describe("FrontLit auth middleware projection", () => {
-  it("projects neutral OAuth identity and FrontLit-owned context", async () => {
+  it("projects OAuth as an account-wide principal and exposes its client", async () => {
     const identity = {
       method: "oauth" as const,
       issuer: "https://frontlit.test/api/auth",
@@ -86,19 +89,20 @@ describe("FrontLit auth middleware projection", () => {
       oauthToken: "oauth-token",
       clientId: identity.clientId,
       scopes: identity.scopes,
-      teamId: "team-1",
       audiences: identity.audiences,
     });
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
       auth: identity,
       authKind: "oauth",
       accountId: "account-1",
-      teamId: "team-1",
+      contextClientId: "mcp-client",
       clientId: "mcp-client",
       scopes: ["pages:read"],
       oauthToken: "oauth-token",
     });
+    expect(body.teamId).toBeUndefined();
     expect(resolver).toHaveBeenCalledOnce();
   });
 

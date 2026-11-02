@@ -532,6 +532,19 @@ export const REST_OPERATION_POLICIES = {
     "domains:write",
     MCP_SCOPES.domainsWrite,
   ),
+  "domains.addRedirectDomain": teamPermission("domains:write", MCP_SCOPES.domainsWrite),
+  "domains.updateRedirectDomain": teamPermission(
+    "domains:write",
+    MCP_SCOPES.domainsWrite,
+  ),
+  "domains.verifyRedirectDomain": teamPermission(
+    "domains:write",
+    MCP_SCOPES.domainsWrite,
+  ),
+  "domains.removeRedirectDomain": teamPermission(
+    "domains:write",
+    MCP_SCOPES.domainsWrite,
+  ),
 
   "settings.get": teamPermission("settings:read", MCP_SCOPES.settingsRead),
   "settings.update": teamPermission("settings:write", MCP_SCOPES.settingsWrite),

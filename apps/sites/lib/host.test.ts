@@ -58,6 +58,47 @@ describe("decideHost", () => {
     });
   });
 
+  it("sends a redirect domain's paths under its prefix, rules first", () => {
+    const resolved = {
+      teamId: "team_abc",
+      canonicalHost: "medialit.cloud",
+      redirect: true,
+      hideFromSearch: false,
+      redirectTo: {
+        pathPrefix: "/docs",
+        rules: [
+          { from: "/api/uploadMedia", to: "/docs/api/upload-media" },
+          { from: "/llms.txt/", to: "/docs?from=llms" },
+        ],
+      },
+    };
+    const go = (pathname: string, search = "") =>
+      decideHost(resolved, { ...url, pathname, search });
+    expect(go("/cli", "?x=1")).toEqual({
+      action: "redirect",
+      location: "https://medialit.cloud/docs/cli?x=1",
+    });
+    expect(go("/")).toEqual({
+      action: "redirect",
+      location: "https://medialit.cloud/docs",
+    });
+    expect(go("/api/uploadMedia/", "?v=2")).toEqual({
+      action: "redirect",
+      location: "https://medialit.cloud/docs/api/upload-media?v=2",
+    });
+    // A rule with its own query keeps it instead of the request's.
+    expect(go("/llms.txt", "?x=1")).toEqual({
+      action: "redirect",
+      location: "https://medialit.cloud/docs?from=llms",
+    });
+    expect(
+      decideHost(
+        { ...resolved, redirectTo: { pathPrefix: "", rules: [] } },
+        { ...url, pathname: "/" },
+      ),
+    ).toEqual({ action: "redirect", location: "https://medialit.cloud/?ref=x" });
+  });
+
   it("normalizes ports and casing before cache/API lookup", () => {
     expect(normalizeHost("Acme.Localhost:3002")).toBe("acme.localhost");
   });
