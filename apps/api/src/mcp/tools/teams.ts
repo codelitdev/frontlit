@@ -4,6 +4,7 @@ import {
   apiKeySchema,
   createdApiKeySchema,
   successMessageSchema,
+  teamPermissionSchema,
   teamSchema,
 } from "@frontlit/api-contract";
 import {
@@ -11,7 +12,6 @@ import {
   deleteTeam,
   findTeamByPublicId,
   findTeamById,
-  getTeamMembership,
   listTeamsForAccount,
   renameTeam,
 } from "../../team/queries";
@@ -32,8 +32,18 @@ export function registerTeamTools(server: McpToolRegistrar): void {
   server.registerTool(
     "list_teams",
     {
-      description: "Returns all teams the authenticated account belongs to.",
-      outputSchema: z.object({ items: z.array(teamSchema) }),
+      description:
+        "Returns every team the authenticated account belongs to, with the user's role and permissions in each. Pass a team's teamId to team-scoped tools.",
+      outputSchema: z.object({
+        items: z.array(
+          z.object({
+            teamId: z.string(),
+            name: z.string(),
+            isOwner: z.boolean(),
+            permissions: z.array(teamPermissionSchema),
+          }),
+        ),
+      }),
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
@@ -49,6 +59,8 @@ export function registerTeamTools(server: McpToolRegistrar): void {
           items: teams.map((t) => ({
             teamId: t.teamId,
             name: t.name,
+            isOwner: t.isOwner,
+            permissions: t.effectivePermissions,
           })),
         });
       } catch {
@@ -131,9 +143,8 @@ export function registerTeamTools(server: McpToolRegistrar): void {
       try {
         const team = await findTeamByPublicId(args.teamId);
         if (!team) return NOT_FOUND;
+        // The registry already resolved `teamId` against live membership.
         if (team.id !== getTeamId(extra)) return NOT_FOUND;
-        const membership = await getTeamMembership(team.id, account.id);
-        if (!membership) return NOT_FOUND;
         if (team.ownerAccountId !== account.id) {
           return errorResult("Only the team owner can delete it.");
         }

@@ -1,10 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
-import {
-  getTeamByTeamId,
-  getTeamMembership,
-  listTeamsForAccount,
-} from "../team/queries";
 import { loadTeamAuthz } from "./authorize";
+import { resolveTeamContext } from "./team-context";
 
 function getHeaderValue(value: unknown): string | undefined {
   if (Array.isArray(value)) {
@@ -17,12 +13,12 @@ function getHeaderValue(value: unknown): string | undefined {
  * Resolves `req.teamId` — the one thing every team-scoped resource route
  * actually needs. Must run after `requireAuth`/`mcpAuth`.
  *
- * - API-key requests already have `req.teamId` set (a key authenticates as
- *   exactly one, fixed team) — this is a no-op for them.
- * - Session-authenticated requests pick a team via the `X-Frontlit-Team-Id`
- *   header, validated against team membership on every call. If the header
- *   is absent and the account belongs to exactly one team, that team is
- *   used automatically. Otherwise the caller must specify one explicitly.
+ * - API-key requests already have `req.teamId` (a key belongs to exactly one
+ *   team). A header naming a different team is rejected.
+ * - User credentials — browser sessions and account-wide OAuth tokens — pick
+ *   a team with the `X-Frontlit-Team-Id` header, checked against live
+ *   membership on every call. Without the header, a sole membership is used;
+ *   otherwise the caller must choose.
  */
 export async function requireTeam(
   req: Request,
@@ -30,77 +26,22 @@ export async function requireTeam(
   next: NextFunction,
 ): Promise<void> {
   const anyReq = req as any;
-  if (anyReq.authKind === "oauth") {
-    if (anyReq.oauthTeamInvalid || !anyReq.teamId) {
-      res.status(403).json({
-        error: "not_a_team_member",
-        error_description:
-          "This OAuth token is not valid for a current team membership.",
-      });
-      return;
-    }
-    await loadTeamAuthz(req, anyReq.teamId);
-    return next();
-  }
-  if (anyReq.teamId) {
-    await loadTeamAuthz(req, anyReq.teamId);
-    return next();
-  }
-  if (!anyReq.accountId) {
+  if (anyReq.authKind !== "apikey" && !anyReq.accountId) {
     res.status(401).json({ error: "unauthorized" });
     return;
   }
 
-  const headerTeamId = getHeaderValue(req.headers["x-frontlit-team-id"]);
-  if (headerTeamId) {
-    const team = await getTeamByTeamId(headerTeamId);
-    if (!team) {
-      res.status(400).json({
-        error: "invalid_team_id",
-        error_description: "The provided team ID is not valid.",
-      });
-      return;
-    }
-    let membership;
-    try {
-      membership = await getTeamMembership(team.id, anyReq.accountId);
-    } catch {
-      res.status(400).json({
-        error: "invalid_team_id",
-        error_description: "The provided team ID is not valid.",
-      });
-      return;
-    }
-    if (!membership) {
-      res.status(403).json({
-        error: "not_a_team_member",
-        error_description: "You are not a member of this team.",
-      });
-      return;
-    }
-    anyReq.teamId = team.id;
-    await loadTeamAuthz(req, team.id);
-    return next();
-  }
-
-  const teams = await listTeamsForAccount(anyReq.accountId);
-  if (teams.length === 1) {
-    anyReq.teamId = teams[0].id;
-    await loadTeamAuthz(req, teams[0].id);
-    return next();
-  }
-  if (teams.length === 0) {
-    res.status(409).json({
-      error: "no_team",
-      error_description: "This account doesn't belong to any team yet.",
-    });
+  const resolution = await resolveTeamContext({
+    authKind: anyReq.authKind,
+    accountId: anyReq.accountId,
+    apiKeyTeamId: anyReq.authKind === "apikey" ? anyReq.teamId : undefined,
+    requestedTeamId: getHeaderValue(req.headers["x-frontlit-team-id"]),
+  });
+  if (!resolution.ok) {
+    res.status(resolution.status).json(resolution.body);
     return;
   }
-
-  res.status(409).json({
-    error: "team_required",
-    error_description:
-      "This account belongs to multiple teams — specify one via the X-Frontlit-Team-Id header.",
-    teams: teams.map((t) => ({ teamId: t.teamId, name: t.name })),
-  });
+  anyReq.teamId = resolution.context.team.id;
+  await loadTeamAuthz(req, resolution.context.team.id, resolution.context);
+  next();
 }

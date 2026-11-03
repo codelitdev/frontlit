@@ -10,7 +10,6 @@ import {
   type Account,
 } from "../account/queries";
 import { getApiKeyBySecret, type ApiKey } from "../apikey/queries";
-import { getTeamMembership } from "../team/queries";
 import {
   auth,
   authIssuer,
@@ -37,9 +36,6 @@ export type AuthResult =
       oauthToken: string;
       clientId: string;
       scopes: string[];
-      teamId?: string;
-      claimedTeamId?: string;
-      oauthTeamInvalid?: boolean;
       oauthIssuedAt?: Date;
       audiences: string[];
     }
@@ -74,7 +70,6 @@ export type AuthDependencies = {
     expectedAudience?: string,
   ) => Promise<{
     identity: Extract<AuthenticatedIdentity, { method: "oauth" }>;
-    teamId?: string;
     issuedAt?: Date;
   } | null>;
   ensureAccountForBetterAuthUserId: (userId: string) => Promise<Account | null>;
@@ -83,10 +78,6 @@ export type AuthDependencies = {
     email: string;
     name?: string | null;
   }) => Promise<Account>;
-  getTeamMembership: (
-    teamId: string,
-    accountId: string,
-  ) => Promise<{ createdAt?: Date } | Record<string, unknown> | null | undefined>;
   getSessionAuthenticatedAt?: (
     userId: string,
     headers?: Record<string, string | string[] | undefined>,
@@ -163,7 +154,6 @@ const defaultDependencies: AuthDependencies = {
           scopes,
           audiences,
         },
-        teamId: optionalString(claims.team_id),
         issuedAt,
       };
     } catch {
@@ -172,7 +162,6 @@ const defaultDependencies: AuthDependencies = {
   },
   ensureAccountForBetterAuthUserId: ensureFrontLitAccountForBetterAuthUserId,
   ensureAccountForUser: ensureFrontLitAccountForUser,
-  getTeamMembership,
   getSessionAuthenticatedAt,
 };
 
@@ -195,31 +184,6 @@ export async function resolveAuth(
       );
       if (!account) return { status: "unauthorized" };
 
-      const claimedTeamId = authenticated.teamId;
-      let teamId: string | undefined;
-      let oauthTeamInvalid = false;
-      if (claimedTeamId) {
-        const membership = await dependencies.getTeamMembership(
-          claimedTeamId,
-          account.id,
-        );
-        const createdAt =
-          membership &&
-          "createdAt" in membership &&
-          membership.createdAt instanceof Date
-            ? membership.createdAt
-            : undefined;
-        const generationOk = Boolean(
-          authenticated.issuedAt &&
-            createdAt &&
-            authenticated.issuedAt.getTime() >= createdAt.getTime(),
-        );
-        if (membership && generationOk) {
-          teamId = claimedTeamId;
-        } else {
-          oauthTeamInvalid = true;
-        }
-      }
       return {
         status: "authenticated",
         kind: "oauth",
@@ -229,9 +193,6 @@ export async function resolveAuth(
         oauthToken: match[1],
         clientId: authenticated.identity.clientId,
         scopes: authenticated.identity.scopes,
-        teamId,
-        claimedTeamId,
-        oauthTeamInvalid,
         oauthIssuedAt: authenticated.issuedAt,
         audiences: authenticated.identity.audiences,
       };

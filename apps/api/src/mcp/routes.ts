@@ -4,16 +4,10 @@ import { createMcpHandler } from "@modelcontextprotocol/server";
 import { toNodeHandler } from "@modelcontextprotocol/node";
 import { createMcpOAuthDiscoveryRoutes } from "@codelitdev/oauth-server-kit/mcp";
 import { mcpAuth } from "../auth/middleware";
-import { requireTeam } from "../auth/require-team";
 import { auth, mcpResourceUrl, oauthResourceClient } from "../auth/better-auth";
 import { logger } from "../services/log";
 import { createFrontLitMcpAuthInfo, type FrontLitMcpAuthInfo } from "./auth-context";
-import {
-  HIGH_IMPACT_MCP_TOOLS,
-  isAccountOnlyMcpTool,
-  isMcpToolName,
-  MCP_SCOPES_SUPPORTED,
-} from "./policy";
+import { HIGH_IMPACT_MCP_TOOLS, isMcpToolName, MCP_SCOPES_SUPPORTED } from "./policy";
 import { buildMcpServer } from "./server";
 
 const router = Router();
@@ -43,8 +37,13 @@ function principalRateLimitKey(req: Request): string {
   const authInfo = (req as any).auth as FrontLitMcpAuthInfo | undefined;
   const authKind = authInfo?.extra.authKind ?? "unknown";
   const client = authInfo?.clientId ?? "unknown";
-  const team = authInfo?.extra.teamId ?? "unknown";
-  return `${authKind}:${client}:${team}`;
+  // OAuth tokens are account-wide, so they are limited per account; an API
+  // key is bound to one team.
+  const principal =
+    authInfo?.extra.authKind === "oauth"
+      ? (authInfo.extra.accountId ?? "unknown")
+      : (authInfo?.extra.teamId ?? "unknown");
+  return `${authKind}:${client}:${principal}`;
 }
 
 const mcpPrincipalLimiter = rateLimit({
@@ -134,21 +133,11 @@ const nodeMcpHandler = toNodeHandler(mcpHandler, {
   },
 });
 
-function requireMcpTeam(req: Request, res: Response, next: NextFunction) {
-  const tool = String(req.headers["mcp-name"] || "");
-  if (tool && isAccountOnlyMcpTool(tool)) {
-    next();
-    return;
-  }
-  void requireTeam(req, res, next);
-}
-
 router.post(
   "/mcp",
   mcpCors,
   mcpIpLimiter,
   mcpAuth,
-  requireMcpTeam,
   attachMcpAuthInfo,
   mcpPrincipalLimiter,
   observeMcpRequest,

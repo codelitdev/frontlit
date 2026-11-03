@@ -20,22 +20,7 @@ vi.mock("./resolve-auth", async (importOriginal) => {
       if (audiences.length > 0 && !audiences.includes("http://localhost:4000")) {
         return { status: "invalid_token" as const };
       }
-      const { getTeamMembership } = await import("../team/queries.js");
-      const claimed = result.claimedTeamId;
-      if (!claimed) {
-        return { ...result, oauthTeamInvalid: true, teamId: undefined };
-      }
-      const membership = await getTeamMembership(claimed, result.accountId);
-      const issuedAt = result.oauthIssuedAt;
-      const generationOk = Boolean(
-        issuedAt &&
-          membership?.createdAt &&
-          issuedAt.getTime() >= membership.createdAt.getTime(),
-      );
-      if (!membership || !generationOk) {
-        return { ...result, oauthTeamInvalid: true, teamId: undefined };
-      }
-      return { ...result, teamId: claimed, oauthTeamInvalid: false };
+      return result;
     },
   };
 });
@@ -282,56 +267,104 @@ describe("authorization integration", () => {
         role: "member",
         permissions: [...GRANTABLE_NON_OWNER_PERMISSIONS],
       });
-      const crossTeamMutation = await fetch(
+      // One account-wide token works in every team the user belongs to,
+      // limited to the user's permissions in each.
+      const readerToken = {
+        kind: "oauth" as const,
+        accountId: reader.id,
+        email: reader.email,
+        scopes: ["teams:write", "pages:read"],
+        audiences: ["http://localhost:4000"],
+      };
+      const renameOther = await fetch(
         `${listening.origin}/teams/${other.team.teamId}`,
         {
           method: "PATCH",
-          headers: authHeaders({
-            kind: "oauth",
-            accountId: reader.id,
-            email: reader.email,
-            teamId: team.id,
-            claimedTeamId: team.id,
-            scopes: ["teams:write"],
-            audiences: ["http://localhost:4000"],
-          }),
+          headers: authHeaders(readerToken),
+          body: JSON.stringify({ name: "Renamed by member" }),
+        },
+      );
+      expect(renameOther.status).toBe(200);
+      const renameOwn = await fetch(`${listening.origin}/teams/${team.teamId}`, {
+        method: "PATCH",
+        headers: authHeaders(readerToken),
+        body: JSON.stringify({ name: "Not allowed" }),
+      });
+      expect(renameOwn.status).toBe(403);
+      expect(
+        await db.query.teams.findFirst({ where: eq(teams.id, team.id) }),
+      ).not.toMatchObject({ name: "Not allowed" });
+
+      const stranger = await seedTeam(db, { name: "Stranger" });
+      const crossTeamMutation = await fetch(
+        `${listening.origin}/teams/${stranger.team.teamId}`,
+        {
+          method: "PATCH",
+          headers: authHeaders(readerToken),
           body: JSON.stringify({ name: "Cross-team rename" }),
         },
       );
-      expect(crossTeamMutation.status).toBe(403);
+      expect(crossTeamMutation.status).toBe(404);
       expect(
         await db.query.teams.findFirst({
-          where: eq(teams.id, other.team.id),
+          where: eq(teams.id, stranger.team.id),
         }),
-      ).toMatchObject({ name: "Other" });
+      ).toMatchObject({ name: "Stranger" });
+
+      const ambiguous = await fetch(`${listening.origin}/pages`, {
+        headers: authHeaders(readerToken),
+      });
+      expect(ambiguous.status).toBe(409);
+      const ambiguousBody = (await ambiguous.json()) as {
+        error: string;
+        teams: Array<{ teamId: string }>;
+      };
+      expect(ambiguousBody.error).toBe("team_required");
+      expect(ambiguousBody.teams.map((t) => t.teamId).sort()).toEqual(
+        [team.teamId, other.team.teamId].sort(),
+      );
+
+      const notMember = await fetch(`${listening.origin}/pages`, {
+        headers: authHeaders(readerToken, stranger.team.teamId),
+      });
+      expect(notMember.status).toBe(403);
+      await expect(notMember.json()).resolves.toMatchObject({
+        error: "not_a_team_member",
+      });
+
       await db
         .delete(teamMembers)
         .where(
           and(eq(teamMembers.teamId, team.id), eq(teamMembers.accountId, reader.id)),
         );
-      const fallback = await fetch(`${listening.origin}/pages`, {
+      const removed = await fetch(`${listening.origin}/pages`, {
+        headers: authHeaders(readerToken, team.teamId),
+      });
+      expect(removed.status).toBe(403);
+      await expect(removed.json()).resolves.toMatchObject({
+        error: "not_a_team_member",
+      });
+      const stillMember = await fetch(`${listening.origin}/pages`, {
+        headers: authHeaders(readerToken, other.team.teamId),
+      });
+      expect(stillMember.status).toBe(200);
+
+      const keyMismatch = await fetch(`${listening.origin}/pages`, {
         headers: authHeaders(
-          {
-            kind: "oauth",
-            accountId: reader.id,
-            email: reader.email,
-            claimedTeamId: team.id,
-            scopes: ["pages:read"],
-            audiences: ["http://localhost:4000"],
-          },
+          { kind: "apikey", teamId: team.id, apiKeyId: "key-1" },
           other.team.teamId,
         ),
       });
-      expect(fallback.status).toBe(403);
-      await expect(fallback.json()).resolves.toMatchObject({
-        error: "not_a_team_member",
+      expect(keyMismatch.status).toBe(403);
+      await expect(keyMismatch.json()).resolves.toMatchObject({
+        error: "team_mismatch",
       });
     } finally {
       await listening.close();
     }
   });
 
-  it("revokes access on the next request after permission or membership removal", async () => {
+  it("enforces permission and membership changes on the next request", async () => {
     const { account: owner, team } = await seedTeam(db);
     const member = await seedMember(team.id, ["pages:read", "pages:write"]);
     const listening = await listenApp();
@@ -403,38 +436,43 @@ describe("authorization integration", () => {
           }),
         },
       );
+      // Removal revokes no tokens; the live membership check denies the
+      // next call.
+      const memberToken = {
+        kind: "oauth" as const,
+        accountId: member.id,
+        email: member.email,
+        scopes: ["pages:read"],
+        audiences: ["http://localhost:4000"],
+      };
       const afterRemove = await fetch(`${listening.origin}/pages`, {
-        headers: authHeaders({
-          kind: "oauth",
-          accountId: member.id,
-          email: member.email,
-          teamId: team.id,
-          oauthTeamInvalid: true,
-          claimedTeamId: team.id,
-          scopes: ["pages:read"],
-          audiences: ["http://localhost:4000"],
-        }),
+        headers: authHeaders(memberToken, team.teamId),
       });
       expect(afterRemove.status).toBe(403);
+      await expect(afterRemove.json()).resolves.toMatchObject({
+        error: "not_a_team_member",
+      });
+      const noTeams = await fetch(`${listening.origin}/pages`, {
+        headers: authHeaders(memberToken),
+      });
+      expect(noTeams.status).toBe(409);
+      await expect(noTeams.json()).resolves.toMatchObject({ error: "no_team" });
 
+      // Tokens follow membership: a team joined (or re-joined) after the
+      // token was issued is reachable without reconnecting.
       await db.insert(teamMembers).values({
         teamId: team.id,
         accountId: member.id,
         role: "member",
         permissions: ["pages:read"],
       });
-      const staleGen = await fetch(`${listening.origin}/pages`, {
+      const rejoined = await fetch(`${listening.origin}/pages`, {
         headers: authHeaders({
-          kind: "oauth",
-          accountId: member.id,
-          email: member.email,
-          claimedTeamId: team.id,
-          scopes: ["pages:read"],
-          audiences: ["http://localhost:4000"],
+          ...memberToken,
           oauthIssuedAt: new Date(Date.now() - 60_000),
         }),
       });
-      expect(staleGen.status).toBe(403);
+      expect(rejoined.status).toBe(200);
     } finally {
       await listening.close();
     }

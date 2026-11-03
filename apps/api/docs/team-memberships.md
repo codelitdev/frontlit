@@ -33,8 +33,9 @@ FrontLit is already multi-tenant:
 - `accounts` represent FrontLit identities;
 - `teams` are the tenant and website boundary;
 - `team_members` links an account to a team;
-- browser requests select a team with `X-Frontlit-Team-Id`;
-- OAuth authorization binds a selected team into the token family; and
+- browser requests and OAuth requests select a team with
+  `X-Frontlit-Team-Id` (MCP: a `teamId` tool argument); OAuth tokens are
+  account-wide (see `account-wide-oauth.md`); and
 - API keys are pinned to one team.
 
 `team_members.role` remains as a transitional compatibility column with the
@@ -173,18 +174,13 @@ resource server loads the current membership on each request, so a removed
 permission or membership immediately prevents the corresponding OAuth action
 even if the token still contains a matching scope.
 
-Removing a membership also revokes the account's refresh-token/consent families
-bound to that team. If the same account joins again later, the new membership
-is a new authorization generation: access tokens issued before that membership
-was created are rejected. An old OAuth grant must never become valid again
-merely because the email/account was re-invited. This may be enforced with the
-verified token issuance time plus membership creation time, or an equivalent
-immutable membership-generation claim.
-
-An OAuth token carrying a team claim is permanently bound to that team for its
-lifetime. If the claim is missing, invalid, or no longer names a team the
-account belongs to, a team-scoped request fails. It must never fall back to the
-selected-team header, the account's sole remaining team, or another membership.
+OAuth tokens are account-wide and carry no team. Removing a membership revokes
+no tokens: the live membership check on every request is what denies the
+removed team, while the token keeps working in the account's other teams.
+Access follows membership, so if the same account joins the team again, its
+existing tokens work there again. Each request names its team explicitly
+(header, path, or MCP `teamId`); without one, only a sole membership is used
+implicitly.
 
 ### 7.4 Authorization is server-side and fail-closed
 

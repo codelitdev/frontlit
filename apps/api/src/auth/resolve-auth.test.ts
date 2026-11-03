@@ -11,7 +11,6 @@ vi.mock("../account/queries", () => ({
   ensureFrontLitAccountForUser: vi.fn(),
 }));
 vi.mock("../apikey/queries", () => ({ getApiKeyBySecret: vi.fn() }));
-vi.mock("../team/queries", () => ({ getTeamMembership: vi.fn() }));
 vi.mock("./better-auth", () => ({
   auth: { api: { getSession: vi.fn(async () => null) } },
   authIssuer: "https://frontlit.test/api/auth",
@@ -69,7 +68,6 @@ function dependencies(overrides: Partial<AuthDependencies> = {}): AuthDependenci
     authenticateBearer: vi.fn(async () => null),
     ensureAccountForBetterAuthUserId: vi.fn(async () => account),
     ensureAccountForUser: vi.fn(async () => account),
-    getTeamMembership: vi.fn(async () => null),
     ...overrides,
   };
 }
@@ -145,57 +143,36 @@ describe("FrontLit auth composition", () => {
     expect(deps.resolveSession).not.toHaveBeenCalled();
   });
 
-  it("maps neutral OAuth identity and retains a team claim only with live membership", async () => {
+  it("maps OAuth identity to an account-wide principal with no team", async () => {
     const deps = dependencies({
       authenticateBearer: vi.fn(async () => ({
         identity: oauthIdentity,
-        teamId: "team-internal-1",
         issuedAt: new Date("2026-01-02T00:00:00.000Z"),
       })),
-      getTeamMembership: vi.fn(async () => ({
-        role: "owner",
-        createdAt: new Date("2026-01-01T00:00:00.000Z"),
-      })),
     });
-    await expect(
-      resolveAuth({ authorization: "Bearer valid" }, deps),
-    ).resolves.toMatchObject({
+    const result = await resolveAuth({ authorization: "Bearer valid" }, deps);
+    expect(result).toMatchObject({
       status: "authenticated",
       kind: "oauth",
       accountId: "account-1",
       oauthToken: "valid",
-      teamId: "team-internal-1",
       scopes: ["pages:read", "themes:write"],
     });
-
-    vi.mocked(deps.getTeamMembership).mockResolvedValueOnce(null);
-    const revoked = await resolveAuth({ authorization: ["Bearer valid"] }, deps);
-    expect(revoked).toMatchObject({
-      status: "authenticated",
-      kind: "oauth",
-    });
-    expect(revoked).toHaveProperty("teamId", undefined);
-    expect(revoked).toHaveProperty("oauthTeamInvalid", true);
+    expect(result).not.toHaveProperty("teamId");
   });
 
-  it("fails closed for a team-bound token without membership generation evidence", async () => {
-    const deps = dependencies({
-      authenticateBearer: vi.fn(async () => ({
-        identity: oauthIdentity,
-        teamId: "team-internal-1",
-      })),
-      getTeamMembership: vi.fn(async () => ({
-        createdAt: new Date("2026-01-01T00:00:00.000Z"),
-      })),
+  it("ignores a legacy team_id claim so old tokens become account-wide", async () => {
+    mocks.verifyBearerToken.mockResolvedValueOnce({
+      sub: "auth-user-1",
+      azp: "mcp-client",
+      aud: "https://frontlit.test/mcp",
+      scope: "pages:read",
+      team_id: "team-internal-1",
     });
-    await expect(
-      resolveAuth({ authorization: "Bearer missing-iat" }, deps),
-    ).resolves.toMatchObject({
-      status: "authenticated",
-      kind: "oauth",
-      teamId: undefined,
-      oauthTeamInvalid: true,
-    });
+    mocks.ensureAccountForBetterAuthUserId.mockResolvedValueOnce(account);
+    const result = await resolveAuth({ authorization: "Bearer legacy" });
+    expect(result).toMatchObject({ status: "authenticated", kind: "oauth" });
+    expect(result).not.toHaveProperty("teamId");
   });
 
   it("rejects OAuth subjects that cannot map to a FrontLit account", async () => {
