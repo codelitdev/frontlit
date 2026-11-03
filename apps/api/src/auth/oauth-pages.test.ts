@@ -6,6 +6,10 @@ vi.mock("./better-auth", () => ({
   webClientUrl: "http://localhost:3000",
   authBasePath: "/api/auth",
   hostedLoginMethods: [{ type: "email-otp" }],
+  hostedLoginCaptcha: {
+    provider: "cloudflare-turnstile",
+    siteKey: "0x4AAAAAAAtest",
+  },
 }));
 vi.mock("better-auth/node", () => ({
   fromNodeHeaders: (headers: unknown) => headers,
@@ -62,6 +66,17 @@ describe("FrontLit OAuth pages", () => {
     expect(response.body).not.toContain("Continue with Google");
     expect(response.headers.get("x-frame-options")).toBe("DENY");
   });
+
+  it.each(["/login", "/oauth/login"])(
+    "renders the Turnstile widget on %s when it is configured",
+    async (path) => {
+      const response = await request(path);
+      expect(response.body).toContain(
+        'class="cf-turnstile" data-sitekey="0x4AAAAAAAtest"',
+      );
+      expect(response.body).toContain("var captcha=true");
+    },
+  );
 
   it("brands the hosted login with the FrontLit logo, favicon, and color", async () => {
     const response = await request("/login?redirect=http://localhost:3000/pages/foo");

@@ -180,7 +180,6 @@ describe("resolveAuth sessionAuthenticatedAt on the production path", () => {
           createdAt,
           updatedAt: createdAt,
         }),
-        getTeamMembership: async () => null,
         getSessionAuthenticatedAt,
       },
     );

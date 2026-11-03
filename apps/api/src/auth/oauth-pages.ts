@@ -1,6 +1,11 @@
 import { Router } from "express";
 import { createOAuthPagesRouter } from "@codelitdev/oauth-server-kit/express";
-import { authBasePath, hostedLoginMethods, webClientUrl } from "./better-auth";
+import {
+  authBasePath,
+  hostedLoginCaptcha,
+  hostedLoginMethods,
+  webClientUrl,
+} from "./better-auth";
 
 const router = Router();
 
@@ -14,6 +19,7 @@ router.use(
     faviconUrl: new URL("/icon.svg", webClientUrl).toString(),
     primaryColor: "oklch(0.47 0.14 230)",
     loginMethods: hostedLoginMethods,
+    captcha: hostedLoginCaptcha,
     legacyHostOnlySessionCookieNames: process.env.AUTH_COOKIE_DOMAIN
       ? [
           "__Secure-better-auth.session_token",

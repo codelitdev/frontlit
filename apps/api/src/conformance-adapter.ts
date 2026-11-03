@@ -178,7 +178,7 @@ export function createFrontLitConformanceAdapter(
       }
       return {
         status: 200,
-        body: { result: { content: [{ json: { items: [] } }] } },
+        body: { result: { structuredContent: { items: [] } } },
       };
     },
     async readAuditEvents() {
