@@ -1,6 +1,7 @@
 import type React from "react";
 import type { ThemeStyle } from "../models";
 import { Header4 } from "./header4";
+import type { HeadingTag } from "./heading";
 import { cn } from "./lib/utils";
 
 export interface PageCardProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -27,6 +28,8 @@ export interface PageCardHeaderProps extends React.HTMLAttributes<HTMLDivElement
   children: React.ReactNode;
   className?: string;
   theme?: ThemeStyle;
+  /** Element for the header text; defaults to `h4`. */
+  as?: HeadingTag;
 }
 
 export const PageCard: React.FC<PageCardProps> = ({
@@ -102,6 +105,7 @@ export const PageCardHeader: React.FC<PageCardHeaderProps> = ({
   children,
   className = "",
   theme,
+  as,
   ...props
 }) => {
   const classes = cn(
@@ -112,7 +116,9 @@ export const PageCardHeader: React.FC<PageCardHeaderProps> = ({
 
   return (
     <div className={classes} {...props}>
-      <Header4 theme={theme}>{children}</Header4>
+      <Header4 theme={theme} as={as}>
+        {children}
+      </Header4>
     </div>
   );
 };

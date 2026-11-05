@@ -54,6 +54,7 @@ export async function generateMetadata(
     alternates: { canonical: url },
     openGraph: {
       url,
+      type: "website",
       title: seo.title,
       description: seo.description ?? undefined,
       images: seo.imageUrl ? [{ url: seo.imageUrl }] : undefined,
@@ -89,8 +90,9 @@ export default async function SitePage({ params }: Props) {
           dangerouslySetInnerHTML={{
             __html: serializeJsonLd(
               organizationAndWebsiteJsonLd({
-                siteName: page.name,
-                logoUrl: null,
+                siteName: settings?.title || page.title || "Website",
+                description: settings?.subtitle || page.description || null,
+                logoUrl: (settings?.logo?.url as string | undefined) ?? null,
                 canonicalHost,
               }),
             ),

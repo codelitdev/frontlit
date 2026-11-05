@@ -90,7 +90,7 @@ export function PricingWidget({
               <Preheader theme={overriddenTheme}>{tier.name}</Preheader>
               {tier.highlighted && <Badge theme={overriddenTheme}>Most popular</Badge>}
             </div>
-            <PageCardHeader theme={overriddenTheme}>
+            <PageCardHeader theme={overriddenTheme} as="p">
               {pricingSwitcher ? (
                 <>
                   <span className={monthlyOnly}>{tier.price}</span>

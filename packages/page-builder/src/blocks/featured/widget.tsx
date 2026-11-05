@@ -4,7 +4,7 @@ import * as Icons from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ThemeStyle, WidgetProps } from "../../models";
 import type { FeaturedSettings } from "./settings";
-import { renderTitle, titleProps } from "../_shared/title";
+import { itemHeadingLevel, renderTitle, titleProps } from "../_shared/title";
 import { TextRenderer } from "../../components/text-renderer";
 import {
   Header1,
@@ -48,6 +48,7 @@ export function FeaturedWidget({
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
   overriddenTheme.structure.section.padding.y =
     verticalPadding || theme.theme.structure.section.padding.y;
+  const itemLevel = itemHeadingLevel(titleLevel);
 
   return (
     <Section theme={overriddenTheme} id={cssId} background={background}>
@@ -74,7 +75,9 @@ export function FeaturedWidget({
                 <span className="text-3xl font-bold text-primary/30">
                   {String(index + 1).padStart(2, "0")}
                 </span>
-                <Header4 theme={overriddenTheme}>{item.title}</Header4>
+                <Header4 theme={overriddenTheme} as={itemLevel}>
+                  {item.title}
+                </Header4>
                 {item.description && (
                   <Text2 theme={overriddenTheme}>{item.description}</Text2>
                 )}
@@ -119,7 +122,9 @@ export function FeaturedWidget({
                         layout === "compact" && "items-center gap-1",
                       )}
                     >
-                      <Header4 theme={overriddenTheme}>{item.title}</Header4>
+                      <Header4 theme={overriddenTheme} as={itemLevel}>
+                        {item.title}
+                      </Header4>
                       {item.description && layout !== "compact" && (
                         <Text2 theme={overriddenTheme}>{item.description}</Text2>
                       )}

@@ -6,6 +6,7 @@
 
 export function organizationAndWebsiteJsonLd(input: {
   siteName: string;
+  description: string | null;
   logoUrl: string | null;
   canonicalHost: string;
 }) {
@@ -16,6 +17,7 @@ export function organizationAndWebsiteJsonLd(input: {
       "@type": "Organization",
       name: input.siteName,
       url,
+      ...(input.description ? { description: input.description } : {}),
       ...(input.logoUrl ? { logo: input.logoUrl } : {}),
     },
     {
@@ -23,6 +25,7 @@ export function organizationAndWebsiteJsonLd(input: {
       "@type": "WebSite",
       name: input.siteName,
       url,
+      ...(input.description ? { description: input.description } : {}),
     },
   ];
 }
