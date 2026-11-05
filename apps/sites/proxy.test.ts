@@ -62,6 +62,57 @@ describe("proxy middleware", () => {
     );
   });
 
+  describe("markdown for agents", () => {
+    const resolve = (host: string) =>
+      (
+        api.resolveHost as unknown as {
+          mockResolvedValueOnce: (val: unknown) => void;
+        }
+      ).mockResolvedValueOnce({
+        teamId: "team_md",
+        canonicalHost: host,
+        redirect: false,
+        hideFromSearch: false,
+      });
+    const rewrite = (response: Response) =>
+      new URL(response.headers.get("x-middleware-rewrite")!);
+
+    it("rewrites Accept: text/markdown to the Markdown route and varies on Accept", async () => {
+      resolve("md1.localhost");
+      const response = await proxy(
+        new NextRequest("http://md1.localhost/docs/intro", {
+          headers: { host: "md1.localhost", accept: "text/markdown" },
+        }),
+      );
+      expect(rewrite(response).pathname).toBe(
+        "/sites/team_md/agent-markdown/docs/intro",
+      );
+      expect(response.headers.get("vary")).toBe("Accept");
+    });
+
+    it("keeps browsers on HTML", async () => {
+      resolve("md2.localhost");
+      const response = await proxy(
+        new NextRequest("http://md2.localhost/docs/intro", {
+          headers: { host: "md2.localhost", accept: "text/html,*/*;q=0.8" },
+        }),
+      );
+      expect(rewrite(response).pathname).toBe("/sites/team_md/docs/intro");
+    });
+
+    it("serves <path>.md as Markdown", async () => {
+      resolve("md3.localhost");
+      const response = await proxy(
+        new NextRequest("http://md3.localhost/index.md", {
+          headers: { host: "md3.localhost" },
+        }),
+      );
+      expect(rewrite(response).pathname).toBe("/sites/team_md/agent-markdown");
+      expect(rewrite(response).searchParams.get("md")).toBe("url");
+      expect(response.headers.get("vary")).toBeNull();
+    });
+  });
+
   it("301-redirects a non-canonical host to the canonical host over the forwarded scheme", async () => {
     const mockResolveHost = api.resolveHost as unknown as {
       mockResolvedValueOnce: (val: unknown) => void;

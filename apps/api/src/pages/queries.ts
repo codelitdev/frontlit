@@ -377,6 +377,7 @@ export async function listPublishedPages(teamId: string) {
   const release = await getActiveRelease(teamId);
   return (release?.pages ?? []).map((entry) => ({
     slug: entry.slug,
+    title: entry.revision.content.title || entry.name,
     robotsAllowed: entry.revision.content.robotsAllowed !== false,
     // A revision is created when its content first appears, so this only
     // moves when the page itself changes.

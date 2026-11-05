@@ -559,6 +559,9 @@ export async function createPagesRelease(
             ? { theme: manifest.site.theme as unknown as Record<string, unknown> }
             : {}),
           ...(manifest.site.redirects ? { redirects: manifest.site.redirects } : {}),
+          ...(manifest.site.agentInstructions
+            ? { agentInstructions: manifest.site.agentInstructions }
+            : {}),
         }
       : { header: liveSite.header, footer: liveSite.footer };
 

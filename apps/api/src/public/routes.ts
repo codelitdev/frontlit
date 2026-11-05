@@ -343,6 +343,7 @@ const impl = s.router(contract.public, {
           codeInjectionHead,
           codeInjectionBody,
           redirects: release?.site.redirects ?? [],
+          agentInstructions: release?.site.agentInstructions ?? null,
           canonicalHost: domains?.canonicalHost ?? null,
           hideFromSearch: domains?.hideFromSearch ?? false,
         },
@@ -418,6 +419,7 @@ const impl = s.router(contract.public, {
       const items: {
         kind: "page" | "blog" | "doc" | "changelog";
         path: string;
+        title: string | null;
         lastmod: string | null;
       }[] = [
         ...pagesList
@@ -425,27 +427,36 @@ const impl = s.router(contract.public, {
           .map((p) => ({
             kind: "page" as const,
             path: `/${p.slug}`,
+            title: p.title,
             lastmod: (p.updatedAt ?? p.publishedAt)?.toISOString() ?? null,
           })),
         ...blogs.map((d) => ({
           kind: "blog" as const,
           path: `/blog/${d.slug}`,
+          title: d.title,
           lastmod: (d.updatedAt ?? d.publishedAt)?.toISOString() ?? null,
         })),
         ...docs.map((d) => ({
           kind: "doc" as const,
           path: `/docs/${d.slug}`,
+          title: d.title,
           lastmod: (d.updatedAt ?? d.publishedAt)?.toISOString() ?? null,
         })),
       ];
       const apiReference = await readApiReference(team.id);
       if (apiReference)
         items.push(
-          { kind: "doc", path: `/docs/${apiReference.mount}`, lastmod: null },
+          {
+            kind: "doc",
+            path: `/docs/${apiReference.mount}`,
+            title: apiReference.info.title,
+            lastmod: null,
+          },
           ...apiReference.groups.flatMap((group) =>
             group.operations.map((operation) => ({
               kind: "doc" as const,
               path: `/docs/${operation.route}`,
+              title: operation.title,
               lastmod: null,
             })),
           ),
@@ -461,6 +472,7 @@ const impl = s.router(contract.public, {
         items.push({
           kind: "changelog" as const,
           path: "/changelog",
+          title: "Changelog",
           lastmod: lastmod?.toISOString() ?? null,
         });
       }

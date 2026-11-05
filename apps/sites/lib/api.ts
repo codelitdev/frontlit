@@ -94,6 +94,8 @@ export interface PublicSettings {
   codeInjectionHead: string | null;
   codeInjectionBody: string | null;
   redirects?: { from: string; to: string; permanent?: boolean }[];
+  /** site.json's Markdown for AI agents, shown in `/llms.txt`. */
+  agentInstructions?: string | null;
   /** Host links, canonical URLs and feeds point at. */
   canonicalHost: string | null;
   /** Pre-launch: noindex everywhere, robots disallow all. */
@@ -187,6 +189,7 @@ export function getPreviewPage(
 export interface SitemapEntry {
   kind: "page" | "blog" | "doc" | "changelog";
   path: string;
+  title?: string | null;
   lastmod: string | null;
 }
 

@@ -10,4 +10,5 @@ export {
   type BlockName,
 } from "./blocks";
 export { exportKinds, fileKinds, fileMediaSchema, type FieldKinds } from "./fields";
+export { layoutToMarkdown } from "./markdown";
 export { themeStyleSchema } from "./theme-style";
