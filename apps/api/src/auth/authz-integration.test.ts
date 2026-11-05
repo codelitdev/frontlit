@@ -185,7 +185,6 @@ describe("authorization integration", () => {
             kind: "oauth",
             accountId: owner.id,
             email: owner.email,
-            claimedTeamId: team.id,
             scopes: ["teams:write"],
             audiences: ["http://localhost:4000"],
           }),

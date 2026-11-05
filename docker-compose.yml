@@ -141,6 +141,8 @@ services:
             MAIL_DOMAIN: ${MAIL_DOMAIN:-}
             GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
             GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+            TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+            TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
         depends_on:
             postgres:
                 condition: service_healthy

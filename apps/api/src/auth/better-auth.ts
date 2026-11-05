@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { captcha } from "better-auth/plugins";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { jwt } from "better-auth/plugins/jwt";
 import { oauthProvider } from "@better-auth/oauth-provider";
@@ -16,6 +17,12 @@ import { ensureFrontLitAccountForUser } from "../account/queries";
 import { MCP_SCOPES_SUPPORTED } from "../mcp/policy";
 import { fetchClientMetadataResource } from "./cimd-fetch";
 import { AUTH_COOKIE_PREFIX } from "./cookie-prefix";
+import {
+  CAPTCHA_PROTECTED_ENDPOINTS,
+  TURNSTILE_TESTING_SECRET,
+  loginCaptchaConfig,
+  toHostedLoginCaptcha,
+} from "./login-captcha";
 
 export const webClientUrl = process.env.WEB_CLIENT || "http://localhost:3000";
 const apiUrl = process.env.API_PUBLIC_URL || process.env.BETTER_AUTH_URL;
@@ -64,6 +71,9 @@ export const mcpProtectedResourceMetadataUrl = `${authBaseUrl}/.well-known/oauth
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+const loginCaptcha = loginCaptchaConfig();
+export const hostedLoginCaptcha = toHostedLoginCaptcha(loginCaptcha);
 
 async function sendOtpEmail(email: string, otp: string) {
   try {
@@ -218,6 +228,20 @@ export const auth = betterAuth({
         max: 3,
       },
     }),
+    ...(loginCaptcha
+      ? [
+          captcha({
+            provider: "cloudflare-turnstile",
+            secretKey: loginCaptcha.secretKey,
+            endpoints: CAPTCHA_PROTECTED_ENDPOINTS,
+            // The widget only renders on the API's login page. Cloudflare's
+            // testing secrets always report example.com, so they skip this.
+            ...(TURNSTILE_TESTING_SECRET.test(loginCaptcha.secretKey)
+              ? {}
+              : { allowedHostnames: [new URL(authBaseUrl).hostname] }),
+          }),
+        ]
+      : []),
     jwt(),
     oauthProvider({
       ...createOAuthProviderOptions({
