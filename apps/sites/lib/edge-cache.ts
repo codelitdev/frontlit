@@ -41,6 +41,9 @@ export function edgeTags(teamId: string, pathname: string): string[] {
     if (path === "/changelog") tags.push(`page:${teamId}:changelog`);
   } else if (path === "/sitemap.xml") {
     tags.push(`sitemap:${teamId}`);
+  } else if (path === "/llms.txt") {
+    // Lists everything in the sitemap, plus the API reference.
+    tags.push(`sitemap:${teamId}`, `docs:${teamId}`);
   } else if (
     !["robots.txt", "favicon.ico", "opengraph-image", "embed"].includes(first)
   ) {
@@ -70,9 +73,14 @@ export function edgeCacheHeaders(
   mode: EdgeCacheMode = edgeCacheMode(),
   ttl = Number(process.env.EDGE_CACHE_TTL) || 60,
   rsc = { rscHeader: false, rscParam: false },
+  /** Markdown chosen by `Accept`, at a URL that also serves HTML. Never
+   * stored, so a cache that ignores `Vary: Accept` can't hand Markdown to
+   * browsers. Agents can cache the `.md` URL instead. */
+  markdownByAccept = false,
 ): Record<string, string> | null {
   if (isPrivatePath(pathname)) return { "Cache-Control": "private, no-store" };
   if (isMixedRscRequest(rsc)) return { "Cache-Control": "private, no-store" };
+  if (markdownByAccept) return { "Cache-Control": "private, no-store" };
   if (mode === "none") return null;
   const maxAge = mode === "ttl" ? ttl : 31_536_000;
   const headers: Record<string, string> = {

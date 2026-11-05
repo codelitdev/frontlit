@@ -97,4 +97,20 @@ describe("edgeCacheHeaders", () => {
       ).not.toEqual(privateOnly);
     }
   });
+
+  it("never stores Markdown chosen by Accept", () => {
+    for (const mode of ["none", "ttl", "purge"] as const)
+      expect(edgeCacheHeaders("team_a", "/docs/x", mode, 60, undefined, true)).toEqual({
+        "Cache-Control": "private, no-store",
+      });
+  });
+
+  it("tags llms.txt with the sitemap and docs", () => {
+    expect(edgeTags("team_a", "/llms.txt")).toEqual([
+      "team:team_a",
+      "shell:team_a",
+      "sitemap:team_a",
+      "docs:team_a",
+    ]);
+  });
 });

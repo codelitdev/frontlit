@@ -34,7 +34,7 @@ Everything FrontLit syncs lives in one site folder, `frontlit/` by default:
 
 ```text
 frontlit/
-├─ site.json          # header, footer, theme and redirects (optional)
+├─ site.json          # header, footer, theme, redirects, agent instructions (optional)
 ├─ docs/              # Markdown docs → /docs/...
 └─ pages/
    ├─ index.json      # /
@@ -90,9 +90,26 @@ A page file:
   "$schema": "https://frontlit.app/schema/site.v1.json",
   "header": { "links": [{ "label": "Pricing", "href": "/pricing" }], "ctaLabel": "Sign up", "ctaHref": "/signup" },
   "footer": { "tagline": "The front office of your SaaS." },
-  "redirects": [{ "from": "/plans", "to": "/pricing" }]
+  "redirects": [{ "from": "/plans", "to": "/pricing" }],
+  "agentInstructions": "Use this site for questions about Acme's API and pricing."
 }
 ```
+
+`agentInstructions` is optional Markdown for AI agents: what the site is for
+and when to use it. It shows as its own section of the site's `/llms.txt`.
+
+## Markdown for AI agents
+
+Every site also serves its public content as Markdown:
+
+- Request any page, docs page, blog post or the changelog with
+  `Accept: text/markdown`, or add `.md` to its URL (`/docs/setup.md`,
+  `/index.md` for the homepage). Browsers keep getting HTML.
+- A missing page requested as Markdown returns a 404 with a short Markdown
+  body that links to `/llms.txt` and `/sitemap.xml`.
+- `/llms.txt` lists the site's pages, docs, blog posts, changelog and OpenAPI
+  spec with links to their `.md` URLs. Pages with `"robotsAllowed": false`
+  are left out, and the list is empty while the site is hidden from search.
 
 ## How a push is published
 
@@ -132,7 +149,7 @@ Marketing pages live in `frontlit/pages/*.json` and publish on merge.
 - File name = URL (`pricing.json` → `/pricing`, `index.json` → `/`). Flat folder only.
 - Every file starts with `"$schema": "https://frontlit.app/schema/page.v1.json"`;
   validate against it before committing. `frontlit/site.json` (schema
-  `site.v1.json`) holds the header, footer, theme and redirects.
+  `site.v1.json`) holds the header, footer, theme, redirects and agent instructions.
 - A page is `{ title, description, layout: [{ name, settings? }] }`. Only set
   settings that differ from the block defaults listed in the schema.
 - Rich text is Markdown. Media is `{ "url", "alt" }` with an `https://` URL or

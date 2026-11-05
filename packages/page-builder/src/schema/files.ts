@@ -73,6 +73,9 @@ export interface SiteDocument {
   header?: Record<string, unknown>;
   footer?: Record<string, unknown>;
   redirects?: Redirect[];
+  /** Markdown for AI agents: what the site is for and when to use it.
+   * Served as its own section of `/llms.txt`. */
+  agentInstructions?: string;
 }
 
 const fileSettings = blockSettingsSchemas(fileKinds);
@@ -363,6 +366,13 @@ export const siteFileSchema = z
       .optional()
       .describe("Site footer, shown on every page."),
     redirects: z.array(redirectSchema).optional(),
+    agentInstructions: z
+      .string()
+      .max(10_000)
+      .optional()
+      .describe(
+        "Markdown for AI agents: what this site is for and when to use it. Shown in /llms.txt.",
+      ),
   })
   .strict();
 
@@ -371,12 +381,13 @@ export function parseSiteFile(source: string | unknown): SiteDocument {
   const result = siteFileSchema.safeParse(parseJson(source));
   if (!result.success)
     throw new SchemaValidationError(issuesToDiagnostics(result.error));
-  const { theme, header, footer, redirects } = result.data;
+  const { theme, header, footer, redirects, agentInstructions } = result.data;
   const site: SiteDocument = {};
   if (theme) site.theme = theme as ThemeStyle;
   if (header) site.header = canonicalizeSettings("header", header, ["header"]);
   if (footer) site.footer = canonicalizeSettings("footer", footer, ["footer"]);
   if (redirects) site.redirects = redirects as Redirect[];
+  if (agentInstructions?.trim()) site.agentInstructions = agentInstructions.trim();
   return site;
 }
 
@@ -409,6 +420,7 @@ export function serializeSiteFile(site: SiteDocument): string {
     header: header && Object.keys(header).length ? header : undefined,
     footer: footer && Object.keys(footer).length ? footer : undefined,
     redirects,
+    agentInstructions: site.agentInstructions || undefined,
   };
   return `${JSON.stringify(file, null, 2)}\n`;
 }

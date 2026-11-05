@@ -207,17 +207,19 @@ describe("site files", () => {
     }
   });
 
-  it("round-trips theme, chrome and redirects", () => {
+  it("round-trips theme, chrome, redirects and agent instructions", () => {
     const text = serializeSiteFile({
       theme: themes[0].theme,
       header: { ...blockDefaults.header, ctaLabel: "Sign up" },
       footer: blockDefaults.footer,
       redirects: [{ from: "/old", to: "/new", permanent: true }],
+      agentInstructions: "Use for questions about Acme.",
     });
     const parsed = JSON.parse(text);
     expect(parsed.header).toEqual({ ctaLabel: "Sign up" });
     expect(parsed.footer).toBeUndefined();
     expect(parsed.redirects).toEqual([{ from: "/old", to: "/new" }]);
+    expect(parsed.agentInstructions).toBe("Use for questions about Acme.");
     expect(serializeSiteFile(parseSiteFile(text))).toBe(text);
   });
 

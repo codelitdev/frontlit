@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveHost } from "./lib/api";
 import { decideHost, lookupHost, normalizeHost } from "./lib/host";
 import { edgeCacheHeaders } from "./lib/edge-cache";
+import {
+  isNegotiablePath,
+  MARKDOWN_ROUTE,
+  markdownSourcePath,
+  prefersMarkdown,
+} from "./lib/markdown-negotiation";
 
 export async function proxy(request: NextRequest) {
   // Direct access to the internal /sites rewrite segment is never allowed.
@@ -69,6 +75,34 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  // Markdown for AI agents: `<path>.md`, or `Accept: text/markdown` on a
+  // page URL (which then varies on Accept).
+  const pathname = request.nextUrl.pathname;
+  const negotiable = isNegotiablePath(pathname);
+  const mdPath = markdownSourcePath(pathname);
+  const markdownByAccept = negotiable && prefersMarkdown(request.headers.get("accept"));
+  if (mdPath !== null || markdownByAccept) {
+    const url = request.nextUrl.clone();
+    const source = mdPath ?? pathname;
+    url.pathname = `/sites/${decision.teamId}/${MARKDOWN_ROUTE}${source === "/" ? "" : source}`;
+    url.search = mdPath !== null ? "?md=url" : "";
+    const response = NextResponse.rewrite(url);
+    if (markdownByAccept) response.headers.set("Vary", "Accept");
+    if (resolved!.hideFromSearch || host !== resolved!.canonicalHost)
+      response.headers.set("X-Robots-Tag", "noindex");
+    const edge = edgeCacheHeaders(
+      decision.teamId,
+      source,
+      undefined,
+      undefined,
+      undefined,
+      markdownByAccept,
+    );
+    for (const [name, value] of Object.entries(edge ?? {}))
+      response.headers.set(name, value);
+    return response;
+  }
+
   const url = request.nextUrl.clone();
   // Not `_sites` — a leading underscore makes Next.js treat the folder as
   // a private, non-routable segment, which would silently 404 everything.
@@ -81,6 +115,9 @@ export async function proxy(request: NextRequest) {
 
   // The rendered response depends only on team and path, never on request
   // headers, so it can be cached and shared (docs/site-delivery.md §4.2).
+  // HTML pages can't add `Vary: Accept` here: Next's page runtime
+  // replaces Vary. Markdown by Accept is never stored by shared caches
+  // (edge-cache.ts), so a cached page is always HTML.
   const response = NextResponse.rewrite(url);
   // Search visibility: a hidden (pre-launch) site is noindex everywhere; a
   // non-canonical host that still serves (subdomain with redirect off) is

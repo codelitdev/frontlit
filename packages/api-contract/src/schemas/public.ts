@@ -45,6 +45,8 @@ export const sitemapEntryKindSchema = z.enum(["page", "blog", "doc", "changelog"
 export const sitemapEntrySchema = z.object({
   kind: sitemapEntryKindSchema,
   path: z.string(),
+  /** Page or document title, for link lists like `/llms.txt`. */
+  title: z.string().nullable().optional(),
   lastmod: z.string().nullable(),
 });
 

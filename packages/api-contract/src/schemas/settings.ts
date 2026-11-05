@@ -44,6 +44,9 @@ export const publicTeamSettingsSchema = z.object({
       z.object({ from: z.string(), to: z.string(), permanent: z.boolean().optional() }),
     )
     .optional(),
+  /** From the live release's site.json: Markdown for AI agents, shown in
+   * the site's `/llms.txt`. */
+  agentInstructions: z.string().nullable().optional(),
   /** Host the site's links, canonical URLs and feeds point at; null while
    * the site has no public host. */
   canonicalHost: z.string().nullable(),

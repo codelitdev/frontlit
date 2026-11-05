@@ -51,6 +51,9 @@ export async function exportPagesFiles(teamId: string, directory: string) {
         footer: release.site.footer,
         ...(release.site.theme ? { theme: release.site.theme as any } : {}),
         ...(release.site.redirects ? { redirects: release.site.redirects } : {}),
+        ...(release.site.agentInstructions
+          ? { agentInstructions: release.site.agentInstructions }
+          : {}),
       }),
     });
   return files;
