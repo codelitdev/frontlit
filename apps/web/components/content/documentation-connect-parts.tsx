@@ -5,11 +5,15 @@ import {
   Check,
   ChevronRight,
   CircleAlert,
+  Copy,
+  ExternalLink,
   File,
   Folder,
   Info,
+  Sparkles,
   TriangleAlert,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export const WIZARD_STEPS = ["Repository", "Folder", "Review", "Connect"] as const;
@@ -415,6 +419,90 @@ export function PublishMap({
           ),
         )}
       </ul>
+    </div>
+  );
+}
+
+const SKILLS_REPO = "https://github.com/codelitdev/frontlit-skills";
+const SKILLS_INSTALL = "npx skills add codelitdev/frontlit-skills";
+
+function CopyLine({
+  label,
+  copyLabel,
+  value,
+}: {
+  label: string;
+  copyLabel: string;
+  value: string;
+}) {
+  return (
+    <div className="space-y-1">
+      <span className="text-muted-foreground text-xs">{label}</span>
+      <div className="flex items-center gap-2 rounded-md border border-border bg-background py-1.5 pr-1.5 pl-3">
+        <code className="min-w-0 flex-1 break-words font-mono text-[12.5px]">
+          {value}
+        </code>
+        <button
+          type="button"
+          aria-label={copyLabel}
+          className="grid size-7 shrink-0 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:shadow-[var(--shadow-focus)] focus-visible:outline-none"
+          onClick={() => {
+            void navigator.clipboard
+              .writeText(value)
+              .then(() => toast.success("Copied"));
+          }}
+        >
+          <Copy className="size-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Shown once a repository is connected: hand the rest to a coding agent. */
+export function AgentNextStep({ docs }: { docs: boolean }) {
+  const prompt = docs
+    ? "Use the frontlit-docs skill to move our docs to FrontLit and open a pull request."
+    : "Use the frontlit-pages skill to add a pricing page and link it from the header.";
+  return (
+    <div className="space-y-3 rounded-[0.625rem] border border-border bg-muted/40 px-4 py-3.5 text-sm">
+      <div className="flex gap-3">
+        <Sparkles className="mt-0.5 size-[18px] shrink-0 text-primary" />
+        <div>
+          <p className="font-semibold">
+            {docs
+              ? "Let your AI agent move your docs"
+              : "Let your AI agent build your pages"}
+          </p>
+          <p className="mt-0.5 text-muted-foreground">
+            Install FrontLit skills in Claude Code, Codex, Cursor or any coding agent.
+            It
+            {docs
+              ? " ports your existing docs (Docusaurus, Mintlify, GitBook, Markdown and more),"
+              : " writes pages that follow FrontLit's rules,"}{" "}
+            checks its work and opens a pull request. Nothing goes live until you merge.
+          </p>
+        </div>
+      </div>
+      <CopyLine
+        label="1. Install the skills"
+        copyLabel="Copy install command"
+        value={SKILLS_INSTALL}
+      />
+      <CopyLine
+        label="2. Ask your agent, in your repository"
+        copyLabel="Copy prompt"
+        value={prompt}
+      />
+      <a
+        href={SKILLS_REPO}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-1 font-semibold text-[13px] text-primary underline-offset-2 hover:underline"
+      >
+        Claude Code and Codex plugins, and more examples
+        <ExternalLink className="size-3.5" />
+      </a>
     </div>
   );
 }
