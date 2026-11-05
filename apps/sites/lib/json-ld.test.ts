@@ -11,6 +11,7 @@ describe("json-ld builders", () => {
   it("builds Organization + WebSite for the homepage", () => {
     const [org, site] = organizationAndWebsiteJsonLd({
       siteName: "Acme",
+      description: "Rockets for everyone",
       logoUrl: "https://cdn/logo.png",
       canonicalHost: "acme.frontlit.app",
     });
@@ -18,6 +19,7 @@ describe("json-ld builders", () => {
       "@type": "Organization",
       name: "Acme",
       url: "https://acme.frontlit.app",
+      description: "Rockets for everyone",
       logo: "https://cdn/logo.png",
     });
     expect(site).toMatchObject({
@@ -25,6 +27,17 @@ describe("json-ld builders", () => {
       name: "Acme",
       url: "https://acme.frontlit.app",
     });
+  });
+
+  it("omits description and logo when the site has none", () => {
+    const [org] = organizationAndWebsiteJsonLd({
+      siteName: "Acme",
+      description: null,
+      logoUrl: null,
+      canonicalHost: "acme.frontlit.app",
+    });
+    expect(org).not.toHaveProperty("description");
+    expect(org).not.toHaveProperty("logo");
   });
 
   it("builds BlogPosting with dateModified falling back to datePublished", () => {

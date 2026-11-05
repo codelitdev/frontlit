@@ -51,7 +51,7 @@ async function apiMetadata(
     title,
     description,
     alternates: { canonical: url },
-    openGraph: { url, title, description },
+    openGraph: { url, type: "article", title, description },
     robots: { index, follow: index },
   };
 }
@@ -113,6 +113,7 @@ export async function generateMetadata(
     alternates: { canonical: url },
     openGraph: {
       url,
+      type: "article",
       title: seo.title,
       description: seo.description ?? undefined,
       images: seo.imageUrl ? [{ url: seo.imageUrl }] : undefined,
