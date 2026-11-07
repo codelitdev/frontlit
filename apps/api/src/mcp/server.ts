@@ -10,7 +10,6 @@ import { registerPageTools } from "./tools/pages";
 import { registerThemeTools } from "./tools/themes";
 import { registerMediaTools } from "./tools/media";
 import { registerDocumentTools } from "./tools/documents";
-import { registerProductUpdateTools } from "./tools/changelogs";
 import { registerEmailTools } from "./tools/email";
 import { registerDocumentationTools } from "./tools/documentation";
 import { registerDocumentationGitHubTools } from "./tools/documentation-github";
@@ -31,7 +30,6 @@ export function registerAllTools(tools: McpToolRegistrar): void {
   registerDocumentTools(tools, "blog", "article", articleMetaSchema);
   registerDocumentTools(tools, "doc", "documentation_page", documentationMetaSchema);
   registerDocumentTools(tools, "changelog", "product_update", productUpdateMetaSchema);
-  registerProductUpdateTools(tools);
   registerEmailTools(tools);
   registerDocumentationTools(tools);
   registerDocumentationGitHubTools(tools);

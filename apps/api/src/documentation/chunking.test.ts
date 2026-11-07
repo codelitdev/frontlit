@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractChunks } from "./chunking";
+import { changelogChunkContext, extractChunks } from "./chunking";
 import type { TextEditorContentRow } from "../db/schema";
 
 function heading(text: string) {
@@ -190,5 +190,39 @@ describe("extractChunks", () => {
     expect(chunks[1].content).toBe(
       "Set it.\n\nHeads up\n\nKeep keys secret.\n\nQuick start\nBegin.\n\napiKey string Key.",
     );
+  });
+});
+
+describe("changelog chunks", () => {
+  it("never anchors to section headings, so citations link to the entry", () => {
+    const content = {
+      type: "doc",
+      content: [heading("Fixed"), paragraph("Exports include archived items.")],
+    } as TextEditorContentRow;
+    const [chunk] = extractChunks(content, "changelog");
+    expect(chunk.heading).toBe("Fixed");
+    expect(chunk.anchor).toBeNull();
+  });
+
+  it("builds release context from version and release date", () => {
+    expect(
+      changelogChunkContext({
+        title: "Dark mode",
+        slug: "dark-mode",
+        meta: { version: "1.2.0", releaseDate: "2026-11-07" },
+        publishedAt: new Date("2026-11-08T10:00:00Z"),
+      }),
+    ).toBe("Dark mode — 1.2.0, 2026-11-07");
+  });
+
+  it("falls back to the publish date and slug", () => {
+    expect(
+      changelogChunkContext({
+        title: null,
+        slug: "dark-mode",
+        meta: {},
+        publishedAt: new Date("2026-11-08T23:30:00Z"),
+      }),
+    ).toBe("dark-mode — 2026-11-08");
   });
 });

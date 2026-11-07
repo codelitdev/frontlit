@@ -3,9 +3,16 @@
 import { use, useEffect, useRef, useState } from "react";
 import { Editor } from "@frontlit/text-editor";
 import type { TextEditorContent } from "@frontlit/text-editor";
+import { ExternalLink } from "lucide-react";
+import {
+  productUpdateLabels,
+  publicContentPath,
+  type ProductUpdateLabel,
+} from "@frontlit/api-contract";
 import {
   discardProductUpdateDraft,
   getAiConfig,
+  getDomainSettings,
   getProductUpdate,
   publishProductUpdate,
   updateProductUpdate,
@@ -15,14 +22,18 @@ import { FullScreenLoading } from "@/components/workspace/loading";
 import { SlugEditor } from "@/components/workspace/slug-editor";
 import { WritingEditorDocumentHeader } from "@/components/workspace/writing-editor-document-header";
 import { WritingEditorShell } from "@/components/workspace/writing-editor-shell";
-import { Badge } from "@/components/ui/codelit/badge";
+import { IconButton } from "@/components/ui/codelit/icon-button";
 import { Input } from "@/components/ui/codelit/input";
 import { Label } from "@/components/ui/codelit/label";
 import { Toggle } from "@/components/ui/toggle";
 import { ContentIndexSettings } from "@/components/workspace/content-index-settings";
 import { FeaturedImageSetting } from "@/components/workspace/featured-image-setting";
-
-const LABEL_OPTIONS = ["added", "fixed", "improved", "removed"] as const;
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/codelit/tooltip";
+import { siteUrl } from "@/lib/site-url";
 
 export default function ProductUpdateEditor({
   params,
@@ -39,6 +50,7 @@ export default function ProductUpdateEditor({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [teamIndexesChangelog, setTeamIndexesChangelog] = useState(false);
+  const [liveHost, setLiveHost] = useState<string | null>(null);
   const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const versionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const releaseDateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -56,6 +68,9 @@ export default function ProductUpdateEditor({
         setTeamIndexesChangelog(Boolean(config?.indexContent?.changelog)),
       )
       .catch(() => setTeamIndexesChangelog(false));
+    getDomainSettings()
+      .then((settings) => setLiveHost(settings.canonicalHost))
+      .catch(() => setLiveHost(null));
   }, [documentId]);
 
   useEffect(
@@ -117,7 +132,7 @@ export default function ProductUpdateEditor({
     );
   }
 
-  async function handleLabelToggle(label: string) {
+  async function handleLabelToggle(label: ProductUpdateLabel) {
     const current = entry?.draftMeta.labels ?? [];
     const labels = current.includes(label)
       ? current.filter((item) => item !== label)
@@ -177,11 +192,15 @@ export default function ProductUpdateEditor({
 
   if (!entry) return <FullScreenLoading label="Loading update…" />;
 
+  const liveUrl =
+    entry.status !== "draft" && liveHost
+      ? `${siteUrl(liveHost)}${publicContentPath("changelog", entry.slug)}`
+      : null;
+
   return (
     <WritingEditorShell
       backHref="/content?type=changelog"
       backLabel="Changelog"
-      contextLabel={entry.draftMeta.github ? "GitHub import" : undefined}
       title={title || "Untitled update"}
       status={entry.status}
       statusTestId="changelog-status-badge"
@@ -194,14 +213,30 @@ export default function ProductUpdateEditor({
       onPublish={handlePublish}
       onDiscardDraft={handleDiscardDraft}
       discardDescription="Discard all unpublished changes on this product update? This cannot be undone."
+      headerActions={
+        liveUrl ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <IconButton asChild size="sm" aria-label="View live entry">
+                <a
+                  href={liveUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="changelog-live-link"
+                >
+                  <ExternalLink />
+                </a>
+              </IconButton>
+            </TooltipTrigger>
+            <TooltipContent>View live entry</TooltipContent>
+          </Tooltip>
+        ) : undefined
+      }
       settings={
         <div className="space-y-7">
-          {entry.draftMeta.github && (
-            <Badge variant="neutral">Imported from GitHub</Badge>
-          )}
           <SlugEditor
             slug={entry.slug}
-            prefix="/changelog/"
+            prefix="/changelog#"
             onSave={handleSlugSave}
             testId="changelog-slug-input"
           />
@@ -228,13 +263,21 @@ export default function ProductUpdateEditor({
               value={releaseDate}
               onChange={(event) => handleReleaseDateChange(event.target.value)}
               className="mt-1"
+              aria-describedby="changelog-release-date-hint"
               data-testid="changelog-release-date"
             />
+            <p
+              id="changelog-release-date-hint"
+              className="mt-1 text-xs text-muted-foreground"
+            >
+              Shown on the changelog and used to order entries. If empty, the publish
+              date is used.
+            </p>
           </div>
           <div>
-            <Label>Labels</Label>
+            <Label>Change types</Label>
             <div className="mt-2 flex flex-wrap gap-1.5" data-testid="changelog-labels">
-              {LABEL_OPTIONS.map((label) => (
+              {productUpdateLabels.map((label) => (
                 <Toggle
                   key={label}
                   size="sm"

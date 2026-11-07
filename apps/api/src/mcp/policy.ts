@@ -142,10 +142,6 @@ const toolScopes = {
   publish_product_update: MCP_SCOPES.productUpdatesWrite,
   discard_product_update_draft: MCP_SCOPES.productUpdatesWrite,
   delete_product_update: MCP_SCOPES.productUpdatesWrite,
-  get_github_product_updates_integration: MCP_SCOPES.productUpdatesRead,
-  connect_github_product_updates: MCP_SCOPES.productUpdatesWrite,
-  disconnect_github_product_updates: MCP_SCOPES.productUpdatesWrite,
-  import_github_releases: MCP_SCOPES.productUpdatesWrite,
 
   get_email_settings: MCP_SCOPES.settingsRead,
   update_email_settings: MCP_SCOPES.settingsWrite,
@@ -238,7 +234,6 @@ export const HIGH_IMPACT_MCP_TOOLS = new Set<McpToolName>([
   "delete_documentation_page",
   "publish_product_update",
   "delete_product_update",
-  "import_github_releases",
   "test_esp_config",
   "remove_esp_config",
   "send_broadcast",

@@ -396,6 +396,10 @@ export interface ProductUpdateMeta {
   seo?: { title?: string; description?: string };
 }
 
+/** The public API's max page size; the changelog renders its full history on
+ * one page, so this is also the most entries a changelog shows. */
+export const CHANGELOG_PAGE_SIZE = 1000;
+
 export async function listProductUpdates(
   teamId: string,
   params: { offset?: number; itemsPerPage?: number } = {},

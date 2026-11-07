@@ -7,6 +7,7 @@ import { deleteChunksForDocument, reindexDocument } from "./queries";
 import { isDocIndexable } from "./index-status";
 import { teamIndexesKind } from "./index-policy";
 import { claimNextDocumentIndexJob, finishDocumentIndexJob } from "./index-jobs";
+import { changelogChunkContext } from "./chunking";
 
 export async function processOneDocumentIndexJob(): Promise<boolean> {
   const job = await claimNextDocumentIndexJob();
@@ -38,6 +39,7 @@ export async function processOneDocumentIndexJob(): Promise<boolean> {
       documentId: doc.id,
       content: doc.content,
       kind: doc.kind,
+      context: doc.kind === "changelog" ? changelogChunkContext(doc) : undefined,
     });
     await finishDocumentIndexJob(job.id, job.generation, {
       status: "done",

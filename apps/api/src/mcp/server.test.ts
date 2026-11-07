@@ -74,9 +74,9 @@ describe("FrontLit MCP server", () => {
 
     const result = await client.listTools();
     const policyNames = Object.keys(listMcpToolPolicies()).sort();
-    expect(result.tools).toHaveLength(139);
+    expect(result.tools).toHaveLength(135);
     expect(result.tools.map((tool) => tool.name).sort()).toEqual(policyNames);
-    expect(new Set(result.tools.map((tool) => tool.name)).size).toBe(139);
+    expect(new Set(result.tools.map((tool) => tool.name)).size).toBe(135);
     expect(result.tools.map((tool) => tool.name)).toEqual(
       expect.arrayContaining([
         "list_articles",
@@ -88,7 +88,7 @@ describe("FrontLit MCP server", () => {
         "review_documentation_improvement",
         "create_documentation_improvement_draft",
         "list_product_updates",
-        "connect_github_product_updates",
+        "publish_product_update",
         "get_inbox_ai_settings",
         "update_inbox_ai_settings",
       ]),
@@ -100,6 +100,14 @@ describe("FrontLit MCP server", () => {
         "list_changelog_entries",
       ]),
     );
+    for (const removed of [
+      "connect_github_product_updates",
+      "get_github_product_updates_integration",
+      "disconnect_github_product_updates",
+      "import_github_releases",
+    ]) {
+      expect(result.tools.map((tool) => tool.name)).not.toContain(removed);
+    }
     expect(result.ttlMs).toBe(300_000);
     expect(result.cacheScope).toBe("private");
     for (const tool of result.tools) {

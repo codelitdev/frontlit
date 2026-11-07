@@ -1,3 +1,4 @@
+import { changelogDate } from "@frontlit/api-contract";
 import type { TextEditorContentRow } from "../db/schema";
 import { slugify } from "../utils/slug";
 import { createHeadingIdGenerator, docsNodeText } from "@frontlit/text-editor/headings";
@@ -123,7 +124,14 @@ export function extractChunks(
     if (node.type === "heading") {
       flush();
       heading = text;
-      anchor = kind === "doc" ? nextHeadingId(text) : slugify(text);
+      // A changelog entry is one anchor (`/changelog#<slug>`); its section
+      // headings ("Fixed", "Added") are not linkable on their own.
+      anchor =
+        kind === "doc"
+          ? nextHeadingId(text)
+          : kind === "changelog"
+            ? null
+            : slugify(text);
       continue;
     }
 
@@ -149,4 +157,22 @@ export function extractChunks(
   }
 
   return chunks;
+}
+
+/**
+ * Release context prepended to every changelog chunk ("Dark mode — 1.2.0,
+ * 2026-11-07"), so retrieval never presents an old fix without its release.
+ */
+export function changelogChunkContext(doc: {
+  title: string | null;
+  slug: string;
+  meta: Record<string, unknown> | null;
+  publishedAt: Date | null;
+}): string {
+  const meta = (doc.meta ?? {}) as { version?: string; releaseDate?: string };
+  const details = [meta.version, changelogDate({ meta, publishedAt: doc.publishedAt })]
+    .filter(Boolean)
+    .join(", ");
+  const title = doc.title || doc.slug;
+  return details ? `${title} — ${details}` : title;
 }

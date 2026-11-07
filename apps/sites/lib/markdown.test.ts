@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("./api", () => ({}));
 vi.mock("./docs-tree", () => ({}));
 
-const { buildLlmsTxt, notFoundMarkdown, tiptapToMarkdown } = await import("./markdown");
+const { buildLlmsTxt, notFoundMarkdown, plainTextSummary, tiptapToMarkdown } =
+  await import("./markdown");
 
 describe("buildLlmsTxt", () => {
   const settings = {
@@ -96,5 +97,29 @@ describe("markdown bodies", () => {
         ],
       }),
     ).toBe("## Setup\n\nInstall it.");
+  });
+});
+
+describe("plainTextSummary", () => {
+  const doc = (text: string) => ({
+    type: "doc",
+    content: [
+      { type: "heading", content: [{ type: "text", text: "Added" }] },
+      { type: "paragraph", content: [{ type: "text", text }] },
+    ],
+  });
+
+  it("flattens a TipTap body to one line", () => {
+    expect(plainTextSummary(doc("Dark mode."))).toBe("Added Dark mode.");
+  });
+
+  it("truncates long bodies with an ellipsis", () => {
+    const summary = plainTextSummary(doc("x".repeat(400)), 20);
+    expect(summary).toHaveLength(20);
+    expect(summary.endsWith("…")).toBe(true);
+  });
+
+  it("returns an empty string for empty content", () => {
+    expect(plainTextSummary(null)).toBe("");
   });
 });

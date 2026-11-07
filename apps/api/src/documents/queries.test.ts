@@ -18,6 +18,8 @@ import {
   updateDocument,
 } from "./queries";
 import { listMedia } from "../media/queries";
+import { documents } from "../db/schema";
+import { eq } from "drizzle-orm";
 
 describe("documents engine (blog kind)", () => {
   const db = testDb as unknown as TestDb;
@@ -308,5 +310,95 @@ describe("documents engine (blog kind)", () => {
         alt: "Updated cover",
       });
     });
+  });
+});
+
+describe("documents engine (changelog kind)", () => {
+  const db = testDb as unknown as TestDb;
+  let teamId: string;
+
+  beforeEach(async () => {
+    teamId = (await seedTeam(db)).team.id;
+  });
+
+  async function publishedEntry(
+    title: string,
+    meta: Record<string, unknown>,
+    publishedAt: string,
+  ) {
+    const created = await createDocument("changelog", { teamId, title, meta });
+    await publishDocument("changelog", teamId, created.documentId);
+    await db
+      .update(documents)
+      .set({ publishedAt: new Date(publishedAt) })
+      .where(eq(documents.documentId, created.documentId));
+    return created;
+  }
+
+  it("orders the public feed by release date, falling back to the publish date", async () => {
+    await publishedEntry(
+      "Old release",
+      { releaseDate: "2026-01-10" },
+      "2026-11-01T09:00:00Z",
+    );
+    await publishedEntry("No release date", {}, "2026-06-15T09:00:00Z");
+    await publishedEntry(
+      "New release",
+      { releaseDate: "2026-09-01" },
+      "2026-09-02T09:00:00Z",
+    );
+
+    const items = await listPublishedDocuments("changelog", {
+      teamId,
+      itemsPerPage: 10,
+    });
+    expect(items.map((item) => item.title)).toEqual([
+      "New release",
+      "No release date",
+      "Old release",
+    ]);
+  });
+
+  it("breaks release-date ties by publish time, newest first", async () => {
+    await publishedEntry(
+      "Morning",
+      { releaseDate: "2026-09-01" },
+      "2026-09-01T08:00:00Z",
+    );
+    await publishedEntry(
+      "Evening",
+      { releaseDate: "2026-09-01" },
+      "2026-09-01T20:00:00Z",
+    );
+
+    const items = await listPublishedDocuments("changelog", {
+      teamId,
+      itemsPerPage: 10,
+    });
+    expect(items.map((item) => item.title)).toEqual(["Evening", "Morning"]);
+  });
+
+  it("ignores unpublished draft meta when ordering", async () => {
+    const first = await publishedEntry(
+      "First",
+      { releaseDate: "2026-02-01" },
+      "2026-02-01T00:00:00Z",
+    );
+    await publishedEntry(
+      "Second",
+      { releaseDate: "2026-03-01" },
+      "2026-03-01T00:00:00Z",
+    );
+    // A draft-only date change must not move the published entry.
+    await updateDocument("changelog", teamId, first.documentId, {
+      meta: { releaseDate: "2026-12-31" },
+    });
+
+    const items = await listPublishedDocuments("changelog", {
+      teamId,
+      itemsPerPage: 10,
+    });
+    expect(items.map((item) => item.title)).toEqual(["Second", "First"]);
+    expect(items[1].meta).toMatchObject({ releaseDate: "2026-02-01" });
   });
 });

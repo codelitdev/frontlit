@@ -1,11 +1,13 @@
 import { getDocumentationSnapshot } from "@/lib/api";
 import type { DataSlotLoader } from "@frontlit/page-builder/data-slots";
 import {
+  CHANGELOG_PAGE_SIZE,
   getCanonicalHost,
   getSettings,
   listArticles,
   listProductUpdates,
 } from "@/lib/api";
+import { publicContentPath } from "@frontlit/api-contract";
 import { changelogJsonLd, serializeJsonLd } from "@/lib/json-ld";
 import {
   ThemedArticleFeed,
@@ -71,7 +73,8 @@ async function DocumentationFeed({
 async function ProductUpdatesFeed({ teamId }: { teamId: string }) {
   const [settings, { items }, canonicalHost] = await Promise.all([
     getSettings(teamId),
-    listProductUpdates(teamId, { itemsPerPage: 100 }),
+    // The whole history renders on one page so every entry's anchor keeps working.
+    listProductUpdates(teamId, { itemsPerPage: CHANGELOG_PAGE_SIZE }),
     getCanonicalHost(teamId),
   ]);
 
@@ -86,7 +89,7 @@ async function ProductUpdatesFeed({ teamId }: { teamId: string }) {
           url: `https://${canonicalHost}/changelog`,
           entries: items.map((entry) => ({
             name: entry.title ?? entry.slug,
-            url: `https://${canonicalHost}/changelog`,
+            url: `https://${canonicalHost}${publicContentPath("changelog", entry.slug)}`,
           })),
         }),
       )}
