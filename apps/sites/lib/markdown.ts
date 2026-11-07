@@ -1,7 +1,8 @@
-import type { ApiRichText } from "@frontlit/api-contract";
+import { changelogDate, type ApiRichText } from "@frontlit/api-contract";
 import { layoutToMarkdown } from "@frontlit/page-builder/schema";
 import { serializeDocsMarkdown } from "@frontlit/text-editor/docs";
 import {
+  CHANGELOG_PAGE_SIZE,
   getApiOperation,
   getApiReference,
   getArticleBySlug,
@@ -32,6 +33,13 @@ export function tiptapToMarkdown(content: unknown): string {
   } catch {
     return plainText(content).trim();
   }
+}
+
+/** First `max` characters of a TipTap body as one line of plain text, for
+ * feed summaries (RSS `<description>`). */
+export function plainTextSummary(content: unknown, max = 300): string {
+  const text = plainText(content).replace(/\s+/g, " ").trim();
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 }
 
 function plainText(node: unknown): string {
@@ -80,17 +88,14 @@ async function blogIndex(teamId: string) {
 }
 
 async function changelogFeed(teamId: string) {
-  const { items } = await listProductUpdates(teamId, { itemsPerPage: 1000 });
+  const { items } = await listProductUpdates(teamId, {
+    itemsPerPage: CHANGELOG_PAGE_SIZE,
+  });
   return items
     .map((update) => {
-      const label = [
-        update.meta.version,
-        date(update.meta.releaseDate ?? update.publishedAt),
-      ]
-        .filter(Boolean)
-        .join(", ");
+      const date = changelogDate(update);
       return [
-        `## ${update.title || update.slug}${label ? ` (${label})` : ""}`,
+        `## ${update.title || update.slug}${date ? ` (${date})` : ""}`,
         tiptapToMarkdown(update.content),
       ]
         .filter(Boolean)

@@ -9,52 +9,6 @@ export async function getIntegration(teamId: string, provider: IntegrationProvid
   });
 }
 
-/** Returns the connected repo + decrypted token, or null if not connected. */
-export async function getGithubIntegration(
-  teamId: string,
-): Promise<{ repo: string; token: string } | null> {
-  const row = await getIntegration(teamId, "github");
-  if (!row) return null;
-  const config = row.config as { repo: string; token: string };
-  return { repo: config.repo, token: decryptSecret(config.token) };
-}
-
-export async function upsertGithubIntegration(
-  teamId: string,
-  input: { repo: string; token: string },
-) {
-  const encryptedToken = encryptSecret(input.token);
-  const existing = await getIntegration(teamId, "github");
-
-  if (existing) {
-    const [updated] = await db
-      .update(integrations)
-      .set({
-        config: { repo: input.repo, token: encryptedToken },
-        updatedAt: new Date(),
-      })
-      .where(eq(integrations.id, existing.id))
-      .returning();
-    return updated;
-  }
-
-  const [created] = await db
-    .insert(integrations)
-    .values({
-      teamId,
-      provider: "github",
-      config: { repo: input.repo, token: encryptedToken },
-    })
-    .returning();
-  return created;
-}
-
-export async function deleteIntegration(teamId: string, provider: IntegrationProvider) {
-  await db
-    .delete(integrations)
-    .where(and(eq(integrations.teamId, teamId), eq(integrations.provider, provider)));
-}
-
 /** Returns the team's decrypted SendLit API key, or null if the team hasn't
  * been provisioned on SendLit yet (architecture.md §10.1). */
 export async function getSendlitApiKey(teamId: string): Promise<string | null> {

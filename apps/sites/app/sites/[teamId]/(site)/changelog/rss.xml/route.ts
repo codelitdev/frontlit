@@ -1,4 +1,6 @@
+import { changelogDate, publicContentPath } from "@frontlit/api-contract";
 import { getCanonicalHost, getSettings, listProductUpdates } from "@/lib/api";
+import { plainTextSummary } from "@/lib/markdown";
 import { buildRssFeed } from "@/lib/rss";
 
 export async function GET(
@@ -20,9 +22,10 @@ export async function GET(
     siteUrl: `https://${canonicalHost}/changelog`,
     items: items.map((entry) => ({
       title: entry.title ?? entry.slug,
-      url: `https://${canonicalHost}/changelog`,
-      description: entry.excerpt,
-      pubDate: entry.publishedAt,
+      // Each entry is an anchor on /changelog; the URL doubles as its guid.
+      url: `https://${canonicalHost}${publicContentPath("changelog", entry.slug)}`,
+      description: entry.excerpt || plainTextSummary(entry.content) || null,
+      pubDate: changelogDate(entry),
     })),
   });
 

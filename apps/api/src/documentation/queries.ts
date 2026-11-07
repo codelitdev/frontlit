@@ -25,8 +25,14 @@ export async function reindexDocument(input: {
   documentId: string;
   content: unknown;
   kind?: "doc" | "blog" | "changelog";
+  /** Prepended to every chunk, e.g. a changelog entry's release line. */
+  context?: string;
 }) {
-  const chunks = extractChunks(input.content as any, input.kind);
+  const chunks = extractChunks(input.content as any, input.kind).map((chunk) =>
+    input.context
+      ? { ...chunk, content: `${input.context}\n\n${chunk.content}` }
+      : chunk,
+  );
 
   const embeddingConfig = await getResolvedEmbeddingConfig(input.teamId);
   const embeddings = chunks.length

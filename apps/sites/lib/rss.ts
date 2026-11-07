@@ -5,10 +5,9 @@ function escapeXml(value: string): string {
 export interface RssItem {
   title: string;
   url: string;
-  /** Plain-text summary (an entry's `excerpt`), emitted as
-   * `<description>`. Full-body rendering is skipped: a Route Handler
-   * can't import React's server renderer, and the TipTap JSON body has
-   * no paragraph structure once flattened to plain text anyway. */
+  /** Plain-text summary (an entry's `excerpt`, or the start of its body),
+   * emitted as `<description>`. Full-body HTML is skipped: a Route Handler
+   * can't import React's server renderer. */
   description: string | null;
   pubDate: string | null;
 }

@@ -7,9 +7,8 @@ export function publicContentPath(
 ): string {
   const hash = anchor ? `#${encodeURIComponent(anchor)}` : "";
   if (kind === "blog") return `/blog/${encodeURIComponent(slug)}${hash}`;
-  if (kind === "changelog") {
-    return `/changelog${hash || `#${encodeURIComponent(slug)}`}`;
-  }
+  // Changelog entries live on one page; the entry itself is the only anchor.
+  if (kind === "changelog") return `/changelog#${encodeURIComponent(slug)}`;
   // Docs slugs and API reference routes can be nested (`api-reference/list-contacts`).
   return `/docs/${slug.split("/").map(encodeURIComponent).join("/")}${hash}`;
 }

@@ -815,10 +815,8 @@ export function searchDocumentation(q: string, k?: number) {
 // ---- Content: product updates -------------------------------------------
 
 export interface ProductUpdateMeta {
-  version?: string;
-  labels: string[];
+  /** `YYYY-MM-DD`; the changelog falls back to the publish date. */
   releaseDate?: string;
-  github?: { releaseId: number; releaseUrl: string; tagName: string };
   indexable?: boolean;
 }
 
@@ -894,33 +892,6 @@ export function discardProductUpdateDraft(documentId: string) {
 
 export function deleteProductUpdate(documentId: string) {
   return unwrap<void>(client.content.productUpdates.remove({ params: { documentId } }));
-}
-
-export interface GithubIntegration {
-  connected: boolean;
-  repo: string | null;
-}
-
-export function getGithubIntegration() {
-  return unwrap<GithubIntegration>(
-    client.content.productUpdates.getGithubIntegration(),
-  );
-}
-
-export function connectGithubIntegration(input: { token: string; repo: string }) {
-  return unwrap<GithubIntegration>(
-    client.content.productUpdates.connectGithub({ body: input }),
-  );
-}
-
-export function disconnectGithubIntegration() {
-  return unwrap<void>(client.content.productUpdates.disconnectGithub());
-}
-
-export function importGithubReleases() {
-  return unwrap<{ imported: number; skipped: number }>(
-    client.content.productUpdates.importGithubReleases(),
-  );
 }
 
 // ---- Email (SendLit, read-through) ------------------------------------

@@ -5,8 +5,7 @@ Status: **Living architecture** · Last verified: 2026-07-29
 This document designs the core content features of FrontLit — the "front
 office of your SaaS": draft/publish pages, blog (`/blog`), documentation
 (`/docs`) with pgvector-backed search, a help desk (`/help`), an
-embeddable RAG chatbot, a changelog (`/changelog`) with GitHub
-integration, and email (lead capture on pages + sending via
+embeddable RAG chatbot, a changelog (`/changelog`), and email (lead capture on pages + sending via
 the hosted SendLit REST API).
 
 > **Route naming**: `/docs` hosts the documentation (help-center articles,
@@ -240,7 +239,6 @@ does not collide with the customer-facing `/docs` route in `apps/sites`.
 | Documentation sections (§5)                    | `POST/GET/PATCH/DELETE /content/documentation/sections…`                                                                                                                            | `list/create/update/delete_documentation_section`                                                                                           |
 | Documentation search (§6)                      | `GET /content/documentation/search?q=` (authed; public variant below `/public/…`)                                                                                                   | `search_documentation` (semantic search over published documentation)                                                                       |
 | Content: product updates (§8)                  | `POST/GET/PATCH/DELETE /content/product-updates…`, `…/publish`, `…/discard-draft`                                                                                                   | `list/create/get/update/delete_product_update`, `publish_product_update`, `discard_product_update_draft`                                    |
-| GitHub import (§8)                             | `POST /content/product-updates/import-github`                                                                                                                                       | `import_github_releases`                                                                                                                    |
 | Chatbot settings (§7)                          | `GET/PATCH /chatbot`                                                                                                                                                                | `get_chatbot_settings`, `update_chatbot_settings`                                                                                           |
 | Team settings (§12.5)                          | `GET/PATCH /settings` (branding + code injection; the shared shell moves through page publish)                                                                                      | `get_team_settings`, `update_team_settings`                                                                                                 |
 | Ask the docs (§7)                              | `POST /public/:teamId/chat` (public, persisted thread)                                                                                                                              | — (visitor widget only for now; no MCP twin yet)                                                                                            |
@@ -486,7 +484,7 @@ jsonb so the core engine stays generic):
 | _all kinds_ | `seo?: { title?, description? }` — optional overrides for public metadata (§12.3)                                                        |
 | `blog`      | `tags: string[]`                                                                                                                         |
 | `doc`       | `sectionId: string`, `order: number` (help-center nav tree)                                                                              |
-| `changelog` | `version?: string`, `labels: ("added"\|"fixed"\|"improved"\|"removed")[]`, `releaseDate: string`, `github?: { releaseId, tag, htmlUrl }` |
+| `changelog` | `releaseDate?: "YYYY-MM-DD"` (version goes in the title; change types are `###` headings in the body) |
 
 Help-center sections get a small companion table:
 
@@ -745,26 +743,21 @@ helper (`streamChatAnswer`) exists for a future SSE path:
 
 ---
 
-## 8. Changelog & GitHub integration
+## 8. Changelog
 
 Changelog entries are `documents` with `kind: "changelog"` — the whole
-draft/publish/authoring stack comes for free. `/changelog` renders the
-published feed (grouped by month, label badges, optional version tags), plus
-an RSS feed at `/changelog/rss.xml` served by `apps/sites` (§12.3).
+draft/publish/authoring stack comes for free. They are written in the editor
+or drafted by an agent through MCP (`create_product_update`) and published by
+a person. There is no GitHub integration for the changelog; see
+[changelog-management.md](changelog-management.md) for the decision and
+when to revisit it.
 
-### 8.1 GitHub integration (standard path)
-
-Per-team connection stored in a generic `integrations` table
-(`provider = "github"`, encrypted `config` jsonb: installation/token, `repo`):
-
-- **v1 (ship first)**: connect with a fine-grained PAT + repo name.
-  `POST /content/product-updates/import-github` lists GitHub **Releases** and creates one
-  _draft_ product update per release (release notes markdown → TipTap JSON
-  via a small converter in the API). Idempotent by `meta.github.releaseId`.
-  Nothing is auto-published — a human reviews and publishes.
-- **v2**: proper GitHub App (install flow, webhook on `release: published`
-  creating drafts automatically; optional LLM pass that rewrites raw release
-  notes into user-facing prose).
+`/changelog` renders every published entry on one page, newest first by
+`releaseDate ?? publishedAt` (`changelogDate()` in the API contract). Each entry is the anchor
+`/changelog#<slug>` (`publicContentPath`), which the RSS feed at
+`/changelog/rss.xml` (§12.3), JSON-LD, and AI citations all link to.
+Changelog chunks carry their release ("v1.2.0: Dark mode — 2026-11-07") so
+retrieval never presents an old change without its date.
 
 ---
 
@@ -898,7 +891,7 @@ calls SendLit's `POST /provisioning/teams` with
 id — idempotent find-or-create, exactly how FrontLit's own provisioning
 endpoint serves _its_ consumers. The returned `apiKey` (only present on
 the creating call) is stored encrypted in the `integrations` table
-(`provider: "sendlit"`, alongside `github` from §8.1). Creation-time
+(`provider: "sendlit"`, its only provider). Creation-time
 failures enqueue a `provision_sendlit` outbox job (§10.5). Teams created
 while `SENDLIT_API_URL` is unset are skipped silently — there is no
 startup backfill — so the 1:1 mapping holds only when SendLit was
@@ -1900,8 +1893,7 @@ the feature, not in a later pass.
    `search_documentation` tool.
 5. **Chatbot** — settings routes/tools, persisted RAG chat endpoint
    (public widget only; no MCP ask twin yet), widget + embed loader.
-6. **Product-update behavior** — update routes/tools, RSS, GitHub
-   release import (v1 PAT) + `import_github_releases` tool.
+6. **Product-update behavior** — update routes/tools, RSS.
 7. **Email** — eager per-team SendLit provisioning with
    `provision_sendlit` retry on the §10.5 outbox, typed REST client
    (`@sendlit/api-contract`), public capture endpoint wired into the

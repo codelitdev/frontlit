@@ -6,15 +6,10 @@ import {
 } from "./documents";
 
 export const productUpdateMetaSchema = z.object({
-  version: z.string().optional(),
-  labels: z.array(z.string()).default([]),
-  releaseDate: z.string().optional(),
-  github: z
-    .object({
-      releaseId: z.number(),
-      releaseUrl: z.string(),
-      tagName: z.string(),
-    })
+  /** Calendar date of the release (`YYYY-MM-DD`). Falls back to the publish date. */
+  releaseDate: z
+    .string()
+    .regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, "Use the YYYY-MM-DD format")
     .optional(),
   indexable: z.boolean().optional(),
 });
@@ -35,17 +30,16 @@ export const updateProductUpdateBodySchema = makeUpdateDocumentBodySchema(
   productUpdateMetaSchema.partial(),
 );
 
-export const githubIntegrationConfigSchema = z.object({
-  token: z.string().min(1),
-  repo: z.string().min(1).describe("owner/repo, e.g. courselit/courselit"),
-});
-
-export const githubIntegrationSchema = z.object({
-  connected: z.boolean(),
-  repo: z.string().nullable(),
-});
-
-export const importGithubReleasesResponseSchema = z.object({
-  imported: z.number(),
-  skipped: z.number(),
-});
+/**
+ * The date a changelog entry is shown and sorted by: its release date, or
+ * the UTC calendar date it was published. Always `YYYY-MM-DD`.
+ */
+export function changelogDate(entry: {
+  meta?: { releaseDate?: string | null } | null;
+  publishedAt?: string | Date | null;
+}): string | null {
+  if (entry.meta?.releaseDate) return entry.meta.releaseDate;
+  if (!entry.publishedAt) return null;
+  const date = new Date(entry.publishedAt);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10);
+}
