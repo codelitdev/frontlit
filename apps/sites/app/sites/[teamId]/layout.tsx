@@ -34,6 +34,7 @@ export async function generateMetadata({
     // wins). A non-canonical host gets `X-Robots-Tag` from the proxy.
     robots: settings?.hideFromSearch ? { index: false, follow: false } : undefined,
     openGraph: {
+      type: "website",
       siteName: siteTitle,
       images: logoUrl ? [{ url: logoUrl }] : undefined,
     },

@@ -302,6 +302,14 @@ to an RSC payload, and one crafted request is enough to do it. The proxy
 needs both signals to tell, so `skipProxyUrlNormalize` is on (Next strips
 them before the proxy by default).
 
+**Markdown for agents.** A page URL requested with `Accept: text/markdown`
+returns Markdown with `Vary: Accept`. That response is never cacheable
+(`private, no-store`, in every mode), so a cache that ignores `Vary` only
+ever stores the HTML. Next's page runtime replaces `Vary` on HTML pages, so
+the HTML can't carry `Accept` itself. Agents that want a cacheable copy use
+the `<path>.md` URL, which has its own cache key and the page's tags.
+`/llms.txt` is tagged with `sitemap` and `docs`.
+
 **Static assets.** `/_next/static/*` is content-hashed and already
 `immutable`; any layer caches it. An optional `ASSET_PREFIX` serves it from a
 separate host.

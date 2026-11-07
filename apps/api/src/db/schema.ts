@@ -757,6 +757,8 @@ export type SiteReleaseSnapshot = {
    * team's selected theme applies. */
   theme?: Record<string, unknown>;
   redirects?: { from: string; to: string; permanent?: boolean }[];
+  /** `site.json`'s Markdown for AI agents, served in `/llms.txt`. */
+  agentInstructions?: string;
 };
 
 /** "preview": built from a pull request's head; never activated. */

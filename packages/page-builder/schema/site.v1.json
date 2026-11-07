@@ -3813,6 +3813,11 @@
         ],
         "additionalProperties": false
       }
+    },
+    "agentInstructions": {
+      "type": "string",
+      "maxLength": 10000,
+      "description": "Markdown for AI agents: what this site is for and when to use it. Shown in /llms.txt."
     }
   },
   "additionalProperties": false

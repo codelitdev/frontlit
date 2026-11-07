@@ -3,9 +3,10 @@ import clsx from "clsx";
 import * as Icons from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ThemeStyle, WidgetProps } from "../../models";
+import type { HeadingTag } from "../../primitives/heading";
 import { getMediaUrl, getMediaAlt } from "../../models/media";
 import type { GridItem, GridSettings } from "./settings";
-import { renderTitle, titleProps } from "../_shared/title";
+import { itemHeadingLevel, renderTitle, titleProps } from "../_shared/title";
 import { Image } from "../../components/image";
 import { NavLink } from "../../components/nav-link";
 import { TextRenderer } from "../../components/text-renderer";
@@ -25,7 +26,15 @@ function resolveIcon(name?: string): LucideIcon | null {
   return (Icons as unknown as Record<string, LucideIcon>)[name] ?? null;
 }
 
-function GridItemCard({ item, theme }: { item: GridItem; theme: ThemeStyle }) {
+function GridItemCard({
+  item,
+  theme,
+  headingLevel,
+}: {
+  item: GridItem;
+  theme: ThemeStyle;
+  headingLevel: HeadingTag;
+}) {
   const Icon = resolveIcon(item.icon);
   const mediaUrl = getMediaUrl(item.media);
   const mediaAlt = getMediaAlt(item.media);
@@ -50,7 +59,7 @@ function GridItemCard({ item, theme }: { item: GridItem; theme: ThemeStyle }) {
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 p-4">
-            <Header4 theme={theme} className="text-white">
+            <Header4 theme={theme} as={headingLevel} className="text-white">
               {item.title}
             </Header4>
           </div>
@@ -79,7 +88,9 @@ function GridItemCard({ item, theme }: { item: GridItem; theme: ThemeStyle }) {
 
   const text = (
     <div className="flex flex-col gap-2">
-      <Header4 theme={theme}>{item.title}</Header4>
+      <Header4 theme={theme} as={headingLevel}>
+        {item.title}
+      </Header4>
       {item.description && <Text2 theme={theme}>{item.description}</Text2>}
       {item.buttonAction && item.buttonCaption && (
         <NavLink href={item.buttonAction} className="mt-2">
@@ -164,7 +175,12 @@ export function GridWidget({
             )}
           >
             {items.map((item, index) => (
-              <GridItemCard key={index} item={item} theme={overriddenTheme} />
+              <GridItemCard
+                key={index}
+                item={item}
+                theme={overriddenTheme}
+                headingLevel={itemHeadingLevel(titleLevel)}
+              />
             ))}
           </div>
         )}

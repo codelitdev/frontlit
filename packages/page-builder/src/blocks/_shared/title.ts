@@ -59,3 +59,9 @@ export function renderTitle(title?: string, theme?: ThemeStyle): React.ReactNode
         : part,
     );
 }
+
+/** Heading element for item titles under a block title (cards, steps),
+ * one level below it so the outline never skips a level. */
+export function itemHeadingLevel(titleLevel: HeadingLevel = "h2"): "h2" | "h3" | "h4" {
+  return titleLevel === "h1" ? "h2" : titleLevel === "h2" ? "h3" : "h4";
+}

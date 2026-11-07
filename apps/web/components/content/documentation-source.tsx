@@ -11,6 +11,7 @@ import {
 import { Badge } from "@/components/ui/codelit/badge";
 import { Button } from "@/components/ui/codelit/button";
 import {
+  AgentNextStep,
   Callout,
   Code,
   ConsentRow,
@@ -1567,6 +1568,7 @@ export function DocumentationSource({
             </SummaryRow>
           )}
         </SummaryCard>
+        <AgentNextStep docs={connectedInfo.docs} />
       </>
     );
     wizardFooter = (
