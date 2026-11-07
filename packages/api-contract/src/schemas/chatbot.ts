@@ -68,7 +68,7 @@ export const chatSourceSchema = z.object({
   slug: z.string(),
   title: z.string().nullable(),
   anchor: z.string().nullable(),
-  kind: z.enum(["blog", "doc", "changelog", "api-operation"]).optional(),
+  kind: z.enum(["blog", "doc", "changelog", "page", "api-operation"]).optional(),
 });
 
 /** What `apps/sites` needs to decide whether to mount the floating widget
@@ -135,6 +135,21 @@ export const chatAttachmentCompleteBodySchema = z.object({
 });
 
 export const chatOutcomeSchema = z.enum(["answered", "human_only", "escalated"]);
+
+/** A visitor's thumbs up/down on one bot answer in their conversation. */
+export const chatFeedbackBodySchema = z
+  .object({
+    conversationId: z.string().min(1),
+    conversationToken: z.string().min(1),
+    messageId: z.string().min(1),
+    rating: z.enum(["up", "down"]),
+  })
+  .strict();
+
+export const chatFeedbackResponseSchema = z.object({
+  messageId: z.string(),
+  feedback: z.enum(["up", "down"]),
+});
 
 export const chatResponseSchema = z.object({
   outcome: chatOutcomeSchema,

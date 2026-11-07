@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { requestSearchIndex } from "../search/requests";
 import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import {
   parsePageFile,
@@ -233,6 +234,8 @@ export async function activateRelease(
     .set({ activeReleaseId: release.id, updatedAt: new Date() })
     .where(eq(teamSettings.teamId, release.teamId));
   const after = await loadRelease(executor, eq(siteReleases.id, release.id));
+  // Live pages changed: let the search index catch up.
+  await requestSearchIndex(release.teamId, executor as any);
   if (after) {
     await invalidateSiteCache(
       release.teamId,

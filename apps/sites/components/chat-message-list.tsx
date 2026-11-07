@@ -1,9 +1,64 @@
 "use client";
 
 import type { RefObject } from "react";
+import { ThumbsDown, ThumbsUp } from "lucide-react";
+import { Button, Caption } from "@frontlit/page-builder/primitives/server";
 import { CitationList } from "@/components/citation-list";
 import { PaperclipIcon } from "@/components/chat-icons";
+import { useSiteThemeStyle } from "@/lib/site-theme-context";
 import type { ChatMessage } from "@/lib/use-visitor-chat";
+
+/** Answers stored on the server (as opposed to the greeting or a local
+ * placeholder) have a public message id and can be rated. */
+function canRate(message: ChatMessage) {
+  return (
+    message.author === "bot" &&
+    !message.notice &&
+    !message.error &&
+    message.id.startsWith("tmsg_")
+  );
+}
+
+function AnswerFeedback({
+  message,
+  onRate,
+}: {
+  message: ChatMessage;
+  onRate: (messageId: string, rating: "up" | "down") => void;
+}) {
+  const theme = useSiteThemeStyle();
+  const options = [
+    { rating: "up" as const, label: "Helpful", Icon: ThumbsUp },
+    { rating: "down" as const, label: "Not helpful", Icon: ThumbsDown },
+  ];
+  return (
+    <div className="mt-1 flex items-center gap-1 px-1">
+      {options.map(({ rating, label, Icon }) => {
+        const selected = message.feedback === rating;
+        return (
+          <Button
+            key={rating}
+            theme={theme}
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={`h-7 w-7 ${selected ? "text-foreground" : "text-muted-foreground"}`}
+            aria-label={label}
+            aria-pressed={selected}
+            onClick={() => onRate(message.id, rating)}
+          >
+            <Icon className="h-3.5 w-3.5" fill={selected ? "currentColor" : "none"} />
+          </Button>
+        );
+      })}
+      {message.feedback && (
+        <Caption theme={theme} role="status">
+          Thanks for the feedback
+        </Caption>
+      )}
+    </div>
+  );
+}
 
 function TypingDots({ color }: { color: string }) {
   return (
@@ -33,6 +88,7 @@ export function ChatMessageList({
   listRef,
   bottomRef,
   onListScroll,
+  onRate,
   className = "",
 }: {
   messages: ChatMessage[];
@@ -41,6 +97,7 @@ export function ChatMessageList({
   listRef: RefObject<HTMLDivElement | null>;
   bottomRef: RefObject<HTMLDivElement | null>;
   onListScroll: () => void;
+  onRate?: (messageId: string, rating: "up" | "down") => void;
   className?: string;
 }) {
   return (
@@ -113,6 +170,9 @@ export function ChatMessageList({
               <p className="mt-1 px-1 text-xs text-muted-foreground">Support agent</p>
             )}
             <CitationList sources={message.sources} />
+            {onRate && canRate(message) && (
+              <AnswerFeedback message={message} onRate={onRate} />
+            )}
             {message.notice && (
               <p className="mt-1 px-1 text-xs text-muted-foreground">
                 A teammate will continue this conversation.

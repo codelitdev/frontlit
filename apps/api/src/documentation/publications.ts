@@ -1,4 +1,3 @@
-import { siteOriginForTeam } from "../utils/site-url";
 import { wakeDocumentationWorker } from "./worker-wake";
 import { deliverEdgePurge, edgeDestinations, NotYetDue } from "../services/edge-purge";
 import { activateGitRelease } from "../pages/git-import";
@@ -8,11 +7,7 @@ import {
   supersedeGitWork,
 } from "./github/state";
 import { GitHubDocsError } from "./github/app";
-import {
-  captureRetrievalConfiguration,
-  prepareDocumentationRetrieval,
-  semanticDocumentationScores,
-} from "./retrieval";
+import { requestSearchIndex } from "../search/requests";
 import { createHash, randomUUID } from "node:crypto";
 import { and, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { db } from "../db/client";
@@ -23,7 +18,7 @@ const withDbTransaction = <T>(fn: (tx: any) => Promise<T>): Promise<T> =>
 import {
   documents,
   docSections,
-  documentChunks,
+  searchChunks,
   documentationSettings as settingsTable,
   documentationRevisions as revisions,
   documentationPublications as publications,
@@ -185,7 +180,7 @@ export async function bootstrapDocumentation(teamId: string, executor?: Executor
         generation: settings.requestedGeneration,
         purgeGeneration: settings.purgeGeneration,
         docsDraftVersion: settings.draftVersion,
-        indexing: await captureRetrievalConfiguration(teamId, settings.indexing, tx),
+        indexing: { enabled: settings.indexing?.enabled !== false },
         navigation,
         status: "active",
         activatedAt: new Date(),
@@ -336,7 +331,7 @@ export async function queuePublication(
         purgeGeneration: settings.purgeGeneration,
         source: settings.source,
         docsDraftVersion: settings.draftVersion,
-        indexing: await captureRetrievalConfiguration(teamId, settings.indexing, tx),
+        indexing: { enabled: settings.indexing?.enabled !== false },
         navigation,
       })
       .returning();
@@ -394,12 +389,8 @@ export async function rebuildDocumentationRetrieval(
     const active = await tx.query.documentationPublications.findFirst({
       where: eq(publications.publicationId, settings.activePublicationId),
     });
-    const indexing = await captureRetrievalConfiguration(teamId, settings.indexing, tx);
-    const identity = (value: any) => [
-      value?.enabled,
-      value?.mode ?? "lexical",
-      value?.configHash ?? null,
-    ];
+    const indexing = { enabled: settings.indexing?.enabled !== false };
+    const identity = (value: any) => [value?.enabled !== false];
     if (digest(identity(indexing)) === digest(identity(active?.indexing))) return null;
     if (settings.source === "git") {
       const binding = await tx.query.documentationGitBindings.findFirst({
@@ -558,11 +549,6 @@ export async function preparePublication(job: typeof publications.$inferSelect) 
     });
     diagnostics.push(...report.diagnostics);
   }
-  if (!diagnostics.some((d) => d.blocksPublish))
-    await prepareDocumentationRetrieval(
-      job,
-      rows.map((r) => r.revision),
-    );
   const blocked = diagnostics.some((d) => d.blocksPublish);
   const retry =
     blocked &&
@@ -1092,9 +1078,6 @@ export async function cleanupDocumentation(now = new Date(), limit = 100) {
     await tx
       .delete(outbox)
       .where(lte(outbox.completedAt, new Date(now.getTime() - 90 * 86400000)));
-    await tx.execute(
-      sql`delete from documentation_embedding_configs where config_hash in (select c.config_hash from documentation_embedding_configs c where not exists (select 1 from documentation_publications p where p.team_id=c.team_id and p.indexing->>'configHash'=c.config_hash) and c.created_at < ${new Date(now.getTime() - 30 * 86400000)} limit ${limit})`,
-    );
     return { publications: collected };
   });
 }
@@ -1369,13 +1352,15 @@ export async function applyDocumentationPurge(
       ),
     );
   }
-  const internalIds = rows
-    .filter((r: any) => ids.includes(r.documentId))
-    .map((r: any) => r.id);
-  if (internalIds.length)
-    await tx
-      .delete(documentChunks)
-      .where(inArray(documentChunks.documentId, internalIds));
+  await tx
+    .delete(searchChunks)
+    .where(
+      and(
+        eq(searchChunks.teamId, teamId),
+        eq(searchChunks.kind, "doc"),
+        inArray(searchChunks.sourceId, ids),
+      ),
+    );
   await tx
     .delete(documents)
     .where(
@@ -1479,17 +1464,10 @@ export async function deliverDocumentationEvent(
     }
     if (destination !== "local")
       throw new Error("Unconfigured documentation delivery destination");
-    const rows = await db.query.documents.findMany({
-      where: and(eq(documents.teamId, event.teamId), eq(documents.kind, "doc")),
-      columns: { id: true },
-    });
-    if (rows.length)
-      await db.delete(documentChunks).where(
-        inArray(
-          documentChunks.documentId,
-          rows.map((r) => r.id),
-        ),
-      );
+    // Live docs or the API reference changed: bring the search index in
+    // line. Search already filters by the live publication, so this only
+    // controls how soon new content becomes findable.
+    await requestSearchIndex(event.teamId);
   },
 ) {
   const now = sql`now()`;
@@ -1553,63 +1531,6 @@ export async function deliverDocumentationEvent(
       .where(and(eq(outbox.eventId, claimed.eventId), eq(outbox.leaseToken, token)));
   }
   return true;
-}
-
-export async function searchPublishedDocumentation(
-  teamId: string,
-  query: string,
-  k = 6,
-) {
-  const live = await readDocumentation(teamId);
-  if (!live.indexing.enabled) return [];
-  const tokens = [...new Set(query.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])];
-  if (!tokens.length) return [];
-  const origin = await siteOriginForTeam(teamId);
-  const eligible = live.items.filter((i) => i.meta.indexable !== false);
-  const scores =
-    live.indexing.mode === "semantic"
-      ? await semanticDocumentationScores(
-          teamId,
-          live.indexing.configHash,
-          query,
-          eligible,
-        )
-      : null;
-  const candidates = eligible
-    .flatMap((item) =>
-      item._chunks.map((chunk, chunkIndex) => {
-        const text =
-          `${item.title} ${chunk.heading ?? ""} ${chunk.content}`.toLowerCase();
-        const score = scores
-          ? (scores.get(item.revisionId)?.[chunkIndex] ?? 0)
-          : tokens.filter((token) => text.includes(token)).length / tokens.length;
-        return {
-          documentId: item.documentId,
-          slug: item.slug,
-          title: item.title,
-          ...chunk,
-          similarity: score,
-          kind: "doc" as const,
-          publicationId: live.publicationId,
-          policyEpoch: live.policyEpoch,
-          revisionId: item.revisionId,
-          evidenceId: `${item.revisionId}:${chunkIndex}`,
-          url: `${origin}/docs/${item.slug.split("/").map(encodeURIComponent).join("/")}${chunk.anchor ? `#${encodeURIComponent(chunk.anchor)}` : ""}`,
-        };
-      }),
-    )
-    .filter((c) => c.similarity > (scores ? 0.25 : 0))
-    .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, k);
-  const final = await db.query.documentationSettings.findFirst({
-    where: eq(settingsTable.teamId, teamId),
-  });
-  if (
-    final?.policyEpoch !== live.policyEpoch ||
-    final?.activePublicationId !== live.publicationId
-  )
-    return searchPublishedDocumentation(teamId, query, k);
-  return candidates;
 }
 
 export async function documentationEvidenceAllowed(

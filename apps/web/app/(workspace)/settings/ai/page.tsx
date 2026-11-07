@@ -16,6 +16,7 @@ import {
   type EmbeddingProvider,
 } from "@/lib/api";
 import { Banner } from "@/components/workspace/banner";
+import { SearchTiers } from "@/components/workspace/search-tiers";
 import { DeleteConfirm } from "@/components/workspace/delete-confirm";
 import { Loading } from "@/components/workspace/loading";
 import { PageHeader } from "@/components/workspace/page-header";
@@ -529,21 +530,35 @@ export default function AiSettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-sm">
+                <Sparkles className="size-4" /> Search quality
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Site search, the chatbot and help desk AI answers use your own keys.
+                Each key you add unlocks better retrieval.
+              </p>
+              <SearchTiers ai={config} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-sm">
                 <Sparkles className="size-4" /> Content indexing
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Help docs are always indexed for search and the chatbot. Turn on
-                articles or changelog to include those too, then control each page from
-                its editor.
+                Help docs, website pages and the API reference are always indexed for
+                search and the chatbot. Turn on articles or changelog to include those
+                too, then control each entry from its editor.
               </p>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <Label htmlFor="index-articles">Index articles</Label>
                   <p className="text-xs text-muted-foreground">
-                    Published blog posts can ground answers and appear in semantic
-                    search.
+                    Published blog posts can ground answers and appear in search.
                   </p>
                 </div>
                 <Switch
@@ -562,8 +577,7 @@ export default function AiSettingsPage() {
                 <div>
                   <Label htmlFor="index-changelog">Index changelog</Label>
                   <p className="text-xs text-muted-foreground">
-                    Published product updates can ground answers and appear in semantic
-                    search.
+                    Published product updates can ground answers and appear in search.
                   </p>
                 </div>
                 <Switch

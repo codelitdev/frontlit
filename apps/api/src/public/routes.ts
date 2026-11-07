@@ -1,4 +1,5 @@
 import { readDocumentation } from "../documentation/publications";
+import { searchContent } from "../search/search";
 import { DocsContentError } from "@frontlit/text-editor/docs";
 import { documentationErrorBody } from "../documentation/content-validation";
 import { Router } from "express";
@@ -12,13 +13,13 @@ import {
   getPublishedDocumentBySlug,
   listPublishedDocuments,
 } from "../documents/queries";
-import { searchChunks } from "../documentation/queries";
 import {
   readApiOperation,
   readApiReference,
   readApiSpec,
 } from "../documentation/openapi/service";
 import { getChatbotSettings } from "../chatbot/queries";
+import { rateBotAnswer } from "../chatbot/feedback";
 import { findTeamById, findTeamByPublicId } from "../team/queries";
 import { runInboxAi } from "../inbox-ai/generate";
 import { MAX_MESSAGE_CHARS } from "../inbox-ai/config";
@@ -588,7 +589,7 @@ const impl = s.router(contract.public, {
       const team = await findTeamByPublicId(params.teamId);
       if (!team) return { status: 404, body: { error: "Team not found" } };
 
-      const chunks = await searchChunks(team.id, query.q, query.k);
+      const chunks = await searchContent(team.id, query.q, query.k);
       return { status: 200, body: { items: chunks } };
     },
   },
@@ -891,6 +892,26 @@ const impl = s.router(contract.public, {
           escalate: result.outcome === "escalated",
         },
       };
+    },
+  },
+  chatFeedback: {
+    middleware: [chatLimiter],
+    handler: async ({ params, body }) => {
+      const team = await findTeamByPublicId(params.teamId);
+      if (!team) return { status: 404, body: { error: "Team not found" } };
+      const ticket = await getTicketByTicketId(team.id, body.conversationId);
+      if (!ticket || ticket.source !== "chatbot")
+        return { status: 404, body: { error: "Conversation not found" } };
+      if (!(await verifyTicketAccess(ticket, body.conversationToken)))
+        return { status: 401, body: { error: "Invalid conversation token" } };
+      const rated = await rateBotAnswer({
+        teamId: team.id,
+        ticket,
+        messageId: body.messageId,
+        rating: body.rating,
+      });
+      if (!rated) return { status: 404, body: { error: "Answer not found" } };
+      return { status: 200, body: rated };
     },
   },
   captureLead: {

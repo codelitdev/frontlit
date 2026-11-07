@@ -8,9 +8,9 @@ vi.mock("../ai/provider", () => ({
   getLanguageModel: vi.fn(async () => ({})),
   getChatLanguageModel: vi.fn(),
 }));
-vi.mock("../documentation/queries", () => ({ searchChunks: vi.fn(async () => []) }));
+vi.mock("../search/search", () => ({ searchContent: vi.fn(async () => []) }));
 import { generateText } from "ai";
-import { searchChunks } from "../documentation/queries";
+import { searchContent } from "../search/search";
 import { generateInboxAnswer } from "./completion";
 import { MISSING_EVIDENCE_COPY } from "../chatbot/completion";
 const evidence = {
@@ -48,7 +48,7 @@ const input = {
 describe("D5 generation capability and citation containment", () => {
   beforeEach(() => {
     vi.mocked(generateText).mockReset();
-    vi.mocked(searchChunks).mockReset().mockResolvedValue([evidence]);
+    vi.mocked(searchContent).mockReset().mockResolvedValue([evidence]);
   });
   async function answer(text: string) {
     vi.mocked(generateText).mockImplementation(async (options: any) => {
@@ -64,7 +64,7 @@ describe("D5 generation capability and citation containment", () => {
   }
   it("offers only scoped retrieval and preserves server evidence identity", async () => {
     const output = await answer("Use the setup guide [1].");
-    expect(searchChunks).toHaveBeenCalledWith("team_scope", "setup");
+    expect(searchContent).toHaveBeenCalledWith("team_scope", "setup", 30);
     expect(output.groundingMissing).toBe(false);
     expect(output.result.citations).toEqual([1]);
     expect(output.chunks[0].revisionId).toBe("rev_scope");

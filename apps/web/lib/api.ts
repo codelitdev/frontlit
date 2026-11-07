@@ -755,7 +755,7 @@ export function getDocumentationSettings() {
     policyEpoch: number;
     purgeGeneration: number;
     source: "editor" | "git";
-    indexing: { enabled: boolean; mode?: "lexical" | "semantic" };
+    indexing: { enabled: boolean };
   }>(client.content.documentationSections.getSettings());
 }
 
@@ -803,7 +803,7 @@ export interface DocumentationSearchResult {
   anchor: string | null;
   content: string;
   similarity: number;
-  kind?: "blog" | "doc" | "changelog";
+  kind?: "blog" | "doc" | "changelog" | "page" | "api-operation";
 }
 
 export function searchDocumentation(q: string, k?: number) {
@@ -1352,7 +1352,7 @@ export interface TicketMessageSource {
   slug: string;
   title: string | null;
   anchor: string | null;
-  kind?: "blog" | "doc" | "changelog";
+  kind?: "blog" | "doc" | "changelog" | "page" | "api-operation";
 }
 
 export interface TicketMessage {
@@ -1362,6 +1362,8 @@ export interface TicketMessage {
   content: TextEditorContent;
   attachments?: TicketAttachment[];
   sources?: TicketMessageSource[];
+  /** Visitor's thumbs up/down on a bot answer. */
+  feedback?: "up" | "down" | null;
   createdAt: string | null;
 }
 
@@ -1386,7 +1388,7 @@ export interface TicketAiRetrieval {
   heading?: string | null;
   anchor: string | null;
   similarity?: number;
-  kind?: "blog" | "doc" | "changelog";
+  kind?: "blog" | "doc" | "changelog" | "page" | "api-operation";
 }
 
 export interface TicketAiRun {

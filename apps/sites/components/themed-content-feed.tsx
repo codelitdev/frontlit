@@ -145,6 +145,7 @@ export async function ThemedProductUpdatesFeed({
   jsonLd: string;
   items: Array<{
     documentId: string;
+    slug: string;
     title: string | null;
     content: TextEditorContent | null;
     publishedAt: string | null;
@@ -161,7 +162,11 @@ export async function ThemedProductUpdatesFeed({
       ) : (
         <ol className="flex flex-col gap-12 border-l border-border pl-8">
           {items.map((entry) => (
-            <li key={entry.documentId} className="relative">
+            <li
+              key={entry.documentId}
+              id={entry.slug}
+              className="relative scroll-mt-24"
+            >
               <span className="absolute -left-[calc(2rem+5px)] top-1.5 h-2.5 w-2.5 rounded-full bg-muted-foreground" />
               <div className="flex flex-wrap items-center gap-2">
                 {entry.meta.version && (

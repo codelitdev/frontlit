@@ -1,7 +1,7 @@
 import { generateText, isStepCount, tool } from "ai";
 import { z } from "zod";
-import type { SearchResult } from "../documentation/queries";
-import { searchChunks } from "../documentation/queries";
+import { searchContent, type SearchResult } from "../search/search";
+import { rerankCandidates } from "../search/rerank";
 import { getLanguageModel } from "../ai/provider";
 import type { ResolvedAiConfig } from "../ai/queries";
 import {
@@ -100,7 +100,9 @@ function buildInboxInstructions(input: {
     "You are NOT a general-purpose AI, coding agent, homework helper, or open chat model.",
     "",
     "Tools:",
-    "- Call search_docs when the visitor asks about this product/site and you need published help articles.",
+    "- Call search_docs when the visitor asks about this product/site and you need published content (docs, website pages, blog posts, changelog, API reference).",
+    '- Write each query as a standalone search: resolve pronouns and follow-ups from the conversation and include the product terms involved (for example "cancel subscription billing", not "how do I do that").',
+    "- If the results don't cover the question, search again with different wording (synonyms, the feature's name, the error text) before concluding nothing is published.",
     "- You may skip the tool for greetings, thanks, or clarifications.",
     "- If search_docs returns hits, ground product facts in them and cite each used article as [n] using the index the tool returned.",
     "- If search_docs returns no hits, ask for clarification or offer support. Do not invent facts.",
@@ -148,15 +150,30 @@ export async function generateInboxAnswer(input: {
   let handoff: InboxAiHandoff | null = null;
   let retrievalAttempted = false;
 
+  let rerankTokens = 0;
   const searchDocs = tool({
     description:
-      "Search published help articles for this product. Use for product facts, how-to, and policies.",
+      "Search this product's published docs, website pages, blog, changelog and API reference. Use for product facts, how-to, pricing, and policies.",
     inputSchema: z.object({
-      query: z.string().min(1).max(400).describe("What to look up in the help center"),
+      query: z
+        .string()
+        .min(1)
+        .max(400)
+        .describe("Standalone search query with the key product terms"),
     }),
     execute: async ({ query }) => {
       retrievalAttempted = true;
-      const chunks = await searchChunks(input.teamId, query);
+      // Hybrid search casts a wide net; the team's chat model then picks
+      // the passages that actually answer the question.
+      const candidates = await searchContent(input.teamId, query, 30);
+      const ranked = await rerankCandidates({
+        question: `${clip(input.question)}\nSearch: ${query}`,
+        candidates,
+        aiConfig: input.aiConfig,
+        limit: 6,
+      });
+      rerankTokens += ranked.usedTokens;
+      const chunks = ranked.results;
       const hits = chunks.slice(0, 6).map((chunk) => {
         if (retrieved.length >= 24 && !indexByKey.has(chunkKey(chunk))) return null;
         const key = chunkKey(chunk);
@@ -238,8 +255,8 @@ export async function generateInboxAnswer(input: {
   const citations = extractCitationIndexes(answer, retrieved.length);
   const usage = raced.totalUsage;
   const usedTokens =
-    (usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0) ||
-    estimateFromText(instructions, messages, answer);
+    ((usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0) ||
+      estimateFromText(instructions, messages, answer)) + rerankTokens;
 
   return {
     result: { answer: normalizeCitedAnswer(answer, retrieved).answer, citations },

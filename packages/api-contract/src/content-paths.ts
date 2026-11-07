@@ -1,11 +1,14 @@
 import type { DocumentKind } from "./schemas/documents";
 
 export function publicContentPath(
-  kind: DocumentKind | "api-operation" | null | undefined,
+  kind: DocumentKind | "page" | "api-operation" | null | undefined,
   slug: string,
   anchor?: string | null,
 ): string {
   const hash = anchor ? `#${encodeURIComponent(anchor)}` : "";
+  // Builder pages: "" is the home page.
+  if (kind === "page")
+    return `/${slug.split("/").filter(Boolean).map(encodeURIComponent).join("/")}${hash}`;
   if (kind === "blog") return `/blog/${encodeURIComponent(slug)}${hash}`;
   if (kind === "changelog") {
     return `/changelog${hash || `#${encodeURIComponent(slug)}`}`;
@@ -15,9 +18,10 @@ export function publicContentPath(
 }
 
 export function workspaceContentPath(
-  kind: DocumentKind | null | undefined,
+  kind: DocumentKind | "page" | "api-operation" | null | undefined,
   documentId: string,
 ): string {
+  if (kind === "page") return "/website";
   if (kind === "blog") return `/editor/content/articles/${documentId}`;
   if (kind === "changelog") return `/editor/content/changelog/${documentId}`;
   return `/editor/content/documentation/${documentId}`;

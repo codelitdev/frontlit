@@ -10,9 +10,11 @@ import {
   PageCardContent,
   Text2,
 } from "@frontlit/page-builder/primitives/server";
+import { publicContentPath } from "@frontlit/api-contract";
 import { useSiteThemeStyle } from "@/lib/site-theme-context";
 
 type SearchHit = {
+  kind?: "doc" | "page" | "blog" | "changelog" | "api-operation";
   documentId: string;
   slug: string;
   title: string | null;
@@ -57,8 +59,9 @@ export function DocsSearch({
         }
         const body = (await res.json()) as { items: SearchHit[] };
         const seen = new Set<string>();
+        const key = (item: SearchHit) => `${item.kind ?? "doc"}:${item.documentId}`;
         const unique = body.items.filter((item) =>
-          seen.has(item.documentId) ? false : (seen.add(item.documentId), true),
+          seen.has(key(item)) ? false : (seen.add(key(item)), true),
         );
         setHits(unique);
         setStatus(unique.length === 0 ? "empty" : "idle");
@@ -105,13 +108,9 @@ export function DocsSearch({
               </li>
             ) : (
               hits.map((hit) => (
-                <li key={hit.documentId}>
+                <li key={`${hit.kind ?? "doc"}:${hit.documentId}`}>
                   <Link
-                    href={
-                      hit.anchor
-                        ? `/docs/${hit.slug}#${hit.anchor}`
-                        : `/docs/${hit.slug}`
-                    }
+                    href={publicContentPath(hit.kind ?? "doc", hit.slug, hit.anchor)}
                     role="option"
                     className="block hover:bg-muted"
                   >

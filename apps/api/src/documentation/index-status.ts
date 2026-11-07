@@ -1,8 +1,7 @@
 import { readDocumentation } from "./publications";
-import { count, inArray } from "drizzle-orm";
-import { db } from "../db/client";
-import { documentChunks, documentIndexJobs, type DocumentKind } from "../db/schema";
+import type { DocumentKind } from "../db/schema";
 import { teamIndexesKind } from "./index-policy";
+import { searchIndexStateFor } from "../search/indexer";
 
 export type PublicDocumentIndex = {
   state: "pending" | "indexed" | "failed" | "excluded";
@@ -53,31 +52,18 @@ export async function attachDocumentIndex<
           },
     }));
   }
-  const ids = docs.map((doc) => doc.id);
-  const [jobs, chunkRows] = await Promise.all([
-    db.query.documentIndexJobs.findMany({
-      where: inArray(documentIndexJobs.documentId, ids),
-    }),
-    db
-      .select({
-        documentId: documentChunks.documentId,
-        n: count(),
-      })
-      .from(documentChunks)
-      .where(inArray(documentChunks.documentId, ids))
-      .groupBy(documentChunks.documentId),
-  ]);
-
-  const jobByDoc = new Map(jobs.map((job) => [job.documentId, job]));
-  const chunksByDoc = new Map(chunkRows.map((row) => [row.documentId, Number(row.n)]));
-
+  const { indexed, request } = await searchIndexStateFor(
+    teamId!,
+    kind,
+    docs.map((doc) => (doc as any).documentId as string),
+  );
   return docs.map((doc) => ({
     ...doc,
     index: indexForPublishedDoc(
       Boolean(doc.publishedAt),
       isDocIndexable(doc.meta),
-      jobByDoc.get(doc.id),
-      chunksByDoc.get(doc.id) ?? 0,
+      request,
+      indexed.has((doc as any).documentId),
     ),
   }));
 }
@@ -85,28 +71,14 @@ export async function attachDocumentIndex<
 export function indexForPublishedDoc(
   published: boolean,
   indexable: boolean,
-  job:
-    | {
-        status: string;
-        lastError: string | null;
-      }
-    | undefined,
-  chunkCount: number,
+  request: { lastError: string | null } | null,
+  indexed: boolean,
 ): PublicDocumentIndex | null {
   if (!published) return null;
-  if (!indexable) {
-    return { state: "excluded", lastError: null };
-  }
-  if (job?.status === "failed") {
-    return { state: "failed", lastError: job.lastError };
-  }
-  if (job?.status === "queued" || job?.status === "running") {
-    return { state: "pending", lastError: null };
-  }
-  if (job?.status === "done" || chunkCount > 0) {
-    return { state: "indexed", lastError: null };
-  }
-  return { state: "pending", lastError: null };
+  if (!indexable) return { state: "excluded", lastError: null };
+  if (request?.lastError) return { state: "failed", lastError: request.lastError };
+  if (request || !indexed) return { state: "pending", lastError: null };
+  return { state: "indexed", lastError: null };
 }
 
 export async function attachOneDocumentIndex<

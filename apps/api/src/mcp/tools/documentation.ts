@@ -4,6 +4,7 @@ import {
   reviewDocumentationImprovement,
   createDocumentationImprovementDraft,
 } from "../../documentation/improvements";
+import { searchContent } from "../../search/search";
 import {
   documentationImprovementQuerySchema,
   documentationImprovementSchema,
@@ -71,7 +72,6 @@ import {
   createDocSection,
   deleteDocSection,
   listDocSections,
-  searchChunks,
   updateDocSection,
 } from "../../documentation/queries";
 import { AUTH_ERROR, INTERNAL_ERROR, NOT_FOUND, jsonResult } from "./responses";
@@ -367,7 +367,7 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
     "search_documentation",
     {
       description:
-        "Semantic search over the team's published documentation. Embeds the query and ranks pgvector chunks by cosine similarity, returning the source page, heading and #anchor for each match.",
+        "Search the team's published docs, pages, blog, changelog and API reference. Combines keyword (full-text) search with vector search when the team has an embedding key, returning the source page, heading, #anchor and URL for each match.",
       inputSchema: {
         q: z.string().min(1),
         k: z.number().int().min(1).max(20).optional(),
@@ -385,7 +385,7 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
       const teamId = getTeamId(extra);
       if (!teamId) return AUTH_ERROR;
       try {
-        const results = await searchChunks(teamId, args.q, args.k);
+        const results = await searchContent(teamId, args.q, args.k);
         return jsonResult({ items: results });
       } catch (error) {
         return error instanceof DocsContentError

@@ -128,7 +128,7 @@ export const documentationSearchResultSchema = z.object({
   anchor: z.string().nullable(),
   content: z.string(),
   similarity: z.number(),
-  kind: z.enum(["blog", "doc", "changelog", "api-operation"]).optional(),
+  kind: z.enum(["blog", "doc", "changelog", "page", "api-operation"]).optional(),
 });
 
 export const documentationVersionBodySchema = z
@@ -187,7 +187,6 @@ export const documentationSettingsSchema = z.object({
   activePublicationId: z.string().nullable(),
   indexing: z.object({
     enabled: z.boolean(),
-    mode: z.enum(["lexical", "semantic"]).optional(),
   }),
   policyEpoch: z.number().int(),
   requestedGeneration: z.number().int(),
@@ -199,7 +198,6 @@ export const updateDocumentationSettingsBodySchema = z
     indexing: z
       .object({
         enabled: z.boolean(),
-        mode: z.enum(["lexical", "semantic"]).optional(),
       })
       .strict(),
   })

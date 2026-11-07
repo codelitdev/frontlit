@@ -18,9 +18,10 @@ import {
   readApiOperation,
   readApiReference,
   readApiSpec,
-  searchApiReference,
   syncApiReference,
 } from "./service";
+import { syncSearchChunks } from "../../search/indexer";
+import { searchContent } from "../../search/search";
 const db = appDb as unknown as TestDb;
 
 const medialit = readFileSync(join(__dirname, "fixtures", "medialit.json"), "utf8");
@@ -134,7 +135,8 @@ describe("API reference sync", () => {
       head: sha(100),
       ...repo({ "apps/api/swagger.json": medialit }),
     });
-    const results = await searchApiReference(team.id, "upload file");
+    await syncSearchChunks(team.id);
+    const results = await searchContent(team.id, "upload file");
     expect(results.length).toBeGreaterThan(0);
     expect(results[0]).toMatchObject({ kind: "api-operation" });
     expect(results[0].url).toContain("/docs/api/");

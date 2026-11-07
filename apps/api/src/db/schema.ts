@@ -2,6 +2,7 @@ import {
   bigint,
   boolean,
   check,
+  customType,
   index,
   integer,
   jsonb,
@@ -467,74 +468,90 @@ export const docSections = pgTable(
   ],
 );
 
-/** 1536 dims matches `text-embedding-3-small` (and this repo's deterministic
- * local fallback provider — see `documentation/embeddings.ts`). */
-export const documentChunks = pgTable(
-  "document_chunks",
+const tsvector = customType<{ data: string }>({
+  dataType: () => "tsvector",
+});
+
+export const searchSourceKinds = [
+  "doc",
+  "page",
+  "blog",
+  "changelog",
+  "api-operation",
+] as const;
+export type SearchSourceKind = (typeof searchSourceKinds)[number];
+
+/**
+ * One retrieval index for everything the chatbot and help desk AI can cite:
+ * docs, builder pages, blog posts, changelog entries and API operations.
+ * Rows are derived from published content by the search index worker
+ * (`search/indexer.ts`) and rebuilt when a source's `sourceHash` changes.
+ *
+ * - `searchText` powers Postgres full-text search for every team.
+ * - `embedding` is only filled when the team configured an embedding key;
+ *   `embeddingModel` says which model produced it, so a provider change
+ *   re-embeds instead of mixing vector spaces. 1536 dims matches
+ *   `text-embedding-3-small`.
+ *
+ * Search filters rows against what's live at query time (active docs
+ * publication, active site release, published articles), so a lagging
+ * index never exposes unpublished content.
+ */
+export const searchChunks = pgTable(
+  "search_chunks",
   {
     id: text("id").primaryKey().$defaultFn(genId),
     teamId: text("team_id")
       .notNull()
       .references(() => teams.id, { onDelete: "cascade" }),
-    documentId: text("document_id")
-      .notNull()
-      .references(() => documents.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: searchSourceKinds }).notNull(),
+    /** Public id of the source: docs/blog/changelog `documentId`, page
+     * slug, or API operation route. */
+    sourceId: text("source_id").notNull(),
+    /** Immutable revision the chunk came from: docs revision, page
+     * revision or API operation row. Null for blog/changelog. */
+    revisionId: text("revision_id"),
+    /** Changes whenever the indexed text or its URL would change. */
+    sourceHash: text("source_hash").notNull(),
+    position: integer("position").notNull(),
+    slug: text("slug").notNull(),
+    title: text("title"),
     heading: text("heading"),
     anchor: text("anchor"),
+    /** Short "where this chunk sits" prefix (kind, section, summary). Indexed
+     * and embedded with the chunk; not shown to visitors. */
+    context: text("context").notNull().default(""),
     content: text("content").notNull(),
-    embedding: vector("embedding", { dimensions: 1536 }).notNull(),
+    searchText: tsvector("search_text").generatedAlwaysAs(
+      sql`setweight(to_tsvector('english', coalesce(title, '') || ' ' || coalesce(heading, '')), 'A') || setweight(to_tsvector('english', content), 'B') || setweight(to_tsvector('english', context), 'C')`,
+    ),
+    embedding: vector("embedding", { dimensions: 1536 }),
+    embeddingModel: text("embedding_model"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [
-    index("document_chunks_team_idx").on(table.teamId),
-    index("document_chunks_embedding_idx").using(
+    index("search_chunks_source_idx").on(table.teamId, table.kind, table.sourceId),
+    index("search_chunks_text_idx").using("gin", table.searchText),
+    index("search_chunks_embedding_idx").using(
       "hnsw",
       table.embedding.op("vector_cosine_ops"),
     ),
   ],
 );
 
-export const documentIndexJobStatuses = [
-  "queued",
-  "running",
-  "done",
-  "failed",
-] as const;
-export type DocumentIndexJobStatus = (typeof documentIndexJobStatuses)[number];
-
-/** One durable index job per document. Publish and AI-config changes enqueue
- * (or re-enqueue) instead of embedding inline on the request. */
-export const documentIndexJobs = pgTable(
-  "document_index_jobs",
-  {
-    id: text("id").primaryKey().$defaultFn(genId),
-    teamId: text("team_id")
-      .notNull()
-      .references(() => teams.id, { onDelete: "cascade" }),
-    documentId: text("document_id")
-      .notNull()
-      .references(() => documents.id, { onDelete: "cascade" }),
-    status: text("status", { enum: documentIndexJobStatuses })
-      .notNull()
-      .default("queued"),
-    generation: integer("generation").notNull().default(0),
-    attempts: integer("attempts").notNull().default(0),
-    lastError: text("last_error"),
-    leaseExpiresAt: timestamp("lease_expires_at"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-    startedAt: timestamp("started_at"),
-    finishedAt: timestamp("finished_at"),
-  },
-  (table) => [
-    uniqueIndex("document_index_jobs_document_idx").on(table.documentId),
-    index("document_index_jobs_poll_idx").on(
-      table.status,
-      table.leaseExpiresAt,
-      table.createdAt,
-    ),
-  ],
-);
+/** A team whose search index needs reconciling with its published content.
+ * Publishing, unpublishing and AI-setting changes upsert a row; the worker
+ * deletes it once the index matches (or records the error and retries). */
+export const searchIndexRequests = pgTable("search_index_requests", {
+  teamId: text("team_id")
+    .primaryKey()
+    .references(() => teams.id, { onDelete: "cascade" }),
+  requestedAt: timestamp("requested_at").notNull().defaultNow(),
+  nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
+  leaseExpiresAt: timestamp("lease_expires_at"),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
+});
 
 // ---------------------------------------------------------------------------
 // Chatbot (architecture.md §7): per-team RAG chat settings.
@@ -948,7 +965,7 @@ export const ticketMessageAuthors = ["requester", "agent", "bot"] as const;
 export type TicketMessageAuthor = (typeof ticketMessageAuthors)[number];
 
 export type TicketMessageSource = {
-  kind?: "blog" | "doc" | "changelog" | "api-operation";
+  kind?: "blog" | "doc" | "changelog" | "page" | "api-operation";
   revisionId?: string;
   publicationId?: string | null;
   policyEpoch?: number;
@@ -983,6 +1000,8 @@ export const ticketMessages = pgTable(
       .$type<TicketMessageSource[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    /** Visitor rating of a bot answer from the chat widget. */
+    feedback: text("feedback", { enum: ["up", "down"] }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [
@@ -1074,7 +1093,7 @@ export type InboxAiRetrievalHit = {
   heading: string | null;
   anchor: string | null;
   similarity: number;
-  kind?: "blog" | "doc" | "changelog" | "api-operation";
+  kind?: "blog" | "doc" | "changelog" | "page" | "api-operation";
 };
 
 export const inboxAiRuns = pgTable(
@@ -1345,8 +1364,6 @@ export const documentationSettings = pgTable("documentation_settings", {
   indexing: jsonb("indexing")
     .$type<{
       enabled: boolean;
-      mode?: "lexical" | "semantic";
-      configHash?: string | null;
     }>()
     .notNull()
     .default({ enabled: true }),
@@ -1411,8 +1428,6 @@ export const documentationPublications = pgTable(
     indexing: jsonb("indexing")
       .$type<{
         enabled: boolean;
-        mode?: "lexical" | "semantic";
-        configHash?: string | null;
       }>()
       .notNull(),
     navigation: jsonb("navigation").$type<Record<string, any>[]>().notNull(),
@@ -1672,39 +1687,6 @@ export const documentationImprovementDrafts = pgTable(
     ),
   ],
 );
-export const documentationEmbeddings = pgTable(
-  "documentation_embeddings",
-  {
-    revisionId: text("revision_id")
-      .notNull()
-      .references(() => documentationRevisions.revisionId, { onDelete: "cascade" }),
-    configHash: text("config_hash").notNull(),
-    vectors: jsonb("vectors").$type<number[][]>().notNull(),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-  },
-  (t) => [
-    uniqueIndex("documentation_embeddings_revision_config_idx").on(
-      t.revisionId,
-      t.configHash,
-    ),
-  ],
-);
-
-export const documentationEmbeddingConfigs = pgTable(
-  "documentation_embedding_configs",
-  {
-    configHash: text("config_hash").primaryKey(),
-    teamId: text("team_id")
-      .notNull()
-      .references(() => teams.id, { onDelete: "cascade" }),
-    provider: text("provider", { enum: ["openai", "azure"] }).notNull(),
-    deployment: text("deployment"),
-    endpoint: text("endpoint"),
-    encryptedApiKey: text("encrypted_api_key").notNull(),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-  },
-);
-
 export const documentationImprovementReviews = pgTable(
   "documentation_improvement_reviews",
   {
