@@ -6,8 +6,7 @@ import type {
 } from "@frontlit/api-contract";
 import { db } from "../db/client";
 import { aiSettings } from "../db/schema";
-import { enqueuePublishedDocsForTeam } from "../documentation/index-jobs";
-import { deleteChunksForTeamKind } from "../documentation/queries";
+import { requestSearchIndex } from "../search/requests";
 import { decryptSecret, encryptSecret } from "../utils/crypto";
 
 type AiSettingsRow = typeof aiSettings.$inferSelect;
@@ -224,13 +223,9 @@ export async function upsertAiConfig(
       })
       .where(eq(aiSettings.id, existing.id))
       .returning();
-    if (existing.indexArticles && !updated.indexArticles) {
-      await deleteChunksForTeamKind(teamId, "blog");
-    }
-    if (existing.indexChangelog && !updated.indexChangelog) {
-      await deleteChunksForTeamKind(teamId, "changelog");
-    }
-    await enqueuePublishedDocsForTeam(teamId);
+    // Index membership (articles/changelog) or the embedding model may
+    // have changed; the worker reconciles whatever differs.
+    await requestSearchIndex(teamId);
     if (
       input.embedding ||
       input.apiKey ||
@@ -263,7 +258,7 @@ export async function upsertAiConfig(
       indexChangelog: input.indexContent?.changelog ?? false,
     })
     .returning();
-  await enqueuePublishedDocsForTeam(teamId);
+  await requestSearchIndex(teamId);
   const { rebuildDocumentationRetrieval } = await import(
     "../documentation/publications.js"
   );
@@ -272,10 +267,8 @@ export async function upsertAiConfig(
 }
 
 export async function deleteAiConfig(teamId: string) {
-  await deleteChunksForTeamKind(teamId, "blog");
-  await deleteChunksForTeamKind(teamId, "changelog");
   await db.delete(aiSettings).where(eq(aiSettings.teamId, teamId));
-  await enqueuePublishedDocsForTeam(teamId);
+  await requestSearchIndex(teamId);
   const { rebuildDocumentationRetrieval } = await import(
     "../documentation/publications.js"
   );

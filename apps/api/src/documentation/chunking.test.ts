@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { changelogChunkContext, extractChunks } from "./chunking";
+import { extractChunks } from "./chunking";
 import type { TextEditorContentRow } from "../db/schema";
 
 function heading(text: string) {
@@ -202,27 +202,5 @@ describe("changelog chunks", () => {
     const [chunk] = extractChunks(content, "changelog");
     expect(chunk.heading).toBe("Fixed");
     expect(chunk.anchor).toBeNull();
-  });
-
-  it("builds release context from the title and release date", () => {
-    expect(
-      changelogChunkContext({
-        title: "v1.2.0: Dark mode",
-        slug: "v1-2-0-dark-mode",
-        meta: { releaseDate: "2026-11-07" },
-        publishedAt: new Date("2026-11-08T10:00:00Z"),
-      }),
-    ).toBe("v1.2.0: Dark mode — 2026-11-07");
-  });
-
-  it("falls back to the publish date and slug", () => {
-    expect(
-      changelogChunkContext({
-        title: null,
-        slug: "dark-mode",
-        meta: {},
-        publishedAt: new Date("2026-11-08T23:30:00Z"),
-      }),
-    ).toBe("dark-mode — 2026-11-08");
   });
 });

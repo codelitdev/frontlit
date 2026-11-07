@@ -1118,7 +1118,7 @@ describe("reviewed source connection and generation-fenced inbound sync", () => 
       .where(eq(documents.documentId, document.documentId));
     await db
       .update(settings)
-      .set({ indexing: { enabled: false, mode: "lexical" } })
+      .set({ indexing: { enabled: false } })
       .where(eq(settings.teamId, teamId));
     const rebuild = await rebuildDocumentationRetrieval(teamId);
     expect(rebuild).toMatchObject({ status: "queued" });
@@ -1139,7 +1139,7 @@ describe("reviewed source connection and generation-fenced inbound sync", () => 
       await db.query.documentationPublications.findFirst({
         where: eq(publications.publicationId, sync!.publicationId!),
       }),
-    ).toMatchObject({ source: "git", indexing: { enabled: false, mode: "lexical" } });
+    ).toMatchObject({ source: "git", indexing: { enabled: false } });
   });
   it("preflight is private, connection records consent and queues exactly the reviewed commit, and retries are idempotent", async () => {
     const report: any = await preflight();

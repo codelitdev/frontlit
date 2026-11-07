@@ -70,7 +70,7 @@ graph TD
         DocsT[(documents)]
         TeamsT[(teams + domain columns)]
         TicketsT[(tickets + messages)]
-        Chunks[(document_chunks + pgvector)]
+        Chunks[(search_chunks: full-text + pgvector)]
         Settings[(team_settings + chatbot_settings)]
         Integr[(integrations)]
         Outbox[(outbox_jobs)]
@@ -502,7 +502,7 @@ export const docSections = pgTable("doc_sections", {
 ```
 
 Deletion/cleanup: `documents` and `doc_sections` cascade on team delete;
-deleting a document (or unpublishing a `doc`) deletes its `document_chunks`
+deleting a document (or unpublishing a `doc`) removes its `search_chunks`
 rows (§6) in the same transaction.
 
 ### 5.2 Authoring flow (identical for all three kinds)
@@ -512,7 +512,7 @@ sequenceDiagram
     participant U as Workspace editor
     participant A as apps/api documents module
     participant DB as documents table
-    participant W as embedding worker
+    participant W as search index worker
 
     U->>A: POST /content/documentation { title }
     A->>DB: insert (draft only, publishedAt = null)
@@ -520,8 +520,8 @@ sequenceDiagram
     A->>DB: update draft_* columns
     U->>A: POST /content/documentation/:id/publish
     A->>DB: copy draft_* -> published columns, stamp published_at
-    A->>W: enqueue embedding job (kind = doc only)
-    W->>DB: chunk + embed -> document_chunks
+    A->>W: request search reindex for the team
+    W->>DB: chunk + embed -> search_chunks
 ```
 
 `draftContent` is a `TextEditorContent` (TipTap JSON) produced by
@@ -570,75 +570,87 @@ These return published fields only and never leak `draft*` columns
 
 ---
 
-## 6. Documentation vectorization (pgvector)
+## 6. Search and retrieval (RAG)
+
+One index serves site search, the chatbot, the help desk AI and the MCP
+`search_documentation` tool. It covers everything a team publishes:
+**docs, builder pages, API reference** always, plus **blog** and
+**changelog** when enabled in Settings → AI. Code lives in
+`apps/api/src/search/`.
 
 ### 6.1 Infrastructure
 
-- `docker-compose.yml`: switch image to `pgvector/pgvector:pg16`.
-- Migration: `CREATE EXTENSION IF NOT EXISTS vector;`
-- New dependency in `apps/api`: the `ai` SDK for the embeddings API. Teams
-  select either OpenAI or Azure OpenAI and store a separate encrypted
-  embedding credential; both use `text-embedding-3-small` (1536 dims).
-  Teams without an embedding provider use the local deterministic fallback.
+- Postgres with pgvector (`pgvector/pgvector` image). Full-text search is
+  plain Postgres (`tsvector`, GIN index).
+- Every AI call uses the **team's own keys**; FrontLit provides none. What a
+  team gets depends on its keys:
+
+  | Team has                        | Retrieval                                   |
+  | ------------------------------- | ------------------------------------------- |
+  | no AI key                       | keyword (full-text) search                  |
+  | embedding key (OpenAI / Azure)  | hybrid: full-text + vectors, fused with RRF |
+  | chat model key                  | + LLM reranking for chatbot/help desk answers |
+
+  OpenAI and Azure chat keys double as embedding keys. There is no fake
+  vector fallback: no key means no vectors.
 
 ### 6.2 Schema
 
-```ts
-export const documentChunks = pgTable(
-    "document_chunks",
-    {
-        id: text("id").primaryKey().$defaultFn(genId),
-        teamId: text("team_id")
-            .notNull()
-            .references(() => teams.id, { onDelete: "cascade" }),
-        documentId: text("document_id")
-            .notNull()
-            .references(() => documents.id, { onDelete: "cascade" }),
-        heading: text("heading"), // nearest heading, for citations
-        anchor: text("anchor"), // #fragment on /docs/:slug
-        content: text("content").notNull(), // plain text of the chunk
-        embedding: vector("embedding", { dimensions: 1536 }).notNull(),
-        createdAt: timestamp("created_at").notNull().defaultNow(),
-    },
-    (table) => [
-        index("document_chunks_team_idx").on(table.teamId),
-        index("document_chunks_embedding_idx").using(
-            "hnsw",
-            table.embedding.op("vector_cosine_ops"),
-        ),
-    ],
-);
-```
+`search_chunks` holds one row per chunk: `kind` (`doc` | `page` | `blog` |
+`changelog` | `api-operation`), `source_id` (public document id, page slug
+or API route), `revision_id` (immutable docs/page revision or API spec),
+`source_hash`, `slug`, `title`, `heading`, `anchor`, `context`, `content`,
+a generated `search_text` tsvector (title + heading weight A, content B,
+context C), and a nullable `embedding vector(1536)` with `embedding_model`
+(which model produced it, so a provider change re-embeds).
 
-### 6.3 Chunking & indexing pipeline
+`search_index_requests` holds one row per team whose index needs
+reconciling.
 
-On **publish** of a `doc` (never on draft saves):
+### 6.3 Indexing
 
-1. Split the published `TextEditorContent` at headings using
-   `extractHeadings` + `extractTextFromNode` from `@frontlit/text-editor`;
-   merge/split sections into ~200–500-word chunks with one-sentence overlap.
-2. Embed chunks in one batched provider call.
-3. In a transaction: delete the document's old chunks, insert new ones.
+Publishing anything (docs activation/purge/API reference via the docs
+delivery outbox, page releases, blog/changelog publish/edit/delete) and AI
+setting changes upsert a `search_index_requests` row. The search index
+worker (`search/indexer.ts`) leases a team and:
 
-On unpublish/delete: delete chunks (plus FK cascade as backstop).
+1. Computes the desired sources from what is live: active docs publication
+   (revision chunks), active API spec operations, active site release pages
+   (skipping `robotsAllowed: false`), and published blog/changelog entries
+   (respecting the per-kind toggle and `meta.indexable`).
+2. Rewrites chunks only for sources whose `source_hash` changed and deletes
+   sources that are no longer published.
+3. Embeds chunks lacking a vector for the team's current embedding model
+   (batched, budgeted via `ai_usage_daily`), or clears vectors when the key
+   was removed.
 
-Chunking and embedding run on a durable `document_index_jobs` queue, not
-inline on the publish request. Publish (and AI-config create/update/
-delete) enqueue one job per published document whose kind is enabled for
-indexing (docs always; articles and changelog via Settings → AI). A worker claims with a lease,
-re-chunks, embeds, and replaces `document_chunks`. Republish bumps
-`generation` so an in-flight run is discarded and the latest content is
-indexed. Existing docs published before a team configured embeddings are
-backfilled when AI settings are saved.
+Chunks are split by heading (~300 words). Builder pages produce one chunk
+per block: the block title becomes the heading and its visible copy
+(descriptions, FAQ items, plan features, rich text) the content; chrome,
+forms, embeds, links and styling are skipped. Each chunk carries a
+**context** line (kind › title › section, plus the page summary) that is
+indexed and embedded with it, so a section keeps its page's meaning.
 
 ### 6.4 Retrieval
 
-`searchChunks(teamId, queryEmbedding, k = 6)`: cosine distance over the HNSW
-index, `WHERE team_id = …`, with a similarity floor (~0.25) to avoid feeding
-garbage to the LLM. Results include the document `kind` so citations can
-link to `/docs`, `/blog`, or `/changelog`. Also reused for documentation
-search (`GET /public/:teamId/content/documentation/search?q=`) and the
-help desk's deflection suggestions (§11.2).
+`searchContent(teamId, query, limit)`:
+
+1. Builds a live scope (active docs revisions, active page revisions,
+   active API spec, published articles). Rows outside it are never
+   returned, so a lagging index can't leak unpublished content.
+2. Runs full-text search (`to_tsquery` OR of the query words, prefix match
+   for 3+ characters, ranked with `ts_rank_cd`) and, with an embedding key,
+   vector search (cosine, floor 0.25), 30 candidates each.
+3. Fuses both lists with reciprocal rank fusion (k = 60).
+
+Results carry a public URL per kind (`/docs/…`, `/<page>`, `/blog/…`,
+`/changelog#<slug>`) and, for docs, the live publication/evidence ids used
+by citation checks.
+
+The chatbot and help desk AI then **rerank** the 30 fused candidates with
+the team's chatbot model (`search/rerank.ts`): one call returns the
+numbers of the passages that answer the question, best first. Any failure
+falls back to the fused order. Site search skips reranking.
 
 ---
 
@@ -679,14 +691,13 @@ handlers.
 | `openrouter`  | `@openrouter/ai-sdk-provider`  | `openai/gpt-4o-mini`                       |
 | `bedrock`     | `@ai-sdk/amazon-bedrock`       | `anthropic.claude-3-5-haiku-20241022-v1:0` |
 | `opencode`    | `ai-sdk-provider-opencode-sdk` | `openai/gpt-5.1`                           |
-| none          | none (extractive top-chunk)    | —                                          |
+| none          | none (no generated answers)    | —                                          |
 
 When the team's chat provider is OpenAI or Azure OpenAI, embeddings reuse that
 provider's credential (and Azure resource endpoint) automatically with
 `text-embedding-3-small`; no second embedding setup is shown. Teams using a
 different chat provider can configure OpenAI or Azure OpenAI embeddings
-separately. Without a saved embedding credential, the local deterministic
-vector remains available for tests and self-hosting.
+separately. Without an embedding credential, search is keyword-only (§6).
 
 Models are intentionally configured separately from credentials. A team may
 select one model for the support **chatbot**, another for **grammar
@@ -698,24 +709,29 @@ are stored now for their forthcoming features.
 
 ### 7.2 Chat endpoint
 
-`POST /public/:teamId/chat` (non-streaming today; rate-limited per IP+team
-**and** capped by a per-team daily token budget — §13.2). A streaming
-helper (`streamChatAnswer`) exists for a future SSE path:
+`POST /public/:teamId/chat` (non-streaming; rate-limited per IP+team
+**and** capped by a per-team daily token budget — §13.2):
 
 1. Reject if chatbot disabled for the team.
 2. On the first message, create an anonymous `source: "chatbot"` ticket;
    later messages provide the returned conversation id/token and append to
    that same team-scoped thread.
-3. Embed the user message (last user turn; the API loads bounded history
-   from the persisted thread).
-4. `searchChunks(teamId, …)` → top-k chunks.
-5. Prompt: system instructions ("answer only from the provided help
-   articles; say you don't know otherwise") + chunks with their
-   `/docs/:slug#anchor` source URLs + chat history — via AI SDK
-   `generateText`.
-6. Persist the bot reply and return it with cited sources and the opaque
+3. Run the inbox AI agent (`inbox-ai/completion.ts`) with bounded history
+   from the persisted thread. Its only tool, `search_docs`, takes a
+   standalone query the model writes (resolving follow-ups from the
+   conversation, retrying with other wording when results are thin) and
+   returns hybrid-search candidates reranked by the team's model (§6.4).
+4. The answer must cite retrieved chunks as `[n]`; uncited answers or URLs
+   not from cited evidence are replaced with a "couldn't verify" reply.
+5. Persist the bot reply and return it with cited sources and the opaque
    conversation credentials. The widget polls the magic-token thread so
    replies sent by a human agent appear in the same chat.
+
+`POST /public/:teamId/chat/feedback` lets the visitor rate a bot answer
+(thumbs up/down, stored on `ticket_messages.feedback`). A thumbs down files
+the question under documentation improvements (`negative_feedback`),
+alongside retrieval misses and escalations, so the team sees which
+questions their content answers badly.
 
 ### 7.3 Embedding on sites
 
@@ -1707,7 +1723,7 @@ users may write from anywhere) but tags the ticket for review.
   re-encrypt migration.
 - **Tenant isolation is structural**: every queries-layer function takes
   `teamId` as its first argument and every table carries `team_id` — no
-  query can be written without scoping. `document_chunks` retrieval
+  query can be written without scoping. `search_chunks` retrieval
   filters `team_id` **before** the vector search; the public serializer
   strip-list (`draft*`, `teamId`, internal ids) is a shared helper with a
   unit test enumerating every schema's columns, so adding a column
@@ -1767,7 +1783,7 @@ What keeps the design boring under load, and the known ceilings:
   invalidation reaches every replica); a stampede on cache expiry
   collapses into one upstream call per host (request coalescing in the
   middleware helper).
-- **Postgres growth**: `document_chunks` and `ticket_messages` are the
+- **Postgres growth**: `search_chunks` and `ticket_messages` are the
   only unbounded-ish tables; both are team-scoped and prunable
   (chunks are regenerable derived data; closed-ticket retention is a
   policy knob). `usage_counters` rows are date-bucketed and swept.
@@ -1810,7 +1826,7 @@ via `bun run --workspaces --if-present test` (the root script already does this)
   this doc need. Plus `truncateAll()` (FK-safe, called in `beforeEach`)
   and a `seed()` helper for the minimal account→team graph.
 - **pgvector in tests**: PGlite ships the `vector` extension, so chunk
-  storage and `searchChunks` ordering are testable in-memory
+  storage and `searchContent` ordering are testable in-memory
   (`new PGlite({ extensions: { vector } })` + the same
   `CREATE EXTENSION` migration). No Docker in unit tests.
 - `src/test/setup.ts` seeds required env (`INTEGRATIONS_ENCRYPTION_KEY`,

@@ -1,4 +1,3 @@
-import { changelogDate } from "@frontlit/api-contract";
 import type { TextEditorContentRow } from "../db/schema";
 import { slugify } from "../utils/slug";
 import { createHeadingIdGenerator, docsNodeText } from "@frontlit/text-editor/headings";
@@ -157,21 +156,4 @@ export function extractChunks(
   }
 
   return chunks;
-}
-
-/**
- * Release context prepended to every changelog chunk ("Dark mode — 2026-11-07"),
- * so retrieval never presents an old fix without its release. Versioned
- * products put the version in the title.
- */
-export function changelogChunkContext(doc: {
-  title: string | null;
-  slug: string;
-  meta: Record<string, unknown> | null;
-  publishedAt: Date | null;
-}): string {
-  const meta = (doc.meta ?? {}) as { releaseDate?: string };
-  const date = changelogDate({ meta, publishedAt: doc.publishedAt });
-  const title = doc.title || doc.slug;
-  return date ? `${title} — ${date}` : title;
 }

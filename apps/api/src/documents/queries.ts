@@ -19,10 +19,8 @@ import {
   SlugConflictError,
   uniqueSlug,
 } from "../utils/slug";
-import { enqueueDocumentIndex } from "../documentation/index-jobs";
-import { isDocIndexable } from "../documentation/index-status";
 import { teamIndexesKind } from "../documentation/index-policy";
-import { deleteChunksForDocument } from "../documentation/queries";
+import { requestSearchIndex } from "../search/requests";
 
 import { isUnsplashUrl, registerMedia } from "../media/queries";
 import { logger } from "../services/log";
@@ -397,16 +395,11 @@ export async function updateDocument(
       await syncFeaturedImageToMediaLibrary(teamId, normalizedFeaturedImage);
     }
 
-    if (doc && indexableToggled) {
-      if (isDocIndexable(doc.meta)) {
-        await enqueueDocumentIndex(teamId, doc.id);
-      } else {
-        await deleteChunksForDocument(doc.id);
-      }
-    }
+    const slugMoved = slug !== undefined && slug !== existing.slug;
+    if (doc?.publishedAt && (indexableToggled || slugMoved))
+      await requestSearchIndex(teamId);
     // A slug change moves the public URL immediately.
-    if (doc?.publishedAt && slug !== undefined && slug !== existing.slug)
-      await invalidateFeed(kind, teamId);
+    if (doc?.publishedAt && slugMoved) await invalidateFeed(kind, teamId);
     return doc;
   } catch (error) {
     if (slug !== undefined && isUniqueConstraintViolation(error)) {
@@ -417,9 +410,8 @@ export async function updateDocument(
 }
 
 /** Promotes the draft state to published: copies draft_* -> published
- * columns in one update and stamps `publishedAt`. For the `doc` kind, this
- * enqueues a chunk/embed job when that content kind is enabled for
- * indexing (architecture.md §6.3). Only published content is searchable. */
+ * columns in one update and stamps `publishedAt`, then asks the search
+ * index to pick up the change. Only published content is searchable. */
 export async function publishDocument(
   kind: DocumentKind,
   teamId: string,
@@ -453,10 +445,7 @@ export async function publishDocument(
     .returning();
   if (doc?.featuredImage)
     await syncFeaturedImageToMediaLibrary(teamId, doc.featuredImage);
-  if (doc && (await teamIndexesKind(teamId, kind))) {
-    if (isDocIndexable(doc.meta)) await enqueueDocumentIndex(teamId, doc.id);
-    else await deleteChunksForDocument(doc.id);
-  }
+  if (doc) await requestSearchIndex(teamId);
   if (doc) await invalidateFeed(kind, teamId);
   return doc;
 }
@@ -508,7 +497,10 @@ export async function deleteDocument(
   if (!existing || existing.teamId !== teamId)
     return { ok: false as const, reason: "not_found" as const };
   await db.delete(documents).where(eq(documents.id, existing.id));
-  if (existing.publishedAt) await invalidateFeed(kind, teamId);
+  if (existing.publishedAt) {
+    await requestSearchIndex(teamId);
+    await invalidateFeed(kind, teamId);
+  }
   return { ok: true as const };
 }
 

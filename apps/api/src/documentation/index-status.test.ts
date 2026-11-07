@@ -9,42 +9,40 @@ describe("document index status", () => {
   });
 
   it("is null until the doc is published", () => {
-    expect(indexForPublishedDoc(false, true, undefined, 0)).toBeNull();
+    expect(indexForPublishedDoc(false, true, null, false)).toBeNull();
   });
 
   it("marks excluded published docs even if chunks remain", () => {
-    expect(
-      indexForPublishedDoc(true, false, { status: "done", lastError: null }, 3),
-    ).toEqual({ state: "excluded", lastError: null });
+    expect(indexForPublishedDoc(true, false, null, true)).toEqual({
+      state: "excluded",
+      lastError: null,
+    });
   });
 
-  it("is pending while a job is queued or running", () => {
-    expect(
-      indexForPublishedDoc(true, true, { status: "queued", lastError: null }, 0),
-    ).toEqual({ state: "pending", lastError: null });
-    expect(
-      indexForPublishedDoc(true, true, { status: "running", lastError: null }, 2),
-    ).toEqual({ state: "pending", lastError: null });
+  it("is pending while the team has a reindex request or no chunks yet", () => {
+    expect(indexForPublishedDoc(true, true, { lastError: null }, true)).toEqual({
+      state: "pending",
+      lastError: null,
+    });
+    expect(indexForPublishedDoc(true, true, null, false)).toEqual({
+      state: "pending",
+      lastError: null,
+    });
   });
 
-  it("is indexed after a successful job or existing chunks", () => {
-    expect(
-      indexForPublishedDoc(true, true, { status: "done", lastError: null }, 0),
-    ).toEqual({ state: "indexed", lastError: null });
-    expect(indexForPublishedDoc(true, true, undefined, 4)).toEqual({
+  it("is indexed once its chunks exist and nothing is pending", () => {
+    expect(indexForPublishedDoc(true, true, null, true)).toEqual({
       state: "indexed",
       lastError: null,
     });
   });
 
-  it("surfaces failed jobs", () => {
+  it("surfaces a failed reindex", () => {
     expect(
-      indexForPublishedDoc(
-        true,
-        true,
-        { status: "failed", lastError: "provider down" },
-        0,
-      ),
-    ).toEqual({ state: "failed", lastError: "provider down" });
+      indexForPublishedDoc(true, true, { lastError: "provider down" }, true),
+    ).toEqual({
+      state: "failed",
+      lastError: "provider down",
+    });
   });
 });

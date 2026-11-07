@@ -4,6 +4,7 @@ import {
   reviewDocumentationImprovement,
   createDocumentationImprovementDraft,
 } from "./improvements";
+import { searchContent } from "../search/search";
 import {
   getDocsUiSettings,
   previewDocumentation,
@@ -39,7 +40,6 @@ import {
   createDocSection,
   deleteDocSection,
   listDocSections,
-  searchChunks,
   updateDocSection,
 } from "./queries";
 import { omitInternal, serializeDates } from "../utils/public";
@@ -306,7 +306,7 @@ const impl = s.router(
         }
       },
       search: async ({ query, req }) => {
-        const results = await searchChunks((req as any).teamId, query.q, query.k);
+        const results = await searchContent((req as any).teamId, query.q, query.k);
         return { status: 200, body: { items: results } };
       },
     },

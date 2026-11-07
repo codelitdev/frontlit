@@ -30,7 +30,8 @@
     "test:docs-outbox-postgres": "node --env-file=.env --import tsx scripts/test-docs-postgres.ts --outbox-crash",
     "test:docs-editor-postgres": "node --env-file=.env --import tsx scripts/test-docs-postgres.ts --editor-no-github",
     "test:docs-tenant-burst-postgres": "node --env-file=.env --import tsx scripts/test-docs-postgres.ts --tenant-burst",
-    "test:docs-adoption-race-postgres": "node --env-file=.env --import tsx scripts/test-docs-postgres.ts --adoption-transport-race"
+    "test:docs-adoption-race-postgres": "node --env-file=.env --import tsx scripts/test-docs-postgres.ts --adoption-transport-race",
+    "search:eval": "bun --env-file=.env scripts/search-eval.ts"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^5.0.54",
