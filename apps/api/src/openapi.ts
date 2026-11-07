@@ -70,7 +70,7 @@ export const openApiDocument = generateOpenApi(
       },
       {
         name: "Changelog",
-        description: "Changelog authoring, publishing, and GitHub release import.",
+        description: "Changelog authoring and publishing.",
       },
       {
         name: "Email",

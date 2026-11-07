@@ -10,7 +10,7 @@ import {
   Text2,
 } from "@frontlit/page-builder/primitives/server";
 import { getTeamThemeStyle } from "@/lib/team-theme";
-import { changelogDate } from "@frontlit/api-contract";
+import { changelogDate, publicContentPath } from "@frontlit/api-contract";
 import { Link as LinkIcon } from "lucide-react";
 import type { ThemeStyle } from "@frontlit/page-builder/models";
 
@@ -178,8 +178,12 @@ export async function ThemedProductUpdatesFeed({
                     <time dateTime={date}>{formatCalendarDate(date)}</time>
                   </Caption>
                 )}
-                {/* The entry title is its permalink (`/changelog#<slug>`). */}
-                <a href={`#${entry.slug}`} className="group mt-2 block">
+                {/* The entry title is its permalink (`/changelog#<slug>`), through
+                    the same site link wrapper as the article feed above. */}
+                <Link
+                  href={publicContentPath("changelog", entry.slug)}
+                  className="group mt-2 block"
+                >
                   <Header4 theme={theme} className="flex items-center gap-2">
                     {entry.title}
                     <LinkIcon
@@ -187,7 +191,7 @@ export async function ThemedProductUpdatesFeed({
                       className="size-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-60 group-focus-visible:opacity-60"
                     />
                   </Header4>
-                </a>
+                </Link>
                 {entry.content && (
                   <div className="mt-3">
                     <TextRenderer json={entry.content} theme={theme} />
