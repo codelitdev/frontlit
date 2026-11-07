@@ -667,22 +667,26 @@ const impl = s.router(contract.public, {
     if (!doc) return { status: 404, body: { error: "Not found" } };
     return { status: 200, body: toPublicDocumentationProjection(doc) };
   },
-  listProductUpdates: async ({ params, query }) => {
-    const team = await findTeamByPublicId(params.teamId);
-    if (!team) return { status: 404, body: { error: "Team not found" } };
+  listProductUpdates: {
+    // Same cast as `searchDocumentation`: ts-rest types middleware by the route's query.
+    middleware: [publicReadLimiter as any],
+    handler: async ({ params, query }) => {
+      const team = await findTeamByPublicId(params.teamId);
+      if (!team) return { status: 404, body: { error: "Team not found" } };
 
-    const [items, total] = await Promise.all([
-      listPublishedDocuments("changelog", {
-        teamId: team.id,
-        offset: query.offset,
-        itemsPerPage: query.itemsPerPage,
-      }),
-      countPublishedDocuments("changelog", { teamId: team.id }),
-    ]);
-    return {
-      status: 200,
-      body: { items: items.map((item) => toPublicDocumentProjection(item)), total },
-    };
+      const [items, total] = await Promise.all([
+        listPublishedDocuments("changelog", {
+          teamId: team.id,
+          offset: query.offset,
+          itemsPerPage: query.itemsPerPage,
+        }),
+        countPublishedDocuments("changelog", { teamId: team.id }),
+      ]);
+      return {
+        status: 200,
+        body: { items: items.map((item) => toPublicDocumentProjection(item)), total },
+      };
+    },
   },
   getProductUpdateBySlug: async ({ params }) => {
     const team = await findTeamByPublicId(params.teamId);

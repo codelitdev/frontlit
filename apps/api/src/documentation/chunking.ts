@@ -123,7 +123,14 @@ export function extractChunks(
     if (node.type === "heading") {
       flush();
       heading = text;
-      anchor = kind === "doc" ? nextHeadingId(text) : slugify(text);
+      // A changelog entry is one anchor (`/changelog#<slug>`); its section
+      // headings ("Fixed", "Added") are not linkable on their own.
+      anchor =
+        kind === "doc"
+          ? nextHeadingId(text)
+          : kind === "changelog"
+            ? null
+            : slugify(text);
       continue;
     }
 

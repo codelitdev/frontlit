@@ -192,3 +192,15 @@ describe("extractChunks", () => {
     );
   });
 });
+
+describe("changelog chunks", () => {
+  it("never anchors to section headings, so citations link to the entry", () => {
+    const content = {
+      type: "doc",
+      content: [heading("Fixed"), paragraph("Exports include archived items.")],
+    } as TextEditorContentRow;
+    const [chunk] = extractChunks(content, "changelog");
+    expect(chunk.heading).toBe("Fixed");
+    expect(chunk.anchor).toBeNull();
+  });
+});

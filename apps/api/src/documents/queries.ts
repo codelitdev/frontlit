@@ -9,7 +9,7 @@ import {
   getDocsSettings,
 } from "../documentation/authoring";
 import { DocsContentError } from "@frontlit/text-editor/docs";
-import { and, count, eq, ilike, isNotNull, ne } from "drizzle-orm";
+import { and, count, desc, eq, ilike, isNotNull, ne, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import { documents, type DocumentKind, type TextEditorContentRow } from "../db/schema";
 import {
@@ -529,9 +529,17 @@ export async function listPublishedDocuments(
     ),
     limit,
     offset,
-    orderBy: (row, { desc }) => desc(row.publishedAt),
+    orderBy:
+      kind === "changelog"
+        ? [desc(changelogDateSql), desc(documents.publishedAt)]
+        : [desc(documents.publishedAt)],
   });
 }
+
+/** SQL twin of `changelogDate()` from the API contract: the published release
+ * date, else the publish date (stored as UTC wall time), as `YYYY-MM-DD`. Reads the
+ * published `meta` only, never `draftMeta`. */
+const changelogDateSql = sql`coalesce(${documents.meta}->>'releaseDate', to_char(${documents.publishedAt}, 'YYYY-MM-DD'))`;
 
 export async function countPublishedDocuments(
   kind: DocumentKind,
@@ -569,61 +577,4 @@ export async function getPublishedDocumentBySlug(
       isNotNull(documents.publishedAt),
     ),
   });
-}
-
-/** Import idempotency key for GitHub-sourced changelog entries
- * (architecture.md §8.1): one draft document per GitHub release id, never
- * duplicated on repeat imports. */
-export async function findChangelogByGithubReleaseId(
-  teamId: string,
-  releaseId: number,
-) {
-  const all = await db.query.documents.findMany({
-    where: and(eq(documents.teamId, teamId), eq(documents.kind, "changelog")),
-  });
-  return all.find(
-    (doc) =>
-      (doc.draftMeta as any)?.github?.releaseId === releaseId ||
-      (doc.meta as any)?.github?.releaseId === releaseId,
-  );
-}
-
-export async function createDocumentWithContent(
-  kind: DocumentKind,
-  input: {
-    teamId: string;
-    title: string;
-    content: TextEditorContentRow;
-    featuredImage?: unknown;
-    meta?: Record<string, unknown>;
-  },
-) {
-  if (kind === "doc") {
-    const { teamId, ...body } = input;
-    return (await saveDocumentation(teamId, null, body))!;
-  }
-  const slug = await uniqueSlug(slugify(input.title), (candidate) =>
-    slugTaken(input.teamId, kind, candidate),
-  );
-
-  const normalizedFeaturedImage = normalizeFeaturedImage(input.featuredImage);
-
-  const [doc] = await db
-    .insert(documents)
-    .values({
-      teamId: input.teamId,
-      kind,
-      slug,
-      draftTitle: input.title,
-      draftContent: input.content,
-      draftFeaturedImage: normalizedFeaturedImage,
-      draftMeta: input.meta ?? {},
-    })
-    .returning();
-
-  if (normalizedFeaturedImage) {
-    await syncFeaturedImageToMediaLibrary(input.teamId, normalizedFeaturedImage);
-  }
-
-  return doc;
 }

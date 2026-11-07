@@ -2,7 +2,6 @@ import { SiteLink as Link } from "@/components/site-link";
 import { TextRenderer } from "@frontlit/text-editor/renderer";
 import type { TextEditorContent } from "@frontlit/text-editor";
 import {
-  Badge,
   Caption,
   Header1,
   Header4,
@@ -11,6 +10,8 @@ import {
   Text2,
 } from "@frontlit/page-builder/primitives/server";
 import { getTeamThemeStyle } from "@/lib/team-theme";
+import { changelogDate, publicContentPath } from "@frontlit/api-contract";
+import { Link as LinkIcon } from "lucide-react";
 import type { ThemeStyle } from "@frontlit/page-builder/models";
 
 function FeedHeading({
@@ -122,15 +123,17 @@ export async function ThemedArticleFeed({
   );
 }
 
-const LABEL_VARIANT: Record<
-  string,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  added: "default",
-  fixed: "secondary",
-  improved: "outline",
-  removed: "destructive",
-};
+/** Formats a `YYYY-MM-DD` calendar date without shifting it into the
+ * server's time zone (a plain `new Date()` would show Nov 6 for 2026-11-07
+ * west of UTC). */
+function formatCalendarDate(value: string) {
+  return new Date(`${value}T00:00:00Z`).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
 
 export async function ThemedProductUpdatesFeed({
   teamId,
@@ -149,7 +152,7 @@ export async function ThemedProductUpdatesFeed({
     title: string | null;
     content: TextEditorContent | null;
     publishedAt: string | null;
-    meta: { version?: string | null; labels: string[] };
+    meta: { releaseDate?: string | null };
   }>;
 }) {
   const theme = await getTeamThemeStyle(teamId);
@@ -161,44 +164,42 @@ export async function ThemedProductUpdatesFeed({
         <Text2 theme={theme}>No changelog entries published yet.</Text2>
       ) : (
         <ol className="flex flex-col gap-12 border-l border-border pl-8">
-          {items.map((entry) => (
-            <li
-              key={entry.documentId}
-              id={entry.slug}
-              className="relative scroll-mt-24"
-            >
-              <span className="absolute -left-[calc(2rem+5px)] top-1.5 h-2.5 w-2.5 rounded-full bg-muted-foreground" />
-              <div className="flex flex-wrap items-center gap-2">
-                {entry.meta.version && (
-                  <Caption theme={theme}>{entry.meta.version}</Caption>
-                )}
-                {entry.publishedAt && (
+          {items.map((entry) => {
+            const date = changelogDate(entry);
+            return (
+              <li
+                key={entry.documentId}
+                id={entry.slug}
+                className="relative scroll-mt-24"
+              >
+                <span className="absolute -left-[calc(2rem+5px)] top-1.5 h-2.5 w-2.5 rounded-full bg-muted-foreground" />
+                {date && (
                   <Caption theme={theme}>
-                    <time dateTime={entry.publishedAt}>
-                      {formatDate(entry.publishedAt)}
-                    </time>
+                    <time dateTime={date}>{formatCalendarDate(date)}</time>
                   </Caption>
                 )}
-                {entry.meta.labels.map((label) => (
-                  <Badge
-                    key={label}
-                    theme={theme}
-                    variant={LABEL_VARIANT[label] ?? "secondary"}
-                  >
-                    {label}
-                  </Badge>
-                ))}
-              </div>
-              <Header4 theme={theme} className="mt-2">
-                {entry.title}
-              </Header4>
-              {entry.content && (
-                <div className="mt-3">
-                  <TextRenderer json={entry.content} theme={theme} />
-                </div>
-              )}
-            </li>
-          ))}
+                {/* The entry title is its permalink (`/changelog#<slug>`), through
+                    the same site link wrapper as the article feed above. */}
+                <Link
+                  href={publicContentPath("changelog", entry.slug)}
+                  className="group mt-2 block"
+                >
+                  <Header4 theme={theme} className="flex items-center gap-2">
+                    {entry.title}
+                    <LinkIcon
+                      aria-hidden
+                      className="size-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-60 group-focus-visible:opacity-60"
+                    />
+                  </Header4>
+                </Link>
+                {entry.content && (
+                  <div className="mt-3">
+                    <TextRenderer json={entry.content} theme={theme} />
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ol>
       )}
     </div>

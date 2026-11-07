@@ -254,22 +254,6 @@ export const REST_OPERATION_POLICIES = {
     "product-updates:write",
     MCP_SCOPES.productUpdatesWrite,
   ),
-  "content.productUpdates.connectGithub": teamPermission(
-    "product-updates:write",
-    MCP_SCOPES.productUpdatesWrite,
-  ),
-  "content.productUpdates.getGithubIntegration": teamPermission(
-    "product-updates:read",
-    MCP_SCOPES.productUpdatesRead,
-  ),
-  "content.productUpdates.disconnectGithub": teamPermission(
-    "product-updates:write",
-    MCP_SCOPES.productUpdatesWrite,
-  ),
-  "content.productUpdates.importGithubReleases": teamPermission(
-    "product-updates:write",
-    MCP_SCOPES.productUpdatesWrite,
-  ),
 
   "content.documentationSections.validate": teamPermission(
     "documentation:read",

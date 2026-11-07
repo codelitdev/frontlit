@@ -37,6 +37,7 @@ import {
 } from "../inbox-ai/usage";
 import { logger } from "../services/log";
 import { incrementCounter } from "../services/metrics";
+import { changelogDate } from "@frontlit/api-contract";
 import { chunkContext, extractPageChunks, type ExtractedChunk } from "./extract";
 
 export { requestSearchIndex } from "./requests";
@@ -171,7 +172,15 @@ export async function desiredSources(teamId: string): Promise<IndexSource[]> {
       );
     for (const row of rows) {
       if ((row.meta as { indexable?: unknown })?.indexable === false) continue;
-      const version = (row.meta as { version?: unknown })?.version;
+      // Changelog chunks carry their release date, so an old fix is never
+      // presented without when it shipped.
+      const released =
+        kind === "changelog"
+          ? changelogDate({
+              meta: (row.meta ?? {}) as { releaseDate?: string },
+              publishedAt: row.publishedAt,
+            })
+          : null;
       sources.push(
         source(
           {
@@ -183,12 +192,12 @@ export async function desiredSources(teamId: string): Promise<IndexSource[]> {
             context: chunkContext({
               label: kind === "blog" ? "Blog" : "Changelog",
               title: row.title,
-              section: typeof version === "string" ? version : null,
+              section: released,
               summary: row.excerpt,
             }),
             chunks: extractChunks(row.content, kind),
           },
-          row.content,
+          [row.content, released],
         ),
       );
     }

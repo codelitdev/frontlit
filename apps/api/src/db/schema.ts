@@ -677,12 +677,12 @@ export const media = pgTable(
 );
 
 // ---------------------------------------------------------------------------
-// Integrations (architecture.md §8.1): per-team third-party connections.
-// v1 has one provider ("github"), config is provider-shaped jsonb holding
-// secrets (PAT) — never returned verbatim over the API (see routes.ts).
+// Integrations: per-team third-party credentials. Today only SendLit (email);
+// config is provider-shaped jsonb holding encrypted secrets, never returned
+// over the API. The docs/pages GitHub App uses the documentation_git_* tables.
 // ---------------------------------------------------------------------------
 
-export const integrationProviders = ["github", "sendlit"] as const;
+export const integrationProviders = ["sendlit"] as const;
 export type IntegrationProvider = (typeof integrationProviders)[number];
 
 export const integrations = pgTable(

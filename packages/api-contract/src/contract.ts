@@ -121,9 +121,6 @@ import {
   productUpdateMetaSchema,
   productUpdateSchema,
   createProductUpdateBodySchema,
-  githubIntegrationConfigSchema,
-  githubIntegrationSchema,
-  importGithubReleasesResponseSchema,
   updateProductUpdateBodySchema,
 } from "./schemas/product-updates";
 import {
@@ -763,7 +760,8 @@ const documentationContract = c.router({
     },
   },
 });
-const baseProductUpdatesContract = makeDocumentContract(
+/** Product updates are documents internally (`kind: "changelog"`). */
+const productUpdatesContract = makeDocumentContract(
   "content/product-updates",
   "Content: Product updates",
   "product update",
@@ -771,48 +769,6 @@ const baseProductUpdatesContract = makeDocumentContract(
   productUpdateSchema,
   createProductUpdateBodySchema,
   updateProductUpdateBodySchema,
-);
-
-/** Product updates are documents internally plus a GitHub Releases importer. */
-const productUpdatesContract = c.router(
-  {
-    // Register literal GitHub routes before the generic
-    // `/content/product-updates/:documentId` routes below (spread last),
-    // because Express matches routes in registration order.
-    connectGithub: {
-      method: "PUT",
-      path: "/content/product-updates/github",
-      body: githubIntegrationConfigSchema,
-      responses: { 200: githubIntegrationSchema },
-      summary: "Connect a GitHub repo for product-update import",
-    },
-    getGithubIntegration: {
-      method: "GET",
-      path: "/content/product-updates/github",
-      responses: { 200: githubIntegrationSchema },
-      summary: "Get the team's GitHub integration status",
-    },
-    disconnectGithub: {
-      method: "DELETE",
-      path: "/content/product-updates/github",
-      responses: { 204: c.noBody() },
-      summary: "Disconnect the team's GitHub integration",
-    },
-    importGithubReleases: {
-      method: "POST",
-      path: "/content/product-updates/import-github",
-      body: c.noBody(),
-      responses: {
-        200: importGithubReleasesResponseSchema,
-        400: errorSchema,
-      },
-      summary: "Import GitHub Releases as draft product updates",
-      description:
-        "Lists Releases from the connected repo and creates one draft product update per release, idempotent by meta.github.releaseId (architecture.md §8.1). Nothing is auto-published.",
-    },
-    ...baseProductUpdatesContract,
-  },
-  { metadata: { tag: "Content: Product updates" } },
 );
 
 /** The help-center nav tree a "doc" document's `meta.sectionId` points
@@ -1222,7 +1178,7 @@ const publicContract = c.router(
       path: "/public/:teamId/content/product-updates",
       query: z.object({
         offset: z.coerce.number().int().min(1).optional(),
-        itemsPerPage: z.coerce.number().int().min(1).optional(),
+        itemsPerPage: z.coerce.number().int().min(1).max(1000).optional(),
       }),
       responses: {
         200: paginated(publicProductUpdateSchema),
