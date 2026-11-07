@@ -7,8 +7,8 @@ Scope: authoring, publishing, and delivering product updates (internal kind `cha
 
 1. **The editor and API/MCP are the only authoring path.** Entries are drafted in the dashboard editor or created as drafts by an agent through MCP, then published by a person. FrontLit does not integrate with GitHub for changelogs.
 2. **Automation lives on the customer's side.** A team's coding agent (Claude Code, Cursor, …) already has `git log`, `gh`, and the PRs. With FrontLit's MCP server connected, it drafts entries using the existing `create_product_update` tool. FrontLit needs no webhooks, LLM pipeline, or repository access for this.
-3. **Keep the existing model.** An entry is a `documents` row (`kind: "changelog"`) with a title, body, optional `version`, optional `releaseDate`, and optional labels. Draft/publish, slugs, AI indexing, and MCP are unchanged.
-4. **Follow [Keep a Changelog](https://keepachangelog.com/) where it is cheap.** Newest first, each entry dated and linkable, and labels limited to its six change types. The body structure is not enforced.
+3. **Keep the existing model.** An entry is a `documents` row (`kind: "changelog"`) with a title, body, and optional `releaseDate`. There is no separate version field or change-type labels: they repeated the title and body and could disagree with them. Versioned products put the version in the title (`v1.2.0` or `v1.2.0: Dark mode`), as Claude Code and Keep a Changelog headings do, and group changes in the body under `### Added`, `### Fixed`, and so on. Draft/publish, slugs, AI indexing, and MCP are unchanged.
+4. **Follow [Keep a Changelog](https://keepachangelog.com/) where it is cheap.** Newest first, each entry dated and linkable, and change types as `###` headings in the body. The body structure is not enforced.
 5. **One public page.** Each entry has an anchor at `/changelog#<slug>` (as Mintlify does). There are no pages for individual entries.
 
 ### Why GitHub is removed
@@ -52,8 +52,8 @@ Two PRs, followed by docs and dogfooding. Each PR must pass a full browser smoke
 
 - `productUpdateMetaSchema`:
   - `releaseDate`: `YYYY-MM-DD` only (regex), optional.
-  - `labels`: enum array of `added | changed | deprecated | removed | fixed | security`, max 6, deduplicated, default `[]`.
-  - `version`: `max(64)`.
+  - Remove `labels`: entry-level badges repeated the body's `### Added` / `### Fixed` sections and were only displayed, never filtered on.
+  - Remove `version`: it duplicated the title and could disagree with it.
   - Remove `github`.
 - Public list query for product updates: `itemsPerPage` `max(1000)`.
 - Add a shared helper `changelogDate(entry)` that returns `meta.releaseDate ?? publishedAt` as `YYYY-MM-DD`. Every surface uses it so they all show the same date.
@@ -65,8 +65,8 @@ Two PRs, followed by docs and dogfooding. Each PR must pass a full browser smoke
 - `listProductUpdates` public route: add `publicReadLimiter` to match the other public reads.
 - Chunking for `kind === "changelog"`:
   - `anchor = null`, since citations fall back to `#slug`.
-  - Prefix each chunk with `"<title> — <version>, <date>"` so it carries release context. The index job passes the document's title and meta, because `extractChunks` sees only the content.
-- Migration (pre-production, so rewrite it): change `improved` → `changed` and drop unknown labels and `meta.github` from existing changelog rows, in both `meta` and `draftMeta`.
+  - Prefix each chunk with `"<title> — <date>"` so it carries release context. The index job passes the document's title and meta, because `extractChunks` sees only the content.
+- Migration (pre-production, so rewrite it): drop `meta.labels`, `meta.version`, and `meta.github` from existing changelog rows and reduce `releaseDate` to `YYYY-MM-DD`, in both `meta` and `draftMeta`.
 
 **Sites (`apps/sites`)**
 
@@ -81,12 +81,12 @@ Two PRs, followed by docs and dogfooding. Each PR must pass a full browser smoke
   - `pubDate`: `changelogDate`
   - `description`: `excerpt` if set, otherwise the first ~300 characters of plain text from the TipTap body (escaped by the existing `escapeXml`)
 - JSON-LD: each entry's `url` becomes its anchor URL.
-- Markdown (`changelogFeed` in `apps/sites/lib/markdown.ts`): same ordering, `changelogDate`, and a heading of `## <title> (<version>, <date>)`.
+- Markdown (`changelogFeed` in `apps/sites/lib/markdown.ts`): same ordering, `changelogDate`, and a heading of `## <title> (<date>)`.
 
 **Dashboard (`apps/web`)**
 
 - Product-update editor:
-  - Labels become the six Keep a Changelog types.
+  - Remove the version field and the change-type toggles.
   - `releaseDate` uses a date input, with a hint that it defaults to the publish date when empty.
   - Show the public anchor URL ("View on site") for published entries.
 
@@ -155,15 +155,15 @@ Checked: no docs/pages code imports `apps/api/src/integrations/github.ts` or the
 
 Sample prompt:
 
-> List the PRs merged to `main` since the last published FrontLit changelog entry. Skip chores, refactors, CI, and dependency bumps. Draft one product update with a short title, a one-sentence intro, and bullets grouped under Added / Changed / Fixed, written for customers, not engineers. Set labels to the groups used. Create it as a draft with `create_product_update` and do not publish it.
+> List the PRs merged to `main` since the last published FrontLit changelog entry. Skip chores, refactors, CI, and dependency bumps. Draft one product update with a short title, a one-sentence intro, and bullets grouped under `### Added` / `### Changed` / `### Fixed` headings, written for customers, not engineers. Create it as a draft with `create_product_update` and do not publish it.
 
 ## 4. Security
 
 - **Fewer secrets and less outbound access.** PR 2 deletes the changelog's stored GitHub tokens and the code that calls `api.github.com` with them. The migration purges only `integrations` rows with `provider = 'github'`. Docs/pages GitHub App credentials and bindings live in separate tables and are not affected (§3.2).
 - **Public read limits.** Add `publicReadLimiter` to the public product-updates list, and cap `itemsPerPage` at 1000. Edge caching (`changelog:<team>` tag) already absorbs most traffic.
 - **No draft leakage.** Public list, RSS, JSON-LD, Markdown, and AI indexing read only published columns (`content`, `meta`, `publishedAt`) and filter on `publishedAt IS NOT NULL`. The new sort must use `meta`, not `draftMeta`. Add a test that a draft-only `releaseDate`/label change does not affect public order or output.
-- **Input validation.** `releaseDate` uses a strict format, `labels` an enum, `version` a length limit. Slugs are already normalized (`normalizeEditableSlug`) and URL-encoded in `publicContentPath`.
-- **Output encoding.** React escapes anchor ids and labels. RSS keeps `escapeXml` for every field, including the new plain-text description. No raw HTML is added.
+- **Input validation.** `releaseDate` uses a strict format; unknown meta keys are rejected by MCP and stripped by REST. Slugs are already normalized (`normalizeEditableSlug`) and URL-encoded in `publicContentPath`.
+- **Output encoding.** React escapes anchor ids and titles. RSS keeps `escapeXml` for every field, including the new plain-text description. No raw HTML is added.
 - **Agent drafts are untrusted input.** PR titles and descriptions the agent summarizes may contain injected instructions. The recipe creates **drafts only**, and a person publishes. This is a convention, not enforced: `publish` uses the same `productUpdatesWrite` scope as `create` (`apps/api/src/auth/operation-policy.ts`). Splitting out a publish scope is deferred until a team asks for it.
 - **Authorization unchanged.** Remaining endpoints keep their `content.productUpdates.*` permissions. Removed operations disappear from both the REST and MCP policy maps in the same PR, so no orphaned permission remains.
 
@@ -181,7 +181,7 @@ Sample prompt:
 
 **Unit and integration (`apps/api`, `packages/api-contract`)**
 
-- Meta schema: valid and invalid `releaseDate`; label enum, dedupe, and max; `version` length.
+- Meta schema: valid and invalid `releaseDate`; no `version` or `labels` fields.
 - `changelogDate`: `releaseDate` wins, falls back to `publishedAt`, and is formatted in UTC.
 - `publicContentPath("changelog", slug, "fixed")` returns `/changelog#<slug>`.
 - `listPublishedDocuments("changelog")`: ordered by release date, then `publishedAt`; ignores `draftMeta`; excludes unpublished entries.
@@ -197,15 +197,15 @@ Sample prompt:
 
 **Browser smoke test (required)**
 
-1. Create a draft through MCP (`create_product_update`) with labels and a `releaseDate` in the past. Confirm it does not appear on `/changelog`, in `/changelog/rss.xml`, or in `/changelog.md`.
-2. Edit it in the dashboard (labels, date input) and publish.
+1. Create a draft through MCP (`create_product_update`) with a `releaseDate` in the past. Confirm it does not appear on `/changelog`, in `/changelog/rss.xml`, or in `/changelog.md`.
+2. Edit it in the dashboard (date input) and publish.
 3. On `/changelog`:
    - the entry sits at the correct position by release date;
    - its date is not shifted by time zone;
    - clicking an entry title sets the URL to `/changelog#<slug>`;
    - opening that URL scrolls to the entry below the sticky header.
 4. RSS shows the item with its anchor link. A feed validator reports unique GUIDs.
-5. With changelog indexing enabled, ask the site chatbot about the change. Confirm the citation links to `/changelog#<slug>` and the answer names the version or date.
+5. With changelog indexing enabled, ask the site chatbot about the change. Confirm the citation links to `/changelog#<slug>` and the answer names the release title and date.
 6. Confirm the dashboard has no GitHub card on product updates, and that the docs GitHub connection in Settings → Integrations still works.
 
 ## 7. Delivery order
@@ -217,5 +217,15 @@ Sample prompt:
 ## 8. Revisit when
 
 - **A paying customer with a versioned product asks for automatic sync:** add GitHub Releases sync through the existing GitHub App, with GitHub-owned entries read-only. Do not bring back personal access tokens.
-- **Changelogs grow past a few hundred entries:** add label filters (`?labels=`) and consider pagination with anchor redirects.
+- **Changelogs grow past a few hundred entries:** add change-type filters derived from the body's `###` headings and split the history into yearly archives (see the scale limits below).
+
+### Known scale limits
+
+`/changelog` is not paginated: it renders up to `CHANGELOG_PAGE_SIZE` (1,000, the public API's max page size) entries on one page, cached until the next publish. RSS always shows the newest 50.
+
+- **A few hundred entries:** the page grows heavy, because every entry's full body is in the HTML. This is the first limit a real team would notice.
+- **Over 1,000 entries:** older entries **silently drop off** the page and `/changelog.md`, and their `#slug` links stop resolving. There is no warning.
+- **Very large histories:** each cache miss sorts all of a team's published entries, because the `releaseDate ?? publishedAt` order has no matching index. Caching keeps this off the visitor path.
+
+When a team approaches a few hundred entries, move to yearly archives: `/changelog` shows the latest year (or latest N), older entries live at `/changelog/<year>` with the same anchors, and a small script on `/changelog` redirects old `#slug` links to their year page. Add an index on the release-date ordering only if the sort shows up as slow.
 - **Teams ask to share individual launches:** add `/changelog/<slug>` pages with Open Graph images. Anchors remain valid.

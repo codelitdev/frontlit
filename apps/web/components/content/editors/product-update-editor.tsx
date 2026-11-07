@@ -4,11 +4,7 @@ import { use, useEffect, useRef, useState } from "react";
 import { Editor } from "@frontlit/text-editor";
 import type { TextEditorContent } from "@frontlit/text-editor";
 import { ExternalLink } from "lucide-react";
-import {
-  productUpdateLabels,
-  publicContentPath,
-  type ProductUpdateLabel,
-} from "@frontlit/api-contract";
+import { publicContentPath } from "@frontlit/api-contract";
 import {
   discardProductUpdateDraft,
   getAiConfig,
@@ -25,7 +21,6 @@ import { WritingEditorShell } from "@/components/workspace/writing-editor-shell"
 import { IconButton } from "@/components/ui/codelit/icon-button";
 import { Input } from "@/components/ui/codelit/input";
 import { Label } from "@/components/ui/codelit/label";
-import { Toggle } from "@/components/ui/toggle";
 import { ContentIndexSettings } from "@/components/workspace/content-index-settings";
 import { FeaturedImageSetting } from "@/components/workspace/featured-image-setting";
 import {
@@ -43,7 +38,6 @@ export default function ProductUpdateEditor({
   const { documentId } = use(params);
   const [entry, setEntry] = useState<ProductUpdate | null>(null);
   const [title, setTitle] = useState("");
-  const [version, setVersion] = useState("");
   const [releaseDate, setReleaseDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -52,7 +46,6 @@ export default function ProductUpdateEditor({
   const [teamIndexesChangelog, setTeamIndexesChangelog] = useState(false);
   const [liveHost, setLiveHost] = useState<string | null>(null);
   const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const versionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const releaseDateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -60,7 +53,6 @@ export default function ProductUpdateEditor({
     getProductUpdate(documentId).then((loaded) => {
       setEntry(loaded);
       setTitle(loaded.draftTitle);
-      setVersion(loaded.draftMeta.version ?? "");
       setReleaseDate(loaded.draftMeta.releaseDate ?? "");
     });
     getAiConfig()
@@ -76,7 +68,6 @@ export default function ProductUpdateEditor({
   useEffect(
     () => () => {
       if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
-      if (versionDebounceRef.current) clearTimeout(versionDebounceRef.current);
       if (releaseDateDebounceRef.current) clearTimeout(releaseDateDebounceRef.current);
     },
     [],
@@ -114,15 +105,6 @@ export default function ProductUpdateEditor({
     }, 600);
   }
 
-  function handleVersionChange(value: string) {
-    setVersion(value);
-    if (versionDebounceRef.current) clearTimeout(versionDebounceRef.current);
-    versionDebounceRef.current = setTimeout(
-      () => saveMeta({ version: value || undefined }),
-      600,
-    );
-  }
-
   function handleReleaseDateChange(value: string) {
     setReleaseDate(value);
     if (releaseDateDebounceRef.current) clearTimeout(releaseDateDebounceRef.current);
@@ -130,14 +112,6 @@ export default function ProductUpdateEditor({
       () => saveMeta({ releaseDate: value || undefined }),
       600,
     );
-  }
-
-  async function handleLabelToggle(label: ProductUpdateLabel) {
-    const current = entry?.draftMeta.labels ?? [];
-    const labels = current.includes(label)
-      ? current.filter((item) => item !== label)
-      : [...current, label];
-    await saveMeta({ labels });
   }
 
   async function handleContentChange(json: TextEditorContent) {
@@ -169,14 +143,12 @@ export default function ProductUpdateEditor({
 
   async function handleDiscardDraft() {
     if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
-    if (versionDebounceRef.current) clearTimeout(versionDebounceRef.current);
     if (releaseDateDebounceRef.current) clearTimeout(releaseDateDebounceRef.current);
     setPublishing(true);
     try {
       const reverted = await discardProductUpdateDraft(documentId);
       setEntry(reverted);
       setTitle(reverted.draftTitle);
-      setVersion(reverted.draftMeta.version ?? "");
       setReleaseDate(reverted.draftMeta.releaseDate ?? "");
       setResetKey((key) => key + 1);
     } finally {
@@ -246,16 +218,6 @@ export default function ProductUpdateEditor({
             disabled={saving || publishing}
           />
           <div>
-            <Label htmlFor="changelog-version">Version</Label>
-            <Input
-              id="changelog-version"
-              value={version}
-              onChange={(event) => handleVersionChange(event.target.value)}
-              placeholder="v1.2.0"
-              className="mt-1"
-            />
-          </div>
-          <div>
             <Label htmlFor="changelog-release-date">Release date</Label>
             <Input
               id="changelog-release-date"
@@ -273,23 +235,6 @@ export default function ProductUpdateEditor({
               Shown on the changelog and used to order entries. If empty, the publish
               date is used.
             </p>
-          </div>
-          <div>
-            <Label>Change types</Label>
-            <div className="mt-2 flex flex-wrap gap-1.5" data-testid="changelog-labels">
-              {productUpdateLabels.map((label) => (
-                <Toggle
-                  key={label}
-                  size="sm"
-                  pressed={entry.draftMeta.labels.includes(label)}
-                  onPressedChange={() => handleLabelToggle(label)}
-                  variant="outline"
-                  className="capitalize"
-                >
-                  {label}
-                </Toggle>
-              ))}
-            </div>
           </div>
           {teamIndexesChangelog && (
             <ContentIndexSettings

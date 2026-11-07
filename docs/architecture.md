@@ -484,7 +484,7 @@ jsonb so the core engine stays generic):
 | _all kinds_ | `seo?: { title?, description? }` — optional overrides for public metadata (§12.3)                                                        |
 | `blog`      | `tags: string[]`                                                                                                                         |
 | `doc`       | `sectionId: string`, `order: number` (help-center nav tree)                                                                              |
-| `changelog` | `version?: string` (≤ 64), `labels: ("added"\|"changed"\|"deprecated"\|"removed"\|"fixed"\|"security")[]`, `releaseDate?: "YYYY-MM-DD"` |
+| `changelog` | `releaseDate?: "YYYY-MM-DD"` (version goes in the title; change types are `###` headings in the body) |
 
 Help-center sections get a small companion table:
 
@@ -753,11 +753,10 @@ a person. There is no GitHub integration for the changelog; see
 when to revisit it.
 
 `/changelog` renders every published entry on one page, newest first by
-`releaseDate ?? publishedAt` (`changelogDate()` in the API contract), with
-Keep a Changelog type badges and optional version. Each entry is the anchor
+`releaseDate ?? publishedAt` (`changelogDate()` in the API contract). Each entry is the anchor
 `/changelog#<slug>` (`publicContentPath`), which the RSS feed at
 `/changelog/rss.xml` (§12.3), JSON-LD, and AI citations all link to.
-Changelog chunks carry their release ("Title — 1.2.0, 2026-11-07") so
+Changelog chunks carry their release ("v1.2.0: Dark mode — 2026-11-07") so
 retrieval never presents an old change without its date.
 
 ---

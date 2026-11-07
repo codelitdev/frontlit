@@ -204,15 +204,15 @@ describe("changelog chunks", () => {
     expect(chunk.anchor).toBeNull();
   });
 
-  it("builds release context from version and release date", () => {
+  it("builds release context from the title and release date", () => {
     expect(
       changelogChunkContext({
-        title: "Dark mode",
-        slug: "dark-mode",
-        meta: { version: "1.2.0", releaseDate: "2026-11-07" },
+        title: "v1.2.0: Dark mode",
+        slug: "v1-2-0-dark-mode",
+        meta: { releaseDate: "2026-11-07" },
         publishedAt: new Date("2026-11-08T10:00:00Z"),
       }),
-    ).toBe("Dark mode — 1.2.0, 2026-11-07");
+    ).toBe("v1.2.0: Dark mode — 2026-11-07");
   });
 
   it("falls back to the publish date and slug", () => {

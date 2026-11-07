@@ -390,8 +390,6 @@ export async function getApiSpec(
 }
 
 export interface ProductUpdateMeta {
-  version?: string;
-  labels: string[];
   releaseDate?: string;
   seo?: { title?: string; description?: string };
 }

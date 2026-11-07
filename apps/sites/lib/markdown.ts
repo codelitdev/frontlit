@@ -93,11 +93,9 @@ async function changelogFeed(teamId: string) {
   });
   return items
     .map((update) => {
-      const label = [update.meta.version, changelogDate(update)]
-        .filter(Boolean)
-        .join(", ");
+      const date = changelogDate(update);
       return [
-        `## ${update.title || update.slug}${label ? ` (${label})` : ""}`,
+        `## ${update.title || update.slug}${date ? ` (${date})` : ""}`,
         tiptapToMarkdown(update.content),
       ]
         .filter(Boolean)

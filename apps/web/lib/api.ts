@@ -1,5 +1,5 @@
 import { initClient } from "@ts-rest/core";
-import { contract, type ProductUpdateLabel } from "@frontlit/api-contract";
+import { contract } from "@frontlit/api-contract";
 import type { TextEditorContent } from "@frontlit/text-editor";
 import type { WidgetInstance } from "@frontlit/page-builder/models";
 import { ApiError } from "./api-client";
@@ -815,8 +815,6 @@ export function searchDocumentation(q: string, k?: number) {
 // ---- Content: product updates -------------------------------------------
 
 export interface ProductUpdateMeta {
-  version?: string;
-  labels: ProductUpdateLabel[];
   /** `YYYY-MM-DD`; the changelog falls back to the publish date. */
   releaseDate?: string;
   indexable?: boolean;

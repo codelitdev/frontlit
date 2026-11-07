@@ -5,26 +5,7 @@ import {
   makeUpdateDocumentBodySchema,
 } from "./documents";
 
-/** Keep a Changelog change types (https://keepachangelog.com/). */
-export const productUpdateLabels = [
-  "added",
-  "changed",
-  "deprecated",
-  "removed",
-  "fixed",
-  "security",
-] as const;
-export type ProductUpdateLabel = (typeof productUpdateLabels)[number];
-
 export const productUpdateMetaSchema = z.object({
-  version: z.string().max(64).optional(),
-  labels: z
-    .array(z.enum(productUpdateLabels))
-    .max(productUpdateLabels.length)
-    .refine((labels) => new Set(labels).size === labels.length, {
-      message: "Labels must be unique",
-    })
-    .default([]),
   /** Calendar date of the release (`YYYY-MM-DD`). Falls back to the publish date. */
   releaseDate: z
     .string()

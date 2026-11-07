@@ -12,7 +12,7 @@ const entry = (slug: string, overrides: Record<string, unknown> = {}) => ({
     ],
   },
   featuredImage: null,
-  meta: { labels: [] },
+  meta: {},
   publishedAt: "2026-11-08T23:30:00.000Z",
   updatedAt: null,
   ...overrides,
@@ -23,7 +23,7 @@ vi.mock("@/lib/api", () => ({
   getCanonicalHost: async () => "acme.com",
   listProductUpdates: async () => ({
     items: [
-      entry("dark-mode", { meta: { labels: ["added"], releaseDate: "2026-11-07" } }),
+      entry("dark-mode", { meta: { releaseDate: "2026-11-07" } }),
       entry("faster-exports", { excerpt: "Exports are 2x faster." }),
     ],
     total: 2,

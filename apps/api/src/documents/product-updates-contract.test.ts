@@ -7,29 +7,24 @@ import {
 } from "@frontlit/api-contract";
 
 describe("product update contract", () => {
-  it("accepts Keep a Changelog labels and calendar dates", () => {
-    expect(
-      productUpdateMetaSchema.parse({
-        version: "v1.2.0",
-        labels: ["added", "security"],
-        releaseDate: "2026-11-07",
-      }),
-    ).toEqual({
-      version: "v1.2.0",
-      labels: ["added", "security"],
+  it("accepts a calendar release date", () => {
+    expect(productUpdateMetaSchema.parse({ releaseDate: "2026-11-07" })).toEqual({
       releaseDate: "2026-11-07",
     });
   });
 
-  it.each([
-    [{ labels: ["improved"] }],
-    [{ labels: ["fixed", "fixed"] }],
-    [{ releaseDate: "2026-11-07T10:00:00Z" }],
-    [{ releaseDate: "07/11/2026" }],
-    [{ version: "v".repeat(65) }],
-  ])("rejects invalid meta %j", (meta) => {
-    expect(productUpdateMetaSchema.safeParse(meta).success).toBe(false);
+  it("has no version or labels; the title and body carry them", () => {
+    expect(
+      productUpdateMetaSchema.parse({ version: "v1.2.0", labels: ["added"] }),
+    ).toEqual({});
   });
+
+  it.each([[{ releaseDate: "2026-11-07T10:00:00Z" }], [{ releaseDate: "07/11/2026" }]])(
+    "rejects invalid meta %j",
+    (meta) => {
+      expect(productUpdateMetaSchema.safeParse(meta).success).toBe(false);
+    },
+  );
 
   it("caps the public page size", () => {
     const query = contract.public.listProductUpdates.query;

@@ -2,7 +2,6 @@ import { SiteLink as Link } from "@/components/site-link";
 import { TextRenderer } from "@frontlit/text-editor/renderer";
 import type { TextEditorContent } from "@frontlit/text-editor";
 import {
-  Badge,
   Caption,
   Header1,
   Header4,
@@ -124,18 +123,6 @@ export async function ThemedArticleFeed({
   );
 }
 
-const LABELS: Record<
-  string,
-  { text: string; variant: "default" | "secondary" | "destructive" | "outline" }
-> = {
-  added: { text: "Added", variant: "default" },
-  changed: { text: "Changed", variant: "outline" },
-  deprecated: { text: "Deprecated", variant: "outline" },
-  removed: { text: "Removed", variant: "destructive" },
-  fixed: { text: "Fixed", variant: "secondary" },
-  security: { text: "Security", variant: "destructive" },
-};
-
 /** Formats a `YYYY-MM-DD` calendar date without shifting it into the
  * server's time zone (a plain `new Date()` would show Nov 6 for 2026-11-07
  * west of UTC). */
@@ -165,7 +152,7 @@ export async function ThemedProductUpdatesFeed({
     title: string | null;
     content: TextEditorContent | null;
     publishedAt: string | null;
-    meta: { version?: string | null; labels: string[]; releaseDate?: string | null };
+    meta: { releaseDate?: string | null };
   }>;
 }) {
   const theme = await getTeamThemeStyle(teamId);
@@ -186,25 +173,11 @@ export async function ThemedProductUpdatesFeed({
                 className="relative scroll-mt-24"
               >
                 <span className="absolute -left-[calc(2rem+5px)] top-1.5 h-2.5 w-2.5 rounded-full bg-muted-foreground" />
-                <div className="flex flex-wrap items-center gap-2">
-                  {entry.meta.version && (
-                    <Caption theme={theme}>{entry.meta.version}</Caption>
-                  )}
-                  {date && (
-                    <Caption theme={theme}>
-                      <time dateTime={date}>{formatCalendarDate(date)}</time>
-                    </Caption>
-                  )}
-                  {entry.meta.labels.map((label) => (
-                    <Badge
-                      key={label}
-                      theme={theme}
-                      variant={LABELS[label]?.variant ?? "secondary"}
-                    >
-                      {LABELS[label]?.text ?? label}
-                    </Badge>
-                  ))}
-                </div>
+                {date && (
+                  <Caption theme={theme}>
+                    <time dateTime={date}>{formatCalendarDate(date)}</time>
+                  </Caption>
+                )}
                 {/* The entry title is its permalink (`/changelog#<slug>`). */}
                 <a href={`#${entry.slug}`} className="group mt-2 block">
                   <Header4 theme={theme} className="flex items-center gap-2">

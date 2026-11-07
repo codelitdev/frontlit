@@ -160,8 +160,9 @@ export function extractChunks(
 }
 
 /**
- * Release context prepended to every changelog chunk ("Dark mode — 1.2.0,
- * 2026-11-07"), so retrieval never presents an old fix without its release.
+ * Release context prepended to every changelog chunk ("Dark mode — 2026-11-07"),
+ * so retrieval never presents an old fix without its release. Versioned
+ * products put the version in the title.
  */
 export function changelogChunkContext(doc: {
   title: string | null;
@@ -169,10 +170,8 @@ export function changelogChunkContext(doc: {
   meta: Record<string, unknown> | null;
   publishedAt: Date | null;
 }): string {
-  const meta = (doc.meta ?? {}) as { version?: string; releaseDate?: string };
-  const details = [meta.version, changelogDate({ meta, publishedAt: doc.publishedAt })]
-    .filter(Boolean)
-    .join(", ");
+  const meta = (doc.meta ?? {}) as { releaseDate?: string };
+  const date = changelogDate({ meta, publishedAt: doc.publishedAt });
   const title = doc.title || doc.slug;
-  return details ? `${title} — ${details}` : title;
+  return date ? `${title} — ${date}` : title;
 }

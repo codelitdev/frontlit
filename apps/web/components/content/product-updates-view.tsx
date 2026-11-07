@@ -19,7 +19,6 @@ import { DocumentStatusBadge } from "@/components/workspace/document-status-badg
 import { DocumentIndexBadge } from "@/components/workspace/document-index-badge";
 import { Button } from "@/components/ui/codelit/button";
 import { Input } from "@/components/ui/codelit/input";
-import { Badge } from "@/components/ui/codelit/badge";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
 
 export default function ChangelogPage() {
@@ -131,9 +130,6 @@ export default function ChangelogPage() {
                       >
                         {entry.draftTitle}
                       </Link>
-                      {entry.draftMeta.version && (
-                        <Badge variant="neutral">{entry.draftMeta.version}</Badge>
-                      )}
                       <DocumentStatusBadge status={entry.status} />
                       <DocumentIndexBadge index={entry.index} />
                     </div>

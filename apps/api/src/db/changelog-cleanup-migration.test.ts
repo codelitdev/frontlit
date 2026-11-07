@@ -44,7 +44,7 @@ describe("0015_changelog_cleanup migration", () => {
     expect(rows.map((row) => row.provider)).toEqual(["sendlit"]);
   });
 
-  it("normalizes changelog labels, release dates and drops GitHub meta", async () => {
+  it("normalizes release dates and drops version, labels and GitHub meta", async () => {
     const legacy = {
       version: "v1.0.0",
       labels: ["improved", "prerelease", "fixed", "changed"],
@@ -78,17 +78,8 @@ describe("0015_changelog_cleanup migration", () => {
       .select()
       .from(documents)
       .where(eq(documents.slug, "legacy"));
-    expect(changelog.meta).toEqual({
-      version: "v1.0.0",
-      labels: ["changed", "fixed"],
-      releaseDate: "2026-03-04",
-      indexable: false,
-    });
-    expect(changelog.draftMeta).toEqual({
-      version: "v1.0.0",
-      labels: ["changed", "fixed"],
-      indexable: false,
-    });
+    expect(changelog.meta).toEqual({ releaseDate: "2026-03-04", indexable: false });
+    expect(changelog.draftMeta).toEqual({ indexable: false });
 
     const [blog] = await db.select().from(documents).where(eq(documents.slug, "post"));
     expect(blog.meta).toEqual({ labels: ["improved"], github: { releaseId: 2 } });
