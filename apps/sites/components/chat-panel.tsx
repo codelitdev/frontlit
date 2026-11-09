@@ -303,6 +303,7 @@ export function ChatPanel({
                 listRef={listRef}
                 bottomRef={bottomRef}
                 onListScroll={onListScroll}
+                onRate={chat.rateMessage}
                 className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3"
               />
             </div>
@@ -424,6 +425,7 @@ export function ChatPanel({
           listRef={listRef}
           bottomRef={bottomRef}
           onListScroll={onListScroll}
+          onRate={chat.rateMessage}
           className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-background px-4 py-4"
         />
 

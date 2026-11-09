@@ -21,6 +21,8 @@ import {
   Search,
   Send,
   Siren,
+  ThumbsDown,
+  ThumbsUp,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -939,6 +941,17 @@ export default function InboxPage() {
                             />
                             {message.author === "bot" && (
                               <MessageCitations sources={message.sources} />
+                            )}
+                            {message.author === "bot" && message.feedback && (
+                              <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                {message.feedback === "up" ? (
+                                  <ThumbsUp aria-hidden className="size-3.5" />
+                                ) : (
+                                  <ThumbsDown aria-hidden className="size-3.5" />
+                                )}
+                                Visitor rated this answer{" "}
+                                {message.feedback === "up" ? "helpful" : "not helpful"}
+                              </p>
                             )}
                           </div>
                           <p

@@ -23,6 +23,8 @@ export const ticketMessageSchema = z.object({
   content: textEditorContentSchema,
   attachments: z.array(ticketAttachmentSchema).optional(),
   sources: z.array(chatSourceSchema).optional(),
+  /** Visitor rating of a bot answer, from the chat widget. */
+  feedback: z.enum(["up", "down"]).nullable().optional(),
   createdAt: z.string().nullable(),
 });
 
@@ -52,7 +54,7 @@ export const ticketAiRetrievalSchema = z.object({
   heading: z.string().nullable().optional(),
   anchor: z.string().nullable(),
   similarity: z.number().optional(),
-  kind: z.enum(["blog", "doc", "changelog", "api-operation"]).optional(),
+  kind: z.enum(["blog", "doc", "changelog", "page", "api-operation"]).optional(),
 });
 
 export const ticketAiRunSchema = z.object({

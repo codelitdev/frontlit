@@ -413,7 +413,8 @@ export default function DocumentationPage() {
             <div className="mb-5">
               <h2 className="text-xl font-semibold">Ask your docs</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Search the semantic index built from your published docs. Results are
+                Search everything the chatbot answers from: published docs, website
+                pages, API reference and, if indexed, blog and changelog. Results are
                 matching source passages, not an AI-generated answer.
               </p>
             </div>
@@ -452,7 +453,7 @@ export default function DocumentationPage() {
                 <h3 className="mb-3 text-sm font-semibold">Top matching passages</h3>
                 {searchResults.length === 0 ? (
                   <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-                    No matches found in published docs.
+                    No matches found in published content.
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -476,7 +477,7 @@ export default function DocumentationPage() {
                                 )}
                                 className="font-medium text-primary hover:underline"
                               >
-                                {result.title ?? "Untitled doc"}
+                                {result.title ?? "Untitled"}
                               </Link>
                               {result.heading && (
                                 <span className="text-muted-foreground">
@@ -486,7 +487,7 @@ export default function DocumentationPage() {
                               )}
                             </div>
                             <span className="shrink-0 tabular-nums text-muted-foreground">
-                              {(result.similarity * 100).toFixed(0)}% match
+                              {(result.similarity * 100).toFixed(0)}% relevance
                             </span>
                           </div>
                         </CardContent>

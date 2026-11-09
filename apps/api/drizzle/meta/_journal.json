@@ -113,6 +113,13 @@
       "when": 1794041047457,
       "tag": "0015_changelog_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794075956427,
+      "tag": "0016_search_index",
+      "breakpoints": true
     }
   ]
 }

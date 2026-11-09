@@ -10,7 +10,7 @@ export interface ChatSource {
   slug: string;
   title: string | null;
   anchor: string | null;
-  kind?: "blog" | "doc" | "changelog";
+  kind?: "blog" | "doc" | "changelog" | "page" | "api-operation";
 }
 
 export interface ChatMessage {
@@ -19,6 +19,8 @@ export interface ChatMessage {
   content: string;
   author?: "requester" | "agent" | "bot";
   sources?: ChatSource[];
+  /** Visitor's rating of a persisted bot answer. */
+  feedback?: "up" | "down" | null;
   escalate?: boolean;
   /** Local-only error bubble (not from the server). */
   error?: boolean;
@@ -37,6 +39,7 @@ interface ThreadMessage {
   content: unknown;
   attachments?: ChatAttachment[];
   sources?: ChatSource[];
+  feedback?: "up" | "down" | null;
 }
 
 function extractText(content: unknown): string {
@@ -164,6 +167,7 @@ export function useVisitorChat({
         content: extractText(message.content),
         attachments: message.attachments ?? [],
         sources: message.sources ?? [],
+        feedback: message.feedback ?? null,
       }));
 
       if (next.length === 0 && greeting) {
@@ -315,6 +319,34 @@ export function useVisitorChat({
     }
   };
 
+  /** Thumbs up/down on a persisted bot answer. Optimistic; reverts on failure. */
+  const rateMessage = async (messageId: string, rating: "up" | "down") => {
+    if (!conversation) return;
+    const previous = messages.find((message) => message.id === messageId)?.feedback;
+    const apply = (feedback: "up" | "down" | null | undefined) =>
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === messageId ? { ...message, feedback } : message,
+        ),
+      );
+    apply(rating);
+    try {
+      const res = await fetch(`${apiBaseUrl}/public/${teamId}/chat/feedback`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          conversationId: conversation.id,
+          conversationToken: conversation.token,
+          messageId,
+          rating,
+        }),
+      });
+      if (!res.ok) throw new Error(`Feedback failed (${res.status})`);
+    } catch {
+      apply(previous);
+    }
+  };
+
   const onInputChange = (value: string) => {
     setInput(value);
     const el = inputRef.current;
@@ -386,6 +418,7 @@ export function useVisitorChat({
     scrollToBottom,
     onListScroll,
     sendMessage,
+    rateMessage,
     setInput: onInputChange,
     rawSetInput: setInput,
   };

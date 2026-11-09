@@ -11,7 +11,7 @@ import { describeChatProvider } from "./ai/provider";
 import { startAuthorizationMaintenance } from "./team/maintenance";
 import { attachInboxLive } from "./tickets/live-server";
 import { startInboxAiWorker } from "./inbox-ai/worker";
-import { startDocumentIndexWorker } from "./documentation/worker";
+import { startSearchIndexWorker } from "./search/indexer";
 import { startSiteCacheWorker } from "./services/site-cache";
 
 import { createGracefulShutdown } from "@codelitdev/platform";
@@ -31,7 +31,7 @@ checkConfig()
     attachInboxLive(server);
     startOutboxWorker();
     startInboxAiWorker();
-    startDocumentIndexWorker();
+    startSearchIndexWorker();
     startDocumentationPublicationWorker();
     startSiteCacheWorker();
     startAuthorizationMaintenance();

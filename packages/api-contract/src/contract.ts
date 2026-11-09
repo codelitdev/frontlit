@@ -105,6 +105,8 @@ import {
 import {
   chatAttachmentCompleteBodySchema,
   chatAttachmentPresignBodySchema,
+  chatFeedbackBodySchema,
+  chatFeedbackResponseSchema,
   chatRequestBodySchema,
   chatResponseSchema,
   chatbotSettingsSchema,
@@ -770,7 +772,7 @@ const productUpdatesContract = makeDocumentContract(
 );
 
 /** The help-center nav tree a "doc" document's `meta.sectionId` points
- * into (architecture.md §5.1), plus semantic search over published docs
+ * into (architecture.md §5.1), plus search over published content
  * (§6.4), backed by the pgvector chunks generated on publish. */
 const documentationSectionsContract = c.router(
   {
@@ -990,7 +992,8 @@ const documentationSectionsContract = c.router(
       path: "/content/documentation/search",
       query: searchDocumentationQuerySchema,
       responses: { 200: itemsList(documentationSearchResultSchema) },
-      summary: "Semantic search over the team's published docs",
+      summary:
+        "Search the team's published docs, pages, blog, changelog and API reference",
       description:
         "Embeds `q` and ranks the team's pgvector doc chunks by cosine similarity (architecture.md §6.4).",
     },
@@ -1111,7 +1114,7 @@ const publicContract = c.router(
         429: errorSchema,
       },
       summary:
-        "Semantic search over a team's published docs (deflection before ticket submission, §11.2)",
+        "Search a team's published docs, pages, blog, changelog and API reference (deflection before ticket submission, §11.2)",
     },
     listDocumentation: {
       method: "GET",
@@ -1235,7 +1238,21 @@ const publicContract = c.router(
       },
       summary: "Ask the team's RAG chatbot a question",
       description:
-        "Persists the conversation, retrieves the team's top matching published doc chunks, and returns an answer grounded in them plus cited sources. The returned conversation credentials let the widget receive later agent replies. 403 if the chatbot is disabled for the team.",
+        "Persists the conversation, retrieves the best matching chunks from the team's published docs, pages, blog, changelog and API reference, and returns an answer grounded in them plus cited sources. The returned conversation credentials let the widget receive later agent replies. 403 if the chatbot is disabled for the team.",
+    },
+    chatFeedback: {
+      method: "POST",
+      path: "/public/:teamId/chat/feedback",
+      body: chatFeedbackBodySchema,
+      responses: {
+        200: chatFeedbackResponseSchema,
+        401: errorSchema,
+        404: errorSchema,
+        429: errorSchema,
+      },
+      summary: "Rate a chatbot answer (thumbs up or down)",
+      description:
+        "Records the visitor's rating on a bot answer in their conversation. A thumbs down also files the question under documentation improvements so the team can see which questions the docs and pages don't answer well.",
     },
     captureLead: {
       method: "POST",

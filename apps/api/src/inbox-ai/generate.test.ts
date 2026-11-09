@@ -9,8 +9,8 @@ vi.mock("../db/client", async () => ({
 vi.mock("../documentation/publications", () => ({
   documentationEvidenceAllowed: vi.fn(async () => true),
 }));
-vi.mock("../documentation/queries", () => ({
-  searchChunks: vi.fn(async () => []),
+vi.mock("../search/search", () => ({
+  searchContent: vi.fn(async () => []),
 }));
 
 vi.mock("../ai/queries", () => ({
@@ -35,7 +35,7 @@ import { runInboxAi } from "./generate";
 import { HANDOFF_COPY } from "./config";
 import { getLanguageModel } from "../ai/provider";
 import { getResolvedAiConfig } from "../ai/queries";
-import { searchChunks } from "../documentation/queries";
+import { searchContent } from "../search/search";
 import { generateInboxAnswer } from "./completion";
 
 describe("runInboxAi", () => {
@@ -47,7 +47,7 @@ describe("runInboxAi", () => {
     teamId = seeded.team.id;
     vi.mocked(getLanguageModel).mockResolvedValue(null);
     vi.mocked(getResolvedAiConfig).mockResolvedValue(null);
-    vi.mocked(searchChunks).mockResolvedValue([]);
+    vi.mocked(searchContent).mockResolvedValue([]);
     vi.mocked(generateInboxAnswer).mockReset();
   });
 
@@ -87,7 +87,7 @@ describe("runInboxAi", () => {
       result: { answer: "", citations: [] },
       usedTokens: 8,
       chunks: [],
-      groundingMissing: false,
+      documentationGap: false,
       handoff: { reason: "visitor_request" },
     });
     await upsertInboxAiPolicy(teamId, "chatbot", { autoReply: true });
@@ -123,7 +123,7 @@ describe("runInboxAi", () => {
       endpoint: null,
       apiKey: "sk-test",
     });
-    vi.mocked(searchChunks).mockResolvedValue([]);
+    vi.mocked(searchContent).mockResolvedValue([]);
     vi.mocked(generateInboxAnswer).mockResolvedValue({
       result: {
         answer: "Hi! How can I help?",
@@ -131,7 +131,7 @@ describe("runInboxAi", () => {
       },
       usedTokens: 12,
       chunks: [],
-      groundingMissing: false,
+      documentationGap: false,
       handoff: null,
     });
     await upsertInboxAiPolicy(teamId, "chatbot", {
@@ -173,7 +173,7 @@ describe("runInboxAi", () => {
       },
       usedTokens: 12,
       chunks: [],
-      groundingMissing: false,
+      documentationGap: false,
       handoff: null,
     });
     await upsertInboxAiPolicy(teamId, "chatbot", { autoReply: true });
@@ -209,7 +209,7 @@ describe("runInboxAi", () => {
       result: { answer: "", citations: [] },
       usedTokens: 10,
       chunks: [],
-      groundingMissing: false,
+      documentationGap: false,
       handoff: { reason: "topic", topic: "refund" },
     });
     await upsertInboxAiPolicy(teamId, "chatbot", {
@@ -247,7 +247,7 @@ describe("runInboxAi", () => {
       endpoint: null,
       apiKey: "sk-test",
     });
-    vi.mocked(searchChunks).mockResolvedValue([
+    vi.mocked(searchContent).mockResolvedValue([
       {
         documentId: "d1",
         slug: "billing",
@@ -275,7 +275,7 @@ describe("runInboxAi", () => {
         citations: [2],
       },
       usedTokens: 40,
-      groundingMissing: false,
+      documentationGap: false,
       handoff: null,
       chunks: [
         {

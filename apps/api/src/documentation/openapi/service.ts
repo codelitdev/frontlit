@@ -16,7 +16,6 @@ import { DocsGitHubApp, getDocsGitHubAppConfig, GitHubDocsError } from "../githu
 import type { GitTreeEntry } from "../github/importer";
 import { requireGitManager } from "../github/setup";
 import { enqueueGitSync, readGitBindingAccess } from "../github/state";
-import { siteOriginForTeam } from "../../utils/site-url";
 import { edgeDestinations } from "../../services/edge-purge";
 import { wakeDocumentationWorker } from "../worker-wake";
 import { importOpenApiSpec, normalizeApiMount, type ImportedSpec } from "./import";
@@ -483,47 +482,6 @@ export async function readApiSpec(teamId: string) {
   const live = await activeSpecRow(teamId);
   if (!live?.spec) return null;
   return { spec: live.spec, hash: live.specHash ?? "" };
-}
-
-/** Keyword search over the live operations' chunks. Operations aren't
- * embedded yet (docs/openapi-support.md §10), so they always match lexically. */
-export async function searchApiReference(teamId: string, query: string, k = 6) {
-  const settings = await db.query.documentationSettings.findFirst({
-    where: eq(settingsTable.teamId, teamId),
-  });
-  if (!settings?.activeApiSpecId || settings.indexing?.enabled === false) return [];
-  const tokens = [...new Set(query.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])];
-  if (!tokens.length) return [];
-  const rows = await db
-    .select({
-      route: operations.route,
-      title: operations.title,
-      chunks: operations.chunks,
-    })
-    .from(operations)
-    .where(eq(operations.specId, settings.activeApiSpecId));
-  const origin = await siteOriginForTeam(teamId);
-  const floor = settings.indexing?.mode === "semantic" ? 0.5 : 0;
-  return rows
-    .flatMap((row) =>
-      row.chunks.map((chunk) => {
-        const text =
-          `${row.title} ${chunk.heading ?? ""} ${chunk.content}`.toLowerCase();
-        return {
-          documentId: row.route,
-          slug: row.route,
-          title: row.title,
-          ...chunk,
-          similarity:
-            tokens.filter((token) => text.includes(token)).length / tokens.length,
-          kind: "api-operation" as const,
-          url: `${origin}/docs/${row.route}${chunk.anchor ? `#${encodeURIComponent(chunk.anchor)}` : ""}`,
-        };
-      }),
-    )
-    .filter((c) => c.similarity > floor)
-    .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, k);
 }
 
 /** Routes under the API mount, for docs route validation. */

@@ -57,10 +57,7 @@ export default function ContentSettingsPage() {
   const [reviewOpen, setReviewOpen] = useState(false);
   // undefined until loaded, null when the site has no public address yet.
   const [liveHost, setLiveHost] = useState<string | null | undefined>(undefined);
-  const [indexing, setIndexing] = useState<{
-    enabled: boolean;
-    mode?: "lexical" | "semantic";
-  }>({ enabled: true, mode: "lexical" });
+  const [indexing, setIndexing] = useState<{ enabled: boolean }>({ enabled: true });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const permissions = currentTeam?.effectivePermissions ?? [];
@@ -108,11 +105,7 @@ export default function ContentSettingsPage() {
   const publishedCount = docs.filter((doc) => Boolean(doc.publishedAt)).length;
   const pendingDocs = docs.filter((doc) => doc.status !== "published");
   const waitingCount = pendingDocs.length + (navigationPending ? 1 : 0);
-  const searchLabel = !indexing.enabled
-    ? "Search off"
-    : indexing.mode === "semantic"
-      ? "Semantic search"
-      : "Keyword search";
+  const searchLabel = indexing.enabled ? "Search on" : "Search off";
   const gitOwned = source === "git";
 
   return (

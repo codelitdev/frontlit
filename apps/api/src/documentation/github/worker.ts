@@ -23,7 +23,6 @@ import {
 } from "./proposal-application";
 import { lockSettings } from "../authoring";
 import { captureRevision, digest } from "../publications";
-import { captureRetrievalConfiguration } from "../retrieval";
 import { syncApiReference } from "../openapi/service";
 import { DocsGitHubApp, getDocsGitHubAppConfig, GitHubDocsError } from "./app";
 import {
@@ -148,16 +147,8 @@ async function finishUnchangedSync(job: SyncJob, head: string) {
       });
       if (!adopted) return null;
     }
-    const indexing = await captureRetrievalConfiguration(
-      job.teamId,
-      settings.indexing,
-      tx,
-    );
-    const identity = (value: typeof indexing | typeof active.indexing) => [
-      value.enabled,
-      value.mode ?? "lexical",
-      value.configHash ?? null,
-    ];
+    const indexing = { enabled: settings.indexing?.enabled !== false };
+    const identity = (value: { enabled?: boolean }) => [value.enabled !== false];
     if (digest(identity(active.indexing)) !== digest(identity(indexing))) return null;
     await tx
       .update(bindings)
@@ -347,11 +338,7 @@ export async function captureGitManifest(
         purgeGeneration: settings.purgeGeneration,
         docsDraftVersion: settings.draftVersion + 1,
         navigation,
-        indexing: await captureRetrievalConfiguration(
-          job.teamId,
-          settings.indexing,
-          tx as any,
-        ),
+        indexing: { enabled: settings.indexing?.enabled !== false },
         gitContext: {
           installationId: binding!.installationId,
           repositoryId: binding!.repositoryId,

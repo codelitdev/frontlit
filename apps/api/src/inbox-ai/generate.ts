@@ -54,7 +54,7 @@ export type InboxAiResult = {
     slug: string;
     title: string | null;
     anchor: string | null;
-    kind?: "blog" | "doc" | "changelog" | "api-operation";
+    kind?: "blog" | "doc" | "changelog" | "page" | "api-operation";
     revisionId?: string;
     publicationId?: string | null;
     policyEpoch?: number;
@@ -90,7 +90,7 @@ function toRetrieval(
     heading: string | null;
     anchor: string | null;
     similarity: number;
-    kind?: "blog" | "doc" | "changelog" | "api-operation";
+    kind?: "blog" | "doc" | "changelog" | "page" | "api-operation";
     revisionId?: string;
     publicationId?: string | null;
     policyEpoch?: number;
@@ -456,7 +456,8 @@ export async function runInboxAi(input: {
     estimateTokens(visitorText) +
     history.reduce((sum, turn) => sum + estimateTokens(turn.content), 0) +
     4 * MAX_OUTPUT_TOKENS +
-    10000;
+    // Prompt overhead plus reranking (about 6k tokens per search).
+    25000;
 
   const reserved = await reserveTokens(input.teamId, estimated);
   if (!reserved) return finishSkip("budget_exhausted");
@@ -480,7 +481,7 @@ export async function runInboxAi(input: {
     });
     usedTokens = generated.usedTokens || estimated;
     retrieval = toRetrieval(generated.chunks);
-    if (generated.groundingMissing)
+    if (generated.documentationGap)
       await recordDocumentationEvidence({
         teamId: input.teamId,
         ticketDbId: ticket.id,

@@ -1,7 +1,7 @@
 import { generateText, isStepCount, tool } from "ai";
 import { z } from "zod";
-import type { SearchResult } from "../documentation/queries";
-import { searchChunks } from "../documentation/queries";
+import { searchContent, type SearchResult } from "../search/search";
+import { rerankCandidates } from "../search/rerank";
 import { getLanguageModel } from "../ai/provider";
 import type { ResolvedAiConfig } from "../ai/queries";
 import {
@@ -15,6 +15,13 @@ import {
   type ChatSource,
 } from "../chatbot/completion";
 import { MAX_HISTORY_MESSAGES, MAX_MESSAGE_CHARS, MAX_OUTPUT_TOKENS } from "./config";
+import { logger } from "../services/log";
+
+const CITATION_RETRY_PROMPT = [
+  "Your reply did not cite the search results.",
+  "Rewrite it so every product fact cites its source as [n], using the index numbers search_docs returned.",
+  "If the search results don't answer the question, reply with exactly NO_ANSWER.",
+].join(" ");
 
 export type InboxAiHandoff = {
   reason: "visitor_request" | "topic";
@@ -100,7 +107,9 @@ function buildInboxInstructions(input: {
     "You are NOT a general-purpose AI, coding agent, homework helper, or open chat model.",
     "",
     "Tools:",
-    "- Call search_docs when the visitor asks about this product/site and you need published help articles.",
+    "- Call search_docs when the visitor asks about this product/site and you need published content (docs, website pages, blog posts, changelog, API reference).",
+    '- Write each query as a standalone search: resolve pronouns and follow-ups from the conversation and include the product terms involved (for example "cancel subscription billing", not "how do I do that").',
+    "- If the results don't cover the question, search again with different wording (synonyms, the feature's name, the error text) before concluding nothing is published.",
     "- You may skip the tool for greetings, thanks, or clarifications.",
     "- If search_docs returns hits, ground product facts in them and cite each used article as [n] using the index the tool returned.",
     "- If search_docs returns no hits, ask for clarification or offer support. Do not invent facts.",
@@ -136,7 +145,7 @@ export async function generateInboxAnswer(input: {
   usedTokens: number;
   chunks: SearchResult[];
   handoff: InboxAiHandoff | null;
-  groundingMissing: boolean;
+  documentationGap: boolean;
 }> {
   const model = await getLanguageModel(input.aiConfig, "chatbot");
   if (!model) {
@@ -148,15 +157,30 @@ export async function generateInboxAnswer(input: {
   let handoff: InboxAiHandoff | null = null;
   let retrievalAttempted = false;
 
+  let rerankTokens = 0;
   const searchDocs = tool({
     description:
-      "Search published help articles for this product. Use for product facts, how-to, and policies.",
+      "Search this product's published docs, website pages, blog, changelog and API reference. Use for product facts, how-to, pricing, and policies.",
     inputSchema: z.object({
-      query: z.string().min(1).max(400).describe("What to look up in the help center"),
+      query: z
+        .string()
+        .min(1)
+        .max(400)
+        .describe("Standalone search query with the key product terms"),
     }),
     execute: async ({ query }) => {
       retrievalAttempted = true;
-      const chunks = await searchChunks(input.teamId, query);
+      // Hybrid search casts a wide net; the team's chat model then picks
+      // the passages that actually answer the question.
+      const candidates = await searchContent(input.teamId, query, 30);
+      const ranked = await rerankCandidates({
+        question: `${clip(input.question)}\nSearch: ${query}`,
+        candidates,
+        aiConfig: input.aiConfig,
+        limit: 6,
+      });
+      rerankTokens += ranked.usedTokens;
+      const chunks = ranked.results;
       const hits = chunks.slice(0, 6).map((chunk) => {
         if (retrieved.length >= 24 && !indexByKey.has(chunkKey(chunk))) return null;
         const key = chunkKey(chunk);
@@ -229,24 +253,65 @@ export async function generateInboxAnswer(input: {
     handoff = { reason: "visitor_request" };
   if (answer === "HANDOFF:topic" && input.escalateTopics.length)
     handoff = { reason: "topic" };
-  const groundingMissing = !handoff && !hasValidEvidenceAnswer(answer, retrieved);
-  if (groundingMissing) answer = MISSING_EVIDENCE_COPY;
+
+  const usage = raced.totalUsage;
+  let modelTokens = (usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0);
+  // Models sometimes answer correctly from the search results but forget the
+  // [n] markers. Ask once more for a cited answer, or NO_ANSWER when the
+  // results don't actually cover the question.
+  let noAnswer = false;
+  if (!handoff && retrieved.length > 0 && !hasValidEvidenceAnswer(answer, retrieved)) {
+    try {
+      const retry = await generateText({
+        model,
+        instructions,
+        messages: [
+          ...messages,
+          ...raced.response.messages,
+          { role: "user" as const, content: CITATION_RETRY_PROMPT },
+        ],
+        tools: { search_docs: searchDocs },
+        toolChoice: "none",
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+        timeout: input.timeoutMs,
+      });
+      modelTokens +=
+        (retry.totalUsage?.inputTokens ?? 0) + (retry.totalUsage?.outputTokens ?? 0);
+      answer = retry.text.trim();
+      noAnswer = answer === "NO_ANSWER";
+    } catch (error) {
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error) },
+        "Citation retry failed",
+      );
+    }
+  }
+
+  const grounded = Boolean(handoff) || hasValidEvidenceAnswer(answer, retrieved);
+  if (!grounded) {
+    // Search found passages but the model still couldn't cite them: a model
+    // slip, not missing documentation, so it is logged rather than reported.
+    if (retrieved.length > 0 && !noAnswer)
+      logger.warn({ teamId: input.teamId }, "Answer dropped: no valid citations");
+    answer = MISSING_EVIDENCE_COPY;
+  }
   if (!handoff && !answer) {
     throw new InboxAiProviderError("invalid_output", "empty_model_answer");
   }
 
   const citations = extractCitationIndexes(answer, retrieved.length);
-  const usage = raced.totalUsage;
   const usedTokens =
-    (usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0) ||
-    estimateFromText(instructions, messages, answer);
+    (modelTokens || estimateFromText(instructions, messages, answer)) + rerankTokens;
 
   return {
     result: { answer: normalizeCitedAnswer(answer, retrieved).answer, citations },
     usedTokens,
     chunks: retrieved,
     handoff,
-    groundingMissing: groundingMissing && retrievalAttempted,
+    // A gap is a question the published content doesn't answer: nothing
+    // relevant was found, or the model confirmed the results don't cover it.
+    documentationGap:
+      !grounded && retrievalAttempted && (retrieved.length === 0 || noAnswer),
   };
 }
 

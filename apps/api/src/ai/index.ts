@@ -7,8 +7,7 @@ export {
 } from "./provider";
 export {
   EMBEDDING_DIMENSIONS,
-  getEmbedding,
+  embeddingModelKey,
   getEmbeddings,
-  resolveEmbeddingsProvider,
-  type EmbeddingsProviderName,
+  usableEmbeddingConfig,
 } from "./embeddings";
