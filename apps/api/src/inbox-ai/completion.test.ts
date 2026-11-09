@@ -50,22 +50,32 @@ describe("D5 generation capability and citation containment", () => {
     vi.mocked(generateText).mockReset();
     vi.mocked(searchContent).mockReset().mockResolvedValue([evidence]);
   });
-  async function answer(text: string) {
+  /** Each main-model call replies with the next text; rerank calls (no
+   * tools) fail and fall back to the fused order. */
+  async function answer(...texts: string[]) {
+    const replies = [...texts];
     vi.mocked(generateText).mockImplementation(async (options: any) => {
+      if (!options.tools) throw new Error("rerank unavailable");
       expect(Object.keys(options.tools)).toEqual(["search_docs"]);
       const data = await options.tools.search_docs.execute({ query: "setup" });
       expect(data.hits[0].content).toContain("&lt;/tool&gt;");
       expect(data.hits[0].heading).not.toContain("<system>");
       expect(data.hits[0].evidenceId).toBe("rev_scope:0");
-      expect(options.messages.at(-1).content).toContain("&lt;/visitor_message&gt;");
-      return { text, totalUsage: { inputTokens: 20, outputTokens: 5 } } as any;
+      if (!options.toolChoice)
+        expect(options.messages.at(-1).content).toContain("&lt;/visitor_message&gt;");
+      const text = replies.length > 1 ? replies.shift()! : replies[0];
+      return {
+        text,
+        totalUsage: { inputTokens: 20, outputTokens: 5 },
+        response: { messages: [] },
+      } as any;
     });
     return generateInboxAnswer(input as any);
   }
   it("offers only scoped retrieval and preserves server evidence identity", async () => {
     const output = await answer("Use the setup guide [1].");
     expect(searchContent).toHaveBeenCalledWith("team_scope", "setup", 30);
-    expect(output.groundingMissing).toBe(false);
+    expect(output.documentationGap).toBe(false);
     expect(output.result.citations).toEqual([1]);
     expect(output.chunks[0].revisionId).toBe("rev_scope");
     expect(output.usedTokens).toBe(25);
@@ -98,6 +108,32 @@ describe("D5 generation capability and citation containment", () => {
     const output = await answer(text);
     expect(output.result.answer).toBe(MISSING_EVIDENCE_COPY);
     expect(output.result.citations).toEqual([]);
-    expect(output.groundingMissing).toBe(true);
+    // Search found passages; a model that can't cite them isn't a docs gap.
+    expect(output.documentationGap).toBe(false);
+  });
+  it("asks once more when a correct answer forgets its citation", async () => {
+    const output = await answer("Use the setup guide.", "Use the setup guide [1].");
+    expect(output.result.answer).toBe("Use the setup guide [1].");
+    expect(output.result.citations).toEqual([1]);
+    const retry = vi.mocked(generateText).mock.calls.at(-1)![0] as any;
+    expect(retry.toolChoice).toBe("none");
+    expect(retry.messages.at(-1).content).toContain("NO_ANSWER");
+    expect(output.usedTokens).toBe(50);
+  });
+  it("reports a documentation gap when the model confirms the results don't answer", async () => {
+    const output = await answer("I think it's free.", "NO_ANSWER");
+    expect(output.result.answer).toBe(MISSING_EVIDENCE_COPY);
+    expect(output.documentationGap).toBe(true);
+  });
+  it("reports a documentation gap when search finds nothing, without a retry", async () => {
+    vi.mocked(searchContent).mockResolvedValue([]);
+    vi.mocked(generateText).mockImplementation(async (options: any) => {
+      await options.tools.search_docs.execute({ query: "phone number" });
+      return { text: "Call us.", totalUsage: {}, response: { messages: [] } } as any;
+    });
+    const output = await generateInboxAnswer(input as any);
+    expect(output.result.answer).toBe(MISSING_EVIDENCE_COPY);
+    expect(output.documentationGap).toBe(true);
+    expect(generateText).toHaveBeenCalledTimes(1);
   });
 });

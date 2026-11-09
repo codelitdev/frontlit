@@ -15,6 +15,13 @@ import {
   type ChatSource,
 } from "../chatbot/completion";
 import { MAX_HISTORY_MESSAGES, MAX_MESSAGE_CHARS, MAX_OUTPUT_TOKENS } from "./config";
+import { logger } from "../services/log";
+
+const CITATION_RETRY_PROMPT = [
+  "Your reply did not cite the search results.",
+  "Rewrite it so every product fact cites its source as [n], using the index numbers search_docs returned.",
+  "If the search results don't answer the question, reply with exactly NO_ANSWER.",
+].join(" ");
 
 export type InboxAiHandoff = {
   reason: "visitor_request" | "topic";
@@ -138,7 +145,7 @@ export async function generateInboxAnswer(input: {
   usedTokens: number;
   chunks: SearchResult[];
   handoff: InboxAiHandoff | null;
-  groundingMissing: boolean;
+  documentationGap: boolean;
 }> {
   const model = await getLanguageModel(input.aiConfig, "chatbot");
   if (!model) {
@@ -246,24 +253,65 @@ export async function generateInboxAnswer(input: {
     handoff = { reason: "visitor_request" };
   if (answer === "HANDOFF:topic" && input.escalateTopics.length)
     handoff = { reason: "topic" };
-  const groundingMissing = !handoff && !hasValidEvidenceAnswer(answer, retrieved);
-  if (groundingMissing) answer = MISSING_EVIDENCE_COPY;
+
+  const usage = raced.totalUsage;
+  let modelTokens = (usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0);
+  // Models sometimes answer correctly from the search results but forget the
+  // [n] markers. Ask once more for a cited answer, or NO_ANSWER when the
+  // results don't actually cover the question.
+  let noAnswer = false;
+  if (!handoff && retrieved.length > 0 && !hasValidEvidenceAnswer(answer, retrieved)) {
+    try {
+      const retry = await generateText({
+        model,
+        instructions,
+        messages: [
+          ...messages,
+          ...raced.response.messages,
+          { role: "user" as const, content: CITATION_RETRY_PROMPT },
+        ],
+        tools: { search_docs: searchDocs },
+        toolChoice: "none",
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+        timeout: input.timeoutMs,
+      });
+      modelTokens +=
+        (retry.totalUsage?.inputTokens ?? 0) + (retry.totalUsage?.outputTokens ?? 0);
+      answer = retry.text.trim();
+      noAnswer = answer === "NO_ANSWER";
+    } catch (error) {
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error) },
+        "Citation retry failed",
+      );
+    }
+  }
+
+  const grounded = Boolean(handoff) || hasValidEvidenceAnswer(answer, retrieved);
+  if (!grounded) {
+    // Search found passages but the model still couldn't cite them: a model
+    // slip, not missing documentation, so it is logged rather than reported.
+    if (retrieved.length > 0 && !noAnswer)
+      logger.warn({ teamId: input.teamId }, "Answer dropped: no valid citations");
+    answer = MISSING_EVIDENCE_COPY;
+  }
   if (!handoff && !answer) {
     throw new InboxAiProviderError("invalid_output", "empty_model_answer");
   }
 
   const citations = extractCitationIndexes(answer, retrieved.length);
-  const usage = raced.totalUsage;
   const usedTokens =
-    ((usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0) ||
-      estimateFromText(instructions, messages, answer)) + rerankTokens;
+    (modelTokens || estimateFromText(instructions, messages, answer)) + rerankTokens;
 
   return {
     result: { answer: normalizeCitedAnswer(answer, retrieved).answer, citations },
     usedTokens,
     chunks: retrieved,
     handoff,
-    groundingMissing: groundingMissing && retrievalAttempted,
+    // A gap is a question the published content doesn't answer: nothing
+    // relevant was found, or the model confirmed the results don't cover it.
+    documentationGap:
+      !grounded && retrievalAttempted && (retrieved.length === 0 || noAnswer),
   };
 }
 

@@ -481,7 +481,7 @@ export async function runInboxAi(input: {
     });
     usedTokens = generated.usedTokens || estimated;
     retrieval = toRetrieval(generated.chunks);
-    if (generated.groundingMissing)
+    if (generated.documentationGap)
       await recordDocumentationEvidence({
         teamId: input.teamId,
         ticketDbId: ticket.id,
