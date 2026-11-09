@@ -42,6 +42,10 @@ describe("citations", () => {
       { documentId: "d2", anchor: null },
     ]);
     expect(normalizeCitedAnswer("No citations", [first]).sources).toEqual([]);
+    // Two passages from the same source collapse into one marker.
+    expect(normalizeCitedAnswer("Rotate it [1][2].", [first, heading]).answer).toBe(
+      "Rotate it [1].",
+    );
   });
 });
 

@@ -75,11 +75,14 @@ export function normalizeCitedAnswer(answer: string, chunks: SearchResult[]) {
   );
   return {
     sources,
-    answer: answer.replace(/\[(\d+)\]/g, (marker, number) => {
-      const chunk = chunks[Number(number) - 1];
-      const index = chunk ? indexes.get(chunk.documentId || chunk.slug) : undefined;
-      return index === undefined ? marker : `[${index}]`;
-    }),
+    answer: answer
+      .replace(/\[(\d+)\]/g, (marker, number) => {
+        const chunk = chunks[Number(number) - 1];
+        const index = chunk ? indexes.get(chunk.documentId || chunk.slug) : undefined;
+        return index === undefined ? marker : `[${index}]`;
+      })
+      // Two passages of one source become one marker: "[1][1]" → "[1]".
+      .replace(/(\[\d+\])(?:\s*\1)+/g, "$1"),
   };
 }
 
