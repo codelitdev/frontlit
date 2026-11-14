@@ -21,7 +21,7 @@ and mirrored 1:1 as MCP tools — the same contract and the same underlying quer
   API key.
 
 See [Authentication](/docs/developers/authentication) for how to authenticate requests, and the
-[API Reference](/docs/api-reference) for every endpoint.
+[API Reference](https://api.frontlit.app/docs/) for every endpoint.
 
 When running the API locally, the same contract is also available as Swagger
 UI at [`http://localhost:4000/docs/`](http://localhost:4000/docs/) and

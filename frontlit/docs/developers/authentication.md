@@ -63,5 +63,5 @@ troubleshooting details.
 ## Provisioning
 
 `POST /provisioning/teams` is a separate, server-to-server-only endpoint for multi-tenant consumers. It's guarded
-by a shared secret (`X-Frontlit-Provisioning-Secret`), not an API key — see the [API Reference](/docs/api-reference)
+by a shared secret (`X-Frontlit-Provisioning-Secret`), not an API key — see the [API Reference](https://api.frontlit.app/docs/)
 for its request/response shape.

@@ -11,4 +11,4 @@ with a REST/OpenAPI/MCP API for managing teams, pages and themes programmaticall
 - **[Self-hosting](/docs/self-hosting)** — run SendLit and its dependencies with Docker Compose.
 - **[Components](/docs/components/page-builder)** — install and use `@frontlit/page-builder` and `@frontlit/text-editor`.
 - **[Developers](/docs/developers/overview)** — authentication, teams, and API keys.
-- **[API Reference](/docs/api-reference)** — the full REST API, generated from the same contract the server validates against.
+- **[API Reference](https://api.frontlit.app/docs/)** — the full REST API, generated from the same contract the server validates against.
