@@ -1,0 +1,29 @@
+---
+title: Overview
+description: The FrontLit REST/MCP API — teams, pages, themes, and provisioning.
+nav_order: 10
+---
+
+The FrontLit API is a ts-rest contract (`@frontlit/api-contract`) implemented over REST, documented via OpenAPI,
+and mirrored 1:1 as MCP tools — the same contract and the same underlying queries back all three.
+
+## Concepts
+
+- **Team** — the tenant/data-scope boundary. Every page and theme belongs to exactly one team. An account can
+  belong to several teams.
+- **Page** — a page built with `@frontlit/page-builder`: a `type`, a block `layout`, an optional saved `theme`,
+  and SEO metadata.
+- **Theme** — a named, reusable set of colors/typography/structure settings, shareable across pages.
+- **API key** — a team-scoped secret for server-to-server access (REST or MCP). Shown in full only once, at
+  creation time.
+- **Provisioning** — a server-to-server endpoint (`POST /provisioning/teams`) for multi-tenant consumers to
+  find-or-create one FrontLit team per one of their own tenants, guarded by a shared secret rather than a normal
+  API key.
+
+See [Authentication](/docs/developers/authentication) for how to authenticate requests, and the
+[API Reference](/docs/api-reference) for every endpoint.
+
+When running the API locally, the same contract is also available as Swagger
+UI at [`http://localhost:4000/docs/`](http://localhost:4000/docs/) and
+as raw OpenAPI JSON at
+[`http://localhost:4000/openapi.json`](http://localhost:4000/openapi.json).
