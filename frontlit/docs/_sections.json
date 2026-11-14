@@ -1,4 +1,10 @@
 {
   "version": 1,
-  "sections": []
+  "sections": [
+    { "folder": "getting-started", "name": "Getting Started", "order": 10 },
+    { "folder": "teams", "name": "Teams", "order": 20 },
+    { "folder": "self-hosting", "name": "Self hosting", "order": 30 },
+    { "folder": "components", "name": "Components", "order": 40 },
+    { "folder": "developers", "name": "Developers", "order": 50 }
+  ]
 }

@@ -1,0 +1,67 @@
+---
+title: Authentication
+description: Authenticating REST and MCP requests against the FrontLit API.
+nav_order: 20
+---
+
+The API recognizes three kinds of authentication, resolved in this order:
+
+1. **OAuth bearer token** — issued by FrontLit's OAuth authorization server for
+   a specific resource, client, user, and explicit scope set. A token belongs to
+   your account and works in every team you're a member of.
+2. **Session cookie** — set by signing in through the web app (passwordless email OTP, via
+   [better-auth](https://www.better-auth.com)). Used by the dashboard itself; not applicable to server-to-server
+   callers.
+3. **API key** — a team-scoped secret, sent as the `x-frontlit-apikey` header (or `apikey` body field). Create one
+   from **Team settings → API keys** in the dashboard, or via `POST /teams/:teamId/keys`. The full secret is only
+   returned once, at creation time — store it securely.
+
+```bash
+curl https://api.frontlit.dev/pages \
+  -H "x-frontlit-apikey: fl_live_..."
+```
+
+## Team scope
+
+Session and OAuth requests choose the team they act on with the `X-Frontlit-Team-Id` header (the dashboard sends
+this automatically once you've picked a team). If an account belongs to exactly one team, the header can be
+omitted. An API key always authenticates as exactly one, fixed team — no header needed, and a header naming another
+team is rejected.
+
+```bash
+curl https://api.frontlit.dev/pages \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-Frontlit-Team-Id: team_..."
+```
+
+Use `GET /teams` to list the teams the token can reach. Team selection errors:
+
+| Error | Status | Meaning |
+| --- | --- | --- |
+| `team_required` | 409 | You belong to several teams and sent no header. The body lists your teams. |
+| `no_team` | 409 | The account doesn't belong to any team yet. |
+| `invalid_team_id` | 400 | No team has that ID. |
+| `not_a_team_member` | 403 | You aren't a member of that team (or were removed). |
+| `team_mismatch` | 403 | An API key was used with a team other than its own. |
+
+Access follows membership: a team you join later is reachable with the same token, and leaving a team stops access
+on the next request.
+
+For a human member, team permissions and OAuth scopes are separate grants.
+Browser requests require the member's current team permission. OAuth requests
+require both that permission and the token's scope, so a client cannot exceed
+the authority of the person who connected it. See [Team members and
+permissions](/docs/teams/members) for the dashboard workflow.
+
+## MCP
+
+The remote MCP endpoint accepts an OAuth bearer token or
+`x-frontlit-apikey`. It intentionally rejects dashboard session cookies. See
+[MCP connections](/docs/developers/mcp) for protocol, client, scope, and
+troubleshooting details.
+
+## Provisioning
+
+`POST /provisioning/teams` is a separate, server-to-server-only endpoint for multi-tenant consumers. It's guarded
+by a shared secret (`X-Frontlit-Provisioning-Secret`), not an API key — see the [API Reference](https://api.frontlit.app/docs/)
+for its request/response shape.
