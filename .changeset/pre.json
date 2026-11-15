@@ -23,6 +23,8 @@
     "page-builder-editor-feedback",
     "page-builder-image-primitive-optimizer",
     "page-builder-section-sticky",
-    "text-editor-flush-pending"
+    "preview-theme-borders",
+    "text-editor-flush-pending",
+    "text-editor-tiptap-ranges"
   ]
 }
