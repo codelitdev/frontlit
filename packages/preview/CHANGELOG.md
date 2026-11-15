@@ -1,5 +1,12 @@
 # @frontlit/preview
 
+## 0.1.0-alpha.7
+
+### Patch Changes
+
+- 2b73b72: Give borders the theme's border colour, as published sites do. Cards, dividers and the header border used to render in the text colour.
+  - @frontlit/page-builder@0.1.0-alpha.9
+
 ## 0.1.0-alpha.6
 
 ### Patch Changes
