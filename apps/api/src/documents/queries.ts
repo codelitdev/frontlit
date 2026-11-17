@@ -8,7 +8,11 @@ import {
   draftReport,
   getDocsSettings,
 } from "../documentation/authoring";
-import { DocsContentError } from "@frontlit/text-editor/docs";
+import {
+  DocsContentError,
+  diagnostic,
+  parseDocsMarkdown,
+} from "@frontlit/text-editor/docs";
 import { and, count, desc, eq, ilike, isNotNull, ne, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import { documents, type DocumentKind, type TextEditorContentRow } from "../db/schema";
@@ -29,6 +33,24 @@ import { invalidateSiteCache, siteTags } from "../services/site-cache";
 export type DocumentStatus = "draft" | "published" | "published_with_changes";
 
 const EMPTY_CONTENT: TextEditorContentRow = { type: "doc", content: [] };
+
+/** Articles and product updates take a body as TipTap JSON or as Markdown.
+ * Markdown goes through the documentation parser, whose output the article
+ * editor and renderer support in full; failures are DocsContentErrors. */
+function documentBody(input: {
+  content?: TextEditorContentRow;
+  markdown?: string;
+}): TextEditorContentRow | undefined {
+  if (input.markdown === undefined) return input.content;
+  if (input.content !== undefined)
+    throw new DocsContentError([
+      diagnostic("INVALID_REQUEST", "Supply content or markdown, never both.", {
+        fieldPath: "markdown",
+      }),
+    ]);
+  return parseDocsMarkdown(input.markdown, { frontmatter: false })
+    .content as TextEditorContentRow;
+}
 
 export function normalizeFeaturedImage(input: unknown): Record<string, unknown> | null {
   if (!input) return null;
@@ -210,6 +232,7 @@ export async function createDocument(
     const { teamId, authorAccountId, ...body } = input;
     return (await saveDocumentation(teamId, null, body, authorAccountId))!;
   }
+  const content = documentBody(input) ?? EMPTY_CONTENT;
   const slug = await uniqueSlug(slugify(input.title), (candidate) =>
     slugTaken(input.teamId, kind, candidate),
   );
@@ -224,7 +247,7 @@ export async function createDocument(
       kind,
       slug,
       draftTitle: input.title,
-      draftContent: EMPTY_CONTENT,
+      draftContent: content,
       draftFeaturedImage: normalizedFeaturedImage,
       draftMeta: input.meta ?? {},
     })
@@ -342,8 +365,8 @@ export async function updateDocument(
   const existing = await getDocumentByDocumentId(kind, documentId);
   if (!existing || existing.teamId !== teamId) return null;
 
-  const { title, slug: requestedSlug, content, excerpt, featuredImage, meta } = patch;
-  const normalizedContent = content;
+  const { title, slug: requestedSlug, excerpt, featuredImage, meta } = patch;
+  const normalizedContent = documentBody(patch);
   const slug =
     requestedSlug === undefined ? undefined : normalizeEditableSlug(requestedSlug);
   if (slug !== undefined && (await slugTaken(teamId, kind, slug, existing.id))) {

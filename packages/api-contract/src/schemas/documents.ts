@@ -48,9 +48,20 @@ export function makeDocumentSchema<M extends z.ZodTypeAny>(metaSchema: M) {
   });
 }
 
+/** Body as Markdown (CommonMark/GFM plus the documentation rich blocks),
+ * converted server-side to TipTap JSON. Send it or `content`, never both. */
+const markdownBodySchema = z
+  .string()
+  .optional()
+  .describe(
+    "Body as Markdown (CommonMark/GFM and documentation rich blocks), converted to TipTap JSON. Send markdown or content, never both.",
+  );
+
 export function makeCreateDocumentBodySchema<M extends z.ZodTypeAny>(metaSchema: M) {
   return z.object({
     title: z.string().min(1),
+    content: textEditorContentSchema.optional(),
+    markdown: markdownBodySchema,
     featuredImage: z
       .union([z.string(), z.record(z.any())])
       .nullable()
@@ -71,6 +82,7 @@ export function makeUpdateDocumentBodySchema<M extends z.ZodTypeAny>(metaSchema:
     slug: z.string().min(1).max(200).optional(),
     title: z.string().optional(),
     content: textEditorContentSchema.optional(),
+    markdown: markdownBodySchema,
     excerpt: z.string().optional(),
     featuredImage: z
       .union([z.string(), z.record(z.any())])

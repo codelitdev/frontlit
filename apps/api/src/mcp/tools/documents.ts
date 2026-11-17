@@ -96,6 +96,17 @@ export function registerDocumentTools(
     kind === "doc"
       ? z.union([documentationSchema, documentationValidationErrorSchema])
       : documentSchema;
+  const bodyFields = {
+    content: textEditorContentSchema
+      .optional()
+      .describe("Body as TipTap JSON. Send content or markdown, never both."),
+    markdown: z
+      .string()
+      .optional()
+      .describe(
+        "Body as Markdown (CommonMark/GFM, plus the Callout, Tabs, Steps, Cards, Accordion, CodeGroup and TypeTable blocks), converted to TipTap JSON. Images need https URLs. Send markdown or content, never both.",
+      ),
+  };
   const handleError = (error: unknown) =>
     error instanceof DocsContentError
       ? { ...jsonResult(documentationErrorBody(error)), isError: true }
@@ -104,12 +115,16 @@ export function registerDocumentTools(
   server.registerTool(
     `create_${label}`,
     {
-      description: `Creates a new, empty ${humanLabel} (draft only) for the current team.`,
+      description:
+        kind === "doc"
+          ? `Creates a new ${humanLabel} (draft only) for the current team.`
+          : `Creates a new ${humanLabel} (draft only) for the current team. Pass the body as Markdown (\`markdown\`) or TipTap JSON (\`content\`), or omit both for an empty draft. Invalid Markdown returns structured diagnostics with line numbers.`,
       inputSchema:
         kind === "doc"
           ? createDocumentationBodySchema.shape
           : {
               title: z.string().min(1),
+              ...bodyFields,
               featuredImage: z.union([z.string(), z.record(z.any())]).optional(),
               meta: metaSchema.optional(),
             },
@@ -196,14 +211,14 @@ export function registerDocumentTools(
   server.registerTool(
     `update_${label}`,
     {
-      description: `Updates a ${humanLabel}'s draft title, content (TipTap JSON), excerpt, featured image, and/or type-specific metadata. Writes only the draft state — call publish_${label} to make changes live.`,
+      description: `Updates a ${humanLabel}'s draft title, body (Markdown via \`markdown\`, or TipTap JSON via \`content\`, never both), excerpt, featured image, and/or type-specific metadata. Writes only the draft state — call publish_${label} to make changes live.`,
       inputSchema:
         kind === "doc"
           ? { documentId: z.string(), ...updateDocumentationBodySchema.shape }
           : {
               documentId: z.string(),
               title: z.string().optional(),
-              content: textEditorContentSchema.optional(),
+              ...bodyFields,
               excerpt: z.string().optional(),
               featuredImage: z
                 .union([z.string(), z.record(z.any())])
