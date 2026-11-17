@@ -12,7 +12,11 @@ import {
   getDocsGitHubAppConfig,
   type GitDocsCheckInput,
 } from "./app";
-import { deliverGitDocsCheck } from "./check-delivery";
+import {
+  deliverGitDocsCheck,
+  gitCheckAnnotations,
+  gitCheckCodes,
+} from "./check-delivery";
 import { validateGitPullRequest } from "./pr-validation";
 import { readGitBindingAccess } from "./state";
 import { processGitPublicationCheck } from "./publication-checks";
@@ -225,16 +229,7 @@ export async function processGitCheck(
         throw new GitHubDocsError("GITHUB_PR_CHANGED", 409);
       await withLease(job!, async () => {});
     };
-    const annotations: NonNullable<GitDocsCheckInput["output"]["annotations"]> =
-      result.diagnostics
-        .filter((d) => d.file && d.line && d.line > 0)
-        .map((d) => ({
-          path: d.file!,
-          start_line: d.line!,
-          end_line: d.line!,
-          annotation_level: d.severity === "error" ? "failure" : "warning",
-          message: d.code,
-        }));
+    const annotations = gitCheckAnnotations(result.diagnostics);
     const details = new URL(
       `/content/documentation/github/checks/${job.checkId}`,
       webOrigin ?? getDocsGitHubAppConfig().webOrigin,
@@ -255,7 +250,7 @@ export async function processGitCheck(
               : "neutral",
         output: {
           title: `Documentation validation: ${result.outcome}`,
-          summary: `${result.fileCount} managed files; ${result.publishedCount} public docs.\nHead: ${result.headSha}\nBase: ${result.baseSha}\n${[...new Set(result.diagnostics.map((d) => d.code))].slice(0, 100).join(", ")}`,
+          summary: `${result.fileCount} managed files; ${result.publishedCount} public docs.\nHead: ${result.headSha}\nBase: ${result.baseSha}\n${gitCheckCodes(result.diagnostics, annotations.length)}`,
           annotations,
         },
       };
