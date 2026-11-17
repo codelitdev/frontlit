@@ -685,11 +685,34 @@ export function parseDocsMarkdown(
         return error(node, `Unsupported block construct: ${node.type}.`);
     }
   }
-  const content = requireDocsContent({
-    type: "doc",
-    content: tree.children.flatMap(block),
-  });
-  return { content, frontmatter: source.frontmatter };
+  // A top-level block yields zero or more nodes; remember where each node came
+  // from so schema failures found after conversion still point at a line.
+  const converted: JSONContent[] = [];
+  const origins: Nodes[] = [];
+  for (const child of tree.children)
+    for (const node of block(child)) {
+      converted.push(node);
+      origins.push(child);
+    }
+  try {
+    const content = requireDocsContent({ type: "doc", content: converted });
+    return { content, frontmatter: source.frontmatter };
+  } catch (cause) {
+    if (!(cause instanceof DocsContentError)) throw cause;
+    throw new DocsContentError(
+      cause.diagnostics.map((item) => {
+        const index = /^content\.content\[(\d+)\]/.exec(item.fieldPath ?? "");
+        const start = index ? origins[Number(index[1])]?.position?.start : undefined;
+        return {
+          ...item,
+          file: options.file,
+          ...(start
+            ? { line: start.line + source.lineOffset, column: start.column }
+            : {}),
+        };
+      }),
+    );
+  }
 }
 
 /** Build mark runs rather than wrapping each text separately (adjacent delimiters are ambiguous). */
