@@ -148,6 +148,34 @@ describe("DM-VALIDATE / DM-CONVERT headless profile", () => {
   });
 
   it.each([
+    ["- 1. Step", 4],
+    ["Intro\n\n- - nested", 6],
+  ])(
+    "V29: schema failures after conversion keep the file and block line",
+    (body, line) => {
+      const errors = diagnostics(() =>
+        parseDocsMarkdown(`---\ntitle: Example\n---\n${body}`, {
+          file: "manual/example.md",
+        }),
+      );
+      expect(errors[0]).toMatchObject({
+        code: "INVALID_DOCUMENT",
+        message: "Invalid child ordering, cardinality, or marks.",
+        file: "manual/example.md",
+        line,
+        column: 1,
+      });
+    },
+  );
+
+  it("V29: schema failures locate the block when frontmatter is off", () => {
+    const errors = diagnostics(() =>
+      parseDocsMarkdown("- 1. Step", { file: "a.md", frontmatter: false }),
+    );
+    expect(errors[0]).toMatchObject({ file: "a.md", line: 1 });
+  });
+
+  it.each([
     "title: One\ntitle: Two",
     "title: !execute bad",
     "title: One\ncustom: &ref x\nother: *ref",

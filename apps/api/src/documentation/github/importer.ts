@@ -4,6 +4,7 @@ import { parseStrictJson } from "./strict-json";
 import {
   DOCS_LIMITS,
   DocsContentError,
+  type DocsDiagnostic,
   diagnostic,
   normalizeDocsSourceDirectory,
   parseDocsMarkdown,
@@ -168,26 +169,46 @@ export async function importDocumentationTree(input: {
   }
   const folderNames = new Map<string, string>();
   const docs = [];
+  // Page problems are collected so one check reports every broken page;
+  // tree-level problems above (entries, sections file, limits) fail fast.
+  const problems: DocsDiagnostic[] = [];
   for (const entry of files
     .filter((e) => e.path.endsWith(".md"))
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))) {
     const markdown = await read(entry);
-    const parsed = parseDocsMarkdown(markdown, { file: entry.path });
+    let parsed: ReturnType<typeof parseDocsMarkdown>;
+    let resolved: ReturnType<typeof resolveDocsSourcePath>;
+    try {
+      parsed = parseDocsMarkdown(markdown, { file: entry.path });
+      resolved = resolveDocsSourcePath(
+        entry.path,
+        directory,
+        parsed.frontmatter!.slug as string | undefined,
+      );
+    } catch (error) {
+      if (!(error instanceof DocsContentError)) throw error;
+      problems.push(
+        ...error.diagnostics.map((item) => ({
+          ...item,
+          file: item.file ?? entry.path,
+        })),
+      );
+      continue;
+    }
     const frontmatter = parsed.frontmatter!;
-    const resolved = resolveDocsSourcePath(
-      entry.path,
-      directory,
-      frontmatter.slug as string | undefined,
-    );
     if (resolved.sectionSlug) {
       const name = resolved.relativePath.split("/")[0];
       const previous = folderNames.get(resolved.sectionSlug);
-      if (previous && previous !== name)
-        fail(
-          "SECTION_COLLISION",
-          "Distinct folders resolve to the same Section slug.",
-          entry.path,
+      if (previous && previous !== name) {
+        problems.push(
+          diagnostic(
+            "SECTION_COLLISION",
+            "Distinct folders resolve to the same Section slug.",
+            { file: entry.path },
+          ),
         );
+        continue;
+      }
       folderNames.set(resolved.sectionSlug, name);
     }
     docs.push({
@@ -211,7 +232,7 @@ export async function importDocumentationTree(input: {
   for (const doc of docs.filter((d) => d.published)) {
     const previous = routes.get(doc.route);
     if (previous)
-      throw new DocsContentError([
+      problems.push(
         diagnostic(
           "DUPLICATE_ROUTE",
           "Published documents resolve to the same route.",
@@ -221,9 +242,10 @@ export async function importDocumentationTree(input: {
             relatedFiles: [previous],
           },
         ),
-      ]);
-    routes.set(doc.route, doc.sourcePath);
+      );
+    else routes.set(doc.route, doc.sourcePath);
   }
+  if (problems.length) throw new DocsContentError(problems);
   const sections = [...folderNames].map(([folder, name], order) => ({
     folder,
     name,

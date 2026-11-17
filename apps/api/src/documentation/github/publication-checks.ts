@@ -11,8 +11,11 @@ import {
 } from "../../db/schema";
 import { lockSettings } from "../authoring";
 import { DocsGitHubApp, GitHubDocsError, getDocsGitHubAppConfig } from "./app";
-import type { GitDocsCheckInput } from "./app";
-import { deliverGitDocsCheck } from "./check-delivery";
+import {
+  deliverGitDocsCheck,
+  gitCheckAnnotations,
+  gitCheckCodes,
+} from "./check-delivery";
 import { withGitCheckLease } from "./check-worker";
 import { readGitBindingAccess } from "./state";
 
@@ -215,16 +218,7 @@ export async function processGitPublicationCheck(
     await withGitCheckLease(job, async () => {});
   };
   await guard();
-  const annotations: NonNullable<GitDocsCheckInput["output"]["annotations"]> =
-    result.diagnostics
-      .filter((d) => d.file && d.line && d.line > 0)
-      .map((d) => ({
-        path: d.file!,
-        start_line: d.line!,
-        end_line: d.line!,
-        annotation_level: d.severity === "error" ? "failure" : "warning",
-        message: d.code,
-      }));
+  const annotations = gitCheckAnnotations(result.diagnostics);
   const remote = await deliverGitDocsCheck(
     app,
     token,
@@ -246,7 +240,7 @@ export async function processGitPublicationCheck(
             : "neutral",
       output: {
         title: `Documentation publication: ${result.outcome}`,
-        summary: `${result.publishedCount} public docs.\nCommit: ${result.commitSha}\n${[...new Set(result.diagnostics.map((d) => d.code))].slice(0, 100).join(", ")}`,
+        summary: `${result.publishedCount} public docs.\nCommit: ${result.commitSha}\n${gitCheckCodes(result.diagnostics, annotations.length)}`,
         annotations,
       },
     },

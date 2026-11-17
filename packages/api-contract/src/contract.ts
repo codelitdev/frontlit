@@ -639,7 +639,11 @@ function makeDocumentContract(
         method: "POST",
         path: `/${resource}`,
         body: createBody,
-        responses: { 201: schema },
+        responses: {
+          201: schema,
+          400: documentationValidationErrorSchema,
+          422: documentationValidationErrorSchema,
+        },
         summary: `Create a ${label}`,
       },
       list: {
@@ -661,9 +665,10 @@ function makeDocumentContract(
         body: updateBody,
         responses: {
           200: schema,
-          400: errorSchema,
+          400: z.union([errorSchema, documentationValidationErrorSchema]),
           404: errorSchema,
           409: errorSchema,
+          422: documentationValidationErrorSchema,
         },
         summary: `Update a ${label}`,
         description:
