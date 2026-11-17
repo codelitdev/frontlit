@@ -1,5 +1,11 @@
 # @frontlit/preview
 
+## 0.1.0-alpha.8
+
+### Patch Changes
+
+- @frontlit/page-builder@0.1.0-alpha.10
+
 ## 0.1.0-alpha.7
 
 ### Patch Changes

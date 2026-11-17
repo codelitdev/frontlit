@@ -1,5 +1,12 @@
 # @frontlit/page-builder
 
+## 0.1.0-alpha.10
+
+### Patch Changes
+
+- Updated dependencies [fc2a99f]
+  - @frontlit/text-editor@0.1.0-alpha.6
+
 ## 0.1.0-alpha.9
 
 ### Patch Changes
