@@ -1,5 +1,11 @@
 # @frontlit/text-editor
 
+## 0.1.0-alpha.6
+
+### Patch Changes
+
+- fc2a99f: `parseDocsMarkdown` now gives schema failures found after conversion (such as a list item that starts with another list, `- 1. Step`) the file, line and column of the Markdown block that produced them, instead of only a JSON path.
+
 ## 0.1.0-alpha.5
 
 ### Patch Changes
