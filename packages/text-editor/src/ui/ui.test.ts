@@ -232,6 +232,19 @@ describe("insert items", () => {
     expect(filterInsertItems(items, "").length).toBe(items.length);
   });
 
+  it("ranks label matches above keyword matches, keeping sections together", () => {
+    const items = getInsertItems(lesson, { ui });
+    const warning = filterInsertItems(items, "warning");
+    // "Callout" lists "warning" as a keyword; the named variant comes first.
+    expect(warning[0].label).toBe("Warning callout");
+    expect(warning.map((item) => item.label)).toContain("Callout");
+    for (const query of ["warning", "e", "video", "list"]) {
+      const groups = filterInsertItems(items, query).map((item) => item.group);
+      const runs = groups.filter((group, index) => group !== groups[index - 1]);
+      expect(new Set(runs).size).toBe(runs.length);
+    }
+  });
+
   it("honours the profile menu", () => {
     const narrow = defineProfile({
       blocks: [embed(), callout()],

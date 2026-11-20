@@ -148,6 +148,11 @@ export const InsertMenu = forwardRef<MenuHandle, MenuProps>(function InsertMenu(
         className="min-h-0 flex-1 overflow-y-auto p-1.5"
         role="listbox"
         aria-label="Insert block"
+        // A scrolling region must be focusable (axe scrollable-region-focusable).
+        // Keys drive the menu from the text, so focus that lands here (a click on
+        // the scrollbar) goes straight back to the editor, cursor intact.
+        tabIndex={0}
+        onFocus={() => editorDom?.focus()}
       >
         {items.length === 0 && (
           <div role="status" className="px-2.5 py-2 text-sm text-muted-foreground">

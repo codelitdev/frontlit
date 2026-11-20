@@ -54,24 +54,53 @@ const chain = (editor: Editor, range?: Range) => {
  * the first step's heading), not after its last one.
  */
 export function insertBlock(editor: Editor, content: JSONContent, range?: Range) {
+  const start = range?.from ?? editor.state.selection.from;
   if (!chain(editor, range).insertContent(content).run()) return false;
+  // Put the cursor in the new block's first text. Find the block itself: the
+  // insert can leave the cursor after it (e.g. when the "/" line held more text).
   const { state } = editor;
-  const $head = state.selection.$head;
-  if ($head.depth < 2) return true;
-  const top = $head.before(1);
-  const node = state.doc.nodeAt(top);
-  let target: number | null = null;
-  node?.descendants((child, offset) => {
+  let block: number | null = null;
+  let distance = Number.POSITIVE_INFINITY;
+  state.doc.descendants((node, pos) => {
+    if (node.type.name !== content.type) return true;
+    if (Math.abs(pos - start) < distance) {
+      distance = Math.abs(pos - start);
+      block = pos;
+    }
+    return false;
+  });
+  if (block === null) return true;
+  const at: number = block;
+  const node = state.doc.nodeAt(at);
+  if (!node) return true;
+  const tr = state.tr;
+  let target: number | null = node.isTextblock ? at + 1 : null;
+  node.descendants((child, offset) => {
     if (target !== null) return false;
     if (child.isTextblock) {
-      target = top + 1 + offset + 1;
+      target = at + 1 + offset + 1;
       return false;
     }
     return true;
   });
+  if (target === null) {
+    // No text inside (an atom such as a button, or an empty card grid): the
+    // cursor goes to the line after it, made if there is none.
+    const after = at + node.nodeSize;
+    const $after = state.doc.resolve(after);
+    const paragraph = state.schema.nodes.paragraph;
+    if (state.doc.nodeAt(after)?.isTextblock) target = after + 1;
+    else if (
+      paragraph &&
+      $after.parent.canReplaceWith($after.index(), $after.index(), paragraph)
+    ) {
+      tr.insert(after, paragraph.create());
+      target = after + 1;
+    }
+  }
   if (target !== null)
     editor.view.dispatch(
-      state.tr.setSelection(TextSelection.create(state.doc, target)).scrollIntoView(),
+      tr.setSelection(TextSelection.create(tr.doc, target)).scrollIntoView(),
     );
   return true;
 }
@@ -222,8 +251,37 @@ export function getInsertItems(
 export function filterInsertItems(items: InsertItem[], query: string): InsertItem[] {
   const words = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
   if (!words.length) return items;
-  return items.filter((item) => {
-    const haystack = [item.label, item.name, ...item.keywords].join(" ").toLowerCase();
-    return words.every((word) => haystack.includes(word));
-  });
+  // Entries whose label matches come before keyword-only matches, so
+  // "/warning" offers "Warning callout" ahead of a callout tagged "warning".
+  const rank = (item: InsertItem) => {
+    const label = item.label.toLowerCase();
+    if (label.startsWith(words.join(" "))) return 0;
+    return words.every((word) => label.includes(word)) ? 1 : 2;
+  };
+  const matches = items
+    .filter((item) => {
+      const haystack = [item.label, item.name, ...item.keywords]
+        .join(" ")
+        .toLowerCase();
+      return words.every((word) => haystack.includes(word));
+    })
+    .map((item, index) => ({ item, index, rank: rank(item) }));
+  // Sections stay together (the menu draws one heading per run of a section),
+  // ordered by their best match, then by where they first appear.
+  const sections = new Map<string, { rank: number; order: number }>();
+  for (const { item, rank } of matches) {
+    const section = sections.get(item.group);
+    if (!section) sections.set(item.group, { rank, order: sections.size });
+    else section.rank = Math.min(section.rank, rank);
+  }
+  const by = (item: InsertItem) => sections.get(item.group)!;
+  return matches
+    .sort(
+      (a, b) =>
+        by(a.item).rank - by(b.item).rank ||
+        by(a.item).order - by(b.item).order ||
+        a.rank - b.rank ||
+        a.index - b.index,
+    )
+    .map(({ item }) => item);
 }
