@@ -300,3 +300,36 @@ describe("drag handle moves", () => {
     expect(moveBlock(state, 0, 3)).toBeNull();
   });
 });
+
+describe("keyboard block moves", () => {
+  it("moves the block at the cursor one place and keeps the cursor in it", async () => {
+    const { EditorState, TextSelection } = await import("@tiptap/pm/state");
+    const { moveBlockBy } = await import("./drag-handle");
+    const { getProfileSchema } = await import("../core/extensions");
+    const schema = getProfileSchema(lesson);
+    const p = (text: string) => ({
+      type: "paragraph",
+      content: [{ type: "text", text }],
+    });
+    const base = EditorState.create({
+      doc: schema.nodeFromJSON(doc(p("Alpha"), p("Beta"), p("Gamma"))),
+    });
+    const texts = (s: InstanceType<typeof EditorState>) => {
+      const out: string[] = [];
+      s.doc.forEach((node) => out.push(node.textContent));
+      return out;
+    };
+    // Cursor after "Be" in Beta (Alpha is 0..7, Beta starts at 7; text at 8).
+    const state = base.apply(base.tr.setSelection(TextSelection.create(base.doc, 10)));
+    const up = state.apply(moveBlockBy(state, -1)!);
+    expect(texts(up)).toEqual(["Beta", "Alpha", "Gamma"]);
+    expect(up.selection.$from.parent.textContent).toBe("Beta");
+    expect(up.selection.$from.parentOffset).toBe(2);
+    const down = state.apply(moveBlockBy(state, 1)!);
+    expect(texts(down)).toEqual(["Alpha", "Gamma", "Beta"]);
+    expect(down.selection.$from.parentOffset).toBe(2);
+    // Nothing above the first block or below the last one.
+    expect(moveBlockBy(up, -1)).toBeNull();
+    expect(moveBlockBy(down, 1)).toBeNull();
+  });
+});

@@ -44,6 +44,80 @@ import "@frontlit/text-editor/styles.css";
 <TextRenderer json={savedJson} />;
 ```
 
+## Pluggable blocks
+
+A **profile** lists what a document can hold. `defineProfile` builds the editor
+schema, the renderer, a Markdown parser and serializer, a validator and a format
+reference from it. The server-safe half lives in `@frontlit/text-editor/blocks`
+(no React), so an API can parse and validate with the same rules as the editor.
+
+```ts
+import { defineProfile, image, video, callout, validateContent } from "@frontlit/text-editor/blocks";
+
+export const lesson = defineProfile({
+  base: { exclude: ["table"], headings: { levels: [2, 3, 4] } },
+  blocks: [image({ media: true }), video(), callout()],
+});
+```
+
+```tsx
+import { Editor, MediaPickerContextProvider, TextRenderer } from "@frontlit/text-editor";
+
+<MediaPickerContextProvider pickMedia={async ({ kind, accept }) => upload(kind, accept)}>
+  <Editor profile={lesson} onChange={save} resolveMedia={(id) => urls[id]} />
+</MediaPickerContextProvider>;
+<TextRenderer profile={lesson} json={doc} resolveMedia={(id) => urls[id]} />;
+```
+
+Media blocks store only a media ID; the host uploads (`pickMedia`) and maps IDs
+to URLs (`resolveMedia`). `examples/text-editor-blocks` in this repo wires both
+to MediaLit.
+
+### Your own block
+
+A block is a server-safe `BlockSchema` plus an optional browser `BlockUi`
+(`/` menu entry, node view, settings component):
+
+```tsx
+import { attr, defineProfile, type BlockSchema } from "@frontlit/text-editor/blocks";
+import { BlockFrame, TextField, type BlockUi } from "@frontlit/text-editor";
+
+const quiz: BlockSchema = {
+  name: "quiz",
+  tag: "Quiz", // <Quiz question="…" /> in Markdown
+  group: "block",
+  attrs: { question: attr.text("The question asked.") },
+  docs: { summary: "A one-question quiz.", example: '<Quiz question="2 + 2?" />' },
+};
+
+const quizUi: BlockUi = {
+  schema: quiz,
+  insert: { label: "Quiz", icon: HelpCircle, keywords: ["question"], create: () => ({ type: "quiz" }) },
+  view: (props) => (
+    <BlockFrame label="Quiz" props={props}>
+      <TextField props={props} name="question" placeholder="Question" />
+    </BlockFrame>
+  ),
+};
+
+const profile = defineProfile({ blocks: [quiz] });
+<Editor profile={profile} blocks={[quizUi]} onChange={save} />;
+<TextRenderer profile={profile} json={doc} blocks={{ quiz: LearnerQuiz }} />;
+```
+
+### Keyboard and screen readers
+
+| Keys | What it does |
+| --- | --- |
+| `/` | Opens the insert menu at the cursor; type to filter, ↑/↓ and Enter to pick, Escape to dismiss. |
+| Ctrl/⌘ + Shift + ↑ / ↓ | Moves the block holding the cursor up or down (what the drag handle does). |
+| Alt + F10 | Moves focus to the current block's controls (type, title, settings, remove). |
+| Escape | In a block's controls, returns to its text; in a settings popover, closes it and returns to its button. |
+
+The editing area is a labelled `textbox` (`ariaLabel`, default "Rich text editor").
+While the `/` menu is open the editor points `aria-activedescendant` at the
+highlighted option, so screen readers announce it while focus stays in the text.
+
 ## What's inside
 
 - `Editor` — the WYSIWYG editing surface (toolbar, bubble menu, tables, code blocks with syntax highlighting, images, links).

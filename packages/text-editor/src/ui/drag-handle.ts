@@ -1,6 +1,12 @@
 import { Extension } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import { NodeSelection, Plugin, PluginKey, type EditorState } from "@tiptap/pm/state";
+import {
+  NodeSelection,
+  Plugin,
+  PluginKey,
+  TextSelection,
+  type EditorState,
+} from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 
 export const dragHandleKey = new PluginKey("dragHandle");
@@ -31,6 +37,95 @@ export function moveBlock(state: EditorState, from: number, to: number) {
   tr.setSelection(NodeSelection.create(tr.doc, at));
   return tr.scrollIntoView();
 }
+
+/**
+ * Moves the top-level block holding the selection one place up or down,
+ * keeping the cursor where it was inside it. Null at either end.
+ */
+export function moveBlockBy(state: EditorState, direction: -1 | 1) {
+  const { selection, doc } = state;
+  const from =
+    selection instanceof NodeSelection && selection.$from.depth === 0
+      ? selection.from
+      : selection.$from.depth > 0
+        ? selection.$from.before(1)
+        : null;
+  if (from === null) return null;
+  const node = doc.nodeAt(from);
+  if (!node) return null;
+  const $from = doc.resolve(from);
+  const index = $from.index(0);
+  let to: number;
+  if (direction < 0) {
+    if (index === 0) return null;
+    to = from - doc.child(index - 1).nodeSize;
+  } else {
+    if (index >= doc.childCount - 1) return null;
+    to = from + node.nodeSize + doc.child(index + 1).nodeSize;
+  }
+  const tr = moveBlock(state, from, to);
+  if (!tr) return null;
+  if (selection instanceof TextSelection) {
+    const at = tr.selection.from;
+    tr.setSelection(
+      TextSelection.create(
+        tr.doc,
+        at + (selection.anchor - from),
+        at + (selection.head - from),
+      ),
+    );
+  }
+  return tr.scrollIntoView();
+}
+
+/** First focusable control in the bar of the innermost block around `dom`. */
+export function blockControlFor(dom: Node | null): HTMLElement | null {
+  let block =
+    dom instanceof Element
+      ? dom.closest("[data-block]")
+      : (dom?.parentElement?.closest("[data-block]") ?? null);
+  while (block) {
+    const control = block.querySelector<HTMLElement>(
+      ":scope > .te-block__bar :is(button, input, select, textarea, a[href]):not([disabled])",
+    );
+    if (control) return control;
+    block = block.parentElement?.closest("[data-block]") ?? null;
+  }
+  return null;
+}
+
+/**
+ * Keyboard access to blocks. Mod-Shift-↑/↓ moves the block at the cursor
+ * (the keyboard way to do what the drag handle does); Alt-F10 moves focus to
+ * the current block's controls (label, settings, remove), and Escape there
+ * returns to its text (see `BlockFrame`).
+ */
+export const BlockKeyboard = Extension.create({
+  name: "blockKeyboard",
+  addKeyboardShortcuts() {
+    const move = (direction: -1 | 1) => () => {
+      const tr = moveBlockBy(this.editor.state, direction);
+      if (!tr) return false;
+      this.editor.view.dispatch(tr);
+      return true;
+    };
+    return {
+      "Mod-Shift-ArrowUp": move(-1),
+      "Mod-Shift-ArrowDown": move(1),
+      "Alt-F10": () => {
+        const { view, state } = this.editor;
+        const dom =
+          state.selection instanceof NodeSelection
+            ? view.nodeDOM(state.selection.from)
+            : view.domAtPos(state.selection.from).node;
+        const control = blockControlFor(dom);
+        if (!control) return false;
+        control.focus();
+        return true;
+      },
+    };
+  },
+});
 
 /** The gap between top-level blocks closest to a pointer height, and its y. */
 function dropGap(view: EditorView, y: number): { pos: number; y: number } {
@@ -73,9 +168,10 @@ export const DragHandle = Extension.create({
             host.style.position = "relative";
           handle = document.createElement("div");
           handle.className = "te-drag-handle";
-          handle.title = "Drag to move";
-          handle.setAttribute("role", "button");
-          handle.setAttribute("aria-label", "Drag to move block");
+          handle.title = "Drag to move (or Ctrl/⌘+Shift+↑/↓)";
+          // A pointer affordance only; keyboard users move blocks with
+          // Mod-Shift-↑/↓ (BlockKeyboard), so it stays out of the a11y tree.
+          handle.setAttribute("aria-hidden", "true");
           handle.setAttribute("data-drag-handle", "");
           handle.textContent = "⠿";
           handle.style.display = "none";

@@ -50,6 +50,8 @@ export interface EditorProps {
   url?: string;
   initialContent?: ReactEditorProps["initialContent"];
   placeholder?: string;
+  /** Accessible name of the editing area. Defaults to "Rich text editor". */
+  ariaLabel?: string;
   autoFocus?: boolean;
   imageSizeLimit?: number;
   onError?: (...args: any[]) => void;
@@ -71,6 +73,7 @@ const Editor: EditorType = Object.assign(
     onFlushChangeReady,
     debounceMs = 1000,
     placeholder,
+    ariaLabel = "Rich text editor",
     children,
     showToolbar = true,
     editable = true,
@@ -143,6 +146,10 @@ const Editor: EditorType = Object.assign(
           attributes: {
             class: `tiptap-content ${editorClassName ?? ""}`,
             "data-placeholder": placeholder ?? "",
+            role: "textbox",
+            "aria-multiline": "true",
+            "aria-label": ariaLabel,
+            ...(editable ? {} : { "aria-readonly": "true" }),
           },
         },
         onUpdate: ({ editor: instance }) => {

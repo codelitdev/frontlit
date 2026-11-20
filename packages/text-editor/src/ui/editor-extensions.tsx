@@ -6,7 +6,7 @@ import { ReactNodeViewRenderer } from "@tiptap/react";
 import { createProfileExtensions } from "../core/extensions";
 import type { Profile } from "../core/types";
 import { BlockFrame } from "./block-frame";
-import { DragHandle } from "./drag-handle";
+import { BlockKeyboard, DragHandle } from "./drag-handle";
 import type { InsertItem } from "./insert-items";
 import { CodeBlockFieldsView, libraryUi } from "./library-ui";
 import { createSlashCommand } from "./slash-command";
@@ -66,5 +66,6 @@ export function createEditorExtensions(
     ),
     createSlashCommand(getItems),
     DragHandle,
+    BlockKeyboard,
   ];
 }

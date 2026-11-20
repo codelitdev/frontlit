@@ -24,6 +24,13 @@ export {
   type InsertItem,
 } from "./insert-items";
 export { InsertMenu, createSlashCommand, isProseAfterSlash } from "./slash-command";
-export { DragHandle, moveBlock, topLevelBlockAt } from "./drag-handle";
+export {
+  BlockKeyboard,
+  DragHandle,
+  blockControlFor,
+  moveBlock,
+  moveBlockBy,
+  topLevelBlockAt,
+} from "./drag-handle";
 export { EmbedFrame, embedHeightFromMessage, clampEmbedHeight } from "./embed-frame";
 export { ContentRenderer, type ContentRendererProps } from "./renderer";

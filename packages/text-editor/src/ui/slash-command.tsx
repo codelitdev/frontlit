@@ -3,6 +3,7 @@
 import React, {
   forwardRef,
   useEffect,
+  useId,
   useImperativeHandle,
   useRef,
   useState,
@@ -24,6 +25,13 @@ import { filterInsertItems, type InsertItem } from "./insert-items";
 interface MenuProps {
   items: InsertItem[];
   command(item: InsertItem): void;
+  /**
+   * The editor's DOM. While the menu shows, it points at the list and the
+   * highlighted option (`aria-controls` / `aria-activedescendant`), so a
+   * screen reader announces options while focus stays in the text.
+   */
+  editorDom?: HTMLElement;
+  hidden?: boolean;
 }
 export interface MenuHandle {
   onKeyDown(event: KeyboardEvent): boolean;
@@ -31,12 +39,25 @@ export interface MenuHandle {
 
 /** The `/` insert menu: entries filtered as you type; unavailable ones greyed out with the reason. */
 export const InsertMenu = forwardRef<MenuHandle, MenuProps>(function InsertMenu(
-  { items, command },
+  { items, command, editorDom, hidden },
   ref,
 ) {
   const [active, setActive] = useState(0);
   const list = useRef<HTMLDivElement | null>(null);
+  const id = useId();
+  const optionId = (index: number) => `${id}-option-${index}`;
   useEffect(() => setActive(0), [items]);
+  useEffect(() => {
+    if (!editorDom || hidden) return undefined;
+    editorDom.setAttribute("aria-controls", `${id}-list`);
+    if (items[active])
+      editorDom.setAttribute("aria-activedescendant", optionId(active));
+    else editorDom.removeAttribute("aria-activedescendant");
+    return () => {
+      editorDom.removeAttribute("aria-controls");
+      editorDom.removeAttribute("aria-activedescendant");
+    };
+  }, [editorDom, hidden, active, items]);
   // Keep the highlighted entry visible when the list scrolls.
   useEffect(() => {
     list.current
@@ -73,11 +94,13 @@ export const InsertMenu = forwardRef<MenuHandle, MenuProps>(function InsertMenu(
   return (
     <div
       ref={list}
+      id={`${id}-list`}
       className="te-popover te-insert-menu w-64 overflow-y-auto rounded-md p-1 shadow-lg"
       role="listbox"
+      aria-label="Insert block"
     >
       {items.length === 0 && (
-        <div className="px-2.5 py-2 text-sm text-muted-foreground">
+        <div role="status" className="px-2.5 py-2 text-sm text-muted-foreground">
           No matching blocks
         </div>
       )}
@@ -86,8 +109,11 @@ export const InsertMenu = forwardRef<MenuHandle, MenuProps>(function InsertMenu(
         return (
           <button
             key={`${item.name}-${item.label}`}
+            id={optionId(index)}
             type="button"
             role="option"
+            // The editor keeps focus; options are reached with the arrow keys.
+            tabIndex={-1}
             aria-selected={index === active}
             aria-disabled={Boolean(item.unavailable)}
             title={item.unavailable}
@@ -205,6 +231,7 @@ export function createSlashCommand(getItems: () => InsertItem[]) {
               hidden = escaped || isProseAfterSlash(getItems(), props.query);
               const element = renderer?.element as HTMLElement | undefined;
               if (element) element.style.display = hidden ? "none" : "";
+              renderer?.updateProps({ hidden });
               if (!hidden) place(props);
             };
             return {
@@ -212,7 +239,11 @@ export function createSlashCommand(getItems: () => InsertItem[]) {
                 escaped = false;
                 renderer = new ReactRenderer(InsertMenu, {
                   editor: props.editor,
-                  props: { items: props.items, command: props.command },
+                  props: {
+                    items: props.items,
+                    command: props.command,
+                    editorDom: props.editor.view.dom,
+                  },
                 });
                 document.body.appendChild(renderer.element);
                 show(props);
@@ -229,6 +260,7 @@ export function createSlashCommand(getItems: () => InsertItem[]) {
                     "display",
                     "none",
                   );
+                  renderer?.updateProps({ hidden });
                   return true;
                 }
                 return renderer?.ref?.onKeyDown(event) ?? false;

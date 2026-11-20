@@ -638,7 +638,18 @@
   border-radius: 0.5rem;
 }
 
+/* Muted text on the bars' muted background falls just short of 4.5:1 with
+ * the default tokens, so bars use a slightly darker muted color. */
+.tiptap-editor {
+  --te-bar-muted-foreground: color-mix(
+    in srgb,
+    var(--muted-foreground) 80%,
+    var(--foreground)
+  );
+}
+
 .tiptap-editor .ProseMirror .te-block__bar {
+  --muted-foreground: var(--te-bar-muted-foreground);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
