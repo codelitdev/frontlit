@@ -486,3 +486,10 @@ describe("library blocks round-trip through Markdown", () => {
     expect(validateContent(profile, both).diagnostics[0].code).toBe("invalid_document");
   });
 });
+
+describe("links", () => {
+  it("end where they end: text typed after a link is plain", () => {
+    const schema = getProfileSchema(defineProfile({ blocks: [] }));
+    expect(schema.marks.link.spec.inclusive).toBe(false);
+  });
+});

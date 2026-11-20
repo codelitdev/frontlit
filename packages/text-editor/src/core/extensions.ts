@@ -171,9 +171,10 @@ export function createProfileExtensions(
   if (mark("highlight")) extensions.push(Highlight);
   if (mark("link"))
     extensions.push(
-      Link.configure({
+      // Autolink would also make the mark inclusive (text typed at a link's
+      // end joins it, so a link never ends); keep autolink, end links there.
+      Link.extend({ inclusive: false }).configure({
         openOnClick: false,
-        // Also makes the mark inclusive; both setups always had it on.
         autolink: true,
         linkOnPaste: true,
         isAllowedUri: (url) =>
