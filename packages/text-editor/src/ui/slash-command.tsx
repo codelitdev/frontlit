@@ -1,11 +1,24 @@
 "use client";
 
-import React, { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import React, {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { Extension } from "@tiptap/core";
 import { PluginKey } from "@tiptap/pm/state";
 import { ReactRenderer } from "@tiptap/react";
 import Suggestion, { type SuggestionProps } from "@tiptap/suggestion";
-import { computePosition, flip, offset, shift } from "@floating-ui/dom";
+import {
+  autoUpdate,
+  computePosition,
+  flip,
+  offset,
+  shift,
+  size,
+} from "@floating-ui/dom";
 import { filterInsertItems, type InsertItem } from "./insert-items";
 
 interface MenuProps {
@@ -22,7 +35,14 @@ export const InsertMenu = forwardRef<MenuHandle, MenuProps>(function InsertMenu(
   ref,
 ) {
   const [active, setActive] = useState(0);
+  const list = useRef<HTMLDivElement | null>(null);
   useEffect(() => setActive(0), [items]);
+  // Keep the highlighted entry visible when the list scrolls.
+  useEffect(() => {
+    list.current
+      ?.querySelector('[aria-selected="true"]')
+      ?.scrollIntoView({ block: "nearest" });
+  }, [active, items]);
   const usable = (index: number) => items[index] && !items[index].unavailable;
   const move = (step: number) => {
     if (!items.length) return;
@@ -52,7 +72,8 @@ export const InsertMenu = forwardRef<MenuHandle, MenuProps>(function InsertMenu(
   }));
   return (
     <div
-      className="te-popover te-insert-menu w-64 rounded-md p-1 shadow-lg"
+      ref={list}
+      className="te-popover te-insert-menu w-64 overflow-y-auto rounded-md p-1 shadow-lg"
       role="listbox"
     >
       {items.length === 0 && (
@@ -128,20 +149,51 @@ export function createSlashCommand(getItems: () => InsertItem[]) {
           },
           render: () => {
             let renderer: ReactRenderer<MenuHandle, MenuProps> | null = null;
-            const place = (props: SuggestionProps<InsertItem, InsertItem>) => {
-              const rect = props.clientRect?.();
+            let latest: SuggestionProps<InsertItem, InsertItem> | null = null;
+            let stopAutoUpdate: (() => void) | null = null;
+            // Positioned at the caret; flips above it and caps its height (then
+            // scrolls) when there is no room below. `autoUpdate` re-runs this
+            // when the menu resizes (its items load after it opens) or the
+            // page scrolls, so it never runs off the viewport.
+            const reference = {
+              getBoundingClientRect: () => latest?.clientRect?.() ?? new DOMRect(),
+            };
+            const position = () => {
               const element = renderer?.element as HTMLElement | undefined;
-              if (!rect || !element) return;
-              element.style.position = "fixed";
-              element.style.zIndex = "50";
-              void computePosition({ getBoundingClientRect: () => rect }, element, {
+              if (!element || !latest?.clientRect?.()) return;
+              void computePosition(reference, element, {
                 placement: "bottom-start",
                 strategy: "fixed",
-                middleware: [offset(6), flip(), shift({ padding: 8 })],
+                middleware: [
+                  offset(6),
+                  flip({ padding: 8 }),
+                  shift({ padding: 8 }),
+                  size({
+                    padding: 8,
+                    apply({ availableHeight, elements }) {
+                      const menu = elements.floating.firstElementChild;
+                      if (!(menu instanceof HTMLElement)) return;
+                      menu.style.maxHeight = `${Math.max(
+                        120,
+                        Math.min(360, availableHeight),
+                      )}px`;
+                    },
+                  }),
+                ],
               }).then(({ x, y }) => {
                 element.style.left = `${x}px`;
                 element.style.top = `${y}px`;
               });
+            };
+            const place = (props: SuggestionProps<InsertItem, InsertItem>) => {
+              latest = props;
+              const element = renderer?.element as HTMLElement | undefined;
+              if (!element) return;
+              element.style.position = "fixed";
+              element.style.zIndex = "50";
+              if (!stopAutoUpdate)
+                stopAutoUpdate = autoUpdate(reference, element, position);
+              position();
             };
             // Escape hides the menu until the next `/`. A multi-word query that
             // matches nothing (the author is writing prose after a slash) hides
@@ -182,6 +234,9 @@ export function createSlashCommand(getItems: () => InsertItem[]) {
                 return renderer?.ref?.onKeyDown(event) ?? false;
               },
               onExit() {
+                stopAutoUpdate?.();
+                stopAutoUpdate = null;
+                latest = null;
                 renderer?.element.remove();
                 renderer?.destroy();
                 renderer = null;
