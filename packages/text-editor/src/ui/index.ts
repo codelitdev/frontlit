@@ -32,5 +32,12 @@ export {
   moveBlockBy,
   topLevelBlockAt,
 } from "./drag-handle";
+export {
+  TableBar,
+  tableActions,
+  tableCursor,
+  focusTableBar,
+  type TableCursor,
+} from "./table-bar";
 export { EmbedFrame, embedHeightFromMessage, clampEmbedHeight } from "./embed-frame";
 export { ContentRenderer, type ContentRendererProps } from "./renderer";

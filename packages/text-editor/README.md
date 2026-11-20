@@ -451,12 +451,16 @@ Links with unsafe schemes are never rendered, and media URLs come only from your
 
 ## Keyboard and accessibility
 
+With the cursor in a table, a bar above it inserts and deletes rows and columns and deletes the table.
+
 | Keys | What it does |
 | --- | --- |
 | `/` | Opens the insert menu at the cursor; type to filter. ↑/↓ (or Ctrl+P/N, Tab/Shift+Tab) move, Home/End jump to the ends, PageUp/PageDown move by five, Enter inserts, Escape dismisses. |
 | Ctrl/⌘ + Shift + ↑ / ↓ | Moves the block holding the cursor up or down (what the drag handle does). |
-| Alt + F10 | Moves focus to the current block's controls (type, title, settings, remove). |
-| Escape | In a block's controls, returns to its text; in a settings popover, closes it and returns to its button. |
+| Alt + F10 | Moves focus to the current block's controls (type, title, settings, remove). In a table, to the table bar. |
+| ← / → in the table bar | Move between its controls: insert a row above or below, delete the row, insert a column left or right, delete the column, the header row (rich tables) and delete the table. |
+| Tab / Shift + Tab in a table | Moves to the next or previous cell; Tab in the last cell adds a row. |
+| Escape | In a block's controls or the table bar, returns to the text; in a settings popover, closes it and returns to its button. |
 
 The editing area is a labelled text box. Set its name with `ariaLabel` (default
 "Rich text editor"). Screen readers announce the highlighted `/` menu option while

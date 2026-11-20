@@ -12,7 +12,6 @@ import {
   Plus,
   Quote,
   Redo2,
-  Trash2,
   Underline,
   Undo2,
 } from "lucide-react";
@@ -334,43 +333,6 @@ const Toolbar = ({
                     </button>
                   );
                 })}
-
-                {editor.isActive("table") && (
-                  <>
-                    <div className="my-1 h-px bg-border" />
-                    <button
-                      type="button"
-                      className="flex w-full rounded px-2.5 py-2 text-sm hover:bg-muted"
-                      onClick={() => {
-                        editor.chain().focus().addRowAfter().run();
-                        setActivePopover(null);
-                      }}
-                    >
-                      Add table row
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full rounded px-2.5 py-2 text-sm hover:bg-muted"
-                      onClick={() => {
-                        editor.chain().focus().addColumnAfter().run();
-                        setActivePopover(null);
-                      }}
-                    >
-                      Add table column
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-sm text-destructive hover:bg-destructive/10"
-                      onClick={() => {
-                        editor.chain().focus().deleteTable().run();
-                        setActivePopover(null);
-                      }}
-                    >
-                      <Trash2 className="size-4" />
-                      Remove table
-                    </button>
-                  </>
-                )}
               </div>
             )}
           </div>

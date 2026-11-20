@@ -5,15 +5,18 @@ import {
   TextRenderer,
   accordion,
   audio,
+  button,
   callout,
   defineProfile,
   embed,
   file,
+  h5p,
   image,
   pdf,
   steps,
   tabs,
   video,
+  webPreview,
   type PickMedia,
   type ResolveMedia,
   type TextEditorContent,
@@ -23,7 +26,7 @@ import { chooseFile, uploadToMediaLit, type UploadedMedia } from "./upload";
 
 /** A lesson-style profile with every library block. Media blocks store MediaLit IDs. */
 const lesson = defineProfile({
-  base: { exclude: ["table"], headings: { levels: [2, 3, 4] } },
+  base: { headings: { levels: [2, 3, 4] } },
   blocks: [
     image({ media: true }),
     video(),
@@ -35,6 +38,9 @@ const lesson = defineProfile({
     tabs(),
     accordion(),
     steps(),
+    button(),
+    webPreview(),
+    h5p(),
   ],
 });
 

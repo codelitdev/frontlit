@@ -25,6 +25,7 @@ import { checkUrlAttr } from "./core/url-check";
 import { EditorBlocksContext } from "./ui/block-frame";
 import { collectBlockUi, createEditorExtensions } from "./ui/editor-extensions";
 import { getInsertItems, type InsertItem } from "./ui/insert-items";
+import { TableBar } from "./ui/table-bar";
 import { useMediaPicker, MEDIA_ACCEPT } from "./ui/media-picker";
 import type { BlockUi, ResolveMedia } from "./ui/types";
 
@@ -399,7 +400,12 @@ const Editor: EditorType = Object.assign(
             </div>
           )}
           <div className="flex w-full justify-center">
-            <div className={cn("flex w-full max-w-3xl flex-col", contentClassName)}>
+            <div
+              className={cn(
+                "relative flex w-full max-w-3xl flex-col",
+                contentClassName,
+              )}
+            >
               {beforeContent}
               <EditorContent
                 editor={editor}
@@ -416,6 +422,12 @@ const Editor: EditorType = Object.assign(
               )}
               {children}
               {editor && <BubbleMenu editor={editor} profile={profile} />}
+              {editor && editable && profile.nodeNames.has("table") && (
+                <TableBar
+                  editor={editor}
+                  headerToggle={profile.options.tables !== "simple"}
+                />
+              )}
             </div>
           </div>
         </div>

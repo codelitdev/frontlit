@@ -39,4 +39,7 @@ export {
   tabs,
   accordion,
   steps,
+  button,
+  webPreview,
+  h5p,
 } from "./core/library";

@@ -386,3 +386,58 @@ describe("/ menu sections", () => {
     expect(items.every((item) => item.description)).toBe(true);
   });
 });
+
+describe("table bar", () => {
+  it("reports the cell under the cursor and names what each control acts on", async () => {
+    const { EditorState, TextSelection } = await import("@tiptap/pm/state");
+    const { tableActions, tableCursor } = await import("./table-bar");
+    const { getProfileSchema } = await import("../core/extensions");
+    const schema = getProfileSchema(defineProfile({ base: {}, blocks: [] }));
+    const cell = (type: string, text: string) => ({
+      type,
+      content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+    });
+    const row = (type: string, ...texts: string[]) => ({
+      type: "tableRow",
+      content: texts.map((text) => cell(type, text)),
+    });
+    const table = {
+      type: "table",
+      content: [
+        row("tableHeader", "ID", "Name"),
+        row("tableCell", "1", "Rajat"),
+        row("tableCell", "2", "V"),
+      ],
+    };
+    const base = EditorState.create({
+      doc: schema.nodeFromJSON(
+        doc({ type: "paragraph", content: [{ type: "text", text: "Hello" }] }, table),
+      ),
+    });
+    expect(tableCursor(base)).toBeNull();
+    let at = -1;
+    base.doc.descendants((node, pos) => {
+      if (node.isText && node.text === "V") at = pos;
+    });
+    const state = base.apply(base.tr.setSelection(TextSelection.create(base.doc, at)));
+    const cursor = tableCursor(state)!;
+    expect(cursor).toMatchObject({
+      row: 3,
+      column: 2,
+      rows: 3,
+      columns: 2,
+      headerRow: true,
+    });
+    const labels = tableActions(cursor, true).map((action) => action.label);
+    expect(labels).toContain("Delete row 3");
+    expect(labels).toContain("Delete column 2");
+    expect(labels).toContain("Header row");
+    expect(tableActions(cursor, false).map((action) => action.label)).not.toContain(
+      "Header row",
+    );
+    // The last row or column can't go on its own: "Delete table" does that.
+    const single = tableActions({ ...cursor, rows: 1, columns: 1 }, false);
+    expect(single.find((action) => action.id === "deleteRow")?.disabled).toBe(true);
+    expect(single.find((action) => action.id === "deleteColumn")?.disabled).toBe(true);
+  });
+});

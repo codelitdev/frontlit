@@ -8,6 +8,7 @@ import {
   type EditorState,
 } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
+import { focusTableBar } from "./table-bar";
 
 export const dragHandleKey = new PluginKey("dragHandle");
 
@@ -113,6 +114,8 @@ export const BlockKeyboard = Extension.create({
       "Mod-Shift-ArrowUp": move(-1),
       "Mod-Shift-ArrowDown": move(1),
       "Alt-F10": () => {
+        // In a table, its bar (insert and delete rows and columns) comes first.
+        if (focusTableBar(this.editor)) return true;
         const { view, state } = this.editor;
         const dom =
           state.selection instanceof NodeSelection
