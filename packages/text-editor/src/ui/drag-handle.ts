@@ -12,17 +12,28 @@ import { focusTableBar } from "./table-bar";
 
 export const dragHandleKey = new PluginKey("dragHandle");
 
-/** Position of the top-level block under the pointer, if any. */
-export function topLevelBlockAt(view: EditorView, x: number, y: number): number | null {
-  const coords = view.posAtCoords({ left: x, top: y });
-  if (!coords) return null;
-  const $pos = view.state.doc.resolve(coords.pos);
-  if ($pos.depth > 0) return $pos.before(1);
-  if (coords.inside >= 0) {
-    const $inside = view.state.doc.resolve(coords.inside);
-    return $inside.depth > 0 ? $inside.before(1) : coords.inside;
-  }
-  return null;
+/**
+ * Position of the top-level block at a pointer height. Found from the blocks'
+ * boxes, not `posAtCoords`: the pointer often sits in the editor's padding
+ * (left of the text), where no position resolves. A block owns the gap below
+ * it, so the handle doesn't flicker between paragraphs.
+ */
+export function topLevelBlockAt(view: EditorView, y: number): number | null {
+  let found: number | null = null;
+  let done = false;
+  view.state.doc.forEach((_node: ProseMirrorNode, offset: number) => {
+    if (done) return;
+    const dom = view.nodeDOM(offset);
+    if (!(dom instanceof HTMLElement)) return;
+    const box = dom.getBoundingClientRect();
+    if (box.top > y) {
+      done = true;
+      return;
+    }
+    found = offset;
+    if (y < box.bottom) done = true;
+  });
+  return found;
 }
 
 /**
@@ -227,7 +238,10 @@ export const DragHandle = Extension.create({
               if (!view.editable || !handle || dragging) return false;
               const host = view.dom.parentElement;
               const rect = view.dom.getBoundingClientRect();
-              const pos = topLevelBlockAt(view, rect.left + 24, event.clientY);
+              const pos =
+                event.clientY < rect.top || event.clientY > rect.bottom
+                  ? null
+                  : topLevelBlockAt(view, event.clientY);
               const node = pos === null ? null : view.nodeDOM(pos);
               if (pos === null || !(node instanceof HTMLElement) || !host) {
                 hide();
