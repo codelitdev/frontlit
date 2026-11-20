@@ -1,4 +1,5 @@
-import type { Editor, Range } from "@tiptap/core";
+import type { Editor, JSONContent, Range } from "@tiptap/core";
+import { TextSelection } from "@tiptap/pm/state";
 import {
   Code,
   Heading1,
@@ -36,6 +37,33 @@ const chain = (editor: Editor, range?: Range) => {
   const c = editor.chain().focus();
   return range ? c.deleteRange(range) : c;
 };
+
+/**
+ * Inserts a block and puts the cursor in its first text field (the first tab,
+ * the first step's heading), not after its last one.
+ */
+export function insertBlock(editor: Editor, content: JSONContent, range?: Range) {
+  if (!chain(editor, range).insertContent(content).run()) return false;
+  const { state } = editor;
+  const $head = state.selection.$head;
+  if ($head.depth < 2) return true;
+  const top = $head.before(1);
+  const node = state.doc.nodeAt(top);
+  let target: number | null = null;
+  node?.descendants((child, offset) => {
+    if (target !== null) return false;
+    if (child.isTextblock) {
+      target = top + 1 + offset + 1;
+      return false;
+    }
+    return true;
+  });
+  if (target !== null)
+    editor.view.dispatch(
+      state.tr.setSelection(TextSelection.create(state.doc, target)).scrollIntoView(),
+    );
+  return true;
+}
 
 export interface InsertItemOptions {
   ui: ReadonlyMap<string, BlockUi>;
@@ -151,8 +179,9 @@ export function getInsertItems(
               if (range) editor.chain().focus().deleteRange(range).run();
               options.insertImage!(editor);
             }
-          : (editor, range) =>
-              chain(editor, range).insertContent(ui.insert.create()).run(),
+          : (editor, range) => {
+              insertBlock(editor, ui.insert.create(), range);
+            },
     });
   }
   return items;

@@ -99,6 +99,15 @@ export const InsertMenu = forwardRef<MenuHandle, MenuProps>(function InsertMenu(
 
 export const slashCommandKey = new PluginKey("slashCommand");
 
+/**
+ * A multi-word query that matches nothing: the author is writing prose after
+ * a slash ("and / or"), so the menu steps aside. One word keeps the menu open
+ * with "No matching blocks", so a typo is visible.
+ */
+export function isProseAfterSlash(items: InsertItem[], query: string): boolean {
+  return /\s/.test(query) && !filterInsertItems(items, query).length;
+}
+
 /** Typing `/` opens the insert menu at the cursor. */
 export function createSlashCommand(getItems: () => InsertItem[]) {
   return Extension.create({
@@ -109,6 +118,8 @@ export function createSlashCommand(getItems: () => InsertItem[]) {
           editor: this.editor,
           char: "/",
           pluginKey: slashCommandKey,
+          // "/heading 2" filters across words; see `hidden` below.
+          allowSpaces: true,
           allow: ({ state, range }) =>
             !state.doc.resolve(range.from).parent.type.spec.code,
           items: ({ query }) => filterInsertItems(getItems(), query).slice(0, 30),
@@ -132,22 +143,40 @@ export function createSlashCommand(getItems: () => InsertItem[]) {
                 element.style.top = `${y}px`;
               });
             };
+            // Escape hides the menu until the next `/`. A multi-word query that
+            // matches nothing (the author is writing prose after a slash) hides
+            // it while it matches nothing. Hidden, it leaves keys to the editor.
+            let escaped = false;
+            let hidden = false;
+            const show = (props: SuggestionProps<InsertItem, InsertItem>) => {
+              // Decide from the query itself: `props.items` can still be loading.
+              hidden = escaped || isProseAfterSlash(getItems(), props.query);
+              const element = renderer?.element as HTMLElement | undefined;
+              if (element) element.style.display = hidden ? "none" : "";
+              if (!hidden) place(props);
+            };
             return {
               onStart(props) {
+                escaped = false;
                 renderer = new ReactRenderer(InsertMenu, {
                   editor: props.editor,
                   props: { items: props.items, command: props.command },
                 });
                 document.body.appendChild(renderer.element);
-                place(props);
+                show(props);
               },
               onUpdate(props) {
                 renderer?.updateProps({ items: props.items, command: props.command });
-                place(props);
+                show(props);
               },
               onKeyDown({ event }) {
+                if (hidden) return false;
                 if (event.key === "Escape") {
-                  renderer?.element.remove();
+                  escaped = hidden = true;
+                  (renderer?.element as HTMLElement | undefined)?.style.setProperty(
+                    "display",
+                    "none",
+                  );
                   return true;
                 }
                 return renderer?.ref?.onKeyDown(event) ?? false;

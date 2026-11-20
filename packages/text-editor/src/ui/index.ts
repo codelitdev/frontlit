@@ -17,8 +17,13 @@ export {
 } from "./block-frame";
 export { libraryUi, LIBRARY_UI } from "./library-ui";
 export { collectBlockUi, createEditorExtensions } from "./editor-extensions";
-export { getInsertItems, filterInsertItems, type InsertItem } from "./insert-items";
-export { InsertMenu, createSlashCommand } from "./slash-command";
-export { DragHandle, topLevelBlockAt } from "./drag-handle";
+export {
+  getInsertItems,
+  filterInsertItems,
+  insertBlock,
+  type InsertItem,
+} from "./insert-items";
+export { InsertMenu, createSlashCommand, isProseAfterSlash } from "./slash-command";
+export { DragHandle, moveBlock, topLevelBlockAt } from "./drag-handle";
 export { EmbedFrame, embedHeightFromMessage, clampEmbedHeight } from "./embed-frame";
 export { ContentRenderer, type ContentRendererProps } from "./renderer";

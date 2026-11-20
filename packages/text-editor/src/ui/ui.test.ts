@@ -252,3 +252,51 @@ describe("insert items", () => {
     }
   });
 });
+
+describe("slash menu", () => {
+  const items = getInsertItems(lesson, { ui: collectBlockUi(lesson) });
+  it("filters across words and steps aside for prose after a slash", async () => {
+    const { isProseAfterSlash } = await import("./slash-command");
+    expect(isProseAfterSlash(items, "heading 2")).toBe(false);
+    expect(isProseAfterSlash(items, "heading ")).toBe(false);
+    expect(isProseAfterSlash(items, "vid")).toBe(false);
+    // One unmatched word keeps the menu open ("No matching blocks").
+    expect(isProseAfterSlash(items, "xyz")).toBe(false);
+    expect(isProseAfterSlash(items, "then continue")).toBe(true);
+    expect(isProseAfterSlash(items, " see below")).toBe(true);
+    // Substring matching keeps short words alive: "or" is in "ordered".
+    expect(isProseAfterSlash(items, " or")).toBe(false);
+  });
+});
+
+describe("drag handle moves", () => {
+  it("moves a top-level block in one undoable step and refuses no-op moves", async () => {
+    const { EditorState } = await import("@tiptap/pm/state");
+    const { moveBlock } = await import("./drag-handle");
+    const { getProfileSchema } = await import("../core/extensions");
+    const schema = getProfileSchema(lesson);
+    const p = (text: string) => ({
+      type: "paragraph",
+      content: [{ type: "text", text }],
+    });
+    const state = EditorState.create({
+      doc: schema.nodeFromJSON(
+        doc(p("A"), { type: "video", attrs: { media: "m1" } }, p("C")),
+      ),
+    });
+    const texts = (s: InstanceType<typeof EditorState>) => {
+      const out: string[] = [];
+      s.doc.forEach((node) =>
+        out.push(node.type.name === "video" ? "video" : node.textContent),
+      );
+      return out;
+    };
+    // Positions: A at 0 (size 3), video at 3 (size 1), C at 4.
+    const down = moveBlock(state, 0, state.doc.content.size);
+    expect(texts(state.apply(down!))).toEqual(["video", "C", "A"]);
+    const up = moveBlock(state, 3, 0);
+    expect(texts(state.apply(up!))).toEqual(["video", "A", "C"]);
+    expect(moveBlock(state, 0, 0)).toBeNull();
+    expect(moveBlock(state, 0, 3)).toBeNull();
+  });
+});
