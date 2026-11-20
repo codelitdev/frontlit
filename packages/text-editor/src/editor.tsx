@@ -89,6 +89,10 @@ const Editor: EditorType = Object.assign(
     resolveMedia,
   }) => {
     const [isUploading, setIsUploading] = useState(false);
+    // Render nothing on the server and in the first client render, so
+    // hydration matches; the editor needs the DOM anyway.
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const pickImage = useImagePicker();
     const pickMedia = useMediaPicker();
@@ -357,7 +361,7 @@ const Editor: EditorType = Object.assign(
       [ui, pickMedia, resolveMedia, previews],
     );
 
-    if (typeof window === "undefined") {
+    if (!mounted) {
       return <></>;
     }
 
