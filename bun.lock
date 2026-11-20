@@ -192,6 +192,24 @@
         "vite": "^7.1.12",
       },
     },
+    "examples/text-editor-blocks": {
+      "name": "@frontlit/text-editor-blocks-example",
+      "version": "0.1.0",
+      "dependencies": {
+        "@frontlit/text-editor": "workspace:*",
+        "react": "19.2.8",
+        "react-dom": "19.2.8",
+        "tus-js-client": "^4.3.1",
+      },
+      "devDependencies": {
+        "@types/react": "19.2.18",
+        "@types/react-dom": "19.2.4",
+        "@vitejs/plugin-react": "^5.0.4",
+        "medialit": "0.2.0",
+        "typescript": "^5.9.3",
+        "vite": "^7.1.12",
+      },
+    },
     "packages/api-contract": {
       "name": "@frontlit/api-contract",
       "version": "0.1.0",
@@ -746,6 +764,8 @@
     "@frontlit/sites": ["@frontlit/sites@workspace:apps/sites"],
 
     "@frontlit/text-editor": ["@frontlit/text-editor@workspace:packages/text-editor"],
+
+    "@frontlit/text-editor-blocks-example": ["@frontlit/text-editor-blocks-example@workspace:examples/text-editor-blocks"],
 
     "@frontlit/web": ["@frontlit/web@workspace:apps/web"],
 

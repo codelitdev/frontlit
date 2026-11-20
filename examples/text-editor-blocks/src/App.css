@@ -1,0 +1,53 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, sans-serif;
+}
+body {
+  margin: 0;
+  background: #fafafa;
+  color: #111;
+}
+.example-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e5e5;
+  background: #fff;
+}
+.example-header h1 {
+  margin: 0;
+  font-size: 18px;
+}
+.example-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  padding: 16px;
+}
+@media (min-width: 960px) {
+  .example-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.example-pane {
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+}
+.example-rendered {
+  padding: 16px 24px;
+}
+.example-output {
+  padding: 0 16px 24px;
+}
+.example-output pre {
+  overflow-x: auto;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  font-size: 12px;
+}
