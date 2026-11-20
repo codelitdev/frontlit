@@ -82,6 +82,16 @@ describe("availability", () => {
     ).toBe("block_unavailable");
   });
 
+  it("reports a deeply nested document as too large instead of overflowing", () => {
+    let node: Record<string, unknown> = { type: "paragraph" };
+    for (let i = 0; i < 30000; i++) node = { type: "blockquote", content: [node] };
+    const deep = doc(node);
+    for (const previous of [undefined, deep]) {
+      const { diagnostics } = validateContent(profile, deep, { previous, unavailable });
+      expect(diagnostics.map((d) => d.code)).toContain("too_large");
+    }
+  });
+
   it("doesn't affect other blocks", () => {
     expect(
       validateContent(profile, doc({ type: "video", attrs: { media: "m1" } }), {

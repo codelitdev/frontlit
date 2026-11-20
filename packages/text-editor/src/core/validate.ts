@@ -110,18 +110,27 @@ export interface ValidationResult {
   diagnostics: Diagnostic[];
 }
 
-/** Counts nodes by type in any JSON-like tree (tolerant: `previous` is stored data). */
-function countTypes(input: unknown, paths?: Map<string, string[]>, path = "content") {
+/**
+ * Counts nodes by type in any JSON-like tree (tolerant: `previous` is stored
+ * data). Stops below `maxDepth`, so a deeply nested tree can't overflow the
+ * stack; such a tree already fails the structural limits.
+ */
+function countTypes(
+  input: unknown,
+  maxDepth: number,
+  paths?: Map<string, string[]>,
+  path = "content",
+) {
   const counts = new Map<string, number>();
-  const walk = (node: unknown, at: string) => {
-    if (!record(node)) return;
+  const walk = (node: unknown, at: string, depth = 0) => {
+    if (!record(node) || depth > maxDepth) return;
     if (typeof node.type === "string") {
       counts.set(node.type, (counts.get(node.type) ?? 0) + 1);
       if (paths) paths.set(node.type, [...(paths.get(node.type) ?? []), at]);
     }
     if (Array.isArray(node.content))
       node.content.forEach((child, i) => {
-        walk(child, `${at}.content[${i}]`);
+        walk(child, `${at}.content[${i}]`, depth + 1);
       });
   };
   walk(input, path);
@@ -328,9 +337,9 @@ export function validateContent(
     add(CODES.tooLarge, "Document exceeds the text size limit.", "content");
 
   if (options.unavailable && record(input)) {
-    const previous = countTypes(options.previous);
+    const previous = countTypes(options.previous, limits.depth);
     const paths = new Map<string, string[]>();
-    const next = countTypes(input, paths);
+    const next = countTypes(input, limits.depth, paths);
     for (const [name, reason] of Object.entries(options.unavailable)) {
       const before = previous.get(name) ?? 0;
       const after = next.get(name) ?? 0;
