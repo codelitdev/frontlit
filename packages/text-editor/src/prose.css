@@ -161,15 +161,6 @@
   margin: 1rem auto;
 }
 
-.tiptap-editor .ProseMirror iframe {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border: 0;
-  border-radius: 0.75rem;
-  background-color: #000;
-  margin: 1.5rem 0;
-}
-
 /* Not nested under `.tiptap-editor` — TipTap portals this to <body>. */
 .bubble-menu {
   position: absolute;
@@ -829,6 +820,7 @@
   height: 100%;
   border: 0;
   border-radius: 0.5rem;
+  background-color: #000;
 }
 
 .te-video__file,
