@@ -45,6 +45,9 @@ export function makeDocumentSchema<M extends z.ZodTypeAny>(metaSchema: M) {
     draftMeta: metaSchema,
     createdAt: z.string().nullable(),
     updatedAt: z.string().nullable(),
+    // Whether the draft can be published, and what blocks it.
+    publishable: z.boolean().optional(),
+    diagnostics: z.array(z.any()).optional(),
   });
 }
 

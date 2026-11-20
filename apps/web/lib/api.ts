@@ -527,6 +527,9 @@ export interface Article {
   draftMeta: ArticleMeta;
   createdAt: string | null;
   updatedAt: string | null;
+  /** False when publishing would be refused; `diagnostics` says why. */
+  publishable?: boolean;
+  diagnostics?: { code: string; message: string }[];
 }
 
 export function listArticles(
@@ -838,6 +841,9 @@ export interface ProductUpdate {
   draftMeta: ProductUpdateMeta;
   createdAt: string | null;
   updatedAt: string | null;
+  /** False when publishing would be refused; `diagnostics` says why. */
+  publishable?: boolean;
+  diagnostics?: { code: string; message: string }[];
 }
 
 export function listProductUpdates(params: { q?: string } = {}) {

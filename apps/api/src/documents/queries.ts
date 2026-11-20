@@ -11,6 +11,7 @@ import {
 import {
   DocsContentError,
   diagnostic,
+  incompleteDocsBlocks,
   parseDocsMarkdown,
 } from "@frontlit/text-editor/docs";
 import { requireCompleteMarkdownBlocks } from "../documentation/content-validation";
@@ -52,6 +53,18 @@ function documentBody(input: {
   const { content } = parseDocsMarkdown(input.markdown, { frontmatter: false });
   requireCompleteMarkdownBlocks(content);
   return content as TextEditorContentRow;
+}
+
+/**
+ * Whether an article's or product update's draft can be published, and why
+ * not: blocks the editor saved half-filled (a Button without its link)
+ * render nothing, so they block publishing. Docs carry their own, fuller
+ * report (`draftReport`).
+ */
+export function withPublishReport<T extends Record<string, unknown>>(row: T) {
+  if (row.kind === "doc" || "publishable" in row) return row;
+  const diagnostics = incompleteDocsBlocks(row.draftContent);
+  return { ...row, publishable: diagnostics.length === 0, diagnostics };
 }
 
 export function normalizeFeaturedImage(input: unknown): Record<string, unknown> | null {
@@ -455,6 +468,8 @@ export async function publishDocument(
   }
   const existing = await getDocumentByDocumentId(kind, documentId);
   if (!existing || existing.teamId !== teamId) return null;
+  const blockers = incompleteDocsBlocks(existing.draftContent);
+  if (blockers.length) throw new DocsContentError(blockers);
   const [doc] = await db
     .update(documents)
     .set({

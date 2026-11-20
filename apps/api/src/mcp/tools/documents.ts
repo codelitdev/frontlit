@@ -23,6 +23,7 @@ import {
   listDocuments,
   publishDocument,
   updateDocument,
+  withPublishReport,
 } from "../../documents/queries";
 import { AUTH_ERROR, INTERNAL_ERROR, NOT_FOUND, jsonResult } from "./responses";
 import { getTeamId } from "./auth";
@@ -45,7 +46,7 @@ const DOCUMENTATION_ONLY_KEYS = [
 ] as const;
 
 function toPublicDocument<T extends Record<string, unknown>>(doc: T) {
-  const row = { ...doc };
+  const row = withPublishReport({ ...doc });
   if (row.kind !== "doc")
     for (const key of DOCUMENTATION_ONLY_KEYS)
       delete (row as Record<string, unknown>)[key];
@@ -100,6 +101,14 @@ export function registerDocumentTools(
     createdAt: z.string().nullable(),
     updatedAt: z.string().nullable(),
     index: documentationIndexSchema.nullable().optional(),
+    publishable: z
+      .boolean()
+      .optional()
+      .describe("False when publish_* would be refused; see diagnostics."),
+    diagnostics: z
+      .array(z.any())
+      .optional()
+      .describe("What blocks publishing, e.g. a Button without its link."),
   });
   const itemSchema = kind === "doc" ? documentationSchema : documentSchema;
   const outputSchema =

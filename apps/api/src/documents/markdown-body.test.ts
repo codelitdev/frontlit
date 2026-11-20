@@ -216,6 +216,43 @@ describe("Markdown bodies for articles and product updates", () => {
     });
   });
 
+  it("reports and refuses publishing a half-filled block saved as JSON", async () => {
+    const half = {
+      type: "doc",
+      content: [{ type: "button", attrs: { label: "Start", href: null } }],
+    };
+    const created = await callTool("create_article", teamId, {
+      title: "CTA",
+      content: half,
+    });
+    expect(created.isError).toBeFalsy();
+    expect(created.structuredContent).toMatchObject({
+      publishable: false,
+      diagnostics: [
+        { code: "INCOMPLETE_BLOCK", fieldPath: "content.content[0].attrs.href" },
+      ],
+    });
+    const { documentId } = created.structuredContent;
+
+    const refused = await callTool("publish_article", teamId, { documentId });
+    expect(refused.isError).toBe(true);
+    expect(
+      documentationValidationErrorSchema.parse(refused.structuredContent),
+    ).toMatchObject({ code: "INCOMPLETE_BLOCK" });
+    expect((await getDocumentByDocumentId("blog", documentId))?.publishedAt).toBeNull();
+
+    const fixed = await callTool("update_article", teamId, {
+      documentId,
+      markdown: '<Button label="Start" href="/start" />\n',
+    });
+    expect(fixed.structuredContent).toMatchObject({
+      publishable: true,
+      diagnostics: [],
+    });
+    const published = await callTool("publish_article", teamId, { documentId });
+    expect(published.isError).toBeFalsy();
+  });
+
   it("describes every block, its props and examples in the markdown field", () => {
     const field = tools.get("create_article")!.config.inputSchema.markdown;
     const text: string = field.description;
