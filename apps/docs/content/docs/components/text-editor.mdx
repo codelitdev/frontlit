@@ -119,6 +119,70 @@ import { Editor, ImagePickerContextProvider } from "@frontlit/text-editor";
 paragraphs, and links. Without one it falls back to plain semantic HTML tags. It is structurally typed against
 that small theme shape instead of importing `@frontlit/page-builder`, so this package stays usable on its own.
 
+## Pluggable blocks
+
+Type `/` in the editor to insert a block; the menu filters as you type. Hover a block to drag it by its
+handle, and open a block's settings from the gear on its bar. From the keyboard, Ctrl/⌘+Shift+↑/↓ moves the
+block at the cursor, Alt+F10 jumps to its controls and Escape returns to its text. In a table, a bar
+above it inserts and deletes rows and columns; Alt+F10 reaches it too.
+
+A **profile** lists what a document can hold: base nodes and marks, blocks and size limits. One profile
+builds the editor, the renderer, a Markdown parser and serializer, a validator and a format reference.
+`profile` also accepts `"default"` and `"documentation"`.
+
+```ts
+// Server-safe: no React. Use it in your API to validate writes.
+import {
+    defineProfile,
+    image,
+    video,
+    audio,
+    embed,
+    callout,
+    parseMarkdown,
+    validateContent,
+} from "@frontlit/text-editor/blocks";
+
+export const lessonProfile = defineProfile({
+    base: { exclude: ["table"], headings: { levels: [2, 3, 4] } },
+    blocks: [image({ hosts: ["images.unsplash.com"], media: true }), video(), audio(), embed(), callout()],
+});
+
+const content = parseMarkdown(lessonProfile, markdown); // throws ContentError with diagnostics
+const result = validateContent(lessonProfile, next, {
+    previous: stored,
+    unavailable: { embed: "plan_required" },
+});
+```
+
+The block library (off unless listed) has Image, Video, Audio, PDF, File, Embed, Callout, Tabs, Accordion,
+Steps, Button, Web preview and H5P. Media blocks store a media ID; the package never fetches media. Supply a
+picker in the editor and URLs in the renderer:
+
+```tsx
+import { Editor, MediaPickerContextProvider, TextRenderer } from "@frontlit/text-editor";
+
+<MediaPickerContextProvider pickMedia={async ({ kind }) => openMediaLibrary(kind)}>
+    <Editor
+        profile={lessonProfile}
+        unavailable={{ embed: "Upgrade to add embeds" }}
+        onChange={save}
+    />
+</MediaPickerContextProvider>;
+
+<TextRenderer profile={lessonProfile} json={content} resolveMedia={(id) => mediaUrls[id]} />;
+```
+
+`unavailable` greys a block out in the menus with its reason; `validateContent` refuses only an increase
+in its count over the stored version, so existing ones keep working. Embeds run only in a sandboxed
+`srcdoc` frame without `allow-same-origin`; H5P loads only from allowed hosts (`h5p({ hosts })`, default
+h5p.org and \*.h5p.com).
+
+For AI agents, `contentFormat()` and `describeContentFormat()` (from `@frontlit/text-editor/docs`) describe
+the Markdown that the FrontLit API and MCP accept: every block with its props and an example. The same
+reference is published at `https://frontlit.app/schema/content.v1.json`. See the package README for writing your own blocks
+(`BlockSchema` and `BlockUi`) and host renderers (`TextRenderer blocks={{ quiz: LearnerQuiz }}`).
+
 ## What's inside
 
 - `Editor` — the WYSIWYG editing surface (toolbar, bubble menu, tables, code blocks with syntax highlighting,
@@ -130,3 +194,4 @@ that small theme shape instead of importing `@frontlit/page-builder`, so this pa
 - `emptyDoc`, `createExtensions`, `createId`, `extractHeadings`, `extractTextFromNode` — lower-level building
   blocks, exported for advanced use.
 - `ImagePickerContextProvider` — optional hook so a host can supply its own image-upload UI.
+- `defineProfile`, the block library and `MediaPickerContextProvider` — see [Pluggable blocks](#pluggable-blocks).

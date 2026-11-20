@@ -76,7 +76,12 @@ export const createDocumentationBodySchema = makeCreateDocumentBodySchema(
     title: z.string().trim().min(1),
     slug: z.string().max(512).optional(),
     content: documentationContentInputSchema.optional(),
-    markdown: z.string().optional(),
+    markdown: z
+      .string()
+      .optional()
+      .describe(
+        "Body as Markdown (CommonMark/GFM plus rich blocks). Every block, prop and limit: https://frontlit.app/schema/content.v1.json",
+      ),
     gitSourcePath: z.string().min(1).max(1024).optional(),
   })
   .strict();
@@ -89,7 +94,12 @@ export const updateDocumentationBodySchema = makeUpdateDocumentBodySchema(
     title: z.string().optional(),
     excerpt: z.string().nullable().optional(),
     content: documentationContentInputSchema.optional(),
-    markdown: z.string().optional(),
+    markdown: z
+      .string()
+      .optional()
+      .describe(
+        "Body as Markdown (CommonMark/GFM plus rich blocks). Every block, prop and limit: https://frontlit.app/schema/content.v1.json",
+      ),
     gitSourcePath: z.string().min(1).max(1024).optional(),
   })
   .strict();

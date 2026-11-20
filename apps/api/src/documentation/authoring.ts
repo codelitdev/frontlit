@@ -28,11 +28,13 @@ import {
   serializeDocsMarkdown,
   hashDocsContent,
   extractDocsHeadings,
+  incompleteDocsBlocks,
   type DocsDiagnostic,
 } from "@frontlit/text-editor/docs";
 import {
   normalizeDocumentationContent,
   validateDocumentationFeaturedImage,
+  requireCompleteMarkdownBlocks,
 } from "./content-validation";
 import { normalizeFeaturedImage } from "../documents/queries";
 import { slugify, uniqueSlug } from "../utils/slug";
@@ -128,6 +130,7 @@ function parseInput(raw: unknown, create = false) {
     const { content, frontmatter } = parseDocsMarkdown(patch.markdown, {
       frontmatter: patch.markdown.trimStart().startsWith("---"),
     });
+    requireCompleteMarkdownBlocks(content);
     const fields: Record<string, string> = {
       title: "title",
       description: "excerpt",
@@ -212,6 +215,10 @@ export async function draftReport(
     );
   if (!draft.draftTitle.trim())
     add("MISSING_TITLE", "A title is required before publication.", "title");
+  // Blocks the editor saved before they were filled in (a Button without its
+  // link) render nothing; they may stay in the draft but not go live.
+  for (const item of incompleteDocsBlocks(draft.draftContent))
+    diagnostics.push({ ...item, documentId: options.documentId });
   const sections =
     options.sections ??
     (await (options.executor ?? db).query.docSections.findMany({

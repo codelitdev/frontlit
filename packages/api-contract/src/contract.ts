@@ -678,7 +678,11 @@ function makeDocumentContract(
         method: "POST",
         path: `/${resource}/:documentId/publish`,
         body: c.noBody(),
-        responses: { 200: schema, 404: errorSchema },
+        responses: {
+          200: schema,
+          404: errorSchema,
+          422: documentationValidationErrorSchema,
+        },
         summary: `Publish a ${label}`,
       },
       discardDraft: {

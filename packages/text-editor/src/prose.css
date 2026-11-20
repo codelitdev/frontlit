@@ -161,15 +161,6 @@
   margin: 1rem auto;
 }
 
-.tiptap-editor .ProseMirror iframe {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border: 0;
-  border-radius: 0.75rem;
-  background-color: #000;
-  margin: 1.5rem 0;
-}
-
 /* Not nested under `.tiptap-editor` — TipTap portals this to <body>. */
 .bubble-menu {
   position: absolute;
@@ -435,6 +426,10 @@
   --te-callout-accent: hsl(142 71% 36%);
 }
 
+.tiptap-renderer .te-callout[data-type="success"] {
+  --te-callout-accent: hsl(160 84% 29%);
+}
+
 .tiptap-renderer .te-callout[data-type="warning"] {
   --te-callout-accent: hsl(38 92% 45%);
 }
@@ -638,7 +633,18 @@
   border-radius: 0.5rem;
 }
 
+/* Muted text on the bars' muted background falls just short of 4.5:1 with
+ * the default tokens, so bars use a slightly darker muted color. */
+.tiptap-editor {
+  --te-bar-muted-foreground: color-mix(
+    in srgb,
+    var(--muted-foreground) 80%,
+    var(--foreground)
+  );
+}
+
 .tiptap-editor .ProseMirror .te-block__bar {
+  --muted-foreground: var(--te-bar-muted-foreground);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -703,4 +709,265 @@
 .tiptap-editor .ProseMirror .te-block-table th,
 .tiptap-editor .ProseMirror .te-block-table td {
   padding: 0.25rem;
+}
+
+/* Pluggable blocks: drag handle, insert menu, settings popover, media and embeds. */
+.tiptap-editor .te-drag-handle {
+  position: absolute;
+  z-index: 5;
+  width: 1.25rem;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.25rem;
+  color: var(--muted-foreground);
+  cursor: grab;
+  user-select: none;
+  font-size: 0.875rem;
+  line-height: 1;
+}
+
+.tiptap-editor .te-drag-handle:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.te-insert-menu {
+  max-height: 20rem;
+  /* Grey text on the highlight tint needs to be a little darker for 4.5:1. */
+  --te-menu-muted-on-tint: color-mix(
+    in srgb,
+    var(--muted-foreground) 80%,
+    var(--foreground)
+  );
+}
+
+.te-insert-menu__group {
+  padding: 0.5rem 0.5rem 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.te-insert-menu__icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* The highlight is a tint plus the icon tile's border in the primary colour,
+ * which stays visible on any theme (WCAG 1.4.11). */
+.te-insert-menu__option[aria-selected="true"] {
+  --muted-foreground: var(--te-menu-muted-on-tint);
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.te-insert-menu__option[aria-selected="true"] .te-insert-menu__icon {
+  border-color: var(--primary);
+}
+
+.te-insert-menu__footer {
+  display: flex;
+  gap: 0.875rem;
+  padding: 0.4375rem 0.75rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+}
+
+.te-insert-menu__footer kbd {
+  margin-right: 0.125rem;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+@media (forced-colors: active) {
+  .te-insert-menu__option[aria-selected="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
+
+.tiptap-editor .ProseMirror .te-block-settings {
+  font-size: 0.75rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.tiptap-editor .ProseMirror .te-block__empty {
+  margin: 0.25rem 0;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+.te-video {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.te-video__frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0.5rem;
+  background-color: #000;
+}
+
+.te-video__file,
+.te-audio {
+  width: 100%;
+  border-radius: 0.5rem;
+}
+
+.te-pdf {
+  width: 100%;
+  height: 36rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.te-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.te-file__icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.te-media {
+  margin: 1rem 0;
+}
+
+.te-media__caption {
+  margin-top: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.te-embed {
+  display: block;
+  margin: 1rem 0;
+}
+
+.tiptap-editor .te-drop-indicator {
+  position: absolute;
+  z-index: 5;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--primary, hsl(222.2 47.4% 11.2%));
+  pointer-events: none;
+}
+
+body.te-dragging,
+body.te-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+/* Button, WebPreview and H5P (renderer and editor previews). */
+.te-button-row {
+  margin: 1rem 0;
+}
+
+.te-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0.5rem 1.125rem;
+  border: 1px solid var(--primary, hsl(222.2 47.4% 11.2%));
+  border-radius: var(--radius, 0.5rem);
+  background-color: var(--primary, hsl(222.2 47.4% 11.2%));
+  color: var(--primary-foreground, hsl(210 40% 98%));
+  font-weight: 600;
+  font-size: 0.9375rem;
+  line-height: 1.25;
+  text-decoration: none;
+}
+
+.te-button[data-variant="secondary"] {
+  background-color: transparent;
+  color: var(--primary, hsl(222.2 47.4% 11.2%));
+}
+
+a.te-button:hover {
+  filter: brightness(1.1);
+}
+
+a.te-button:focus-visible,
+a.te-web-preview:focus-visible {
+  outline: 2px solid var(--ring, hsl(222.2 84% 4.9%));
+  outline-offset: 2px;
+}
+
+.te-web-preview {
+  display: flex;
+  overflow: hidden;
+  margin: 1rem 0;
+  border: 1px solid var(--border, hsl(214.3 31.8% 91.4%));
+  border-radius: 0.5rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+a.te-web-preview:hover {
+  border-color: var(--muted-foreground, hsl(215.4 16.3% 46.9%));
+}
+
+.te-web-preview__image {
+  flex-shrink: 0;
+  width: 9rem;
+  max-width: 35%;
+  object-fit: cover;
+  margin: 0;
+}
+
+.te-web-preview__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.75rem 1rem;
+}
+
+.te-web-preview__title {
+  font-weight: 600;
+}
+
+.te-web-preview__description {
+  font-size: 0.875rem;
+  color: var(--muted-foreground, hsl(215.4 16.3% 46.9%));
+}
+
+.te-web-preview__host {
+  font-size: 0.75rem;
+  color: var(--muted-foreground, hsl(215.4 16.3% 46.9%));
+}
+
+.te-h5p {
+  display: block;
+  margin: 1rem 0;
+  border-radius: 0.5rem;
 }

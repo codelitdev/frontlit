@@ -13,6 +13,7 @@ const srcDir = path.resolve("src");
 const islands: Record<string, string> = {
   "components/copy-code-button": "copy-code-button",
   "components/docs-tabs": "docs-tabs",
+  "ui/embed-frame": "embed-frame",
 };
 
 const shared = {

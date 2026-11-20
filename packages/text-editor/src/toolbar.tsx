@@ -5,29 +5,36 @@ import {
   Bold,
   ChevronDown,
   Code,
-  Image as ImageIcon,
   Italic,
   Link as LinkIcon,
   List as ListIcon,
   ListOrdered,
-  Minus,
   Plus,
   Quote,
   Redo2,
-  Table as TableIcon,
-  Trash2,
   Underline,
   Undo2,
 } from "lucide-react";
 import LinkEditorPopover from "./components/link-editor-popover.js";
-import { docsBlockTemplates } from "./components/docs-block-views";
+import type { Profile } from "./core/types";
+import type { InsertItem } from "./ui/insert-items";
 
 interface ToolbarProps {
-  profile?: "default" | "documentation";
+  profile: Profile;
   editor: Editor | null;
-  onRequestImageUpload: () => void;
+  /** Entries of the Insert menu (the same as the `/` menu). */
+  items: InsertItem[];
   isUploadingImage?: boolean;
 }
+
+/** Shown as their own toolbar buttons, so not repeated in the Insert menu. */
+const BUTTON_ITEMS = [
+  "paragraph",
+  "heading",
+  "bulletList",
+  "orderedList",
+  "blockquote",
+];
 
 type PopoverType = "heading" | "insert" | "link" | null;
 
@@ -82,9 +89,9 @@ function Divider(): React.JSX.Element {
 
 const Toolbar = ({
   editor,
-  onRequestImageUpload,
+  items,
   isUploadingImage,
-  profile = "default",
+  profile,
 }: ToolbarProps): React.JSX.Element | null => {
   const [activePopover, setActivePopover] = useState<PopoverType>(null);
   const [wordCount, setWordCount] = useState(0);
@@ -125,15 +132,23 @@ const Toolbar = ({
 
   if (!editor) return null;
 
-  const availableHeadingOptions =
-    profile === "documentation"
-      ? [
-          ...headingOptions,
-          { label: "Heading 4", value: "h4", level: 4 as Level },
-          { label: "Heading 5", value: "h5", level: 5 as Level },
-          { label: "Heading 6", value: "h6", level: 6 as Level },
-        ]
-      : headingOptions;
+  const hasNode = (name: string) => profile.nodeNames.has(name);
+  const hasMark = (name: string) => profile.marks.includes(name as never);
+  // The default editor has always offered headings 1–3.
+  const levels = profile.headingLevels.filter(
+    (level) => profile.options.name !== "default" || level <= 3,
+  );
+  const availableHeadingOptions = [
+    headingOptions[0],
+    ...(hasNode("heading")
+      ? levels.map((level) => ({
+          label: `Heading ${level}`,
+          value: `h${level}`,
+          level: level as Level,
+        }))
+      : []),
+  ];
+  const insertItems = items.filter((item) => !BUTTON_ITEMS.includes(item.name));
   const activeHeading =
     availableHeadingOptions.find((option) =>
       option.level
@@ -146,11 +161,6 @@ const Toolbar = ({
     const chain = editor.chain().focus();
     if (level) chain.setHeading({ level }).run();
     else chain.setParagraph().run();
-    setActivePopover(null);
-  };
-
-  const insertTable = () => {
-    editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
     setActivePopover(null);
   };
 
@@ -208,19 +218,23 @@ const Toolbar = ({
           </div>
           <Divider />
 
-          <IconButton
-            icon={Bold}
-            label="Bold"
-            active={editor.isActive("bold")}
-            onClick={() => editor.chain().focus().toggleBold().run()}
-          />
-          <IconButton
-            icon={Italic}
-            label="Italic"
-            active={editor.isActive("italic")}
-            onClick={() => editor.chain().focus().toggleItalic().run()}
-          />
-          {profile !== "documentation" && (
+          {hasMark("bold") && (
+            <IconButton
+              icon={Bold}
+              label="Bold"
+              active={editor.isActive("bold")}
+              onClick={() => editor.chain().focus().toggleBold().run()}
+            />
+          )}
+          {hasMark("italic") && (
+            <IconButton
+              icon={Italic}
+              label="Italic"
+              active={editor.isActive("italic")}
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+            />
+          )}
+          {hasMark("underline") && (
             <IconButton
               icon={Underline}
               label="Underline"
@@ -228,40 +242,50 @@ const Toolbar = ({
               onClick={() => editor.chain().focus().toggleMark("underline").run()}
             />
           )}
-          <IconButton
-            icon={Code}
-            label="Inline code"
-            active={editor.isActive("code")}
-            onClick={() => editor.chain().focus().toggleCode().run()}
-          />
-          <IconButton
-            icon={LinkIcon}
-            label="Insert link"
-            active={editor.isActive("link")}
-            onClick={() =>
-              setActivePopover((current) => (current === "link" ? null : "link"))
-            }
-          />
+          {hasMark("code") && (
+            <IconButton
+              icon={Code}
+              label="Inline code"
+              active={editor.isActive("code")}
+              onClick={() => editor.chain().focus().toggleCode().run()}
+            />
+          )}
+          {hasMark("link") && (
+            <IconButton
+              icon={LinkIcon}
+              label="Insert link"
+              active={editor.isActive("link")}
+              onClick={() =>
+                setActivePopover((current) => (current === "link" ? null : "link"))
+              }
+            />
+          )}
           <Divider />
 
-          <IconButton
-            icon={ListIcon}
-            label="Bullet list"
-            active={editor.isActive("bulletList")}
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-          />
-          <IconButton
-            icon={ListOrdered}
-            label="Numbered list"
-            active={editor.isActive("orderedList")}
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          />
-          <IconButton
-            icon={Quote}
-            label="Blockquote"
-            active={editor.isActive("blockquote")}
-            onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          />
+          {hasNode("bulletList") && (
+            <IconButton
+              icon={ListIcon}
+              label="Bullet list"
+              active={editor.isActive("bulletList")}
+              onClick={() => editor.chain().focus().toggleBulletList().run()}
+            />
+          )}
+          {hasNode("orderedList") && (
+            <IconButton
+              icon={ListOrdered}
+              label="Numbered list"
+              active={editor.isActive("orderedList")}
+              onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            />
+          )}
+          {hasNode("blockquote") && (
+            <IconButton
+              icon={Quote}
+              label="Blockquote"
+              active={editor.isActive("blockquote")}
+              onClick={() => editor.chain().focus().toggleBlockquote().run()}
+            />
+          )}
           <Divider />
 
           <div
@@ -282,116 +306,33 @@ const Toolbar = ({
             </button>
             {activePopover === "insert" && (
               <div className="te-popover absolute right-0 top-full z-30 mt-1 w-52 rounded-md p-1 shadow-lg">
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-sm hover:bg-muted"
-                  onClick={() => {
-                    editor.chain().focus().setHorizontalRule().run();
-                    setActivePopover(null);
-                  }}
-                >
-                  <Minus className="size-4" />
-                  Horizontal rule
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-sm hover:bg-muted"
-                  onClick={() => {
-                    editor.chain().focus().toggleCodeBlock().run();
-                    setActivePopover(null);
-                  }}
-                >
-                  <Code className="size-4" />
-                  Code block
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-sm hover:bg-muted disabled:opacity-50"
-                  onClick={insertTable}
-                  disabled={
-                    !editor
-                      .can()
-                      .chain()
-                      .focus()
-                      .insertTable({
-                        rows: 3,
-                        cols: 3,
-                        withHeaderRow: true,
-                      })
-                      .run()
-                  }
-                >
-                  <TableIcon className="size-4" />
-                  Table
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-sm hover:bg-muted disabled:opacity-50"
-                  disabled={isUploadingImage}
-                  onClick={() => {
-                    onRequestImageUpload();
-                    setActivePopover(null);
-                  }}
-                >
-                  <ImageIcon className="size-4" />
-                  {isUploadingImage ? "Uploading image…" : "Image"}
-                </button>
-
-                {profile === "documentation" && (
-                  <>
-                    <div className="my-1 h-px bg-border" />
-                    {Object.entries(docsBlockTemplates).map(([name, block]) => (
-                      <button
-                        key={name}
-                        type="button"
-                        className="flex w-full rounded px-2.5 py-2 text-sm hover:bg-muted"
-                        onClick={() => {
-                          editor.chain().focus().insertContent(block.content).run();
-                          setActivePopover(null);
-                        }}
-                      >
-                        {block.label}
-                      </button>
-                    ))}
-                  </>
-                )}
-
-                {editor.isActive("table") && (
-                  <>
-                    <div className="my-1 h-px bg-border" />
+                {insertItems.map((item) => {
+                  const Icon = item.icon;
+                  const busy = item.name === "image" && isUploadingImage;
+                  return (
                     <button
+                      key={`${item.name}-${item.label}`}
                       type="button"
-                      className="flex w-full rounded px-2.5 py-2 text-sm hover:bg-muted"
+                      className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={Boolean(item.unavailable) || busy}
+                      title={item.unavailable}
                       onClick={() => {
-                        editor.chain().focus().addRowAfter().run();
+                        item.run(editor);
                         setActivePopover(null);
                       }}
                     >
-                      Add table row
+                      <Icon className="size-4 shrink-0" />
+                      <span className="flex min-w-0 flex-col">
+                        <span>{busy ? "Uploading image…" : item.label}</span>
+                        {item.unavailable && (
+                          <span className="truncate text-xs text-muted-foreground">
+                            {item.unavailable}
+                          </span>
+                        )}
+                      </span>
                     </button>
-                    <button
-                      type="button"
-                      className="flex w-full rounded px-2.5 py-2 text-sm hover:bg-muted"
-                      onClick={() => {
-                        editor.chain().focus().addColumnAfter().run();
-                        setActivePopover(null);
-                      }}
-                    >
-                      Add table column
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-sm text-destructive hover:bg-destructive/10"
-                      onClick={() => {
-                        editor.chain().focus().deleteTable().run();
-                        setActivePopover(null);
-                      }}
-                    >
-                      <Trash2 className="size-4" />
-                      Remove table
-                    </button>
-                  </>
-                )}
+                  );
+                })}
               </div>
             )}
           </div>

@@ -23,10 +23,11 @@ import {
   listDocuments,
   publishDocument,
   updateDocument,
+  withPublishReport,
 } from "../../documents/queries";
 import { AUTH_ERROR, INTERNAL_ERROR, NOT_FOUND, jsonResult } from "./responses";
 import { getTeamId } from "./auth";
-import { DocsContentError } from "@frontlit/text-editor/docs";
+import { DocsContentError, describeContentFormat } from "@frontlit/text-editor/docs";
 import { documentationErrorBody } from "../../documentation/content-validation";
 import { omitInternal, serializeDates } from "../../utils/public";
 import {
@@ -45,7 +46,7 @@ const DOCUMENTATION_ONLY_KEYS = [
 ] as const;
 
 function toPublicDocument<T extends Record<string, unknown>>(doc: T) {
-  const row = { ...doc };
+  const row = withPublishReport({ ...doc });
   if (row.kind !== "doc")
     for (const key of DOCUMENTATION_ONLY_KEYS)
       delete (row as Record<string, unknown>)[key];
@@ -65,6 +66,16 @@ function toPublicDocument<T extends Record<string, unknown>>(doc: T) {
  * the tools/output schema; `metaSchema` documents type-specific metadata for
  * MCP clients. The database kind stays internal.
  */
+
+/** The `markdown` field of every create/update tool: the format, generated
+ * from the documentation profile so new blocks need no tool edits. */
+const markdownField = z
+  .string()
+  .optional()
+  .describe(
+    `Body as Markdown, converted to TipTap JSON. Send markdown or content, never both. Invalid Markdown returns diagnostics with line numbers.\n${describeContentFormat()}`,
+  );
+
 export function registerDocumentTools(
   server: McpToolRegistrar,
   kind: DocumentKind,
@@ -90,6 +101,14 @@ export function registerDocumentTools(
     createdAt: z.string().nullable(),
     updatedAt: z.string().nullable(),
     index: documentationIndexSchema.nullable().optional(),
+    publishable: z
+      .boolean()
+      .optional()
+      .describe("False when publish_* would be refused; see diagnostics."),
+    diagnostics: z
+      .array(z.any())
+      .optional()
+      .describe("What blocks publishing, e.g. a Button without its link."),
   });
   const itemSchema = kind === "doc" ? documentationSchema : documentSchema;
   const outputSchema =
@@ -100,12 +119,7 @@ export function registerDocumentTools(
     content: textEditorContentSchema
       .optional()
       .describe("Body as TipTap JSON. Send content or markdown, never both."),
-    markdown: z
-      .string()
-      .optional()
-      .describe(
-        "Body as Markdown (CommonMark/GFM, plus the Callout, Tabs, Steps, Cards, Accordion, CodeGroup and TypeTable blocks), converted to TipTap JSON. Images need https URLs. Send markdown or content, never both.",
-      ),
+    markdown: markdownField,
   };
   const handleError = (error: unknown) =>
     error instanceof DocsContentError
@@ -121,7 +135,7 @@ export function registerDocumentTools(
           : `Creates a new ${humanLabel} (draft only) for the current team. Pass the body as Markdown (\`markdown\`) or TipTap JSON (\`content\`), or omit both for an empty draft. Invalid Markdown returns structured diagnostics with line numbers.`,
       inputSchema:
         kind === "doc"
-          ? createDocumentationBodySchema.shape
+          ? { ...createDocumentationBodySchema.shape, markdown: markdownField }
           : {
               title: z.string().min(1),
               ...bodyFields,
@@ -214,7 +228,11 @@ export function registerDocumentTools(
       description: `Updates a ${humanLabel}'s draft title, body (Markdown via \`markdown\`, or TipTap JSON via \`content\`, never both), excerpt, featured image, and/or type-specific metadata. Writes only the draft state — call publish_${label} to make changes live.`,
       inputSchema:
         kind === "doc"
-          ? { documentId: z.string(), ...updateDocumentationBodySchema.shape }
+          ? {
+              documentId: z.string(),
+              ...updateDocumentationBodySchema.shape,
+              markdown: markdownField,
+            }
           : {
               documentId: z.string(),
               title: z.string().optional(),

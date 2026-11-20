@@ -11,6 +11,7 @@ export default defineConfig({
     index: "src/index.ts",
     docs: "src/docs.ts",
     headings: "src/docs/headings.ts",
+    blocks: "src/core/index.ts",
   },
   format: ["esm"],
   dts: true,

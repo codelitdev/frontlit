@@ -192,6 +192,24 @@
         "vite": "^7.1.12",
       },
     },
+    "examples/text-editor-blocks": {
+      "name": "@frontlit/text-editor-blocks-example",
+      "version": "0.1.0",
+      "dependencies": {
+        "@frontlit/text-editor": "workspace:*",
+        "react": "19.2.8",
+        "react-dom": "19.2.8",
+        "tus-js-client": "^4.3.1",
+      },
+      "devDependencies": {
+        "@types/react": "19.2.18",
+        "@types/react-dom": "19.2.4",
+        "@vitejs/plugin-react": "^5.0.4",
+        "medialit": "0.2.0",
+        "typescript": "^5.9.3",
+        "vite": "^7.1.12",
+      },
+    },
     "packages/api-contract": {
       "name": "@frontlit/api-contract",
       "version": "0.1.0",
@@ -236,7 +254,7 @@
     },
     "packages/page-builder": {
       "name": "@frontlit/page-builder",
-      "version": "0.1.0-alpha.8",
+      "version": "0.1.0-alpha.10",
       "dependencies": {
         "@frontlit/media-uploader": "workspace:*",
         "@frontlit/text-editor": "workspace:*",
@@ -282,7 +300,7 @@
     },
     "packages/preview": {
       "name": "@frontlit/preview",
-      "version": "0.1.0-alpha.6",
+      "version": "0.1.0-alpha.8",
       "bin": {
         "frontlit-preview": "cli.mjs",
       },
@@ -295,7 +313,7 @@
     },
     "packages/text-editor": {
       "name": "@frontlit/text-editor",
-      "version": "0.1.0-alpha.4",
+      "version": "0.1.0-alpha.6",
       "dependencies": {
         "@floating-ui/dom": "^1.6.0",
         "@tiptap/core": "^3.31.3",
@@ -316,6 +334,7 @@
         "@tiptap/react": "^3.31.3",
         "@tiptap/starter-kit": "^3.31.3",
         "@tiptap/static-renderer": "^3.31.3",
+        "@tiptap/suggestion": "^3.31.3",
         "acorn": "^8.19.0",
         "clsx": "^2.1.1",
         "highlight.js": "^11.10.0",
@@ -745,6 +764,8 @@
     "@frontlit/sites": ["@frontlit/sites@workspace:apps/sites"],
 
     "@frontlit/text-editor": ["@frontlit/text-editor@workspace:packages/text-editor"],
+
+    "@frontlit/text-editor-blocks-example": ["@frontlit/text-editor-blocks-example@workspace:examples/text-editor-blocks"],
 
     "@frontlit/web": ["@frontlit/web@workspace:apps/web"],
 
@@ -1313,6 +1334,8 @@
     "@tiptap/starter-kit": ["@tiptap/starter-kit@3.31.3", "", { "dependencies": { "@tiptap/core": "3.31.3", "@tiptap/extension-blockquote": "3.31.3", "@tiptap/extension-bold": "3.31.3", "@tiptap/extension-bullet-list": "3.31.3", "@tiptap/extension-code": "3.31.3", "@tiptap/extension-code-block": "3.31.3", "@tiptap/extension-document": "3.31.3", "@tiptap/extension-dropcursor": "3.31.3", "@tiptap/extension-gapcursor": "3.31.3", "@tiptap/extension-hard-break": "3.31.3", "@tiptap/extension-heading": "3.31.3", "@tiptap/extension-horizontal-rule": "3.31.3", "@tiptap/extension-italic": "3.31.3", "@tiptap/extension-link": "3.31.3", "@tiptap/extension-list": "3.31.3", "@tiptap/extension-list-item": "3.31.3", "@tiptap/extension-list-keymap": "3.31.3", "@tiptap/extension-ordered-list": "3.31.3", "@tiptap/extension-paragraph": "3.31.3", "@tiptap/extension-strike": "3.31.3", "@tiptap/extension-text": "3.31.3", "@tiptap/extension-underline": "3.31.3", "@tiptap/extensions": "3.31.3", "@tiptap/pm": "3.31.3" } }, "sha512-WKof9RewdmGHvWJ1wn0/HVNG2mV+HOgVRyJkKekuM9fgr6BZAAH/xZsWE1eon+94JnQ+KtK2ThydXQM/qc6b2A=="],
 
     "@tiptap/static-renderer": ["@tiptap/static-renderer@3.31.3", "", { "peerDependencies": { "@tiptap/core": "3.31.3", "@tiptap/pm": "3.31.3", "react": "^17.0.0 || ^18.0.0 || ^19.0.0", "react-dom": "^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-TzbN/aSTQBhGZL94aaEnfbwZw/gIiQd8/q3TucTYuzdbsrsZNfBMg7CCA9W9dOg4vlKxCTLRVas21ivsrUm7og=="],
+
+    "@tiptap/suggestion": ["@tiptap/suggestion@3.34.0", "", { "peerDependencies": { "@floating-ui/dom": "^1.0.0", "@tiptap/core": "3.34.0", "@tiptap/pm": "3.34.0" } }, "sha512-+gu9T9lc+6UeREkxIZan/HtMkmlT6LJmI7XqhaXl9nxCkVDy0KmaTs1Us03FafNbJ9yHLPq2ykth87CMWWsMcw=="],
 
     "@ts-morph/common": ["@ts-morph/common@0.27.0", "", { "dependencies": { "fast-glob": "^3.3.3", "minimatch": "^10.0.1", "path-browserify": "^1.0.1" } }, "sha512-Wf29UqxWDpc+i61k3oIOzcUfQt79PIT9y/MWfAGlrkjg6lBC1hwDECLXPVJAhWjiGbfBCxZd65F/LIZF3+jeJQ=="],
 
