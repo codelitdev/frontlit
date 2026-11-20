@@ -121,14 +121,15 @@ export function createSlashCommand(getItems: () => InsertItem[]) {
               const rect = props.clientRect?.();
               const element = renderer?.element as HTMLElement | undefined;
               if (!rect || !element) return;
-              element.style.position = "absolute";
+              element.style.position = "fixed";
               element.style.zIndex = "50";
               void computePosition({ getBoundingClientRect: () => rect }, element, {
                 placement: "bottom-start",
+                strategy: "fixed",
                 middleware: [offset(6), flip(), shift({ padding: 8 })],
               }).then(({ x, y }) => {
-                element.style.left = `${x + window.scrollX}px`;
-                element.style.top = `${y + window.scrollY}px`;
+                element.style.left = `${x}px`;
+                element.style.top = `${y}px`;
               });
             };
             return {
