@@ -1,7 +1,12 @@
 # Multi-arch:
 # docker buildx build --platform linux/amd64,linux/arm64 \
 #   -f apps/api/Dockerfile -t codelit/frontlit:k3s --push .
-FROM oven/bun:1.4.1-alpine AS base
+# Install and build run on the build machine's own platform ($BUILDPLATFORM):
+# the output is JavaScript, and emulating arm64 on an x86 builder (or the
+# reverse) is several times slower. Production dependencies, which may carry
+# native binaries, are installed for the target platform (prod-deps).
+FROM --platform=$BUILDPLATFORM oven/bun:1.4.1-alpine AS base
+FROM oven/bun:1.4.1-alpine AS target-base
 
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
@@ -26,7 +31,7 @@ RUN bun run --filter @frontlit/text-editor build
 RUN bun run --filter @frontlit/page-builder build:schema
 RUN bun run --filter @frontlit/api build
 
-FROM base AS prod-deps
+FROM target-base AS prod-deps
 WORKDIR /app
 
 COPY package.json bun.lock ./
