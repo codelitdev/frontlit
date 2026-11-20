@@ -154,9 +154,9 @@ const result = validateContent(lessonProfile, next, {
 });
 ```
 
-The block library (off unless listed) has Image, Video, Audio, PDF, File, Embed, Callout, Tabs, Accordion
-and Steps. Media blocks store a media ID; the package never fetches media. Supply a picker in the editor
-and URLs in the renderer:
+The block library (off unless listed) has Image, Video, Audio, PDF, File, Embed, Callout, Tabs, Accordion,
+Steps, Button, Web preview and H5P. Media blocks store a media ID; the package never fetches media. Supply a
+picker in the editor and URLs in the renderer:
 
 ```tsx
 import { Editor, MediaPickerContextProvider, TextRenderer } from "@frontlit/text-editor";
@@ -174,7 +174,12 @@ import { Editor, MediaPickerContextProvider, TextRenderer } from "@frontlit/text
 
 `unavailable` greys a block out in the menus with its reason; `validateContent` refuses only an increase
 in its count over the stored version, so existing ones keep working. Embeds run only in a sandboxed
-`srcdoc` frame without `allow-same-origin`. See the package README for writing your own blocks
+`srcdoc` frame without `allow-same-origin`; H5P loads only from allowed hosts (`h5p({ hosts })`, default
+h5p.org and \*.h5p.com).
+
+For AI agents, `contentFormat()` and `describeContentFormat()` (from `@frontlit/text-editor/docs`) describe
+the Markdown that the FrontLit API and MCP accept: every block with its props and an example. The same
+reference is published at `https://frontlit.app/schema/content.v1.json`. See the package README for writing your own blocks
 (`BlockSchema` and `BlockUi`) and host renderers (`TextRenderer blocks={{ quiz: LearnerQuiz }}`).
 
 ## What's inside

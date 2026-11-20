@@ -37,6 +37,11 @@ export interface BlockUi<Attrs = Record<string, any>> {
     /** `/` menu section, e.g. "Media" or "Interactive". Defaults to "Blocks". */
     group?: string;
   };
+  /**
+   * Extra `/` menu entries for the same block, e.g. a "Warning callout" that
+   * inserts a callout of that type. They share the block's availability.
+   */
+  variants?: BlockUi["insert"][];
   view?: NodeViewComponent;
   settings?: SettingsComponent<Attrs>;
   /** For containers: the "Add …" button that appends a child item. */

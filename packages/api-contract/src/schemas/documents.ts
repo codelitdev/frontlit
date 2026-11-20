@@ -54,7 +54,7 @@ const markdownBodySchema = z
   .string()
   .optional()
   .describe(
-    "Body as Markdown (CommonMark/GFM and documentation rich blocks), converted to TipTap JSON. Send markdown or content, never both.",
+    "Body as Markdown (CommonMark/GFM plus rich blocks such as <Callout>, <Tabs>, <Button> and <H5P>), converted to TipTap JSON. Send markdown or content, never both. Every block, prop and limit: https://frontlit.app/schema/content.v1.json",
   );
 
 export function makeCreateDocumentBodySchema<M extends z.ZodTypeAny>(metaSchema: M) {

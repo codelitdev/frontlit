@@ -69,9 +69,21 @@ import { Editor, MediaPickerContextProvider, TextRenderer } from "@frontlit/text
 <TextRenderer profile={lesson} json={doc} resolveMedia={(id) => urls[id]} />;
 ```
 
+The library: Image, Video, Audio, PDF, File, Embed, Callout (note, tip, info,
+success, warning, danger), Tabs, Accordion, Steps, Button, WebPreview and H5P.
+
 Media blocks store only a media ID; the host uploads (`pickMedia`) and maps IDs
 to URLs (`resolveMedia`). `examples/text-editor-blocks` in this repo wires both
 to MediaLit.
+
+### For AI agents
+
+`contentFormat()` (from `@frontlit/text-editor/docs`) is the documentation
+profile's format as data: syntax, every block with its props, types and an
+example, and limits. `describeContentFormat()` is the same as compact text for
+an API or MCP field description. `schema/content.v1.json` is the generated file
+(`bun run schema:generate`; a test fails when it is stale), served at
+`https://frontlit.app/schema/content.v1.json`.
 
 ### Your own block
 

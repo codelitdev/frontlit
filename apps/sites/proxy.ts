@@ -15,9 +15,9 @@ export async function proxy(request: NextRequest) {
     return new NextResponse(null, { status: 404 });
   }
 
-  // Page/site file JSON Schemas are the same on every host (frontlit.app
-  // serves the canonical `$schema` URLs); see app/schema.
-  if (/^\/schema\/(page|site)\.v1\.json$/.test(request.nextUrl.pathname)) {
+  // Page/site file JSON Schemas and the content format reference are the
+  // same on every host (frontlit.app serves the canonical URLs); see app/schema.
+  if (/^\/schema\/(page|site|content)\.v1\.json$/.test(request.nextUrl.pathname)) {
     return NextResponse.next();
   }
 

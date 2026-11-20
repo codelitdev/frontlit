@@ -1,5 +1,14 @@
 import { defineProfile } from "../core/profile";
-import { accordion, callout, image, steps, tabs } from "../core/library";
+import {
+  accordion,
+  button,
+  callout,
+  h5p,
+  image,
+  steps,
+  tabs,
+  webPreview,
+} from "../core/library";
 import { cards, codeGroup, typeTable } from "./blocks";
 import { isPublicDocsUrl } from "./urls";
 
@@ -26,7 +35,8 @@ export const DOCS_DIAGNOSTIC_CODES: Record<string, string> = {
 
 /**
  * The documentation profile: every base node, no underline or highlight,
- * simple (Markdown) tables, https images, and the docs blocks.
+ * simple (Markdown) tables, https images, the docs blocks, and Button,
+ * WebPreview and H5P. Articles and product updates are parsed with it too.
  */
 export const docsProfile = defineProfile({
   base: { marks: { exclude: ["underline", "highlight"] } },
@@ -39,6 +49,9 @@ export const docsProfile = defineProfile({
     accordion(),
     codeGroup(),
     typeTable(),
+    button(),
+    webPreview(),
+    h5p(),
   ],
   limits: {
     bytes: DOCS_LIMITS.bytes,

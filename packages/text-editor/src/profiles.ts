@@ -1,5 +1,14 @@
 import { defineProfile, isProfile } from "./core/profile";
-import { accordion, callout, image, steps, tabs } from "./core/library";
+import {
+  accordion,
+  button,
+  callout,
+  h5p,
+  image,
+  steps,
+  tabs,
+  webPreview,
+} from "./core/library";
 import type { BlockSchema, Profile } from "./core/types";
 import { CodeMirrorNode } from "./components/custom-code-mirror";
 import { cards, codeGroup, typeTable } from "./docs/blocks";
@@ -31,6 +40,9 @@ export const defaultProfile: Profile = defineProfile({
     accordion(),
     codeGroup(),
     typeTable(),
+    button(),
+    webPreview(),
+    h5p(),
   ],
   options: {
     name: "default",

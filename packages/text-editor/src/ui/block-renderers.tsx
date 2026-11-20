@@ -1,10 +1,18 @@
 import React from "react";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { NodeProps } from "@tiptap/static-renderer";
-import { CircleAlert, Info, Lightbulb, OctagonAlert, StickyNote } from "lucide-react";
+import {
+  CircleAlert,
+  CircleCheck,
+  Info,
+  Lightbulb,
+  OctagonAlert,
+  StickyNote,
+} from "lucide-react";
 import { isVideoId } from "../core/urls";
 import { DocsTabs } from "../components/docs-tabs";
 import { EmbedFrame } from "./embed-frame";
+import { H5PFrame, LinkButton, WebPreviewCard } from "./link-views";
 import { Caption, FileLink, HostedVideo, PdfView } from "./media-views";
 import { mediaUrl, type ResolveMedia } from "./types";
 
@@ -22,6 +30,7 @@ const CALLOUT_ICONS = {
   note: StickyNote,
   tip: Lightbulb,
   info: Info,
+  success: CircleCheck,
   warning: CircleAlert,
   danger: OctagonAlert,
 };
@@ -71,6 +80,28 @@ export function Accordion({ node, children }: BlockProps) {
 
 /** Renderers of the library's text blocks. */
 export const textBlockRenderers = {
+  button: ({ node }: BlockProps) => (
+    <LinkButton
+      href={node.attrs.href}
+      label={node.attrs.label}
+      variant={node.attrs.variant}
+    />
+  ),
+  webPreview: ({ node }: BlockProps) => (
+    <WebPreviewCard
+      url={node.attrs.url}
+      title={node.attrs.title}
+      description={node.attrs.description}
+      image={node.attrs.image}
+    />
+  ),
+  h5p: ({ node }: BlockProps) => (
+    <H5PFrame
+      src={node.attrs.src}
+      title={node.attrs.title}
+      height={node.attrs.height}
+    />
+  ),
   callout: Callout,
   tabs: Tabs,
   tab: ({ children }: BlockProps) => <>{children}</>,

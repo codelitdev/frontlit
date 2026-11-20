@@ -8,3 +8,5 @@ export * from "./docs/frontmatter";
 export * from "./docs/markdown";
 export * from "./docs/hash";
 export * from "./docs/routes";
+export * from "./docs/format";
+export { docsProfile } from "./docs/profile";

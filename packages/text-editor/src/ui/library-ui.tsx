@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useId, useState } from "react";
 import {
   NodeViewContent,
   NodeViewWrapper,
@@ -8,7 +8,14 @@ import {
 } from "@tiptap/react";
 import {
   AppWindow,
+  CircleAlert,
+  CircleCheck,
   FileAudio,
+  Lightbulb,
+  Link2,
+  MousePointerClick,
+  OctagonAlert,
+  Puzzle,
   FileText,
   Image as ImageIcon,
   Info,
@@ -18,7 +25,8 @@ import {
   PanelTop,
   Video,
 } from "lucide-react";
-import type { BlockSchema } from "../core/types";
+import type { AttrSpec, BlockSchema } from "../core/types";
+import { BUTTON_VARIANTS } from "../core/library/links";
 import { CALLOUT_TYPES } from "../core/library/text-blocks";
 import { MEDIA_KINDS } from "../core/library/media";
 import { parseVideoUrl } from "../core/urls";
@@ -35,6 +43,7 @@ import {
 import { EmbedFrame } from "./embed-frame";
 import { MEDIA_ACCEPT } from "./media-picker";
 import { FileLink, HostedVideo, PdfView } from "./media-views";
+import { H5PFrame, LinkButton, WebPreviewCard } from "./link-views";
 import type { BlockSettingsProps, BlockUi } from "./types";
 import { mediaUrl } from "./types";
 
@@ -63,6 +72,182 @@ function TextSetting({
         }
       />
     </SettingsField>
+  );
+}
+
+/**
+ * A URL attribute. Typing stays local; the value is stored on Enter or blur
+ * only when the block's own check accepts it (empty clears it), so autosave
+ * never sees a half-typed URL. The error is the server's message.
+ */
+function UrlField({
+  props,
+  name,
+  label,
+  placeholder,
+}: {
+  props: ReactNodeViewProps | BlockSettingsProps;
+  name: string;
+  label: string;
+  placeholder?: string;
+}) {
+  const { ui } = useEditorBlocks();
+  const check: AttrSpec | undefined = ui.get(props.node.type.name)?.schema.attrs[name];
+  const stored = (props.node.attrs[name] as string | null) ?? "";
+  const [value, setValue] = useState(stored);
+  const [error, setError] = useState<string | null>(null);
+  const errorId = useId();
+  // Follow changes made elsewhere (the settings popover, undo).
+  useEffect(() => setValue(stored), [stored]);
+  const commit = () => {
+    const next = value.trim();
+    if (next === stored) return setError(null);
+    const result = next ? (check?.validate(next) ?? true) : true;
+    if (result !== true) {
+      setError(typeof result === "string" ? result : `${label} is not valid.`);
+      return;
+    }
+    setError(null);
+    const attrs = { [name]: next || null };
+    if ("updateAttributes" in props) props.updateAttributes(attrs);
+    else props.update(attrs);
+  };
+  return (
+    <span className="flex min-w-0 flex-1 flex-col gap-1">
+      <input
+        className={textInput}
+        type="url"
+        aria-label={label}
+        placeholder={placeholder ?? label}
+        value={value}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        disabled={!props.editor.isEditable}
+        onChange={(event) => setValue(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            commit();
+          }
+        }}
+      />
+      {error && (
+        <span id={errorId} role="alert" className="text-xs text-destructive">
+          {error}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function SelectSetting({
+  label,
+  name,
+  options,
+  props,
+}: {
+  label: string;
+  name: string;
+  options: readonly string[];
+  props: BlockSettingsProps;
+}) {
+  return (
+    <SettingsField label={label}>
+      <select
+        className={textInput}
+        value={(props.attrs[name] as string | null) ?? options[0]}
+        onChange={(event) => props.update({ [name]: event.target.value })}
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </SettingsField>
+  );
+}
+
+function ButtonView(props: ReactNodeViewProps) {
+  const { label, href, variant } = props.node.attrs;
+  return (
+    <BlockFrame
+      label="Button"
+      props={props}
+      fields={<TextField props={props} name="label" placeholder="Button text" />}
+    >
+      <div className="te-block__content flex flex-col gap-2" contentEditable={false}>
+        {props.editor.isEditable && (
+          <UrlField
+            props={props}
+            name="href"
+            label="Link"
+            placeholder="https://… or /path"
+          />
+        )}
+        {label ? (
+          <LinkButton href={href} label={label} variant={variant} inert />
+        ) : (
+          <p className="te-block__empty">Add the button text above.</p>
+        )}
+      </div>
+    </BlockFrame>
+  );
+}
+
+function WebPreviewView(props: ReactNodeViewProps) {
+  const { url, title, description, image } = props.node.attrs;
+  return (
+    <BlockFrame label="Web preview" props={props}>
+      <div className="te-block__content" contentEditable={false}>
+        {url ? (
+          <WebPreviewCard
+            url={url}
+            title={title}
+            description={description}
+            image={image}
+            inert
+          />
+        ) : (
+          props.editor.isEditable && (
+            <UrlField
+              props={props}
+              name="url"
+              label="Page URL"
+              placeholder="https://…"
+            />
+          )
+        )}
+      </div>
+    </BlockFrame>
+  );
+}
+
+function H5PView(props: ReactNodeViewProps) {
+  const { src, title, height } = props.node.attrs;
+  return (
+    <BlockFrame label="H5P" props={props}>
+      <div className="te-block__content" contentEditable={false}>
+        {src ? (
+          <H5PFrame src={src} title={title} height={height} />
+        ) : (
+          props.editor.isEditable && (
+            <div className="flex flex-col gap-1">
+              <UrlField
+                props={props}
+                name="src"
+                label="H5P embed URL"
+                placeholder="https://h5p.org/h5p/embed/…"
+              />
+              <p className="te-block__empty">
+                Paste the activity&apos;s embed URL (from its “Embed” button).
+              </p>
+            </div>
+          )
+        )}
+      </div>
+    </BlockFrame>
   );
 }
 
@@ -370,9 +555,117 @@ export const LIBRARY_UI: Record<string, UiFactory> = {
           content: [paragraph()],
         }),
       },
+      variants: (
+        [
+          ["warning", "Warning callout", CircleAlert, "Something to watch out for"],
+          ["tip", "Tip callout", Lightbulb, "A helpful hint"],
+          ["success", "Success callout", CircleCheck, "Good news or a key takeaway"],
+          ["danger", "Danger callout", OctagonAlert, "A mistake to avoid"],
+        ] as const
+      )
+        .filter(([type]) => types.includes(type))
+        .map(([type, label, icon, description]) => ({
+          label,
+          icon,
+          description,
+          keywords: ["callout", type, "admonition"],
+          create: () => ({
+            type: "callout",
+            attrs: { type },
+            content: [paragraph()],
+          }),
+        })),
       view: (props) => <CalloutView {...props} types={types} />,
     };
   },
+  button: () => ({
+    insert: {
+      label: "Button",
+      icon: MousePointerClick,
+      keywords: ["cta", "call to action", "link"],
+      create: () => ({ type: "button", attrs: { label: "Get started" } }),
+    },
+    view: ButtonView,
+    settings: (props) => (
+      <>
+        <SettingsField label="Link">
+          <UrlField
+            props={props}
+            name="href"
+            label="Link"
+            placeholder="https://… or /path"
+          />
+        </SettingsField>
+        <SelectSetting
+          label="Style"
+          name="variant"
+          options={BUTTON_VARIANTS}
+          props={props}
+        />
+      </>
+    ),
+  }),
+  webPreview: () => ({
+    insert: {
+      label: "Web preview",
+      icon: Link2,
+      keywords: ["link", "bookmark", "card", "url"],
+      create: () => ({ type: "webPreview", attrs: {} }),
+    },
+    view: WebPreviewView,
+    settings: (props) => (
+      <>
+        <SettingsField label="Page URL">
+          <UrlField props={props} name="url" label="Page URL" placeholder="https://…" />
+        </SettingsField>
+        <TextSetting label="Title" name="title" props={props} />
+        <TextSetting label="Description" name="description" props={props} />
+        <SettingsField label="Image URL">
+          <UrlField
+            props={props}
+            name="image"
+            label="Image URL"
+            placeholder="https://…"
+          />
+        </SettingsField>
+      </>
+    ),
+  }),
+  h5p: () => ({
+    insert: {
+      label: "H5P",
+      icon: Puzzle,
+      keywords: ["interactive", "activity", "quiz", "h5p"],
+      create: () => ({ type: "h5p", attrs: {} }),
+    },
+    view: H5PView,
+    settings: (props) => (
+      <>
+        <SettingsField label="Embed URL">
+          <UrlField props={props} name="src" label="H5P embed URL" />
+        </SettingsField>
+        <TextSetting label="Title (for screen readers)" name="title" props={props} />
+        <SettingsField label="Height (px)">
+          <input
+            className={textInput}
+            type="number"
+            min={100}
+            max={4000}
+            value={props.attrs.height ?? ""}
+            onChange={(event) => {
+              const value = Number.parseInt(event.target.value, 10);
+              props.update({
+                height:
+                  Number.isFinite(value) && value >= 100 && value <= 4000
+                    ? value
+                    : null,
+              });
+            }}
+          />
+        </SettingsField>
+      </>
+    ),
+  }),
   tabs: () => ({
     insert: {
       label: "Tabs",
@@ -549,6 +842,9 @@ const MENU: Record<string, { group: string; description: string }> = {
   tabs: { group: "Layout", description: "Content split into tabs" },
   accordions: { group: "Layout", description: "Sections that open and close" },
   steps: { group: "Layout", description: "A numbered sequence of steps" },
+  button: { group: "Layout", description: "A link styled as a button" },
+  webPreview: { group: "Media", description: "A link card with title and image" },
+  h5p: { group: "Interactive", description: "An H5P activity by its embed URL" },
 };
 
 /** UI for a library block schema (with its options applied), if the library has one. */

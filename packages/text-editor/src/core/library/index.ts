@@ -26,3 +26,16 @@ export {
   EMBED_SANDBOX,
   type EmbedOptions,
 } from "./embed";
+export {
+  button,
+  h5p,
+  webPreview,
+  isAllowedHostUrl,
+  BUTTON_VARIANTS,
+  H5P_DEFAULT_HEIGHT,
+  H5P_DEFAULT_HOSTS,
+  H5P_MAX_HEIGHT,
+  H5P_MIN_HEIGHT,
+  type ButtonVariant,
+  type H5POptions,
+} from "./links";

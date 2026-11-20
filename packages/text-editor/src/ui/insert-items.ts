@@ -184,25 +184,28 @@ export function getInsertItems(
     if (menu && !menu.includes(block.name)) continue;
     const ui = options.ui.get(block.name);
     if (!ui) continue;
-    const { label, icon, keywords, description, group } = ui.insert;
-    items.push({
-      name: block.name,
-      label,
-      icon,
-      keywords,
-      description,
-      group: group ?? "Blocks",
-      unavailable: options.unavailable?.[block.name],
-      run:
-        block.name === "image" && options.insertImage
-          ? (editor, range) => {
-              if (range) editor.chain().focus().deleteRange(range).run();
-              options.insertImage!(editor);
-            }
-          : (editor, range) => {
-              insertBlock(editor, ui.insert.create(), range);
-            },
-    });
+    const group = ui.insert.group ?? "Blocks";
+    for (const entry of [ui.insert, ...(ui.variants ?? [])]) {
+      const { label, icon, keywords, description } = entry;
+      items.push({
+        name: block.name,
+        label,
+        icon,
+        keywords,
+        description,
+        group: entry.group ?? group,
+        unavailable: options.unavailable?.[block.name],
+        run:
+          block.name === "image" && options.insertImage
+            ? (editor, range) => {
+                if (range) editor.chain().focus().deleteRange(range).run();
+                options.insertImage!(editor);
+              }
+            : (editor, range) => {
+                insertBlock(editor, entry.create(), range);
+              },
+      });
+    }
   }
   // One section per group, in the order groups first appear.
   const order = [...new Set(items.map((item) => item.group))];

@@ -10,6 +10,7 @@
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
+    "schema",
     "README.md",
     "LICENSE"
   ],
@@ -41,7 +42,8 @@
     },
     "./styles.css": "./dist/styles.css",
     "./prose.css": "./dist/prose.css",
-    "./tokens.css": "./dist/tokens.css"
+    "./tokens.css": "./dist/tokens.css",
+    "./schema/*.json": "./schema/*.json"
   },
   "sideEffects": [
     "**/*.css"
@@ -71,7 +73,8 @@
     "dev": "tsup --watch",
     "clean": "rimraf dist",
     "check-types": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "schema:generate": "bun scripts/generate-content-format.ts"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",

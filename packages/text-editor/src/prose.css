@@ -426,6 +426,10 @@
   --te-callout-accent: hsl(142 71% 36%);
 }
 
+.tiptap-renderer .te-callout[data-type="success"] {
+  --te-callout-accent: hsl(160 84% 29%);
+}
+
 .tiptap-renderer .te-callout[data-type="warning"] {
   --te-callout-accent: hsl(38 92% 45%);
 }
@@ -881,4 +885,89 @@ body.te-dragging,
 body.te-dragging * {
   cursor: grabbing !important;
   user-select: none;
+}
+
+/* Button, WebPreview and H5P (renderer and editor previews). */
+.te-button-row {
+  margin: 1rem 0;
+}
+
+.te-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0.5rem 1.125rem;
+  border: 1px solid var(--primary, hsl(222.2 47.4% 11.2%));
+  border-radius: var(--radius, 0.5rem);
+  background-color: var(--primary, hsl(222.2 47.4% 11.2%));
+  color: var(--primary-foreground, hsl(210 40% 98%));
+  font-weight: 600;
+  font-size: 0.9375rem;
+  line-height: 1.25;
+  text-decoration: none;
+}
+
+.te-button[data-variant="secondary"] {
+  background-color: transparent;
+  color: var(--primary, hsl(222.2 47.4% 11.2%));
+}
+
+a.te-button:hover {
+  filter: brightness(1.1);
+}
+
+a.te-button:focus-visible,
+a.te-web-preview:focus-visible {
+  outline: 2px solid var(--ring, hsl(222.2 84% 4.9%));
+  outline-offset: 2px;
+}
+
+.te-web-preview {
+  display: flex;
+  overflow: hidden;
+  margin: 1rem 0;
+  border: 1px solid var(--border, hsl(214.3 31.8% 91.4%));
+  border-radius: 0.5rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+a.te-web-preview:hover {
+  border-color: var(--muted-foreground, hsl(215.4 16.3% 46.9%));
+}
+
+.te-web-preview__image {
+  flex-shrink: 0;
+  width: 9rem;
+  max-width: 35%;
+  object-fit: cover;
+  margin: 0;
+}
+
+.te-web-preview__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.75rem 1rem;
+}
+
+.te-web-preview__title {
+  font-weight: 600;
+}
+
+.te-web-preview__description {
+  font-size: 0.875rem;
+  color: var(--muted-foreground, hsl(215.4 16.3% 46.9%));
+}
+
+.te-web-preview__host {
+  font-size: 0.75rem;
+  color: var(--muted-foreground, hsl(215.4 16.3% 46.9%));
+}
+
+.te-h5p {
+  display: block;
+  margin: 1rem 0;
+  border-radius: 0.5rem;
 }

@@ -3,7 +3,14 @@ import { quote } from "../literal";
 import type { BlockSchema } from "../types";
 import { attr } from "./attrs";
 
-export const CALLOUT_TYPES = ["note", "tip", "info", "warning", "danger"] as const;
+export const CALLOUT_TYPES = [
+  "note",
+  "tip",
+  "info",
+  "success",
+  "warning",
+  "danger",
+] as const;
 export type CalloutType = (typeof CALLOUT_TYPES)[number];
 
 /** A highlighted note. `types` narrows the allowed kinds. */
