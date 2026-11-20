@@ -5,10 +5,11 @@
  *
  * Inside page-builder's `.pb-theme` the host tokens still win on
  * inherited properties the editor does not set; these rules cover
- * standalone hosts and the bubble menu when it is portaled to <body>.
+ * standalone hosts and the bubble and `/` menus, portaled to <body>.
  */
 .tiptap-editor,
-.bubble-menu {
+.bubble-menu,
+.te-insert-menu {
   --background: hsl(0 0% 100%);
   --foreground: hsl(222.2 84% 4.9%);
   --card: hsl(0 0% 100%);

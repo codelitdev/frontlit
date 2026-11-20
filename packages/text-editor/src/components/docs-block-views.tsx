@@ -130,6 +130,8 @@ export const docsBlockUi: BlockUi[] = [
     schema: cardsSchema,
     insert: {
       label: "Cards",
+      description: "A grid of linked cards",
+      group: "Layout",
       icon: LayoutGrid,
       keywords: ["links", "grid"],
       create: () => ({
@@ -179,6 +181,8 @@ export const docsBlockUi: BlockUi[] = [
     schema: codeGroup(),
     insert: {
       label: "Code group",
+      description: "Code samples in tabs",
+      group: "Layout",
       icon: SquareCode,
       keywords: ["code", "tabs", "snippets"],
       create: () => ({
@@ -199,6 +203,8 @@ export const docsBlockUi: BlockUi[] = [
     schema: typeTable(),
     insert: {
       label: "Type table",
+      description: "Props or options with types",
+      group: "Layout",
       icon: Braces,
       keywords: ["props", "options", "api"],
       create: () => ({

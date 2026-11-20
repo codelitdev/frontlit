@@ -537,10 +537,26 @@ export const LIBRARY_UI: Record<string, UiFactory> = {
   }),
 };
 
+/** `/` menu section and one-line description of each library block. */
+const MENU: Record<string, { group: string; description: string }> = {
+  image: { group: "Media", description: "Upload or pick an image" },
+  video: { group: "Media", description: "Upload a video or link YouTube / Vimeo" },
+  audio: { group: "Media", description: "Upload an audio file" },
+  pdf: { group: "Media", description: "Show a PDF document" },
+  file: { group: "Media", description: "Attach a file to download" },
+  embed: { group: "Media", description: "Your own HTML, CSS and JavaScript" },
+  callout: { group: "Layout", description: "A highlighted note or warning" },
+  tabs: { group: "Layout", description: "Content split into tabs" },
+  accordions: { group: "Layout", description: "Sections that open and close" },
+  steps: { group: "Layout", description: "A numbered sequence of steps" },
+};
+
 /** UI for a library block schema (with its options applied), if the library has one. */
 export function libraryUi(schema: BlockSchema): BlockUi | undefined {
   const factory = LIBRARY_UI[schema.name];
-  return factory ? { schema, ...factory(schema) } : undefined;
+  if (!factory) return undefined;
+  const ui = factory(schema);
+  return { schema, ...ui, insert: { ...MENU[schema.name], ...ui.insert } };
 }
 
 /** Code blocks with file name and language fields (profiles with `codeBlockFields`). */

@@ -24,13 +24,24 @@ export interface InsertItem {
   label: string;
   icon: Icon;
   keywords: string[];
-  group: "text" | "blocks";
+  /** One line under the label in the `/` menu. */
+  description?: string;
+  /** Menu section heading, e.g. "Text", "Media", "Layout". */
+  group: string;
   /** Why the item can't be used now (availability); shown greyed out. */
   unavailable?: string;
   run(editor: Editor, range?: Range): void;
 }
 
 const HEADING_ICONS = [Heading1, Heading2, Heading3, Heading4, Heading5, Heading6];
+const HEADING_DESCRIPTIONS = [
+  "Largest heading",
+  "Large section heading",
+  "Medium section heading",
+  "Small section heading",
+  "Smaller heading",
+  "Smallest heading",
+];
 
 /** Deletes the typed `/query` (when inserting from the slash menu) and focuses. */
 const chain = (editor: Editor, range?: Range) => {
@@ -86,7 +97,8 @@ export function getInsertItems(
       label: "Text",
       icon: Pilcrow,
       keywords: ["paragraph", "plain"],
-      group: "text",
+      description: "Plain paragraph",
+      group: "Text",
       run: (editor, range) => chain(editor, range).setParagraph().run(),
     },
   ];
@@ -97,7 +109,8 @@ export function getInsertItems(
         label: `Heading ${level}`,
         icon: HEADING_ICONS[level - 1],
         keywords: ["title", `h${level}`, "heading"],
-        group: "text",
+        description: HEADING_DESCRIPTIONS[level - 1],
+        group: "Text",
         run: (editor, range) =>
           chain(editor, range)
             .setHeading({ level: level as 1 })
@@ -109,7 +122,8 @@ export function getInsertItems(
       label: "Bullet list",
       icon: List,
       keywords: ["unordered", "ul", "-"],
-      group: "text",
+      description: "A simple list of items",
+      group: "Text",
       run: (editor, range) => chain(editor, range).toggleBulletList().run(),
     });
   if (has("orderedList"))
@@ -118,7 +132,8 @@ export function getInsertItems(
       label: "Numbered list",
       icon: ListOrdered,
       keywords: ["ordered", "ol", "1."],
-      group: "text",
+      description: "A list with numbers",
+      group: "Text",
       run: (editor, range) => chain(editor, range).toggleOrderedList().run(),
     });
   if (has("blockquote"))
@@ -127,7 +142,8 @@ export function getInsertItems(
       label: "Quote",
       icon: Quote,
       keywords: ["blockquote", "citation"],
-      group: "text",
+      description: "Quoted text",
+      group: "Text",
       run: (editor, range) => chain(editor, range).toggleBlockquote().run(),
     });
   if (has("codeBlock"))
@@ -136,7 +152,8 @@ export function getInsertItems(
       label: "Code block",
       icon: Code,
       keywords: ["code", "snippet", "pre", "```"],
-      group: "text",
+      description: "Code with syntax highlighting",
+      group: "Text",
       run: (editor, range) => chain(editor, range).toggleCodeBlock().run(),
     });
   if (has("horizontalRule"))
@@ -145,7 +162,8 @@ export function getInsertItems(
       label: "Divider",
       icon: Minus,
       keywords: ["horizontal rule", "hr", "separator", "---"],
-      group: "text",
+      description: "A line between sections",
+      group: "Text",
       run: (editor, range) => chain(editor, range).setHorizontalRule().run(),
     });
   if (has("table"))
@@ -154,7 +172,8 @@ export function getInsertItems(
       label: "Table",
       icon: Table,
       keywords: ["grid", "rows", "columns"],
-      group: "text",
+      description: "Rows and columns",
+      group: "Text",
       run: (editor, range) =>
         chain(editor, range)
           .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
@@ -165,13 +184,14 @@ export function getInsertItems(
     if (menu && !menu.includes(block.name)) continue;
     const ui = options.ui.get(block.name);
     if (!ui) continue;
-    const { label, icon, keywords } = ui.insert;
+    const { label, icon, keywords, description, group } = ui.insert;
     items.push({
       name: block.name,
       label,
       icon,
       keywords,
-      group: "blocks",
+      description,
+      group: group ?? "Blocks",
       unavailable: options.unavailable?.[block.name],
       run:
         block.name === "image" && options.insertImage
@@ -184,7 +204,15 @@ export function getInsertItems(
             },
     });
   }
-  return items;
+  // One section per group, in the order groups first appear.
+  const order = [...new Set(items.map((item) => item.group))];
+  return items
+    .map((item, index) => ({ item, index }))
+    .sort(
+      (a, b) =>
+        order.indexOf(a.item.group) - order.indexOf(b.item.group) || a.index - b.index,
+    )
+    .map(({ item }) => item);
 }
 
 /** Items whose label or keywords start with (or contain) every typed word. */

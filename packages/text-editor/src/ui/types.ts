@@ -32,7 +32,10 @@ export interface BlockUi<Attrs = Record<string, any>> {
     keywords: string[];
     /** Content inserted at the cursor. */
     create(): JSONContent;
+    /** One line under the label in the `/` menu. */
     description?: string;
+    /** `/` menu section, e.g. "Media" or "Interactive". Defaults to "Blocks". */
+    group?: string;
   };
   view?: NodeViewComponent;
   settings?: SettingsComponent<Attrs>;

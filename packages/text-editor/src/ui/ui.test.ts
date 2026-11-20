@@ -370,3 +370,19 @@ describe("/ menu keys", () => {
     expect(nextMenuIndex([{ unavailable: "x" }, {}], -1, "first")).toBe(1);
   });
 });
+
+describe("/ menu sections", () => {
+  it("groups entries by section in first-seen order, with descriptions", () => {
+    const mixed = defineProfile({ blocks: [callout(), video(), embed(), image()] });
+    const items = getInsertItems(mixed, { ui: collectBlockUi(mixed) });
+    const groups = [...new Set(items.map((item) => item.group))];
+    expect(groups).toEqual(["Text", "Layout", "Media"]);
+    // Each section is contiguous.
+    const order = items.map((item) => item.group);
+    expect(order).toEqual(
+      [...order].sort((a, b) => groups.indexOf(a) - groups.indexOf(b)),
+    );
+    expect(items.find((item) => item.name === "video")?.description).toMatch(/video/i);
+    expect(items.every((item) => item.description)).toBe(true);
+  });
+});

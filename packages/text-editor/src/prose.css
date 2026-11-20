@@ -739,16 +739,62 @@
 
 .te-insert-menu {
   max-height: 20rem;
-  overflow-y: auto;
+  /* Grey text on the highlight tint needs to be a little darker for 4.5:1. */
+  --te-menu-muted-on-tint: color-mix(
+    in srgb,
+    var(--muted-foreground) 80%,
+    var(--foreground)
+  );
 }
 
-/* The menu is portaled to <body>, outside the editor's tokens: every colour
- * here has a fallback. The highlight is a tint plus a bar in the primary
- * colour, so it stays visible on any theme (WCAG 1.4.11). */
+.te-insert-menu__group {
+  padding: 0.5rem 0.5rem 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.te-insert-menu__icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* The highlight is a tint plus the icon tile's border in the primary colour,
+ * which stays visible on any theme (WCAG 1.4.11). */
 .te-insert-menu__option[aria-selected="true"] {
-  background-color: var(--accent, hsl(210 40% 96.1%));
-  color: var(--accent-foreground, hsl(222.2 47.4% 11.2%));
-  box-shadow: inset 3px 0 0 var(--primary, hsl(222.2 47.4% 11.2%));
+  --muted-foreground: var(--te-menu-muted-on-tint);
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.te-insert-menu__option[aria-selected="true"] .te-insert-menu__icon {
+  border-color: var(--primary);
+}
+
+.te-insert-menu__footer {
+  display: flex;
+  gap: 0.875rem;
+  padding: 0.4375rem 0.75rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+}
+
+.te-insert-menu__footer kbd {
+  margin-right: 0.125rem;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--foreground);
 }
 
 @media (forced-colors: active) {

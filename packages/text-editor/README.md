@@ -92,7 +92,14 @@ const quiz: BlockSchema = {
 
 const quizUi: BlockUi = {
   schema: quiz,
-  insert: { label: "Quiz", icon: HelpCircle, keywords: ["question"], create: () => ({ type: "quiz" }) },
+  insert: {
+    label: "Quiz",
+    description: "A question for learners", // shown under the label in the / menu
+    group: "Interactive", // / menu section (default "Blocks")
+    icon: HelpCircle,
+    keywords: ["question"],
+    create: () => ({ type: "quiz" }),
+  },
   view: (props) => (
     <BlockFrame label="Quiz" props={props}>
       <TextField props={props} name="question" placeholder="Question" />

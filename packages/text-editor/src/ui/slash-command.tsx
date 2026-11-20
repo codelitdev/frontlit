@@ -133,53 +133,105 @@ export const InsertMenu = forwardRef<MenuHandle, MenuProps>(function InsertMenu(
       return true;
     },
   }));
+  // Items arrive ordered by group; split them into sections, keeping indexes.
+  const groups: { name: string; entries: { item: InsertItem; index: number }[] }[] = [];
+  items.forEach((item, index) => {
+    const last = groups[groups.length - 1];
+    if (last?.name === item.group) last.entries.push({ item, index });
+    else groups.push({ name: item.group, entries: [{ item, index }] });
+  });
   return (
-    <div
-      ref={list}
-      id={`${id}-list`}
-      className="te-popover te-insert-menu w-64 overflow-y-auto rounded-md p-1 shadow-lg"
-      role="listbox"
-      aria-label="Insert block"
-    >
-      {items.length === 0 && (
-        <div role="status" className="px-2.5 py-2 text-sm text-muted-foreground">
-          No matching blocks
-        </div>
-      )}
-      {items.map((item, index) => {
-        const Icon = item.icon;
-        return (
-          <button
-            key={`${item.name}-${item.label}`}
-            id={optionId(index)}
-            type="button"
-            role="option"
-            // The editor keeps focus; options are reached with the arrow keys.
-            tabIndex={-1}
-            aria-selected={index === active}
-            aria-disabled={Boolean(item.unavailable)}
-            title={item.unavailable}
-            className={`te-insert-menu__option flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-sm ${
-              item.unavailable ? "cursor-not-allowed opacity-50" : ""
-            }`}
-            // Mouse movement, not mouseenter: keyboard scrolling slides
-            // items under a resting pointer and must not steal the highlight.
-            onMouseMove={() => !item.unavailable && index !== active && select(index)}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => !item.unavailable && command(item)}
+    <div className="te-popover te-insert-menu flex w-80 flex-col overflow-hidden rounded-lg shadow-lg">
+      <div
+        ref={list}
+        id={`${id}-list`}
+        className="min-h-0 flex-1 overflow-y-auto p-1.5"
+        role="listbox"
+        aria-label="Insert block"
+      >
+        {items.length === 0 && (
+          <div role="status" className="px-2.5 py-2 text-sm text-muted-foreground">
+            No matching blocks
+          </div>
+        )}
+        {groups.map((group, groupIndex) => (
+          <div
+            key={group.name}
+            role="group"
+            aria-labelledby={`${id}-group-${groupIndex}`}
           >
-            <Icon className="size-4 shrink-0" />
-            <span className="flex min-w-0 flex-col">
-              <span>{item.label}</span>
-              {item.unavailable && (
-                <span className="truncate text-xs text-muted-foreground">
-                  {item.unavailable}
-                </span>
-              )}
-            </span>
-          </button>
-        );
-      })}
+            <div
+              id={`${id}-group-${groupIndex}`}
+              role="presentation"
+              className="te-insert-menu__group"
+            >
+              {group.name}
+            </div>
+            {group.entries.map(({ item, index }) => {
+              const Icon = item.icon;
+              const detail = item.unavailable ?? item.description;
+              return (
+                <button
+                  key={`${item.name}-${item.label}`}
+                  id={optionId(index)}
+                  type="button"
+                  role="option"
+                  // The editor keeps focus; options are reached with the arrow keys.
+                  tabIndex={-1}
+                  aria-selected={index === active}
+                  aria-disabled={Boolean(item.unavailable)}
+                  aria-labelledby={`${optionId(index)}-label`}
+                  aria-describedby={detail ? `${optionId(index)}-detail` : undefined}
+                  title={item.unavailable}
+                  className={`te-insert-menu__option flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left ${
+                    item.unavailable ? "cursor-not-allowed opacity-50" : ""
+                  }`}
+                  // Mouse movement, not mouseenter: keyboard scrolling slides
+                  // items under a resting pointer and must not steal the highlight.
+                  onMouseMove={() =>
+                    !item.unavailable && index !== active && select(index)
+                  }
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => !item.unavailable && command(item)}
+                >
+                  <span className="te-insert-menu__icon" aria-hidden>
+                    <Icon className="size-4" />
+                  </span>
+                  <span className="flex min-w-0 flex-col">
+                    <span
+                      id={`${optionId(index)}-label`}
+                      className="text-sm font-medium"
+                    >
+                      {item.label}
+                    </span>
+                    {detail && (
+                      <span
+                        id={`${optionId(index)}-detail`}
+                        className="truncate text-xs text-muted-foreground"
+                      >
+                        {detail}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      {/* Screen readers get the listbox semantics; the hints are for sighted users. */}
+      <div className="te-insert-menu__footer" aria-hidden>
+        <span>
+          <kbd>↑</kbd>
+          <kbd>↓</kbd> navigate
+        </span>
+        <span>
+          <kbd>↵</kbd> insert
+        </span>
+        <span>
+          <kbd>esc</kbd> close
+        </span>
+      </div>
     </div>
   );
 });
