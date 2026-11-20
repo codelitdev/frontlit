@@ -92,6 +92,7 @@
     "@tiptap/react": "^3.31.3",
     "@tiptap/starter-kit": "^3.31.3",
     "@tiptap/static-renderer": "^3.31.3",
+    "@tiptap/suggestion": "^3.31.3",
     "acorn": "^8.19.0",
     "clsx": "^2.1.1",
     "highlight.js": "^11.10.0",
