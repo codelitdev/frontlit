@@ -1,5 +1,11 @@
 # @frontlit/text-editor
 
+## 0.1.0-alpha.7
+
+### Minor Changes
+
+- 121ad02: Add pluggable blocks. `defineProfile` builds the schema, Markdown parser and serializer, validator (with availability checks), renderer and a format reference from one list of blocks; the new server-safe `@frontlit/text-editor/blocks` entry exports it with a block library (Image, Video, Audio, PDF, File, Embed, Callout, Tabs, Accordion, Steps). The editor gains a `/` insert menu, drag handles, block settings popovers, a media picker and an `unavailable` prop; `TextRenderer` accepts profile objects, host block components and `resolveMedia`. The default and documentation setups are rebuilt on profiles with unchanged Markdown output. Blocks work from the keyboard (Ctrl/⌘+Shift+↑/↓ moves a block, Alt+F10 reaches its controls, Escape returns) and with screen readers: the editing area is a labelled textbox (new `ariaLabel` prop) and the `/` menu is announced through `aria-activedescendant`. The `/` menu shows blocks in sections (Text, Media, Layout, or a block's own `insert.group`) with a description under each, and lists its keys in a footer. New library blocks: Button, WebPreview and H5P (allowed hosts only), plus a `success` callout type and Warning / Tip / Success / Danger callout presets in the `/` menu; all are in the documentation profile, so the API and MCP accept them. `contentFormat()`, `describeContentFormat()` and `schema/content.v1.json` describe the format for AI agents. Attributes can be `requiredToPublish`, and `incompleteBlocks(profile, content)` reports blocks saved without them (publish blockers, never save errors); the format reference now lists Markdown-only props (`docs.props`), child tags and the accepted literal syntax.
+
 ## 0.1.0-alpha.6
 
 ### Patch Changes
