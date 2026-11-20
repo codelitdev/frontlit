@@ -113,6 +113,14 @@ export function tabs(): BlockSchema {
       summary: "Content split into labelled tabs; each <Tab> holds any blocks.",
       example:
         '<Tabs items={["npm", "bun"]}>\n\n<Tab value="npm">\n\nnpm install\n\n</Tab>\n\n<Tab value="bun">\n\nbun add\n\n</Tab>\n\n</Tabs>',
+      props: [
+        {
+          name: "items",
+          type: "string[]",
+          description:
+            "Tab labels in order. Optional; when given, each <Tab value> must be one of them.",
+        },
+      ],
     },
   };
   return schema;

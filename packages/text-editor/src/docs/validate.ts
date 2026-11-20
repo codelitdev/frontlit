@@ -1,5 +1,5 @@
 import type { JSONContent } from "@tiptap/core";
-import { validateContent } from "../core/validate";
+import { incompleteBlocks, validateContent } from "../core/validate";
 import { asDocsError, DocsContentError, type DocsDiagnostic } from "./diagnostics";
 import { docsProfile } from "./profile";
 
@@ -19,3 +19,8 @@ export function requireDocsContent(input: unknown): JSONContent {
   return result.content;
 }
 export { asDocsError };
+
+/** Docs blocks missing a required prop: publish blockers, never save errors. */
+export function incompleteDocsBlocks(input: unknown): DocsDiagnostic[] {
+  return incompleteBlocks(docsProfile, input);
+}

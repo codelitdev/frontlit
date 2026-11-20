@@ -62,14 +62,32 @@ function describe(
     summary: block.docs.summary,
     example: block.docs.example,
     ...(block.content ? { content: block.content } : {}),
-    attributes: Object.entries(block.attrs).map(([name, spec]) => ({
-      name,
-      ...(spec.markdown === false ? {} : { prop: spec.prop ?? name }),
-      ...(spec.type ? { type: spec.type } : {}),
-      default: spec.default,
-      required: Boolean(spec.required),
-      description: spec.description,
-    })),
+    attributes: [
+      ...Object.entries(block.attrs)
+        // A Markdown-only prop of the same name describes it instead.
+        .filter(
+          ([name, spec]) =>
+            !(
+              spec.markdown === false && block.docs.props?.some((p) => p.name === name)
+            ),
+        )
+        .map(([name, spec]) => ({
+          name,
+          ...(spec.markdown === false ? {} : { prop: spec.prop ?? name }),
+          ...(spec.type ? { type: spec.type } : {}),
+          default: spec.default,
+          required: Boolean(spec.required || spec.requiredToPublish),
+          description: spec.description,
+        })),
+      ...(block.docs.props ?? []).map((prop) => ({
+        name: prop.name,
+        prop: prop.name,
+        type: prop.type,
+        default: null,
+        required: Boolean(prop.required),
+        description: prop.description,
+      })),
+    ],
     ...(block.children?.length
       ? { children: block.children.map((child) => describe(child)) }
       : {}),
@@ -90,7 +108,7 @@ export function formatReference(
   return {
     markdown: {
       syntax:
-        "CommonMark with GFM tables. Rich blocks are JSX-style tags on their own lines with literal props only; raw HTML, expressions and imports are refused.",
+        'CommonMark with GFM tables. Rich blocks are JSX-style tags, each opening and closing tag on its own line with a blank line around inner content. Prop values are literals: "text", {42}, {true}, {["a", "b"]} or {{ key: "value" }} (icons: {<Rocket />}). Variables, function calls, spreads, raw HTML, expressions and imports are refused.',
       marks: profile.marks.flatMap((mark) =>
         MARK_SYNTAX[mark] ? [MARK_SYNTAX[mark]] : [],
       ),

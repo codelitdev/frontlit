@@ -33,19 +33,31 @@ export function contentFormat(): ContentFormat {
  */
 export function describeContentFormat(): string {
   const format = contentFormat();
-  const props = (block: (typeof format.blocks)[number]) =>
+  type Block = (typeof format.blocks)[number];
+  const props = (block: Block) =>
     block.attributes
       .filter((a) => a.prop)
       .map((a) => `${a.prop}${a.required ? "" : "?"}: ${a.type ?? "string"}`)
       .join("; ");
+  const line = (block: Block, parent?: Block) => {
+    const list = props(block);
+    const where = parent ? ` (inside <${parent.tag}>)` : "";
+    const example = parent ? "" : ` Example: ${JSON.stringify(block.example)}`;
+    return `- ${block.tag ?? block.name}${where}: ${block.summary}${list ? ` Props (? = optional): ${list}.` : ""}${example}`;
+  };
   const blocks = format.blocks
-    .map((block) => {
-      const list = props(block);
-      return `- ${block.tag ?? block.name}: ${block.summary}${list ? ` Props: ${list}.` : ""} Example: ${JSON.stringify(block.example)}`;
-    })
+    .flatMap((block) => [
+      line(block),
+      ...(block.children ?? []).map((child) => line(child, block)),
+    ])
     .join("\n");
+  const media = format.blocks.some((block) =>
+    block.attributes.some((a) => a.type === "media ID"),
+  );
   return [
     `Markdown: ${format.markdown.syntax}`,
+    "Images and other files are https URLs. To use your own file, upload it first (get_media_upload_signature, then register_media) and use the URL it returns.",
+    ...(media ? ["`media` props take the ID that register_media returns."] : []),
     "Blocks:",
     blocks,
     `Every prop, type and limit: ${CONTENT_FORMAT_URL}`,

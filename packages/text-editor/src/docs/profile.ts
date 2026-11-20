@@ -31,6 +31,7 @@ export const DOCS_DIAGNOSTIC_CODES: Record<string, string> = {
   unsafe_url: "UNSAFE_URL",
   unmanaged_binary: "UNMANAGED_BINARY",
   broken_link: "BROKEN_LINK",
+  incomplete_block: "INCOMPLETE_BLOCK",
 };
 
 /**

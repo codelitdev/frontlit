@@ -376,3 +376,43 @@ export function requireContent(
   if (!result.content) throw new ContentError(result.diagnostics);
   return result.content;
 }
+
+/**
+ * Blocks still missing a required prop (a Button without its link, an H5P
+ * without its URL). The editor saves them while the author is typing, so
+ * `validateContent` accepts them; they render nothing, so they should not be
+ * published. Each diagnostic blocks publishing, never saving. Hosts that take
+ * whole documents at once (an API receiving Markdown from an agent) can
+ * refuse them outright.
+ */
+export function incompleteBlocks(profile: Profile, input: unknown): Diagnostic[] {
+  const found: Diagnostic[] = [];
+  const visit = (node: unknown, path: string, depth: number) => {
+    if (!node || typeof node !== "object" || depth > profile.limits.depth) return;
+    const { type, attrs, content } = node as JSONContent;
+    const schema = type ? profile.blockSchemas.get(type) : undefined;
+    if (schema)
+      for (const [key, spec] of Object.entries(schema.attrs)) {
+        if (!spec.required && !spec.requiredToPublish) continue;
+        const value = (attrs as Record<string, unknown> | undefined)?.[key];
+        if (value !== null && value !== undefined && value !== "") continue;
+        found.push(
+          diagnostic(
+            codeFor(profile, CODES.incompleteBlock),
+            `<${schema.tag ?? schema.name}> needs ${spec.prop ?? key} before it can be published.`,
+            {
+              fieldPath: `${path}.attrs.${key}`,
+              blocksSave: false,
+              blocksPublish: true,
+            },
+          ),
+        );
+      }
+    if (Array.isArray(content))
+      content.forEach((child, index) =>
+        visit(child, `${path}.content[${index}]`, depth + 1),
+      );
+  };
+  visit(input, "content", 0);
+  return found;
+}

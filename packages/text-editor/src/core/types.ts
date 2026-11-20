@@ -22,6 +22,12 @@ export interface AttrSpec<T = unknown> {
   prop?: string;
   /** Markdown requires the prop. */
   required?: boolean;
+  /**
+   * Must be filled in (not null or empty) before the block can be published,
+   * though the editor may save it empty while the author types. Reported by
+   * `incompleteBlocks`, and listed as required in the format reference.
+   */
+  requiredToPublish?: boolean;
   /** Not written to or read from Markdown props (a custom form handles it). */
   markdown?: false;
   /**
@@ -106,7 +112,16 @@ export interface BlockSchema<Attrs = Record<string, unknown>> {
   /** A server-safe Tiptap extension to use instead of the generated node. */
   extension?(options: { editing: boolean }): AnyExtension;
   /** Feeds the format reference for API and MCP descriptions. */
-  docs: { summary: string; example: string };
+  docs: {
+    summary: string;
+    example: string;
+    /**
+     * Markdown props that a custom `fromMarkdown` reads and that aren't
+     * attributes of their own (e.g. `<Tabs items={[…]}>`), so the reference
+     * lists every prop an author or agent can write.
+     */
+    props?: { name: string; type: string; required?: boolean; description: string }[];
+  };
 }
 
 export interface ProfileLimits {

@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   DocsContentError,
+  incompleteDocsBlocks,
   parseDocsMarkdown,
   serializeDocsMarkdown,
   validateDocsContent,
@@ -51,6 +52,38 @@ describe("Button, WebPreview and H5P", () => {
     expect(errors('<Button label="Go" href="/x" variant="huge" />').length).toBe(1);
   });
 
+  it("parses Markdown without the URL (drafts round-trip) but reports it incomplete", () => {
+    for (const [markdown, prop] of [
+      ['<Button label="Go" />', "href"],
+      ["<WebPreview />", "url"],
+      ['<H5P title="Quiz" />', "src"],
+    ]) {
+      const found = incompleteDocsBlocks(parse(markdown));
+      expect(found.map((d) => d.code)).toEqual(["INCOMPLETE_BLOCK"]);
+      expect(found[0].message).toContain(`needs ${prop}`);
+    }
+  });
+
+  it("lets incomplete blocks save but not publish", () => {
+    const content = {
+      type: "doc",
+      content: [
+        { type: "button", attrs: { label: "Go", href: null } },
+        { type: "button", attrs: { label: "Docs", href: "/docs" } },
+        { type: "h5p", attrs: { src: null } },
+      ],
+    };
+    expect(validateDocsContent(content as never).diagnostics).toEqual([]);
+    const found = incompleteDocsBlocks(content);
+    expect(
+      found.map((d) => [d.code, d.fieldPath, d.blocksSave, d.blocksPublish]),
+    ).toEqual([
+      ["INCOMPLETE_BLOCK", "content.content[0].attrs.href", false, true],
+      ["INCOMPLETE_BLOCK", "content.content[2].attrs.src", false, true],
+    ]);
+    expect(found[0].message).toBe("<Button> needs href before it can be published.");
+  });
+
   it("accepts blocks still being filled in (autosave)", () => {
     const content = {
       type: "doc",
@@ -67,14 +100,20 @@ describe("Button, WebPreview and H5P", () => {
     const html = renderToStaticMarkup(
       React.createElement(TextRenderer, {
         profile: "documentation" as const,
-        json: parse(
-          [
-            '<Button label="Docs" href="https://example.com/docs" />',
-            '<WebPreview url="https://www.example.com/a" description="About" />',
-            '<H5P src="https://h5p.org/h5p/embed/712" />',
-            '<Button label="No link" />',
-          ].join("\n\n"),
-        ) as TextEditorContent,
+        json: {
+          type: "doc",
+          content: [
+            ...(parse(
+              [
+                '<Button label="Docs" href="https://example.com/docs" />',
+                '<WebPreview url="https://www.example.com/a" description="About" />',
+                '<H5P src="https://h5p.org/h5p/embed/712" />',
+              ].join("\n\n"),
+            ).content ?? []),
+            // Saved by the editor before its link was filled in.
+            { type: "button", attrs: { label: "No link", href: null } },
+          ],
+        } as TextEditorContent,
       }),
     );
     expect(html).toContain(

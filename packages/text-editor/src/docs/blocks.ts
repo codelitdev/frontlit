@@ -93,6 +93,13 @@ const card: BlockSchema = {
   docs: {
     summary: "One link card of a <Cards> grid.",
     example: '<Card title="Quick start" href="/docs/quick-start" icon={<Rocket />} />',
+    props: [
+      {
+        name: "icon",
+        type: "<IconName />",
+        description: "Optional lucide icon, written as icon={<Rocket />}.",
+      },
+    ],
   },
 };
 
@@ -248,6 +255,14 @@ export function typeTable(): BlockSchema {
       summary: "A table of props or options with their types and defaults.",
       example:
         '<TypeTable\n  type={{\n    apiKey: { type: "string", default: "KEY", description: "Your key." },\n  }}\n/>',
+      props: [
+        {
+          name: "type",
+          type: "{ [name]: { type: string; default?: string; description?: string; required?: boolean } }",
+          required: true,
+          description: "One entry per row, keyed by the prop or option name.",
+        },
+      ],
     },
   };
 }

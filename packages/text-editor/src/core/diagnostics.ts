@@ -38,6 +38,8 @@ export const DIAGNOSTIC_CODES = {
   tooLarge: "too_large",
   /** A URL with a refused scheme, host or shape. */
   unsafeUrl: "unsafe_url",
+  /** A block missing something it needs to show (a button without a link). Blocks publishing only. */
+  incompleteBlock: "incomplete_block",
   /** A local file path where an uploaded file or URL is required. */
   unmanagedBinary: "unmanaged_binary",
   /** A Markdown reference without its definition. */

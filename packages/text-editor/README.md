@@ -278,7 +278,11 @@ Any attribute can also be a plain object with `default`, `description` and a
 so they get the built-in safety checks.
 
 Validation runs on every autosave, while the author is still typing. Let fields be
-empty or `null` until they're filled in, instead of rejecting them.
+empty or `null` until they're filled in, instead of rejecting them. For a value the
+block can't work without (like a button's link), add `requiredToPublish: true`: the
+editor still saves it empty, but `incompleteBlocks` reports it so you can block
+publishing, and the format reference lists it as required. `required: true` means
+the prop must appear in Markdown.
 
 A block that holds other blocks (like a callout) sets `content: "block+"`. Its
 editing view then shows an editable area automatically.
@@ -397,6 +401,18 @@ Each diagnostic has a `code`, a readable `message` and, where it applies, a
 `fieldPath` (or `line`/`column` for Markdown). With `unavailable`, a document may
 keep the blocks it already had (`previous`), but can't add more.
 
+Before publishing, check for blocks that were saved half-filled (a Button without
+its link renders nothing):
+
+```ts
+import { incompleteBlocks } from "@frontlit/text-editor/blocks";
+
+const blockers = incompleteBlocks(lessonProfile, doc); // [] when ready to publish
+```
+
+Content sent whole by an API client or AI agent can be refused outright when
+`incompleteBlocks` finds something; FrontLit's API does this for Markdown.
+
 To accept or return Markdown instead of JSON:
 
 ```ts
@@ -478,7 +494,7 @@ If you run Tailwind CSS v4 yourself, skip `styles.css` and import the parts inst
 | --- | --- | --- |
 | `@frontlit/text-editor` | Browser | `Editor`, `TextRenderer`, `MediaPickerContextProvider`, `ImagePickerContextProvider`, `BlockFrame`, `ItemFrame`, `TextField`, `SettingsField`, `emptyDoc`, types `BlockUi`, `BlockRendererProps`, `TextEditorContent` |
 | `@frontlit/text-editor/renderer` | Server components | `TextRenderer`, type `BlockRendererProps` |
-| `@frontlit/text-editor/blocks` | Browser and server | `defineProfile`, the block library (`image()`, `callout()`, …), `attr`, `validateContent`, `parseMarkdown`, `serializeMarkdown`, `formatReference`, `ContentError`, type `BlockSchema` |
+| `@frontlit/text-editor/blocks` | Browser and server | `defineProfile`, the block library (`image()`, `callout()`, …), `attr`, `validateContent`, `incompleteBlocks`, `parseMarkdown`, `serializeMarkdown`, `formatReference`, `ContentError`, type `BlockSchema` |
 | `@frontlit/text-editor/docs` | Server | The documentation profile: `parseDocsMarkdown`, `serializeDocsMarkdown`, `validateDocsContent`, `contentFormat`, `describeContentFormat` |
 | `@frontlit/text-editor/styles.css` | Browser | All styles |
 

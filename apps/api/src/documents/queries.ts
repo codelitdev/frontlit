@@ -13,6 +13,7 @@ import {
   diagnostic,
   parseDocsMarkdown,
 } from "@frontlit/text-editor/docs";
+import { requireCompleteMarkdownBlocks } from "../documentation/content-validation";
 import { and, count, desc, eq, ilike, isNotNull, ne, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import { documents, type DocumentKind, type TextEditorContentRow } from "../db/schema";
@@ -48,8 +49,9 @@ function documentBody(input: {
         fieldPath: "markdown",
       }),
     ]);
-  return parseDocsMarkdown(input.markdown, { frontmatter: false })
-    .content as TextEditorContentRow;
+  const { content } = parseDocsMarkdown(input.markdown, { frontmatter: false });
+  requireCompleteMarkdownBlocks(content);
+  return content as TextEditorContentRow;
 }
 
 export function normalizeFeaturedImage(input: unknown): Record<string, unknown> | null {

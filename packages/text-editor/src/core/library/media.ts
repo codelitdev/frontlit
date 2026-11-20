@@ -126,6 +126,11 @@ export function image(options: ImageOptions = {}): BlockSchema {
   };
 }
 
+const PROVIDER_NAMES: Record<VideoProvider, string> = {
+  youtube: "YouTube",
+  vimeo: "Vimeo",
+};
+
 export interface VideoOptions {
   /** Uploaded video files by media ID. Default: true. */
   media?: boolean;
@@ -238,6 +243,13 @@ export function video({
       example: media
         ? '<Video media="med_123" caption="Walkthrough" />\n\n<Video url="https://www.youtube.com/watch?v=dQw4w9WgXcQ" />'
         : '<Video url="https://www.youtube.com/watch?v=dQw4w9WgXcQ" />',
+      props: [
+        {
+          name: "url",
+          type: "URL",
+          description: `A ${providers.map((p) => PROVIDER_NAMES[p]).join(" or ")} link${media ? "; use url or media, not both" : ""}.`,
+        },
+      ],
     },
   };
 }

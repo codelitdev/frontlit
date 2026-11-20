@@ -3,7 +3,7 @@
   "title": "FrontLit content format",
   "description": "Markdown accepted for articles, product updates and documentation through the FrontLit API and MCP. Blocks are tags on their own lines with literal props.",
   "markdown": {
-    "syntax": "CommonMark with GFM tables. Rich blocks are JSX-style tags on their own lines with literal props only; raw HTML, expressions and imports are refused.",
+    "syntax": "CommonMark with GFM tables. Rich blocks are JSX-style tags, each opening and closing tag on its own line with a blank line around inner content. Prop values are literals: \"text\", {42}, {true}, {[\"a\", \"b\"]} or {{ key: \"value\" }} (icons: {<Rocket />}). Variables, function calls, spreads, raw HTML, expressions and imports are refused.",
     "marks": [
       "**bold**",
       "*italic*",
@@ -98,7 +98,16 @@
       "summary": "Content split into labelled tabs; each <Tab> holds any blocks.",
       "example": "<Tabs items={[\"npm\", \"bun\"]}>\n\n<Tab value=\"npm\">\n\nnpm install\n\n</Tab>\n\n<Tab value=\"bun\">\n\nbun add\n\n</Tab>\n\n</Tabs>",
       "content": "tab+",
-      "attributes": [],
+      "attributes": [
+        {
+          "name": "items",
+          "prop": "items",
+          "type": "string[]",
+          "default": null,
+          "required": false,
+          "description": "Tab labels in order. Optional; when given, each <Tab value> must be one of them."
+        }
+      ],
       "children": [
         {
           "name": "tab",
@@ -170,10 +179,11 @@
             },
             {
               "name": "icon",
-              "type": "icon",
+              "prop": "icon",
+              "type": "<IconName />",
               "default": null,
               "required": false,
-              "description": "A lucide icon name, written as icon={<Rocket />}."
+              "description": "Optional lucide icon, written as icon={<Rocket />}."
             }
           ]
         }
@@ -235,6 +245,14 @@
           "default": [],
           "required": false,
           "description": "Rows of name, type, default, description and required."
+        },
+        {
+          "name": "type",
+          "prop": "type",
+          "type": "{ [name]: { type: string; default?: string; description?: string; required?: boolean } }",
+          "default": null,
+          "required": true,
+          "description": "One entry per row, keyed by the prop or option name."
         }
       ]
     },
@@ -257,7 +275,7 @@
           "prop": "href",
           "type": "URL",
           "default": null,
-          "required": false,
+          "required": true,
           "description": "Where the button goes: https, http, mailto or a site path."
         },
         {
@@ -281,7 +299,7 @@
           "prop": "url",
           "type": "URL",
           "default": null,
-          "required": false,
+          "required": true,
           "description": "The page to link to (http or https)."
         },
         {
@@ -321,7 +339,7 @@
           "prop": "src",
           "type": "URL",
           "default": null,
-          "required": false,
+          "required": true,
           "description": "The activity's embed URL (https, on h5p.org or *.h5p.com)."
         },
         {

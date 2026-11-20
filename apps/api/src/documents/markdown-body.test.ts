@@ -195,4 +195,38 @@ describe("Markdown bodies for articles and product updates", () => {
       "Markdown",
     );
   });
+
+  it("refuses agent Markdown with a block missing a required prop", async () => {
+    const result = await callTool("create_article", teamId, {
+      title: "CTA",
+      markdown: 'Intro.\n\n<Button label="Start" />\n',
+    });
+    expect(result.isError).toBe(true);
+    expect(
+      documentationValidationErrorSchema.parse(result.structuredContent),
+    ).toMatchObject({
+      code: "INCOMPLETE_BLOCK",
+      diagnostics: [
+        {
+          code: "INCOMPLETE_BLOCK",
+          message: "<Button> needs href before it can be published.",
+          blocksSave: true,
+        },
+      ],
+    });
+  });
+
+  it("describes every block, its props and examples in the markdown field", () => {
+    const field = tools.get("create_article")!.config.inputSchema.markdown;
+    const text: string = field.description;
+    for (const needle of [
+      "- Button:",
+      "href: URL",
+      "- Tab (inside <Tabs>)",
+      "items?: string[]",
+      "register_media",
+      "https://frontlit.app/schema/content.v1.json",
+    ])
+      expect(text).toContain(needle);
+  });
 });

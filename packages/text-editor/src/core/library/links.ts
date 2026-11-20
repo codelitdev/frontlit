@@ -7,8 +7,10 @@ import { attr } from "./attrs";
  * H5P activity. All atoms with literal props, so Markdown stays one line:
  * `<Button href="/start" label="Start" />`.
  *
- * URLs may be absent while an author is still filling the block in (autosave
- * validates every keystroke); the renderer then draws nothing.
+ * Their URL is `requiredToPublish`: the editor may save it empty while the
+ * author fills the block in (autosave validates every keystroke, and the
+ * renderer then draws nothing), but `incompleteBlocks` keeps such a block from
+ * being published, and the API refuses it in Markdown written by agents.
  */
 
 const urlAttr = (
@@ -16,10 +18,12 @@ const urlAttr = (
   check: (value: string) => boolean,
   message: string,
   kind: "link" | "image" = "link",
+  requiredToPublish = false,
 ): AttrSpec<string | null> => ({
   default: null,
   type: "URL",
   url: kind,
+  requiredToPublish,
   validate: (v) => v === null || (typeof v === "string" && check(v)) || message,
   description,
 });
@@ -41,6 +45,8 @@ export function button(): BlockSchema {
         "Where the button goes: https, http, mailto or a site path.",
         (v) => isSafeUrl(v),
         "Button link URL is unsafe.",
+        "link",
+        true,
       ),
       variant: attr.oneOf(
         BUTTON_VARIANTS,
@@ -66,6 +72,8 @@ export function webPreview(): BlockSchema {
         "The page to link to (http or https).",
         isWebUrl,
         "Web preview URL must be an http or https link.",
+        "link",
+        true,
       ),
       title: attr.optionalText("Card title. Absent shows the link's host name."),
       description: attr.optionalText("One or two sentences about the page."),
@@ -115,6 +123,8 @@ export function h5p({ hosts = H5P_DEFAULT_HOSTS }: H5POptions = {}): BlockSchema
         `The activity's embed URL (https, on ${hosts.join(" or ")}).`,
         (v) => isAllowedHostUrl(v, hosts),
         `H5P URLs must use https and one of these hosts: ${hosts.join(", ")}.`,
+        "link",
+        true,
       ),
       title: attr.optionalText("Accessible title of the activity frame."),
       height: attr.integer(

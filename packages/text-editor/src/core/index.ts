@@ -20,6 +20,7 @@ export {
 } from "./markdown";
 export {
   validateContent,
+  incompleteBlocks,
   requireContent,
   type ValidateOptions,
   type ValidationResult,
