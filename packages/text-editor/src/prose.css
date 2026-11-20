@@ -742,6 +742,22 @@
   overflow-y: auto;
 }
 
+/* The menu is portaled to <body>, outside the editor's tokens: every colour
+ * here has a fallback. The highlight is a tint plus a bar in the primary
+ * colour, so it stays visible on any theme (WCAG 1.4.11). */
+.te-insert-menu__option[aria-selected="true"] {
+  background-color: var(--accent, hsl(210 40% 96.1%));
+  color: var(--accent-foreground, hsl(222.2 47.4% 11.2%));
+  box-shadow: inset 3px 0 0 var(--primary, hsl(222.2 47.4% 11.2%));
+}
+
+@media (forced-colors: active) {
+  .te-insert-menu__option[aria-selected="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
+
 .tiptap-editor .ProseMirror .te-block-settings {
   font-size: 0.75rem;
   text-transform: none;

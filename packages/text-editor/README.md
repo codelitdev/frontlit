@@ -109,7 +109,7 @@ const profile = defineProfile({ blocks: [quiz] });
 
 | Keys | What it does |
 | --- | --- |
-| `/` | Opens the insert menu at the cursor; type to filter, ↑/↓ and Enter to pick, Escape to dismiss. |
+| `/` | Opens the insert menu at the cursor; type to filter. ↑/↓ (or Ctrl+P/N, Tab/Shift+Tab) move, Home/End jump to the ends, PageUp/PageDown move by five, Enter inserts, Escape dismisses. |
 | Ctrl/⌘ + Shift + ↑ / ↓ | Moves the block holding the cursor up or down (what the drag handle does). |
 | Alt + F10 | Moves focus to the current block's controls (type, title, settings, remove). |
 | Escape | In a block's controls, returns to its text; in a settings popover, closes it and returns to its button. |

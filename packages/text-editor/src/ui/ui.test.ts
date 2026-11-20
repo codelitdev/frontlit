@@ -333,3 +333,40 @@ describe("keyboard block moves", () => {
     expect(moveBlockBy(down, 1)).toBeNull();
   });
 });
+
+describe("/ menu keys", () => {
+  it("maps the common list keys and skips unavailable entries", async () => {
+    const { menuKeyStep, nextMenuIndex } = await import("./slash-command");
+    const key = (k: string, mods: Partial<KeyboardEvent> = {}) =>
+      menuKeyStep({
+        key: k,
+        ctrlKey: false,
+        metaKey: false,
+        altKey: false,
+        shiftKey: false,
+        ...mods,
+      });
+    expect(key("ArrowDown")).toBe(1);
+    expect(key("ArrowUp")).toBe(-1);
+    expect(key("Tab")).toBe(1);
+    expect(key("Tab", { shiftKey: true })).toBe(-1);
+    expect(key("n", { ctrlKey: true })).toBe(1);
+    expect(key("p", { ctrlKey: true })).toBe(-1);
+    expect(key("Home")).toBe("first");
+    expect(key("End")).toBe("last");
+    expect(key("PageDown")).toBe(5);
+    expect(key("a")).toBeNull();
+    expect(key("ArrowDown", { metaKey: true })).toBeNull();
+
+    const items = [{}, { unavailable: "Upgrade" }, {}, {}, {}, {}, {}, {}];
+    expect(nextMenuIndex(items, 0, 1)).toBe(2); // skips the unavailable one
+    expect(nextMenuIndex(items, 2, -1)).toBe(0);
+    expect(nextMenuIndex(items, 0, -1)).toBe(7); // arrows wrap
+    expect(nextMenuIndex(items, 7, 1)).toBe(0);
+    expect(nextMenuIndex(items, 0, 5)).toBe(6); // pages stop at the ends
+    expect(nextMenuIndex(items, 6, 5)).toBe(7);
+    expect(nextMenuIndex(items, 3, "first")).toBe(0);
+    expect(nextMenuIndex(items, 3, "last")).toBe(7);
+    expect(nextMenuIndex([{ unavailable: "x" }, {}], -1, "first")).toBe(1);
+  });
+});

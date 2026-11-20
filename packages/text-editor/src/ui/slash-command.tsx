@@ -37,16 +37,72 @@ export interface MenuHandle {
   onKeyDown(event: KeyboardEvent): boolean;
 }
 
+/**
+ * Keys the `/` menu handles while focus stays in the editor, as the change in
+ * highlighted index: a step, or `"first"` / `"last"`. Null for other keys.
+ */
+export function menuKeyStep(
+  event: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey">,
+): number | "first" | "last" | null {
+  if (event.altKey || event.metaKey) return null;
+  if (event.ctrlKey) {
+    // Emacs / macOS list keys.
+    if (event.key === "n") return 1;
+    if (event.key === "p") return -1;
+    return null;
+  }
+  switch (event.key) {
+    case "ArrowDown":
+      return 1;
+    case "ArrowUp":
+      return -1;
+    case "Tab":
+      return event.shiftKey ? -1 : 1;
+    case "PageDown":
+      return 5;
+    case "PageUp":
+      return -5;
+    case "Home":
+      return "first";
+    case "End":
+      return "last";
+    default:
+      return null;
+  }
+}
+
+/** The usable (not unavailable) entry a step lands on; arrows wrap, pages stop at the ends. */
+export function nextMenuIndex(
+  items: readonly Pick<InsertItem, "unavailable">[],
+  from: number,
+  step: number | "first" | "last",
+): number {
+  const usable = items.flatMap((item, index) => (item.unavailable ? [] : [index]));
+  if (!usable.length) return from;
+  if (step === "first") return usable[0];
+  if (step === "last") return usable[usable.length - 1];
+  const at = usable.indexOf(from);
+  if (at === -1) return step > 0 ? usable[0] : usable[usable.length - 1];
+  if (Math.abs(step) === 1) return usable[(at + step + usable.length) % usable.length];
+  return usable[Math.min(usable.length - 1, Math.max(0, at + step))];
+}
+
 /** The `/` insert menu: entries filtered as you type; unavailable ones greyed out with the reason. */
 export const InsertMenu = forwardRef<MenuHandle, MenuProps>(function InsertMenu(
   { items, command, editorDom, hidden },
   ref,
 ) {
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(() => nextMenuIndex(items, -1, "first"));
+  // Keys can arrive faster than renders; read and write the latest index here.
+  const activeRef = useRef(active);
+  const select = (index: number) => {
+    activeRef.current = index;
+    setActive(index);
+  };
   const list = useRef<HTMLDivElement | null>(null);
   const id = useId();
   const optionId = (index: number) => `${id}-option-${index}`;
-  useEffect(() => setActive(0), [items]);
+  useEffect(() => select(nextMenuIndex(items, -1, "first")), [items]);
   useEffect(() => {
     if (!editorDom || hidden) return undefined;
     editorDom.setAttribute("aria-controls", `${id}-list`);
@@ -64,31 +120,17 @@ export const InsertMenu = forwardRef<MenuHandle, MenuProps>(function InsertMenu(
       ?.querySelector('[aria-selected="true"]')
       ?.scrollIntoView({ block: "nearest" });
   }, [active, items]);
-  const usable = (index: number) => items[index] && !items[index].unavailable;
-  const move = (step: number) => {
-    if (!items.length) return;
-    let next = active;
-    for (let i = 0; i < items.length; i++) {
-      next = (next + step + items.length) % items.length;
-      if (usable(next)) break;
-    }
-    setActive(next);
-  };
   useImperativeHandle(ref, () => ({
     onKeyDown(event) {
-      if (event.key === "ArrowDown") {
-        move(1);
-        return true;
-      }
-      if (event.key === "ArrowUp") {
-        move(-1);
-        return true;
-      }
       if (event.key === "Enter") {
-        if (usable(active)) command(items[active]);
+        const item = items[activeRef.current];
+        if (item && !item.unavailable) command(item);
         return true;
       }
-      return false;
+      const step = menuKeyStep(event);
+      if (step === null || !items.length) return false;
+      select(nextMenuIndex(items, activeRef.current, step));
+      return true;
     },
   }));
   return (
@@ -117,14 +159,12 @@ export const InsertMenu = forwardRef<MenuHandle, MenuProps>(function InsertMenu(
             aria-selected={index === active}
             aria-disabled={Boolean(item.unavailable)}
             title={item.unavailable}
-            className={`flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-sm ${
-              item.unavailable
-                ? "cursor-not-allowed opacity-50"
-                : index === active
-                  ? "bg-muted"
-                  : "hover:bg-muted"
+            className={`te-insert-menu__option flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-sm ${
+              item.unavailable ? "cursor-not-allowed opacity-50" : ""
             }`}
-            onMouseEnter={() => !item.unavailable && setActive(index)}
+            // Mouse movement, not mouseenter: keyboard scrolling slides
+            // items under a resting pointer and must not steal the highlight.
+            onMouseMove={() => !item.unavailable && index !== active && select(index)}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => !item.unavailable && command(item)}
           >
