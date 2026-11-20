@@ -17,3 +17,26 @@ export * from "./normalize-text-editor-content";
 export * from "./extract-text-from-text-editor-content";
 export * from "./truncate-text-editor-content";
 export * from "./renderer-theme";
+
+// Pluggable blocks: browser half (the server-safe half is `@frontlit/text-editor/blocks`).
+export * from "./ui";
+export {
+  defaultProfile,
+  docsProfile,
+  resolveProfile,
+  type ProfileInput,
+} from "./profiles";
+export { defineProfile } from "./core/profile";
+export type { BlockSchema, Profile, ProfileDefinition } from "./core/types";
+export {
+  image,
+  video,
+  audio,
+  pdf,
+  file,
+  embed,
+  callout,
+  tabs,
+  accordion,
+  steps,
+} from "./core/library";

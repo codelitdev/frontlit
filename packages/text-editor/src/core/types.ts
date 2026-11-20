@@ -160,6 +160,12 @@ export interface ProfileOptions {
   isAllowedUrl?(url: string, kind: "link" | "image"): boolean;
   /** Blocks offered in the insert menus; all listed blocks when absent. */
   menu?: string[];
+  /**
+   * `unique` (default): deduplicated Unicode heading anchors and real h1–h6
+   * tags. `legacy` (the default editor): anchors from `createId`, levels
+   * above 3 rendered as h3.
+   */
+  headingAnchors?: "unique" | "legacy";
   /** Code blocks show file name and language fields in the editor. */
   codeBlockFields?: boolean;
   /** Name used for profile-specific behaviour in the editor and renderer. */

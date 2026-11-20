@@ -55,6 +55,10 @@ export function image(options: ImageOptions = {}): BlockSchema {
         markdown: false,
       };
   const attrs: Record<string, AttrSpec> = {
+    // First, so `<Image media="…" alt="…" />` reads naturally.
+    ...(media
+      ? { media: attr.media("An uploaded image (instead of src).", false) }
+      : {}),
     src: {
       default: null,
       type: "https URL",
@@ -73,7 +77,6 @@ export function image(options: ImageOptions = {}): BlockSchema {
     width: size,
     height: size,
   };
-  if (media) attrs.media = attr.media("An uploaded image (instead of src).", false);
   return {
     name: "image",
     tag: media ? "Image" : undefined,
@@ -173,12 +176,10 @@ export function video({
       const props = ctx.props(element, [...(media ? ["media"] : []), "url", "caption"]);
       if (element.children.length)
         ctx.fail(element, "<Video> cannot have children.", CODES.unsupportedSyntax);
-      if ((props.media === undefined) === (props.url === undefined))
+      if (props.media !== undefined && props.url !== undefined)
         ctx.fail(
           element,
-          media
-            ? "<Video> needs either a media or a url prop."
-            : "<Video> needs a url prop.",
+          "<Video> takes media or url, not both.",
           CODES.invalidDocument,
         );
       if (props.caption !== undefined && typeof props.caption !== "string")
@@ -188,6 +189,9 @@ export function video({
         const parsed = fromUrl(props.url);
         if (!parsed) ctx.fail(element, urlMessage, CODES.unsafeUrl);
         source = { media: null, ...parsed };
+      } else if (props.media === undefined) {
+        // An empty placeholder, as the editor inserts it before a source is chosen.
+        source = { media: null, provider: null, videoId: null };
       } else {
         if (!isId(props.media))
           ctx.fail(
@@ -204,17 +208,20 @@ export function video({
       return ctx.element("Video", [
         a.media
           ? ctx.prop("media", a.media)
-          : ctx.prop("url", videoPageUrl(a.provider, a.videoId)),
+          : a.provider
+            ? ctx.prop("url", videoPageUrl(a.provider, a.videoId))
+            : undefined,
         ctx.prop("caption", a.caption),
       ]);
     },
     validate(node, ctx) {
       const { media: id = null, provider = null, videoId = null } = node.attrs ?? {};
       const hosted = provider !== null || videoId !== null;
-      if ((id !== null) === hosted)
+      // Neither is an empty placeholder (renders nothing); both is ambiguous.
+      if (id !== null && hosted)
         ctx.report(
           CODES.invalidDocument,
-          "A video needs either media or a hosted video.",
+          "A video takes media or a hosted video, not both.",
           `${ctx.path}.attrs`,
         );
       else if (hosted && !isVideoId(provider, videoId))
@@ -246,7 +253,8 @@ function mediaBlock(
     name,
     tag,
     group: "block",
-    attrs: { media: attr.media(`The uploaded ${noun}.`), ...extra },
+    // Null while the author hasn't picked a file yet; renders nothing.
+    attrs: { media: attr.media(`The uploaded ${noun}.`, false), ...extra },
     docs: { summary: `An uploaded ${noun}, by media ID.`, example },
   };
 }

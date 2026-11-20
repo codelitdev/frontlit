@@ -11,10 +11,11 @@ import {
   Underline,
 } from "lucide-react";
 import LinkEditorPopover from "./components/link-editor-popover";
+import type { Profile } from "./core/types";
 
 interface BubbleMenuProps {
   editor: Editor;
-  profile?: "default" | "documentation";
+  profile: Profile;
 }
 
 const buttonBase =
@@ -113,7 +114,7 @@ function InlineButton({
 
 const InlineBubbleMenu = ({
   editor,
-  profile = "default",
+  profile,
 }: BubbleMenuProps): React.JSX.Element | null => {
   const [isLinkEditing, setIsLinkEditing] = useState(false);
 
@@ -143,19 +144,23 @@ const InlineBubbleMenu = ({
       className="bubble-menu flex flex-col gap-1 rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-xl"
     >
       <div className="flex items-center gap-1">
-        <InlineButton
-          icon={Bold}
-          label="Bold"
-          active={editor.isActive("bold")}
-          onClick={() => editor.chain().focus().toggleBold().run()}
-        />
-        <InlineButton
-          icon={Italic}
-          label="Italic"
-          active={editor.isActive("italic")}
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-        />
-        {profile !== "documentation" && (
+        {profile.marks.includes("bold") && (
+          <InlineButton
+            icon={Bold}
+            label="Bold"
+            active={editor.isActive("bold")}
+            onClick={() => editor.chain().focus().toggleBold().run()}
+          />
+        )}
+        {profile.marks.includes("italic") && (
+          <InlineButton
+            icon={Italic}
+            label="Italic"
+            active={editor.isActive("italic")}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+          />
+        )}
+        {profile.marks.includes("underline") && (
           <InlineButton
             icon={Underline}
             label="Underline"
@@ -163,24 +168,30 @@ const InlineBubbleMenu = ({
             onClick={() => editor.chain().focus().toggleMark("underline").run()}
           />
         )}
-        <InlineButton
-          icon={Strikethrough}
-          label="Strikethrough"
-          active={editor.isActive("strike")}
-          onClick={() => editor.chain().focus().toggleStrike().run()}
-        />
-        <InlineButton
-          icon={Code}
-          label="Inline code"
-          active={editor.isActive("code")}
-          onClick={() => editor.chain().focus().toggleCode().run()}
-        />
-        <InlineButton
-          icon={LinkIcon}
-          label="Insert link"
-          active={editor.isActive("link")}
-          onClick={openLinkEditor}
-        />
+        {profile.marks.includes("strike") && (
+          <InlineButton
+            icon={Strikethrough}
+            label="Strikethrough"
+            active={editor.isActive("strike")}
+            onClick={() => editor.chain().focus().toggleStrike().run()}
+          />
+        )}
+        {profile.marks.includes("code") && (
+          <InlineButton
+            icon={Code}
+            label="Inline code"
+            active={editor.isActive("code")}
+            onClick={() => editor.chain().focus().toggleCode().run()}
+          />
+        )}
+        {profile.marks.includes("link") && (
+          <InlineButton
+            icon={LinkIcon}
+            label="Insert link"
+            active={editor.isActive("link")}
+            onClick={openLinkEditor}
+          />
+        )}
       </div>
       {isLinkEditing && (
         <LinkEditorPopover

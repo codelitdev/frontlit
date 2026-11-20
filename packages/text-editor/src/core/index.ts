@@ -29,3 +29,4 @@ export * from "./reference";
 export * from "./urls";
 export { evaluateLiteral, writeLiteral, quote } from "./literal";
 export * from "./library";
+export * from "./headings";

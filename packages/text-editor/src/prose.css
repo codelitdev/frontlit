@@ -704,3 +704,101 @@
 .tiptap-editor .ProseMirror .te-block-table td {
   padding: 0.25rem;
 }
+
+/* Pluggable blocks: drag handle, insert menu, settings popover, media and embeds. */
+.tiptap-editor .te-drag-handle {
+  position: absolute;
+  z-index: 5;
+  width: 1.25rem;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.25rem;
+  color: var(--muted-foreground);
+  cursor: grab;
+  user-select: none;
+  font-size: 0.875rem;
+  line-height: 1;
+}
+
+.tiptap-editor .te-drag-handle:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.te-insert-menu {
+  max-height: 20rem;
+  overflow-y: auto;
+}
+
+.tiptap-editor .ProseMirror .te-block-settings {
+  font-size: 0.75rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.tiptap-editor .ProseMirror .te-block__empty {
+  margin: 0.25rem 0;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+.te-video {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.te-video__frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0.5rem;
+}
+
+.te-video__file,
+.te-audio {
+  width: 100%;
+  border-radius: 0.5rem;
+}
+
+.te-pdf {
+  width: 100%;
+  height: 36rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.te-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.te-file__icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.te-media {
+  margin: 1rem 0;
+}
+
+.te-media__caption {
+  margin-top: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.te-embed {
+  display: block;
+  margin: 1rem 0;
+}

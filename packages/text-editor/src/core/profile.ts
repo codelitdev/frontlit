@@ -101,7 +101,12 @@ export function defineProfile(definition: ProfileDefinition = {}): Profile {
     blockSchemas,
     tags,
     limits: { ...DEFAULT_LIMITS, ...definition.limits },
-    options: { tables: "rich", requireContent: false, ...definition.options },
+    options: {
+      tables: "rich",
+      requireContent: false,
+      headingAnchors: "unique",
+      ...definition.options,
+    },
     ui,
   };
 }

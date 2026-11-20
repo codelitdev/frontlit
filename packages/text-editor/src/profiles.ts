@@ -32,7 +32,13 @@ export const defaultProfile: Profile = defineProfile({
     codeGroup(),
     typeTable(),
   ],
-  options: { name: "default", tables: "rich", requireContent: true, menu: ["image"] },
+  options: {
+    name: "default",
+    tables: "rich",
+    requireContent: true,
+    headingAnchors: "legacy",
+    menu: ["image"],
+  },
 });
 
 export { docsProfile };
