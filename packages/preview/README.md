@@ -18,7 +18,7 @@ node --version
 2. Run:
 
    ```sh
-   npx @frontlit/preview@alpha
+   npx @frontlit/preview@latest
    ```
 
    The first run downloads the tool, which takes a few seconds.
@@ -27,7 +27,7 @@ node --version
 
 Press **Ctrl+C** in the terminal to stop.
 
-> **Why `@alpha`?** The tool is in early release. `@alpha` always gets the newest version.
+> **Why `@latest`?** npx can reuse an older copy it downloaded before; `@latest` always gets the newest version.
 
 ## Using the preview
 
@@ -79,7 +79,7 @@ Pages with a content feed (for example a blog listing) normally show articles fr
 ## Options
 
 ```sh
-npx @frontlit/preview@alpha [site-folder] [--port <number>] [--context <file>]
+npx @frontlit/preview@latest [site-folder] [--port <number>] [--context <file>]
 ```
 
 | Option | What it does | Default |
@@ -89,7 +89,7 @@ npx @frontlit/preview@alpha [site-folder] [--port <number>] [--context <file>]
 | `--context` | Use a branding file from somewhere else. | `<site-folder>/preview.context.json` |
 | `--help` | Print the usage line. | |
 
-Example: `npx @frontlit/preview@alpha website --port 5000`.
+Example: `npx @frontlit/preview@latest website --port 5000`.
 
 ## Images
 
@@ -119,7 +119,7 @@ Before you publish, open your pull request on GitHub and check the **FrontLit / 
 
 | Message or problem | Fix |
 | --- | --- |
-| `No pages directory in …` | Run the command from your repository, or pass the folder that contains `pages/`, e.g. `npx @frontlit/preview@alpha website`. |
+| `No pages directory in …` | Run the command from your repository, or pass the folder that contains `pages/`, e.g. `npx @frontlit/preview@latest website`. |
 | Port 4310 already in use | Another preview is probably still running. Stop it with Ctrl+C, or use `--port 4311`. |
 | `Page not found` | There is no `pages/<name>.json` for that address. Check the file name. Names use lowercase letters, numbers and hyphens. |
 | An image doesn't show | Check the path is relative to the JSON file, and that the file is inside the repository and is an image. |
