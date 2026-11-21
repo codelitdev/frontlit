@@ -16,7 +16,7 @@ import type { PickMedia } from "./media-picker";
 export const inputClass =
   "h-7 min-w-0 rounded border border-input bg-card px-2 text-xs text-foreground placeholder:text-muted-foreground";
 export const smallButton =
-  "inline-flex h-7 items-center gap-1 rounded px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40";
+  "inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40";
 
 export const paragraph = (text = ""): JSONContent =>
   text

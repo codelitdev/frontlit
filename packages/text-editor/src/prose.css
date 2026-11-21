@@ -860,6 +860,11 @@
   margin: 1rem 0;
 }
 
+/* Blocks the host renders get the same spacing as the library's own. */
+.tiptap-renderer .te-host-block {
+  margin: 1rem 0;
+}
+
 .te-media__caption {
   margin-top: 0.5rem;
   color: var(--muted-foreground);
