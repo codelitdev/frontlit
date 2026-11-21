@@ -454,3 +454,69 @@ describe("table bar", () => {
     expect(single.find((action) => action.id === "deleteColumn")?.disabled).toBe(true);
   });
 });
+
+describe("renderer stability", () => {
+  // React keeps a component mounted only while its element type and key
+  // stay the same at the same place. Compare two renders of the same json.
+  type Shape = { type: unknown; key: unknown; children: Shape[] };
+  const shape = (node: unknown): Shape[] => {
+    if (Array.isArray(node)) return node.flatMap(shape);
+    if (!React.isValidElement(node)) return [];
+    const props = node.props as { children?: unknown };
+    return [{ type: node.type, key: node.key, children: shape(props.children) }];
+  };
+  const same = (a: Shape[], b: Shape[]): boolean =>
+    a.length === b.length &&
+    a.every(
+      (item, i) =>
+        item.type === b[i].type &&
+        item.key === b[i].key &&
+        same(item.children, b[i].children),
+    );
+  const Counter = ({ children }: { children?: React.ReactNode }) =>
+    React.createElement("section", null, children);
+  const content = doc(
+    { type: "paragraph", content: [{ type: "text", text: "Intro" }] },
+    { type: "callout", attrs: { type: "tip" }, content: [{ type: "paragraph" }] },
+    { type: "video", attrs: { provider: "youtube", videoId: "dQw4w9WgXcQ" } },
+    {
+      type: "bulletList",
+      content: [{ type: "listItem", content: [{ type: "paragraph" }] }],
+    },
+  );
+  const element = (resolveMedia: () => undefined) =>
+    (ContentRenderer as (props: object) => React.ReactNode)({
+      profile: lesson,
+      json: content,
+      blocks: { callout: Counter },
+      resolveMedia,
+    });
+
+  it("keeps every element type and key across renders, so host blocks keep their state", () => {
+    const first = shape(element(() => undefined));
+    const second = shape(element(() => undefined));
+    expect(first.length).toBeGreaterThan(0);
+    expect(same(first, second)).toBe(true);
+    const types = (items: Shape[]): unknown[] =>
+      items.flatMap((item) => [item.type, ...types(item.children)]);
+    expect(types(first)).toContain(Counter);
+  });
+
+  it("still renders changed content", () => {
+    const changed = renderToStaticMarkup(
+      React.createElement(ContentRenderer, {
+        profile: lesson,
+        json: doc({
+          type: "paragraph",
+          content: [{ type: "text", text: "Changed" }],
+        }) as never,
+      }),
+    );
+    expect(changed).toContain("Changed");
+  });
+
+  it("spaces host blocks like the library's blocks", () => {
+    const html = render(content, { blocks: { callout: Counter } });
+    expect(html).toContain('<div class="te-host-block" data-block="callout"><section>');
+  });
+});

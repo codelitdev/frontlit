@@ -1,5 +1,10 @@
 import React from "react";
-import { renderToReactElement } from "@tiptap/static-renderer";
+import {
+  applyStaticEditorOptionsToExtensions,
+  domOutputSpecToReactElement,
+  renderToElement,
+  TiptapStaticRenderer,
+} from "@tiptap/static-renderer";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { extractTextFromNode } from "../extract-text-from-node";
 import emptyDoc from "../empty-doc";
@@ -69,6 +74,30 @@ const extensionsFor = (profile: Profile) => {
   return extensions;
 };
 
+const DEFINED_TYPES = {
+  doc: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+  text: ({ node }: { node: { text?: string } }) => node.text ?? "",
+};
+
+/**
+ * Tiptap's React renderer mounts each node mapping as a component. Our
+ * mappings (and Tiptap's own `doc` one) are new functions on every render, so
+ * React would unmount and remount the whole page each time the host
+ * re-renders: a quiz would lose its answers and a video would reload. Calling
+ * the mappings as plain functions instead leaves only stable element types
+ * (`p`, `figure`, the host's block components) in the tree.
+ */
+function renderMappingsInline(options: Parameters<typeof TiptapStaticRenderer>[1]) {
+  let key = 0;
+  return TiptapStaticRenderer(({ component, props }: any) => {
+    const output = component(props) as React.ReactNode;
+    const k = key++;
+    if (React.isValidElement(output)) return React.cloneElement(output, { key: k });
+    if (Array.isArray(output)) return <React.Fragment key={k}>{output}</React.Fragment>;
+    return output;
+  }, options);
+}
+
 /** Built-in renderers for library blocks the profile holds. */
 export function libraryRenderers(profile: Profile, resolveMedia?: ResolveMedia) {
   const all: Record<string, unknown> = {
@@ -114,20 +143,26 @@ export function ContentRenderer({
         headingIds.set(node, headings[headingIndex++].id);
     });
   }
+  // Host blocks sit in a wrapper that gives them the library blocks' spacing.
   const hosted = Object.fromEntries(
     Object.entries(blocks ?? {}).map(([name, Component]) => [
       name,
       ({ node, children }: { node: ProseMirrorNode; children?: React.ReactNode }) => (
-        <Component node={node} attrs={node.attrs} resolveMedia={resolveMedia}>
-          {children}
-        </Component>
+        <div className="te-host-block" data-block={name}>
+          <Component node={node} attrs={node.attrs} resolveMedia={resolveMedia}>
+            {children}
+          </Component>
+        </div>
       ),
     ]),
   );
 
-  const rendered = renderToReactElement({
-    extensions,
-    content: renderContent,
+  const rendered = renderToElement({
+    renderer: renderMappingsInline as any,
+    domOutputSpecToElement: domOutputSpecToReactElement,
+    mapDefinedTypes: DEFINED_TYPES as any,
+    extensions: applyStaticEditorOptionsToExtensions(extensions, undefined),
+    content: renderContent as any,
     options: {
       nodeMapping: {
         paragraph: ({ children }) => {
