@@ -174,6 +174,30 @@ describe("renderer", () => {
     expect(render(link("https://example.com"))).toContain('rel="noopener noreferrer"');
   });
 
+  it("underlines links in text even when the theme's link style doesn't", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(TextRenderer, {
+        json: doc({
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: "x",
+              marks: [{ type: "link", attrs: { href: "https://example.com" } }],
+            },
+          ],
+        }) as never,
+        theme: {
+          typography: { link: { textDecoration: "no-underline" } },
+          interactives: { link: { custom: "hover:underline" } },
+        } as never,
+      }),
+    );
+    const classes = /<a [^>]*class="([^"]*)"/.exec(html)?.[1].split(" ") ?? [];
+    expect(classes).toContain("underline");
+    expect(classes).not.toContain("no-underline");
+  });
+
   it("uses real heading levels with unique anchors for new profiles", () => {
     const html = render(
       doc(
