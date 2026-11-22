@@ -5,7 +5,7 @@ import { getMediaUrl, getMediaAlt } from "../../models/media";
 import type { ContentSettings } from "./settings";
 import { renderTitle, titleProps } from "../_shared/title";
 import { Image } from "../../components/image";
-import { TextRenderer } from "../../components/text-renderer";
+import { PageText } from "../../components/page-text";
 import { Header2, Section } from "../../primitives";
 
 const roundedMap: Record<number, string> = {
@@ -83,7 +83,7 @@ export function ContentWidget({
                   {renderTitle(title, overriddenTheme)}
                 </Header2>
               )}
-              {body && <TextRenderer json={body} theme={overriddenTheme} />}
+              {body && <PageText json={body} theme={overriddenTheme} />}
             </div>
           </div>
         </div>
@@ -120,7 +120,7 @@ export function ContentWidget({
                 {renderTitle(title, overriddenTheme)}
               </Header2>
             )}
-            {body && <TextRenderer json={body} theme={overriddenTheme} />}
+            {body && <PageText json={body} theme={overriddenTheme} />}
           </div>
         </div>
       </div>

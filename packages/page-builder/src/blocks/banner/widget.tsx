@@ -4,7 +4,7 @@ import type { ThemeStyle, WidgetProps } from "../../models";
 import type { BannerSettings } from "./settings";
 import { renderTitle, titleProps } from "../_shared/title";
 import { NavLink } from "../../components/nav-link";
-import { TextRenderer } from "../../components/text-renderer";
+import { PageText } from "../../components/page-text";
 import {
   Button,
   Header1,
@@ -49,7 +49,7 @@ export function BannerWidget({
       </Header1>
       {description && (
         <Subheader1 theme={overriddenTheme} component="span">
-          <TextRenderer json={description} theme={overriddenTheme} />
+          <PageText json={description} theme={overriddenTheme} />
         </Subheader1>
       )}
     </>

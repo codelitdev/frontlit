@@ -4,6 +4,7 @@ import React, { useId } from "react";
 import { ImageIcon, Plus } from "lucide-react";
 import { ImageUploadDialog } from "@frontlit/media-uploader";
 import { Editor, emptyDoc } from "@frontlit/text-editor";
+import { pageTextProfile } from "../../schema/rich-text";
 import { getMediaUrl, type Media } from "../../models/media";
 import type { HeadingLevel, ResponsiveTextSize, TitleSettings } from "../../models";
 import { cn } from "../../primitives/lib/utils";
@@ -109,7 +110,7 @@ export function RichTextField({
     <div className="flex flex-col gap-1 text-sm">
       <span className="font-medium text-foreground">{label}</span>
       <Editor
-        profile="documentation"
+        profile={pageTextProfile}
         initialContent={value ?? emptyDoc}
         onChange={onChange}
         debounceMs={150}

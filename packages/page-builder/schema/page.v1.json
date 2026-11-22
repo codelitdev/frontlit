@@ -277,7 +277,7 @@
                   },
                   "description": {
                     "type": "string",
-                    "description": "Markdown (CommonMark + GFM)."
+                    "description": "Markdown: paragraphs, headings (## to ####), - and 1. lists, > quotes, ``` code blocks, --- dividers and line breaks (two trailing spaces), with **bold**, *italic*, ~~strike~~, `code` and [links](https://… or /path or mailto:…). Nothing else: no # headings, tables, images, raw HTML or <Block> tags (use page blocks for media and embeds)."
                   },
                   "buttonCaption": {
                     "type": "string",
@@ -586,7 +586,7 @@
                   },
                   "body": {
                     "type": "string",
-                    "description": "Markdown (CommonMark + GFM).",
+                    "description": "Markdown: paragraphs, headings (## to ####), - and 1. lists, > quotes, ``` code blocks, --- dividers and line breaks (two trailing spaces), with **bold**, *italic*, ~~strike~~, `code` and [links](https://… or /path or mailto:…). Nothing else: no # headings, tables, images, raw HTML or <Block> tags (use page blocks for media and embeds).",
                     "default": "FrontLit brings your website, content, customer support, and audience engagement into one connected front office."
                   },
                   "media": {
@@ -827,7 +827,7 @@
                   },
                   "text": {
                     "type": "string",
-                    "description": "Markdown (CommonMark + GFM).",
+                    "description": "Markdown: paragraphs, headings (## to ####), - and 1. lists, > quotes, ``` code blocks, --- dividers and line breaks (two trailing spaces), with **bold**, *italic*, ~~strike~~, `code` and [links](https://… or /path or mailto:…). Nothing else: no # headings, tables, images, raw HTML or <Block> tags (use page blocks for media and embeds).",
                     "default": "Write anything here — an announcement, a longer explanation, or a passage of prose that doesn't need a title or media."
                   },
                   "alignment": {
@@ -1075,7 +1075,7 @@
                   },
                   "description": {
                     "type": "string",
-                    "description": "Markdown (CommonMark + GFM)."
+                    "description": "Markdown: paragraphs, headings (## to ####), - and 1. lists, > quotes, ``` code blocks, --- dividers and line breaks (two trailing spaces), with **bold**, *italic*, ~~strike~~, `code` and [links](https://… or /path or mailto:…). Nothing else: no # headings, tables, images, raw HTML or <Block> tags (use page blocks for media and embeds)."
                   },
                   "headerAlignment": {
                     "type": "string",
@@ -1359,7 +1359,7 @@
                   },
                   "description": {
                     "type": "string",
-                    "description": "Markdown (CommonMark + GFM)."
+                    "description": "Markdown: paragraphs, headings (## to ####), - and 1. lists, > quotes, ``` code blocks, --- dividers and line breaks (two trailing spaces), with **bold**, *italic*, ~~strike~~, `code` and [links](https://… or /path or mailto:…). Nothing else: no # headings, tables, images, raw HTML or <Block> tags (use page blocks for media and embeds)."
                   },
                   "headerAlignment": {
                     "type": "string",
@@ -2230,7 +2230,7 @@
                   },
                   "description": {
                     "type": "string",
-                    "description": "Markdown (CommonMark + GFM)."
+                    "description": "Markdown: paragraphs, headings (## to ####), - and 1. lists, > quotes, ``` code blocks, --- dividers and line breaks (two trailing spaces), with **bold**, *italic*, ~~strike~~, `code` and [links](https://… or /path or mailto:…). Nothing else: no # headings, tables, images, raw HTML or <Block> tags (use page blocks for media and embeds)."
                   },
                   "headerAlignment": {
                     "type": "string",
@@ -2868,7 +2868,7 @@
                   },
                   "description": {
                     "type": "string",
-                    "description": "Markdown (CommonMark + GFM)."
+                    "description": "Markdown: paragraphs, headings (## to ####), - and 1. lists, > quotes, ``` code blocks, --- dividers and line breaks (two trailing spaces), with **bold**, *italic*, ~~strike~~, `code` and [links](https://… or /path or mailto:…). Nothing else: no # headings, tables, images, raw HTML or <Block> tags (use page blocks for media and embeds)."
                   },
                   "buttonCaption": {
                     "type": "string",
@@ -3134,7 +3134,7 @@
                   },
                   "description": {
                     "type": "string",
-                    "description": "Markdown (CommonMark + GFM)."
+                    "description": "Markdown: paragraphs, headings (## to ####), - and 1. lists, > quotes, ``` code blocks, --- dividers and line breaks (two trailing spaces), with **bold**, *italic*, ~~strike~~, `code` and [links](https://… or /path or mailto:…). Nothing else: no # headings, tables, images, raw HTML or <Block> tags (use page blocks for media and embeds)."
                   },
                   "buttonCaption": {
                     "type": "string",
@@ -3388,7 +3388,7 @@
                   },
                   "description": {
                     "type": "string",
-                    "description": "Markdown (CommonMark + GFM)."
+                    "description": "Markdown: paragraphs, headings (## to ####), - and 1. lists, > quotes, ``` code blocks, --- dividers and line breaks (two trailing spaces), with **bold**, *italic*, ~~strike~~, `code` and [links](https://… or /path or mailto:…). Nothing else: no # headings, tables, images, raw HTML or <Block> tags (use page blocks for media and embeds)."
                   },
                   "buttonCaption": {
                     "type": "string",

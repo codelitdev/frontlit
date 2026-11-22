@@ -73,7 +73,10 @@ A page file:
 - `layout` lists blocks top to bottom. A block's `settings` only needs what
   differs from the block's defaults; the JSON Schema documents every setting and
   its default.
-- Rich-text settings are Markdown (CommonMark + GFM).
+- Rich-text settings are Markdown with basic formatting only: paragraphs,
+  `##` to `####` headings, lists, quotes, code blocks, `---` dividers, bold,
+  italic, strikethrough, inline code and links. Tables, images, raw HTML and
+  `<Block>` tags are rejected; use page blocks for media and embeds.
 - Media is `{ "url", "alt" }`. The URL is an `https://` URL, or a path in the
   repository (no scheme), relative to the file or to the repository root when
   it starts with `/`; FrontLit uploads the image when it syncs. `http://` and
