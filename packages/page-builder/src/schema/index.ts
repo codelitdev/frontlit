@@ -11,5 +11,10 @@ export {
 } from "./blocks";
 export { exportKinds, fileKinds, fileMediaSchema, type FieldKinds } from "./fields";
 export { layoutToMarkdown } from "./markdown";
-export { PAGE_TEXT_FORMAT, pageTextProfile } from "./rich-text";
+export {
+  PAGE_TEXT_FORMAT,
+  pageTextProfile,
+  toPageText,
+  toPageTextSettings,
+} from "./rich-text";
 export { themeStyleSchema } from "./theme-style";

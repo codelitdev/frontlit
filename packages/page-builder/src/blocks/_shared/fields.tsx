@@ -4,7 +4,7 @@ import React, { useId } from "react";
 import { ImageIcon, Plus } from "lucide-react";
 import { ImageUploadDialog } from "@frontlit/media-uploader";
 import { Editor, emptyDoc } from "@frontlit/text-editor";
-import { pageTextProfile } from "../../schema/rich-text";
+import { pageTextProfile, toPageText } from "../../schema/rich-text";
 import { getMediaUrl, type Media } from "../../models/media";
 import type { HeadingLevel, ResponsiveTextSize, TitleSettings } from "../../models";
 import { cn } from "../../primitives/lib/utils";
@@ -111,7 +111,7 @@ export function RichTextField({
       <span className="font-medium text-foreground">{label}</span>
       <Editor
         profile={pageTextProfile}
-        initialContent={value ?? emptyDoc}
+        initialContent={value ? toPageText(value) : emptyDoc}
         onChange={onChange}
         debounceMs={150}
         showToolbar={showToolbar}

@@ -22,3 +22,51 @@ export const pageTextProfile = defineProfile({
 /** The format, for schema and tool descriptions read by people and agents. */
 export const PAGE_TEXT_FORMAT =
   "Markdown: paragraphs, headings (## to ####), - and 1. lists, > quotes, ``` code blocks, --- dividers and line breaks (two trailing spaces), with **bold**, *italic*, ~~strike~~, `code` and [links](https://… or /path or mailto:…). Nothing else: no # headings, tables, images, raw HTML or <Block> tags (use page blocks for media and embeds).";
+
+type Node = {
+  type?: string;
+  attrs?: Record<string, unknown>;
+  marks?: { type?: string }[];
+  content?: Node[];
+  [key: string]: unknown;
+};
+
+/**
+ * Drops what the page text profile doesn't hold (images, tables, text-editor
+ * blocks, underline and highlight) and moves headings into 2–4. For rich text
+ * saved before the profile: the builder opens it and the site renders it, and
+ * the builder's next save stores the cleaned text.
+ */
+export function toPageText<T>(doc: T): T {
+  const { nodeNames, marks, headingLevels } = pageTextProfile;
+  const [min, max] = [headingLevels[0], headingLevels[headingLevels.length - 1]];
+  const clean = (node: Node): Node | null => {
+    if (!node || typeof node !== "object" || !nodeNames.has(node.type ?? ""))
+      return null;
+    const next: Node = { ...node };
+    if (node.type === "heading" && typeof node.attrs?.level === "number")
+      next.attrs = {
+        ...node.attrs,
+        level: Math.min(max, Math.max(min, node.attrs.level)),
+      };
+    if (node.marks)
+      next.marks = node.marks.filter((mark) => marks.includes(mark.type as never));
+    if (Array.isArray(node.content))
+      next.content = node.content
+        .map(clean)
+        .filter((child): child is Node => child !== null);
+    return next;
+  };
+  if (!doc || typeof doc !== "object" || (doc as Node).type !== "doc") return doc;
+  return clean(doc as Node) as T;
+}
+
+/** `toPageText` on every rich-text value in block settings (any `{ type: "doc" }`). */
+export function toPageTextSettings<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(toPageTextSettings) as T;
+  if (!value || typeof value !== "object") return value;
+  if ((value as Node).type === "doc") return toPageText(value);
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, toPageTextSettings(item)]),
+  ) as T;
+}

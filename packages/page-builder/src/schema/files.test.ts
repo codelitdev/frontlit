@@ -13,6 +13,7 @@ import {
 } from "./files";
 import { formatJsonSchema, generateJsonSchemas } from "./json-schema";
 import { themeStyleSchema } from "./theme-style";
+import { toPageText } from "./rich-text";
 import { themes } from "../primitives/themes";
 
 function diagnosticsOf(fn: () => unknown) {
@@ -285,5 +286,43 @@ describe("JSON Schemas", () => {
       );
       expect(committed, file).toBe(formatJsonSchema(schema));
     }
+  });
+});
+
+describe("toPageText", () => {
+  it("cuts rich text saved before the page profile down to it", () => {
+    const text = (value: string) => ({ type: "text", text: value });
+    const legacy = {
+      type: "doc",
+      content: [
+        { type: "heading", attrs: { level: 1 }, content: [text("Title")] },
+        { type: "image", attrs: { src: "https://x.test/a.png" } },
+        {
+          type: "paragraph",
+          content: [
+            { ...text("hi"), marks: [{ type: "bold" }, { type: "highlight" }] },
+          ],
+        },
+        { type: "callout", attrs: { type: "info" }, content: [{ type: "paragraph" }] },
+      ],
+    };
+    const cleaned = toPageText(legacy);
+    expect(cleaned).toEqual({
+      type: "doc",
+      content: [
+        { type: "heading", attrs: { level: 2 }, content: [text("Title")] },
+        { type: "paragraph", content: [{ ...text("hi"), marks: [{ type: "bold" }] }] },
+      ],
+    });
+    expect(() =>
+      canonicalizeLayout([
+        {
+          widgetId: "w1",
+          name: "rich-text",
+          deletable: true,
+          settings: { text: cleaned },
+        },
+      ]),
+    ).not.toThrow();
   });
 });
