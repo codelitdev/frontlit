@@ -30,7 +30,6 @@ export function EmailFormEditor({
           label="Description"
           value={settings.description}
           onChange={(description) => update({ description })}
-          showToolbar={false}
           minHeight={80}
         />
       </FieldGroup>

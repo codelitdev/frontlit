@@ -97,13 +97,11 @@ export function RichTextField({
   label,
   value,
   onChange,
-  showToolbar = true,
   minHeight = 80,
 }: {
   label: string;
   value?: any;
   onChange: (value: any) => void;
-  showToolbar?: boolean;
   minHeight?: 80 | 100 | 160;
 }) {
   return (
@@ -114,7 +112,8 @@ export function RichTextField({
         initialContent={value ? toPageText(value) : emptyDoc}
         onChange={onChange}
         debounceMs={150}
-        showToolbar={showToolbar}
+        // Formatting comes from the selection menu, "/" and Markdown shortcuts.
+        showToolbar={false}
         editorClassName={RICH_TEXT_MIN_HEIGHT[minHeight]}
       />
     </div>
