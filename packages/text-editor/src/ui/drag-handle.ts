@@ -9,6 +9,7 @@ import {
 } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { focusTableBar } from "./table-bar";
+import { focusSelectionMenu, hideSelectionMenu } from "./selection-menu";
 
 export const dragHandleKey = new PluginKey("dragHandle");
 
@@ -109,8 +110,9 @@ export function blockControlFor(dom: Node | null): HTMLElement | null {
 /**
  * Keyboard access to blocks. Mod-Shift-↑/↓ moves the block at the cursor
  * (the keyboard way to do what the drag handle does); Alt-F10 moves focus to
- * the current block's controls (label, settings, remove), and Escape there
- * returns to its text (see `BlockFrame`).
+ * the selection's formatting menu or the current block's controls (label,
+ * settings, remove), and Escape there returns to its text (see `BlockFrame`).
+ * Escape in the text hides the formatting menu.
  */
 export const BlockKeyboard = Extension.create({
   name: "blockKeyboard",
@@ -124,8 +126,11 @@ export const BlockKeyboard = Extension.create({
     return {
       "Mod-Shift-ArrowUp": move(-1),
       "Mod-Shift-ArrowDown": move(1),
+      Escape: () => hideSelectionMenu(this.editor),
       "Alt-F10": () => {
-        // In a table, its bar (insert and delete rows and columns) comes first.
+        // Selected text: its formatting menu. In a table, its bar (insert and
+        // delete rows and columns) comes before the block's controls.
+        if (focusSelectionMenu(this.editor)) return true;
         if (focusTableBar(this.editor)) return true;
         const { view, state } = this.editor;
         const dom =
