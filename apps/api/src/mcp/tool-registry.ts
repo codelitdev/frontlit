@@ -11,6 +11,7 @@ import type { FrontLitMcpAuthExtra } from "./auth-context";
 import {
   authorizeMcpTool,
   getMcpToolPolicy,
+  OPEN_WORLD_MCP_TOOLS,
   UNTRUSTED_CONTENT_MCP_TOOLS,
   UNTRUSTED_CONTENT_NOTE,
   type McpToolName,
@@ -23,7 +24,8 @@ export type McpToolConfig = {
   description?: string;
   inputSchema?: ZodRawShape;
   outputSchema: ZodTypeAny | ZodRawShape;
-  annotations?: ToolAnnotations;
+  /** `openWorldHint` comes from `OPEN_WORLD_MCP_TOOLS`, not from each tool. */
+  annotations?: Omit<ToolAnnotations, "openWorldHint">;
 };
 
 export type McpToolHandler = (
@@ -168,7 +170,10 @@ export function createMcpToolRegistrar(server: McpServer): McpToolRegistrar {
             ? `${config.description ?? ""} ${UNTRUSTED_CONTENT_NOTE}`.trim()
             : config.description,
           ...schemas,
-          annotations: config.annotations,
+          annotations: {
+            ...config.annotations,
+            openWorldHint: OPEN_WORLD_MCP_TOOLS.has(name),
+          },
         },
         async (rawArgs, rawCtx) => {
           const startedAt = performance.now();

@@ -4,6 +4,9 @@ import swaggerUi from "swagger-ui-express";
 import { toNodeHandler } from "better-auth/node";
 import { logger, observability } from "./services/log";
 import { auth } from "./auth/better-auth";
+import { CLIENT_IP_HEADER } from "./auth/cookie-options";
+import { trustProxySetting } from "./auth/trust-proxy";
+import { createClientIpMiddleware } from "@codelitdev/oauth-server-kit/express";
 import oauthPagesRoutes from "./auth/oauth-pages";
 import sessionReverifyRoutes from "./auth/session-reverify";
 import mcpRoutes from "./mcp/routes";
@@ -42,7 +45,10 @@ import { openApiDocument } from "./openapi";
 export function createApp() {
   const app = express();
 
-  app.set("trust proxy", process.env.ENABLE_TRUST_PROXY === "true" ? 1 : false);
+  app.set("trust proxy", trustProxySetting(process.env));
+  // Better Auth's rate limits and session IPs read the client address from
+  // this header only, never from X-Forwarded-For.
+  app.use(createClientIpMiddleware({ header: CLIENT_IP_HEADER }));
 
   app.use((req, res, next) => {
     const reqId = readOrCreateRequestId(

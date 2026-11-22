@@ -120,6 +120,12 @@ PLATFORM_SITE_DOMAIN=example.com
 ENABLE_TRUST_PROXY=true
 ```
 
+`ENABLE_TRUST_PROXY=true` trusts one reverse-proxy hop for the client address.
+If there is more than one hop, or you want to name the proxies, set
+`TRUST_PROXY` instead: a hop count, `true`, `false`, or addresses and subnets
+such as `loopback, 10.0.0.0/8`. When it is set, it takes precedence over
+`ENABLE_TRUST_PROXY`.
+
 Better Auth rejects HTTP login URLs in production mode. Keep the root `.env`
 out of version control and use unique, high-entropy secrets for every
 deployment.

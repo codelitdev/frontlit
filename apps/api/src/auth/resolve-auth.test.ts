@@ -48,6 +48,7 @@ const sessionIdentity = {
   email: "owner@example.com",
   name: "Owner",
   scopes: [] as [],
+  authenticatedAt: new Date("2026-01-01T00:00:00Z"),
 };
 
 function dependencies(overrides: Partial<AuthDependencies> = {}): AuthDependencies {

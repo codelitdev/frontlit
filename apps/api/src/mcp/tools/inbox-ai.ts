@@ -30,7 +30,6 @@ export function registerInboxAiTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
-        openWorldHint: false,
       },
     },
     async (_args: any, extra: any) => {
@@ -68,7 +67,6 @@ export function registerInboxAiTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
