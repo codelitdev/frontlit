@@ -146,7 +146,6 @@ export function registerDocumentTools(
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -176,7 +175,6 @@ export function registerDocumentTools(
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -206,7 +204,6 @@ export function registerDocumentTools(
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -248,7 +245,6 @@ export function registerDocumentTools(
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -283,7 +279,6 @@ export function registerDocumentTools(
         readOnlyHint: false,
         destructiveHint: false,
         idempotentHint: true,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -328,7 +323,6 @@ export function registerDocumentTools(
         readOnlyHint: false,
         destructiveHint: true,
         idempotentHint: true,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -369,7 +363,6 @@ export function registerDocumentTools(
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {

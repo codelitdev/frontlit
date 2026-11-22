@@ -127,6 +127,9 @@ describe("session freshness", () => {
     expect(
       sessionTokenFromCookieHeader("__Secure-frontlit.session_token=tok.sig"),
     ).toBe("tok");
+    expect(sessionTokenFromCookieHeader("__Host-frontlit.session_token=host.sig")).toBe(
+      "host",
+    );
   });
 });
 
@@ -169,6 +172,7 @@ describe("resolveAuth sessionAuthenticatedAt on the production path", () => {
             email: "live@example.com",
             name: "Owner",
             scopes: [],
+            authenticatedAt: new Date(),
           },
         }),
         authenticateBearer: async () => null,

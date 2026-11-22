@@ -24,7 +24,6 @@ export function registerThemeTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
-        openWorldHint: false,
       },
     },
     async (extra: any) => {
@@ -49,7 +48,6 @@ export function registerThemeTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -81,7 +79,6 @@ export function registerThemeTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -107,7 +104,6 @@ export function registerThemeTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {

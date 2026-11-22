@@ -291,12 +291,6 @@ export function registerDocumentationGitHubTools(server: McpToolRegistrar) {
         outputSchema: z.union([command.output, documentationGitErrorSchema]),
         annotations: {
           readOnlyHint: "read" in command && command.read,
-          openWorldHint:
-            command.name !== "get_documentation_github" &&
-            command.name !== "get_documentation_github_proposal" &&
-            command.name !== "list_documentation_github_proposals" &&
-            command.name !== "get_documentation_github_check" &&
-            command.name !== "list_documentation_github_checks",
         },
       },
       async (args: any, extra: any) => {

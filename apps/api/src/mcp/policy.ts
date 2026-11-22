@@ -243,6 +243,46 @@ export const HIGH_IMPACT_MCP_TOOLS = new Set<McpToolName>([
   "remove_redirect_domain",
 ]);
 
+/**
+ * Tools that reach outside the team's own FrontLit workspace: they email real
+ * people, directly or as a side effect, or call GitHub live. The registry
+ * advertises `openWorldHint: true` for these and `false` for every other tool.
+ *
+ * Contacts, segments, broadcast drafts and ESP settings live in the team's
+ * provisioned SendLit team, which is still the team's own data. FrontLit only
+ * creates broadcast sequences there, so adding a contact or tag cannot start
+ * an automation that emails anyone. If FrontLit ever exposes drip sequences
+ * or rules, `create_contact` and `add_contact_tag` belong in this set.
+ * Team invitations email people too, but are not exposed over MCP.
+ */
+export const OPEN_WORLD_MCP_TOOLS = new Set<McpToolName>([
+  // Email to real people.
+  "send_broadcast",
+  "test_esp_config",
+  // Emails the requester a fresh magic link.
+  "reply_to_ticket",
+  // Emails the requester a receipt, and may start an Inbox AI auto-reply.
+  "create_ticket",
+  // Live GitHub calls: reading repositories and access, opening PRs,
+  // syncing, and changing the GitHub App connection.
+  "start_documentation_github_setup",
+  "list_documentation_github_repositories",
+  "validate_documentation_github_source",
+  "connect_documentation_github",
+  "sync_documentation_github",
+  "pause_documentation_github",
+  "resume_documentation_github",
+  "disconnect_documentation_github",
+  "grant_documentation_github_capabilities",
+  "submit_documentation_github_proposal",
+  "plan_documentation_git_migration",
+  "create_documentation_git_migration_pr",
+  "get_documentation_git_migration",
+  "verify_documentation_git_migration",
+  "activate_documentation_git_migration",
+  "cancel_documentation_git_migration",
+]);
+
 export type McpHumanRequirement =
   | { kind: "permission"; permission: TeamPermission }
   | { kind: "owner" }

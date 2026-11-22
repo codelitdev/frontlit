@@ -35,7 +35,6 @@ export function registerDomainTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
-        openWorldHint: false,
       },
     },
     async (_args: any, extra: any) => {
@@ -62,7 +61,6 @@ export function registerDomainTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -98,7 +96,6 @@ export function registerDomainTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -124,7 +121,6 @@ export function registerDomainTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -150,7 +146,6 @@ export function registerDomainTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -178,7 +173,6 @@ export function registerDomainTools(server: McpToolRegistrar): void {
         readOnlyHint: false,
         destructiveHint: false,
         idempotentHint: true,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -206,7 +200,6 @@ export function registerDomainTools(server: McpToolRegistrar): void {
         readOnlyHint: false,
         destructiveHint: false,
         idempotentHint: true,
-        openWorldHint: false,
       },
     },
     async (_args: any, extra: any) => {
@@ -233,7 +226,6 @@ export function registerDomainTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
-        openWorldHint: false,
       },
     },
     async (_args: any, extra: any) => {
@@ -269,7 +261,6 @@ export function registerDomainTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -304,7 +295,6 @@ export function registerDomainTools(server: McpToolRegistrar): void {
         readOnlyHint: false,
         destructiveHint: false,
         idempotentHint: true,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -335,7 +325,6 @@ export function registerDomainTools(server: McpToolRegistrar): void {
         readOnlyHint: false,
         destructiveHint: false,
         idempotentHint: true,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -359,7 +348,7 @@ export function registerDomainTools(server: McpToolRegistrar): void {
         "Removes a redirect domain from the current team. Its links stop redirecting.",
       inputSchema: { hostname: z.string().min(1) },
       outputSchema: domainSettingsSchema,
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: true },
     },
     async (args: any, extra: any) => {
       const teamId = getTeamId(extra);

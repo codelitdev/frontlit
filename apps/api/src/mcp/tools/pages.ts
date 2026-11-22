@@ -44,7 +44,6 @@ export function registerPageTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -74,7 +73,6 @@ export function registerPageTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -101,7 +99,6 @@ export function registerPageTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -133,7 +130,6 @@ export function registerPageTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -166,7 +162,6 @@ export function registerPageTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -197,7 +192,6 @@ export function registerPageTools(server: McpToolRegistrar): void {
         readOnlyHint: false,
         destructiveHint: false,
         idempotentHint: true,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -225,7 +219,6 @@ export function registerPageTools(server: McpToolRegistrar): void {
         readOnlyHint: false,
         destructiveHint: true,
         idempotentHint: true,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
