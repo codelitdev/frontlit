@@ -3,7 +3,7 @@ import clsx from "clsx";
 import type { ThemeStyle, WidgetProps } from "../../models";
 import type { SupportFormSettings } from "./settings";
 import { renderTitle, titleProps } from "../_shared/title";
-import { TextRenderer } from "../../components/text-renderer";
+import { PageText } from "../../components/page-text";
 import { Header1, Section, Subheader1 } from "../../primitives";
 import { SupportForm } from "./form";
 
@@ -45,7 +45,7 @@ export function SupportFormWidget({
         </Header1>
         {description && (
           <Subheader1 theme={overriddenTheme} component="span">
-            <TextRenderer json={description} theme={overriddenTheme} />
+            <PageText json={description} theme={overriddenTheme} />
           </Subheader1>
         )}
       </div>

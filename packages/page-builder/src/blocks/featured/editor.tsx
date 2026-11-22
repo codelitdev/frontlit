@@ -37,7 +37,6 @@ export function FeaturedEditor({
           label="Description"
           value={settings.description}
           onChange={(description) => update({ description })}
-          showToolbar={false}
           minHeight={80}
         />
         <SelectField

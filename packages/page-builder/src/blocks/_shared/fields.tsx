@@ -4,6 +4,7 @@ import React, { useId } from "react";
 import { ImageIcon, Plus } from "lucide-react";
 import { ImageUploadDialog } from "@frontlit/media-uploader";
 import { Editor, emptyDoc } from "@frontlit/text-editor";
+import { pageTextProfile, toPageText } from "../../schema/rich-text";
 import { getMediaUrl, type Media } from "../../models/media";
 import type { HeadingLevel, ResponsiveTextSize, TitleSettings } from "../../models";
 import { cn } from "../../primitives/lib/utils";
@@ -96,24 +97,23 @@ export function RichTextField({
   label,
   value,
   onChange,
-  showToolbar = true,
   minHeight = 80,
 }: {
   label: string;
   value?: any;
   onChange: (value: any) => void;
-  showToolbar?: boolean;
   minHeight?: 80 | 100 | 160;
 }) {
   return (
     <div className="flex flex-col gap-1 text-sm">
       <span className="font-medium text-foreground">{label}</span>
       <Editor
-        profile="documentation"
-        initialContent={value ?? emptyDoc}
+        profile={pageTextProfile}
+        initialContent={value ? toPageText(value) : emptyDoc}
         onChange={onChange}
         debounceMs={150}
-        showToolbar={showToolbar}
+        // Formatting comes from the selection menu, "/" and Markdown shortcuts.
+        showToolbar={false}
         editorClassName={RICH_TEXT_MIN_HEIGHT[minHeight]}
       />
     </div>

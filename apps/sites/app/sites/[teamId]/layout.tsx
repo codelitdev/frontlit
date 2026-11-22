@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { preload } from "react-dom";
 import { BUILD_TEAM_ID, getSettings } from "@/lib/api";
 import { themeFontPreloads } from "@/lib/font-css";
 import { loadSiteTheme } from "@/lib/load-site-theme";
@@ -51,11 +50,25 @@ export default async function TenantLayout({
   const { teamId } = await params;
   const siteTheme = await loadSiteTheme(teamId);
 
-  // Only the fonts the active theme paints with are preloaded.
+  // Only the fonts the active theme paints with are preloaded. Rendered as
+  // tags, not `preload()` from react-dom: the root layout's <head> has gone
+  // out before this layout runs, and a late `preload()` only reaches the RSC
+  // payload, which the browser acts on after the scripts run. A `<link>` is
+  // hoisted into the head or, failing that, written into the HTML stream.
   const { theme } = resolveSiteTheme(siteTheme.themeId, siteTheme.themeStyle);
-  for (const href of themeFontPreloads(theme)) {
-    preload(href, { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
-  }
-
-  return children;
+  return (
+    <>
+      {themeFontPreloads(theme).map((href) => (
+        <link
+          key={href}
+          rel="preload"
+          href={href}
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+      ))}
+      {children}
+    </>
+  );
 }

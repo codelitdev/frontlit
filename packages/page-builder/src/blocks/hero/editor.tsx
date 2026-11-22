@@ -34,7 +34,6 @@ export function HeroEditor({ settings, onChange }: WidgetEditorProps<HeroSetting
           label="Description"
           value={settings.description}
           onChange={(description) => update({ description })}
-          showToolbar={false}
           minHeight={100}
         />
       </FieldGroup>

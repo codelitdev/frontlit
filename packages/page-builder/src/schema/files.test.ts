@@ -13,6 +13,7 @@ import {
 } from "./files";
 import { formatJsonSchema, generateJsonSchemas } from "./json-schema";
 import { themeStyleSchema } from "./theme-style";
+import { toPageText } from "./rich-text";
 import { themes } from "../primitives/themes";
 
 function diagnosticsOf(fn: () => unknown) {
@@ -145,6 +146,47 @@ describe("page files", () => {
     );
     expect(diagnostic.path).toBe("/layout/0/settings/text");
   });
+
+  it("keeps rich text to basic formatting", () => {
+    const text = (value: string) =>
+      parsePageFile({ layout: [{ name: "rich-text", settings: { text: value } }] })
+        .layout[0].settings!.text;
+    expect(
+      text(
+        "## Plans\n\n- **One**\n\n> Quote\n\n```ts\nconst a = 1;\n```\n\n---\n\n[x](/a)",
+      ),
+    ).toMatchObject({ type: "doc" });
+    for (const markdown of [
+      "# Title",
+      "| a |\n| - |\n| b |",
+      "![alt](https://x.test/a.png)",
+      '<Callout type="info">\n\nHi\n\n</Callout>',
+      '<Tabs>\n<Tab title="A">\n\nA\n\n</Tab>\n</Tabs>',
+    ]) {
+      const [diagnostic] = diagnosticsOf(() => text(markdown));
+      expect(diagnostic.path, markdown).toBe("/layout/0/settings/text");
+    }
+  });
+
+  it("rejects stored rich text outside basic formatting", () => {
+    for (const node of [
+      { type: "image", attrs: { src: "https://x.test/a.png" } },
+      { type: "callout", attrs: { type: "info" }, content: [{ type: "paragraph" }] },
+      { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "T" }] },
+    ]) {
+      const diagnostics = diagnosticsOf(() =>
+        canonicalizeLayout([
+          {
+            widgetId: "w1",
+            name: "rich-text",
+            deletable: true,
+            settings: { text: { type: "doc", content: [node] } },
+          },
+        ]),
+      );
+      expect(diagnostics[0]?.path, node.type).toContain("/settings/text");
+    }
+  });
 });
 
 describe("canonicalizeLayout", () => {
@@ -244,5 +286,43 @@ describe("JSON Schemas", () => {
       );
       expect(committed, file).toBe(formatJsonSchema(schema));
     }
+  });
+});
+
+describe("toPageText", () => {
+  it("cuts rich text saved before the page profile down to it", () => {
+    const text = (value: string) => ({ type: "text", text: value });
+    const legacy = {
+      type: "doc",
+      content: [
+        { type: "heading", attrs: { level: 1 }, content: [text("Title")] },
+        { type: "image", attrs: { src: "https://x.test/a.png" } },
+        {
+          type: "paragraph",
+          content: [
+            { ...text("hi"), marks: [{ type: "bold" }, { type: "highlight" }] },
+          ],
+        },
+        { type: "callout", attrs: { type: "info" }, content: [{ type: "paragraph" }] },
+      ],
+    };
+    const cleaned = toPageText(legacy);
+    expect(cleaned).toEqual({
+      type: "doc",
+      content: [
+        { type: "heading", attrs: { level: 2 }, content: [text("Title")] },
+        { type: "paragraph", content: [{ ...text("hi"), marks: [{ type: "bold" }] }] },
+      ],
+    });
+    expect(() =>
+      canonicalizeLayout([
+        {
+          widgetId: "w1",
+          name: "rich-text",
+          deletable: true,
+          settings: { text: cleaned },
+        },
+      ]),
+    ).not.toThrow();
   });
 });

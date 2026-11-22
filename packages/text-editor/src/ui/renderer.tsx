@@ -243,6 +243,10 @@ export function ContentRenderer({
           const classes = cn(
             "font-medium cursor-pointer",
             ...typographyClasses(theme?.typography?.link),
+            // A link inside text is underlined whatever the theme's link style
+            // (often `no-underline`, made for navigation): weight or colour
+            // alone doesn't mark it as a link (WCAG 1.4.1).
+            "underline underline-offset-4",
             linkStyle?.padding?.x,
             linkStyle?.padding?.y,
             linkStyle?.border?.width,

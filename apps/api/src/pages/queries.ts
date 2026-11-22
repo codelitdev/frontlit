@@ -48,9 +48,15 @@ export function derivePageStatus(
   entry: ReleaseEntry | null,
 ): PageStatus {
   if (!entry) return "draft";
-  return pageRevisionFile(draftDocument(page)).hash === entry.revision.hash
-    ? "published"
-    : "published_with_changes";
+  try {
+    return pageRevisionFile(draftDocument(page)).hash === entry.revision.hash
+      ? "published"
+      : "published_with_changes";
+  } catch {
+    // A draft saved before a schema change no longer validates; it can't
+    // equal a release, and the page must still open so it can be fixed.
+    return "published_with_changes";
+  }
 }
 
 async function getRawPageByPageId(pageId: string) {

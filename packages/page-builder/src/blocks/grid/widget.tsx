@@ -9,7 +9,7 @@ import type { GridItem, GridSettings } from "./settings";
 import { itemHeadingLevel, renderTitle, titleProps } from "../_shared/title";
 import { Image } from "../../components/image";
 import { NavLink } from "../../components/nav-link";
-import { TextRenderer } from "../../components/text-renderer";
+import { PageText } from "../../components/page-text";
 import {
   Button,
   Header1,
@@ -158,7 +158,7 @@ export function GridWidget({
           </Header1>
           {description && (
             <Subheader1 theme={overriddenTheme} component="span">
-              <TextRenderer json={description} theme={overriddenTheme} />
+              <PageText json={description} theme={overriddenTheme} />
             </Subheader1>
           )}
           {buttonAction && buttonCaption && (

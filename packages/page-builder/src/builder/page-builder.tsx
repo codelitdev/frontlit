@@ -23,6 +23,7 @@ import { SettingsPanel } from "./settings-panel";
 import { BlockSettings } from "./block-settings";
 import { ThemeEditor } from "./theme-editor";
 import { SeoEditor } from "./seo-editor";
+import { toPageTextSettings } from "../schema/rich-text";
 
 export interface PageBuilderState {
   layout: WidgetInstance[];
@@ -86,7 +87,16 @@ export function PageBuilder({
 }: PageBuilderProps) {
   const [layout, setLayout] = useState<WidgetInstance[]>(() =>
     initialLayout
-      ? ensureRequiredSharedWidgets(withDefaultSettings(initialLayout))
+      ? // Rich text saved before the page text profile is cut down to it, so
+        // the builder's first save stores a layout that validates.
+        ensureRequiredSharedWidgets(
+          withDefaultSettings(
+            initialLayout.map((block) => ({
+              ...block,
+              settings: toPageTextSettings(block.settings),
+            })),
+          ),
+        )
       : createDefaultLayout(),
   );
   const [theme, setTheme] = useState<Theme>(() => initialTheme ?? getDefaultTheme());

@@ -20,6 +20,7 @@ import {
 } from "./responses";
 import { getTeamId } from "./auth";
 import { omitInternal, serializeDates } from "../../utils/public";
+import { PAGE_TEXT_FORMAT } from "@frontlit/page-builder/schema";
 import { InvalidPageLayoutError } from "../../pages/shared-widgets";
 import { PageOwnedByGitError } from "../../pages/git-pr";
 
@@ -119,8 +120,7 @@ export function registerPageTools(server: McpToolRegistrar): void {
   server.registerTool(
     "update_page",
     {
-      description:
-        "Updates a page's metadata (name, SEO) and/or its block layout. Writes only the page's draft state — call publish_page to make changes live. Block settings are validated against the block schemas (https://frontlit.app/schema/page.v1.json describes them; rich text there is Markdown, here TipTap JSON) and stored in canonical form, with settings equal to a block default omitted.",
+      description: `Updates a page's metadata (name, SEO) and/or its block layout. Writes only the page's draft state — call publish_page to make changes live. Block settings are validated against the block schemas (https://frontlit.app/schema/page.v1.json describes them; rich text there is Markdown, here TipTap JSON) and stored in canonical form, with settings equal to a block default omitted. Rich text holds only basic formatting; anything else is rejected. ${PAGE_TEXT_FORMAT}`,
       inputSchema: {
         pageId: z.string(),
         name: z.string().optional(),

@@ -4,6 +4,20 @@
 
 @source "../../../packages/page-builder/src";
 @source "../../../packages/text-editor/src";
+/* Editor-only UI: the site renders rich text, it never edits it. */
+@source not "../../../packages/text-editor/src/editor.tsx";
+@source not "../../../packages/text-editor/src/toolbar.tsx";
+@source not "../../../packages/text-editor/src/bubble-menu.tsx";
+@source not "../../../packages/text-editor/src/image-picker.tsx";
+@source not "../../../packages/text-editor/src/components/link-editor-popover.tsx";
+@source not "../../../packages/text-editor/src/components/docs-block-views.tsx";
+@source not "../../../packages/text-editor/src/ui/block-frame.tsx";
+@source not "../../../packages/text-editor/src/ui/library-ui.tsx";
+@source not "../../../packages/text-editor/src/ui/media-picker.tsx";
+@source not "../../../packages/text-editor/src/ui/slash-command.tsx";
+@source not "../../../packages/text-editor/src/ui/table-bar.tsx";
+@source not "../../../packages/text-editor/src/ui/insert-items.ts";
+@source not "../../../packages/text-editor/src/ui/editor-extensions.tsx";
 
 @layer base {
   * {
