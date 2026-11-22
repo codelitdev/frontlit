@@ -61,7 +61,7 @@ export function hideSelectionMenu(editor: Editor): boolean {
   return shown;
 }
 
-/** Alt-F10 with text selected: shows the selection menu now and focuses its first button. */
+/** Alt-F10 (or Mod-Shift-Space) with text selected: shows the selection menu now and focuses its first button. */
 export function focusSelectionMenu(editor: Editor): boolean {
   if (!hasSelectedText(editor)) return false;
   if (!shownMenu(editor)) {

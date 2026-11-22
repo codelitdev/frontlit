@@ -109,7 +109,9 @@ export function blockControlFor(dom: Node | null): HTMLElement | null {
 
 /**
  * Keyboard access to blocks. Mod-Shift-↑/↓ moves the block at the cursor
- * (the keyboard way to do what the drag handle does); Alt-F10 moves focus to
+ * (the keyboard way to do what the drag handle does); Alt-F10, or
+ * Mod-Shift-Space where an F-key is hard to press (laptop F-rows, GPU
+ * overlays that take Alt-F10), moves focus to
  * the selection's formatting menu or the current block's controls (label,
  * settings, remove), and Escape there returns to its text (see `BlockFrame`).
  * Escape in the text hides the formatting menu.
@@ -123,25 +125,27 @@ export const BlockKeyboard = Extension.create({
       this.editor.view.dispatch(tr);
       return true;
     };
+    const focusControls = () => {
+      // Selected text: its formatting menu. In a table, its bar (insert and
+      // delete rows and columns) comes before the block's controls.
+      if (focusSelectionMenu(this.editor)) return true;
+      if (focusTableBar(this.editor)) return true;
+      const { view, state } = this.editor;
+      const dom =
+        state.selection instanceof NodeSelection
+          ? view.nodeDOM(state.selection.from)
+          : view.domAtPos(state.selection.from).node;
+      const control = blockControlFor(dom);
+      if (!control) return false;
+      control.focus();
+      return true;
+    };
     return {
       "Mod-Shift-ArrowUp": move(-1),
       "Mod-Shift-ArrowDown": move(1),
       Escape: () => hideSelectionMenu(this.editor),
-      "Alt-F10": () => {
-        // Selected text: its formatting menu. In a table, its bar (insert and
-        // delete rows and columns) comes before the block's controls.
-        if (focusSelectionMenu(this.editor)) return true;
-        if (focusTableBar(this.editor)) return true;
-        const { view, state } = this.editor;
-        const dom =
-          state.selection instanceof NodeSelection
-            ? view.nodeDOM(state.selection.from)
-            : view.domAtPos(state.selection.from).node;
-        const control = blockControlFor(dom);
-        if (!control) return false;
-        control.focus();
-        return true;
-      },
+      "Alt-F10": focusControls,
+      "Mod-Shift-Space": focusControls,
     };
   },
 });
