@@ -10,7 +10,11 @@ export {
   type BlockName,
 } from "./blocks";
 export { exportKinds, fileKinds, fileMediaSchema, type FieldKinds } from "./fields";
-export { layoutToMarkdown } from "./markdown";
+export {
+  type BlockMarkdown,
+  type LayoutMarkdownOptions,
+  layoutToMarkdown,
+} from "./markdown";
 export {
   PAGE_TEXT_FORMAT,
   pageTextProfile,

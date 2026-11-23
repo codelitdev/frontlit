@@ -118,20 +118,40 @@ function blockMarkdown(name: string, s: Settings): string[] {
   }
 }
 
+/** Markdown for one block of an app's own type: its stored settings in,
+ * paragraphs out (empty strings are dropped). Throwing skips the block. */
+export type BlockMarkdown = (settings: Settings) => string | string[];
+
+export interface LayoutMarkdownOptions {
+  /** Renders the data slot block (e.g. FrontLit's content feed) where the
+   * page places it. */
+  slot?: () => string;
+  /** Markdown for block types the page builder doesn't know, keyed by block
+   * name, e.g. an app's own course curriculum block. An entry for a
+   * built-in block replaces its Markdown. */
+  blocks?: Record<string, BlockMarkdown>;
+}
+
 /**
  * A published page layout as Markdown, for agents (`Accept: text/markdown`
  * and `<path>.md`): headings, text, buttons as links and cards as lists.
- * `slot` renders FrontLit's content feed (the blog, docs or changelog list)
- * where the page places it. Blocks that fail to read are skipped.
+ * Blocks with no Markdown, or that fail to read, are skipped.
  */
 export function layoutToMarkdown(
   layout: StoredBlock[],
-  slot: () => string = () => "",
+  { slot = () => "", blocks = {} }: LayoutMarkdownOptions = {},
 ): string {
   const parts: string[] = [];
   for (const block of layout) {
     if (block.name === DATA_SLOT_BLOCK) {
       parts.push(slot());
+      continue;
+    }
+    const custom = Object.hasOwn(blocks, block.name) ? blocks[block.name] : undefined;
+    if (custom) {
+      try {
+        parts.push(...[custom((block.settings ?? {}) as Settings)].flat());
+      } catch {}
       continue;
     }
     if (SKIPPED.has(block.name)) continue;
@@ -146,5 +166,5 @@ export function layoutToMarkdown(
     }
     parts.push(...blockMarkdown(block.name, settings));
   }
-  return parts.filter((part) => part.trim()).join("\n\n");
+  return parts.filter((part) => part?.trim()).join("\n\n");
 }

@@ -139,9 +139,11 @@ async function pageMarkdown(
   if (!page && !feed) return null;
   const feedMarkdown = feed ? await feed() : "";
   let placed = false;
-  const body = layoutToMarkdown(page?.layout ?? [], () => {
-    placed = true;
-    return feedMarkdown;
+  const body = layoutToMarkdown(page?.layout ?? [], {
+    slot: () => {
+      placed = true;
+      return feedMarkdown;
+    },
   });
   const settings = await getSettings(teamId);
   const title =
