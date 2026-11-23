@@ -12,8 +12,8 @@ export interface RssItem {
   pubDate: string | null;
 }
 
-/** RSS 2.0 feed for `/blog/rss.xml` and `/changelog/rss.xml` (architecture.md
- * §12.3), capped at the 50 newest by the caller. */
+/** An RSS 2.0 feed, e.g. a site's `/blog/rss.xml`. The caller picks and
+ * caps the items. */
 export function buildRssFeed(input: {
   title: string;
   description: string | null;

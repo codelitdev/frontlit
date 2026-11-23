@@ -1493,7 +1493,8 @@ flag and the proxy marks each request:
 **JSON-LD** — a small `JsonLd` server component renders
 `<script type="application/ld+json">` (serialized with `<` escaped to
 `\u003c` to prevent script injection from user-authored titles) from typed
-builder functions in `apps/sites/lib/json-ld.ts`:
+builder functions in `@frontlit/site-seo` (`packages/site-seo`, shared with
+the CourseLit storefront):
 
 | route     | schema.org type                  | fed by                                                                                |
 | --------- | -------------------------------- | ------------------------------------------------------------------------------------- |

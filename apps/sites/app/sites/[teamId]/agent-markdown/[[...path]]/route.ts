@@ -1,6 +1,6 @@
 import { getSettings } from "@/lib/api";
 import { notFoundMarkdown, renderMarkdown } from "@/lib/markdown";
-import { markdownUrl } from "@/lib/markdown-negotiation";
+import { markdownUrl } from "@frontlit/site-seo";
 
 /**
  * Markdown for AI agents. The proxy rewrites here for `Accept:

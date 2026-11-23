@@ -1,5 +1,5 @@
 import { getCanonicalHost, getSettings, listArticles } from "@/lib/api";
-import { buildRssFeed } from "@/lib/rss";
+import { buildRssFeed } from "@frontlit/site-seo";
 
 export async function GET(
   _request: Request,

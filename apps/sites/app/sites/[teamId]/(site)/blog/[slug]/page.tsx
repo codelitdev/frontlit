@@ -7,7 +7,7 @@ import {
   getSettings,
 } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
-import { blogPostingJsonLd, serializeJsonLd } from "@/lib/json-ld";
+import { blogPostingJsonLd, serializeJsonLd } from "@frontlit/site-seo";
 import { SiteChrome } from "@/components/site-chrome";
 import { ThemedBlogPost } from "@/components/themed-document";
 

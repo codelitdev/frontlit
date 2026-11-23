@@ -2,7 +2,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { getCanonicalHost, getPageBySlug, getSettings } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
-import { organizationAndWebsiteJsonLd, serializeJsonLd } from "@/lib/json-ld";
+import { organizationAndWebsiteJsonLd, serializeJsonLd } from "@frontlit/site-seo";
 import { API_PUBLIC_URL } from "@/lib/config";
 import { loadSiteTheme } from "@/lib/load-site-theme";
 import { SitePageRenderer } from "@/components/site-page-renderer";

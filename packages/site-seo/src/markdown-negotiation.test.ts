@@ -36,11 +36,14 @@ describe("markdown paths", () => {
   });
 
   it("negotiates pages only", () => {
-    expect(isNegotiablePath("/")).toBe(true);
-    expect(isNegotiablePath("/docs/intro")).toBe(true);
-    expect(isNegotiablePath("/sitemap.xml")).toBe(false);
-    expect(isNegotiablePath("/blog/rss.xml")).toBe(false);
-    expect(isNegotiablePath("/help/tickets/t_1")).toBe(false);
-    expect(isNegotiablePath("/embed/chat")).toBe(false);
+    const excluded = ["/embed", "/help/tickets"];
+    expect(isNegotiablePath("/", excluded)).toBe(true);
+    expect(isNegotiablePath("/docs/intro", excluded)).toBe(true);
+    expect(isNegotiablePath("/embedded", excluded)).toBe(true);
+    expect(isNegotiablePath("/sitemap.xml", excluded)).toBe(false);
+    expect(isNegotiablePath("/blog/rss.xml", excluded)).toBe(false);
+    expect(isNegotiablePath("/help/tickets/t_1", excluded)).toBe(false);
+    expect(isNegotiablePath("/embed", excluded)).toBe(false);
+    expect(isNegotiablePath("/embed/chat", excluded)).toBe(false);
   });
 });

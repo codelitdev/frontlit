@@ -18,6 +18,7 @@ COPY packages/api-contract ./packages/api-contract
 COPY packages/page-builder ./packages/page-builder
 COPY packages/text-editor ./packages/text-editor
 COPY packages/media-uploader ./packages/media-uploader
+COPY packages/site-seo ./packages/site-seo
 
 RUN bun install --frozen-lockfile
 
@@ -35,6 +36,7 @@ RUN bun run --filter @frontlit/api-contract build
 RUN bun run --filter @frontlit/text-editor build
 RUN bun run --filter @frontlit/media-uploader build
 RUN bun run --filter @frontlit/page-builder build
+RUN bun run --filter @frontlit/site-seo build
 RUN bun run --filter @frontlit/sites build
 
 # sharp (Next.js image optimization) is the one native module traced into the

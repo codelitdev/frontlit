@@ -1,8 +1,6 @@
-/** Typed builders for the `<script type="application/ld+json">` blocks
- * (architecture.md §12.3). Each returns a plain schema.org object; the
- * component that renders it is responsible for escaping `<` to `<`
- * before serializing, to prevent script injection from user-authored
- * titles. */
+/** Typed builders for `<script type="application/ld+json">` blocks. Each
+ * returns a plain schema.org object; serialize it with `serializeJsonLd`,
+ * which escapes `<` so user-authored titles can't inject a script. */
 
 export function organizationAndWebsiteJsonLd(input: {
   siteName: string;
