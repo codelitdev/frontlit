@@ -20,6 +20,7 @@ import {
   normalizeFeaturedImage,
   syncFeaturedImageToMediaLibrary,
 } from "../documents/queries";
+import { serializeSiteFile, type SiteDocument } from "@frontlit/page-builder/schema";
 import { getPagesGitBinding, pageGitInfo, PageOwnedByGitError } from "./git-pr";
 import {
   draftDocument,
@@ -132,6 +133,38 @@ export async function listPages(input: {
     orderBy: (row, { desc }) => desc(row.updatedAt),
   });
   return viewPages(input.teamId, items);
+}
+
+/** Every page matching `q` (no paging), plus whether the shared header/footer
+ * draft differs from the live release. Page status never includes chrome: a
+ * pending header/footer edit is reported once, here, not on every page. */
+export async function listAllPages(input: { teamId: string; q?: string }) {
+  const conditions = [eq(pages.teamId, input.teamId)];
+  if (input.q) conditions.push(ilike(pages.name, `%${input.q}%`));
+  const [rows, settings, release] = await Promise.all([
+    db.query.pages.findMany({
+      where: and(...conditions),
+      orderBy: (row, { desc }) => desc(row.updatedAt),
+    }),
+    getTeamSettings(input.teamId),
+    getActiveRelease(input.teamId),
+  ]);
+  const chrome = (header: unknown, footer: unknown) =>
+    serializeSiteFile({ header: header ?? {}, footer: footer ?? {} } as SiteDocument);
+  let sharedHeaderFooterHasUnpublishedChanges: boolean;
+  try {
+    sharedHeaderFooterHasUnpublishedChanges =
+      chrome(
+        settings.draftSharedWidgets.header.settings,
+        settings.draftSharedWidgets.footer.settings,
+      ) !== chrome(release?.site.header, release?.site.footer);
+  } catch {
+    sharedHeaderFooterHasUnpublishedChanges = true;
+  }
+  return {
+    items: rows.map((row) => toPageView(row, release, settings.draftSharedWidgets)),
+    sharedHeaderFooterHasUnpublishedChanges,
+  };
 }
 
 export async function countPages(input: { teamId: string; q?: string }) {
