@@ -10,7 +10,7 @@ import {
   getSettings,
 } from "@/lib/api";
 import { resolveSeo } from "@/lib/seo";
-import { serializeJsonLd, techArticleJsonLd } from "@/lib/json-ld";
+import { serializeJsonLd, techArticleJsonLd } from "@frontlit/site-seo";
 import { API_PUBLIC_URL } from "@/lib/config";
 import { SiteChrome } from "@/components/site-chrome";
 import { ThemedDocArticle } from "@/components/themed-docs";

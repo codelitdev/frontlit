@@ -1,6 +1,6 @@
 # Changesets
 
-Version and publish the public packages (`@frontlit/page-builder`, `@frontlit/text-editor`).
+Version and publish the public packages (`@frontlit/page-builder`, `@frontlit/text-editor`, `@frontlit/site-seo`, ...).
 
 1. On a PR that changes a public package, run `bun run changeset` and commit the file under `.changeset/`.
 2. Merge to `main`. CI opens a `chore: update versions` PR.

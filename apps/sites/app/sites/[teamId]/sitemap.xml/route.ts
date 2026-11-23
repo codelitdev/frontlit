@@ -1,5 +1,5 @@
 import { getSettings, getSitemap } from "@/lib/api";
-import { buildSitemapXml } from "@/lib/sitemap";
+import { buildSitemapXml } from "@frontlit/site-seo";
 
 export async function GET(
   _request: Request,

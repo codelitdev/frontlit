@@ -1,0 +1,54 @@
+{
+  "name": "@frontlit/site-seo",
+  "version": "0.0.0",
+  "description": "Framework-free robots.txt, sitemap, llms.txt, Markdown negotiation, JSON-LD and RSS builders for public sites",
+  "author": "FrontLit",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codelitdev/frontlit.git",
+    "directory": "packages/site-seo"
+  },
+  "bugs": {
+    "url": "https://github.com/codelitdev/frontlit/issues"
+  },
+  "keywords": [
+    "seo",
+    "robots.txt",
+    "llms.txt",
+    "sitemap",
+    "ai-search",
+    "frontlit"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.2",
+    "vitest": "^3.2.4"
+  }
+}

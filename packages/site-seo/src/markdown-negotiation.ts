@@ -1,10 +1,8 @@
 /**
- * When a request gets Markdown instead of HTML (see lib/markdown.ts). Kept
- * free of imports: the proxy runs it on every request.
+ * When a request gets Markdown instead of HTML: a `<path>.md` URL, or an
+ * `Accept` header that prefers `text/markdown`. Kept free of imports: a
+ * site's proxy runs it on every request.
  */
-
-/** Route segment, under `/sites/[teamId]`, of the Markdown handler. */
-export const MARKDOWN_ROUTE = "agent-markdown";
 
 /** True when the Accept header ranks Markdown at least as high as HTML.
  * Browsers never list `text/markdown`, so they keep getting HTML. */
@@ -25,11 +23,14 @@ export function prefersMarkdown(accept: string | null): boolean {
   return markdown > 0 && markdown >= html;
 }
 
-/** Paths whose response depends on Accept: pages, not files or private
- * routes. `.md` URLs, feeds and assets have one representation. */
-export function isNegotiablePath(pathname: string): boolean {
+/** Paths whose response depends on Accept: pages, not files (`.md` URLs,
+ * feeds, assets) or the site's own non-content routes, given as path
+ * prefixes such as `/embed`. */
+export function isNegotiablePath(pathname: string, excluded: string[] = []): boolean {
   if (/\.[a-z0-9]+$/i.test(pathname)) return false;
-  return !/^\/(_preview|embed|help\/tickets|opengraph-image)(\/|$)/.test(pathname);
+  return !excluded.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
 }
 
 /** `/docs/intro.md` → `/docs/intro`; `/index.md` → `/`. Null when the path

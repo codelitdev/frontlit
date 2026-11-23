@@ -4,10 +4,21 @@ import { decideHost, lookupHost, normalizeHost } from "./lib/host";
 import { edgeCacheHeaders } from "./lib/edge-cache";
 import {
   isNegotiablePath,
-  MARKDOWN_ROUTE,
   markdownSourcePath,
   prefersMarkdown,
-} from "./lib/markdown-negotiation";
+} from "@frontlit/site-seo";
+
+/** Route segment, under `/sites/[teamId]`, of the Markdown handler
+ * (lib/markdown.ts). */
+const MARKDOWN_ROUTE = "agent-markdown";
+
+/** Pages with no Markdown version: previews, widgets and private routes. */
+const NON_NEGOTIABLE_PATHS = [
+  "/_preview",
+  "/embed",
+  "/help/tickets",
+  "/opengraph-image",
+];
 
 export async function proxy(request: NextRequest) {
   // Direct access to the internal /sites rewrite segment is never allowed.
@@ -78,7 +89,7 @@ export async function proxy(request: NextRequest) {
   // Markdown for AI agents: `<path>.md`, or `Accept: text/markdown` on a
   // page URL (which then varies on Accept).
   const pathname = request.nextUrl.pathname;
-  const negotiable = isNegotiablePath(pathname);
+  const negotiable = isNegotiablePath(pathname, NON_NEGOTIABLE_PATHS);
   const mdPath = markdownSourcePath(pathname);
   const markdownByAccept = negotiable && prefersMarkdown(request.headers.get("accept"));
   if (mdPath !== null || markdownByAccept) {

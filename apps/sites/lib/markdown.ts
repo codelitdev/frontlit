@@ -1,5 +1,10 @@
 import { changelogDate, type ApiRichText } from "@frontlit/api-contract";
 import { layoutToMarkdown } from "@frontlit/page-builder/schema";
+import {
+  buildLlmsTxt as buildLlmsTxtFile,
+  markdownDocument as document,
+  markdownUrl,
+} from "@frontlit/site-seo";
 import { serializeDocsMarkdown } from "@frontlit/text-editor/docs";
 import {
   CHANGELOG_PAGE_SIZE,
@@ -15,12 +20,11 @@ import {
   type SitemapEntry,
 } from "./api";
 import { loadDocsTree } from "./docs-tree";
-import { markdownUrl } from "./markdown-negotiation";
 
 /**
  * Markdown versions of public pages for AI agents (`Accept: text/markdown`
  * or `<path>.md`), plus `/llms.txt`. The proxy decides when a request wants
- * Markdown (lib/markdown-negotiation.ts); everything here is keyed by path
+ * Markdown (`@frontlit/site-seo`'s negotiation helpers); everything here is keyed by path
  * alone, so it caches like HTML.
  */
 
@@ -64,10 +68,6 @@ function richText(value: ApiRichText | undefined): string {
 }
 
 const date = (value: string | null | undefined) => (value ? value.slice(0, 10) : "");
-
-function document(title: string, ...parts: (string | null | undefined)[]): string {
-  return `${[`# ${title}`, ...parts].filter((part) => part?.trim()).join("\n\n")}\n`;
-}
 
 export function notFoundMarkdown(path: string): string {
   return document(
@@ -266,34 +266,31 @@ export function buildLlmsTxt(
   hasOpenApi: boolean,
 ): string {
   const host = settings?.canonicalHost ?? "localhost";
-  const url = (path: string) => `https://${host}${markdownUrl(path)}`;
-  const line = (entry: SitemapEntry) =>
-    `- [${entry.title || entry.path}](${url(entry.path)})`;
   // A builder page at /changelog also comes back as the changelog entry;
   // list each path once.
   const seen = new Set<string>();
   const of = (kind: SitemapEntry["kind"]) =>
     entries
       .filter((e) => e.kind === kind && !seen.has(e.path) && seen.add(e.path))
-      .map(line);
-  const sections: [string, string[]][] = [
-    ["Pages", of("page")],
-    ["Docs", of("doc")],
-    ["Blog", of("blog")],
-    ["Changelog", of("changelog")],
+      .map((e) => ({
+        title: e.title || e.path,
+        url: `https://${host}${markdownUrl(e.path)}`,
+      }));
+  const sections = [
+    { title: "Pages", links: of("page") },
+    { title: "Docs", links: of("doc") },
+    { title: "Blog", links: of("blog") },
+    { title: "Changelog", links: of("changelog") },
   ];
   if (hasOpenApi)
-    sections.push(["API", [`- [OpenAPI spec](https://${host}/openapi.json)`]]);
-  return `${[
-    `# ${settings?.title || host}`,
-    settings?.subtitle ? `> ${settings.subtitle}` : "",
-    settings?.agentInstructions
-      ? `## Agent instructions\n\n${settings.agentInstructions}`
-      : "",
-    ...sections
-      .filter(([, lines]) => lines.length)
-      .map(([name, lines]) => `## ${name}\n\n${lines.join("\n")}`),
-  ]
-    .filter(Boolean)
-    .join("\n\n")}\n`;
+    sections.push({
+      title: "API",
+      links: [{ title: "OpenAPI spec", url: `https://${host}/openapi.json` }],
+    });
+  return buildLlmsTxtFile({
+    title: settings?.title || host,
+    summary: settings?.subtitle,
+    instructions: settings?.agentInstructions,
+    sections,
+  });
 }

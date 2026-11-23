@@ -1,7 +1,7 @@
 import { changelogDate, publicContentPath } from "@frontlit/api-contract";
 import { getCanonicalHost, getSettings, listProductUpdates } from "@/lib/api";
 import { plainTextSummary } from "@/lib/markdown";
-import { buildRssFeed } from "@/lib/rss";
+import { buildRssFeed } from "@frontlit/site-seo";
 
 export async function GET(
   _request: Request,

@@ -8,7 +8,7 @@ import {
   listProductUpdates,
 } from "@/lib/api";
 import { publicContentPath } from "@frontlit/api-contract";
-import { changelogJsonLd, serializeJsonLd } from "@/lib/json-ld";
+import { changelogJsonLd, serializeJsonLd } from "@frontlit/site-seo";
 import {
   ThemedArticleFeed,
   ThemedProductUpdatesFeed,

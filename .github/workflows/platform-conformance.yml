@@ -21,5 +21,6 @@ jobs:
                   bun run --filter @frontlit/text-editor build
                   bun run --filter @frontlit/media-uploader build
                   bun run --filter @frontlit/page-builder build
+                  bun run --filter @frontlit/site-seo build
             - run: bun run typecheck
             - run: bun --filter @frontlit/api test src/conformance.test.ts

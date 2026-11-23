@@ -22,6 +22,7 @@ jobs:
                   bun run --filter @frontlit/text-editor build
                   bun run --filter @frontlit/media-uploader build
                   bun run --filter @frontlit/page-builder build
+                  bun run --filter @frontlit/site-seo build
             - name: Running tests
               run: |
                   bun run test
