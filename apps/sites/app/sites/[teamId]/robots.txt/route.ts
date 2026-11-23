@@ -13,6 +13,7 @@ export async function GET(
     buildRobotsTxt({
       canonicalHost: settings?.canonicalHost ?? "localhost",
       hidden: !!settings?.hideFromSearch,
+      blockAiTraining: settings?.blockAiTraining ?? true,
       disallow: ["/embed/"],
     }),
     { headers: { "content-type": "text/plain; charset=utf-8" } },

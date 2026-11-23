@@ -26,7 +26,7 @@ import {
   removeCustomDomain,
   removeRedirectDomain,
   resolveHost,
-  setHideFromSearch,
+  setSearchVisibility,
   setPrimaryCustomDomain,
   setRedirectSubdomain,
   setTeamSubdomain,
@@ -285,12 +285,28 @@ describe("team website domains", () => {
     expect(await resolveHost(apex)).toMatchObject({ hideFromSearch: false });
 
     // Re-checking an already live domain leaves a deliberate choice alone.
-    await setHideFromSearch(teamId, true);
+    await setSearchVisibility(teamId, { hideFromSearch: true });
     expect(await verifyCustomDomain(teamId)).toBe(true);
     expect((await getDomainSettings(teamId))?.hideFromSearch).toBe(true);
 
-    await setHideFromSearch(teamId, false);
+    await setSearchVisibility(teamId, { hideFromSearch: false });
     expect((await getDomainSettings(teamId))?.hideFromSearch).toBe(false);
+  });
+
+  it("blocks AI training crawlers by default and changes it on its own", async () => {
+    expect((await getDomainSettings(teamId))?.blockAiTraining).toBe(true);
+
+    await setSearchVisibility(teamId, { blockAiTraining: false });
+    expect(await getDomainSettings(teamId)).toMatchObject({
+      blockAiTraining: false,
+      hideFromSearch: true,
+    });
+
+    await setSearchVisibility(teamId, { hideFromSearch: false });
+    expect(await getDomainSettings(teamId)).toMatchObject({
+      blockAiTraining: false,
+      hideFromSearch: false,
+    });
   });
 
   it("switches the primary host", async () => {

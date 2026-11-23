@@ -110,6 +110,9 @@ export const domainSettingsSchema = z.object({
    * robots.txt disallows all, empty sitemap). On for new sites; turned off
    * automatically when a custom domain is first verified. */
   hideFromSearch: z.boolean(),
+  /** robots.txt disallows AI training crawlers (GPTBot, ClaudeBot,
+   * Google-Extended, ...); AI search crawlers stay allowed. On by default. */
+  blockAiTraining: z.boolean(),
   /** `PLATFORM_SITE_DOMAIN` — used to render `.{suffix}` before a slug
    * is claimed. */
   platformDomain: z.string(),
@@ -135,9 +138,15 @@ export const setRedirectSubdomainBodySchema = z.object({
   redirectSubdomain: z.boolean(),
 });
 
-export const setHideFromSearchBodySchema = z.object({
-  hideFromSearch: z.boolean(),
-});
+export const setSearchVisibilityBodySchema = z
+  .object({
+    hideFromSearch: z.boolean().optional(),
+    blockAiTraining: z.boolean().optional(),
+  })
+  .refine(
+    (body) => body.hideFromSearch !== undefined || body.blockAiTraining !== undefined,
+    "Set hideFromSearch, blockAiTraining or both",
+  );
 
 export const attachCustomDomainBodySchema = z.object({
   hostname: hostnameSchema,

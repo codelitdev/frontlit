@@ -13,7 +13,7 @@ import {
   removeRedirectDomain,
   setPrimaryCustomDomain,
   setRedirectSubdomain,
-  setHideFromSearch,
+  setSearchVisibility,
   setTeamSubdomain,
   updateRedirectDomain,
   verifyCustomDomain,
@@ -115,8 +115,11 @@ export function registerDomainTools(server: McpToolRegistrar): void {
     "set_search_visibility",
     {
       description:
-        "Hides the current team's website from search engines (hideFromSearch true: every page noindex, robots.txt disallows all, empty sitemap) or exposes it. New sites start hidden; verifying the first custom domain turns it off.",
-      inputSchema: { hideFromSearch: z.boolean() },
+        "Changes how the current team's website appears to search engines and AI crawlers. hideFromSearch true hides the whole site (every page noindex, robots.txt disallows all, empty sitemap); new sites start hidden and verifying the first custom domain turns it off. blockAiTraining true (the default) disallows AI training crawlers (GPTBot, ClaudeBot, Google-Extended, CCBot, ...) in robots.txt while AI search crawlers (OAI-SearchBot, Claude-SearchBot, PerplexityBot, ...) stay allowed. Pass one or both; omitted fields keep their value.",
+      inputSchema: {
+        hideFromSearch: z.boolean().optional(),
+        blockAiTraining: z.boolean().optional(),
+      },
       outputSchema: domainSettingsSchema,
       annotations: {
         readOnlyHint: false,
@@ -127,7 +130,12 @@ export function registerDomainTools(server: McpToolRegistrar): void {
       const teamId = getTeamId(extra);
       if (!teamId) return AUTH_ERROR;
       try {
-        await setHideFromSearch(teamId, args.hideFromSearch);
+        if (args.hideFromSearch === undefined && args.blockAiTraining === undefined)
+          return errorResult("Set hideFromSearch, blockAiTraining or both");
+        await setSearchVisibility(teamId, {
+          hideFromSearch: args.hideFromSearch,
+          blockAiTraining: args.blockAiTraining,
+        });
         await revalidateAfterDomainChange(teamId);
         return jsonResult(toPublicSettings((await getDomainSettings(teamId))!));
       } catch {

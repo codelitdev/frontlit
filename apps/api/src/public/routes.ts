@@ -347,6 +347,7 @@ const impl = s.router(contract.public, {
           agentInstructions: release?.site.agentInstructions ?? null,
           canonicalHost: domains?.canonicalHost ?? null,
           hideFromSearch: domains?.hideFromSearch ?? false,
+          blockAiTraining: domains?.blockAiTraining ?? true,
         },
       };
     },

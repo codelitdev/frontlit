@@ -216,6 +216,7 @@ export type DomainSettings = {
   canonicalHost: string | null;
   redirectSubdomain: boolean;
   hideFromSearch: boolean;
+  blockAiTraining: boolean;
   platformDomain: string;
   redirectDomains: {
     hostname: string;
@@ -273,6 +274,7 @@ export async function getDomainSettings(
     canonicalHost: canonicalHostFor(team, hosts),
     redirectSubdomain: team.redirectSubdomain,
     hideFromSearch: team.hideFromSearch,
+    blockAiTraining: team.blockAiTraining,
     platformDomain: getPlatformSiteDomain(),
     redirectDomains: redirects.map((host) => ({
       hostname: host.hostname,
@@ -449,14 +451,16 @@ export async function setRedirectSubdomain(
     .where(eq(teams.id, teamId));
 }
 
-/** Hides the whole site from search engines (pre-launch) or exposes it. */
-export async function setHideFromSearch(
+/** Hides the whole site from search engines (pre-launch) or exposes it,
+ * and blocks or allows AI training crawlers. Omitted fields stay as they
+ * are. */
+export async function setSearchVisibility(
   teamId: string,
-  hideFromSearch: boolean,
+  changes: { hideFromSearch?: boolean; blockAiTraining?: boolean },
 ): Promise<void> {
   await db
     .update(teams)
-    .set({ hideFromSearch, updatedAt: new Date() })
+    .set({ ...changes, updatedAt: new Date() })
     .where(eq(teams.id, teamId));
 }
 

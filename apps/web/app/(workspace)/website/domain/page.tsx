@@ -6,7 +6,7 @@ import {
   attachCustomDomain,
   getDomainSettings,
   removeCustomDomain,
-  setHideFromSearch,
+  setSearchVisibility,
   setPrimaryCustomDomain,
   setRedirectSubdomain,
   setTeamSubdomain,
@@ -331,7 +331,28 @@ export default function DomainPage() {
                 id="hide-from-search"
                 checked={settings.hideFromSearch}
                 disabled={busy}
-                onCheckedChange={(checked) => run(() => setHideFromSearch(checked))}
+                onCheckedChange={(checked) =>
+                  run(() => setSearchVisibility({ hideFromSearch: checked }))
+                }
+              />
+            </div>
+            <div className="mt-4 flex items-start justify-between gap-4 border-t pt-4">
+              <div>
+                <Label htmlFor="block-ai-training">Block AI training crawlers</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Asks crawlers that collect content to train AI models, like GPTBot,
+                  ClaudeBot and Google-Extended, to stay away. AI search crawlers, like
+                  ChatGPT search, Claude and Perplexity, can still read the site and
+                  cite it in answers.
+                </p>
+              </div>
+              <Switch
+                id="block-ai-training"
+                checked={settings.blockAiTraining}
+                disabled={busy}
+                onCheckedChange={(checked) =>
+                  run(() => setSearchVisibility({ blockAiTraining: checked }))
+                }
               />
             </div>
           </CardContent>

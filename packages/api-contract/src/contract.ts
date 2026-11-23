@@ -166,7 +166,7 @@ import {
   resolveHostQuerySchema,
   resolveHostResponseSchema,
   setRedirectSubdomainBodySchema,
-  setHideFromSearchBodySchema,
+  setSearchVisibilityBodySchema,
   setPrimaryCustomDomainBodySchema,
   setTeamSubdomainBodySchema,
 } from "./schemas/domains";
@@ -1504,14 +1504,15 @@ const domainsContract = c.router(
       description:
         "Only applies while a custom host is verified. On (default) the subdomain 301-redirects to the canonical host; off keeps it serving the site with canonical tags pointing at the custom host.",
     },
-    setHideFromSearch: {
+    setSearchVisibility: {
       method: "PATCH",
       path: "/domain/search-visibility",
-      body: setHideFromSearchBodySchema,
+      body: setSearchVisibilityBodySchema,
       responses: { 200: domainSettingsSchema },
-      summary: "Hide the website from search engines, or expose it",
+      summary:
+        "Hide the website from search engines, and block or allow AI training crawlers",
       description:
-        "While hidden every page serves `noindex`, robots.txt disallows all crawling and the sitemap is empty. New sites start hidden; verifying the first custom domain turns it off.",
+        "`hideFromSearch`: while hidden every page serves `noindex`, robots.txt disallows all crawling and the sitemap is empty. New sites start hidden; verifying the first custom domain turns it off. `blockAiTraining` (on by default): robots.txt disallows AI training crawlers such as GPTBot, ClaudeBot and Google-Extended, while AI search crawlers such as OAI-SearchBot, Claude-SearchBot and PerplexityBot stay allowed. Omitted fields keep their value.",
     },
     attachCustomDomain: {
       method: "POST",

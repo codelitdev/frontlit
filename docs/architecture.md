@@ -1267,6 +1267,7 @@ Schema — the TXT token lives on `teams`; each host is a `custom_domains` row:
 subdomain: text("subdomain").unique(), // null until setup; then <subdomain>.<PLATFORM_SITE_DOMAIN>
 redirectSubdomain: boolean("redirect_subdomain").notNull().default(true),
 hideFromSearch: boolean("hide_from_search").notNull().default(true), // pre-launch, see §12.3
+blockAiTraining: boolean("block_ai_training").notNull().default(true), // robots.txt, see §12.3
 customDomainVerificationToken: text("custom_domain_verification_token"), // shared by the pair
 customDomainTxtSatisfied: boolean("custom_domain_txt_satisfied"),
 
@@ -1316,8 +1317,9 @@ Attach/verify flow (module `apps/api/src/domains/`):
 4. `PATCH /domain/custom/primary { hostname }` picks the canonical host;
    `PATCH /domain/subdomain-redirect { redirectSubdomain }` keeps the
    subdomain serving instead of redirecting;
-   `PATCH /domain/search-visibility { hideFromSearch }` hides the site from
-   search engines (§12.3). The first verified custom domain turns that off.
+   `PATCH /domain/search-visibility { hideFromSearch?, blockAiTraining? }`
+   hides the site from search engines and blocks or allows AI training
+   crawlers (§12.3). The first verified custom domain turns hiding off.
 
 **Redirect domains** keep an old host's links working after a move, e.g.
 docs that used to live on `docs.example.com`. A team can add any number;
@@ -1467,14 +1469,37 @@ same signed revalidation webhook that refreshes pages (§12.2) — there is no
 workspace) to manage. Draft-only, unpublished and robots-disallowed
 content never appears; unpublished/deleted URLs themselves 404.
 
-**robots.txt** — generated per host:
+**robots.txt** — generated per host by `buildRobotsTxt` from
+`@frontlit/site-seo`:
 
 ```
 User-agent: *
 Allow: /
 Disallow: /embed/
+
+# AI search crawlers
+User-agent: OAI-SearchBot
+User-agent: Claude-SearchBot
+User-agent: PerplexityBot
+…
+Allow: /
+Disallow: /embed/
+
+# AI training crawlers
+User-agent: GPTBot
+User-agent: ClaudeBot
+User-agent: Google-Extended
+…
+Disallow: /
+
 Sitemap: https://<canonical-host>/sitemap.xml
 ```
+
+AI search crawlers are always allowed by name, so the site can be read and
+cited in AI answers. The AI training group appears only while the team's
+`blockAiTraining` is on (the default; Domain page → Search engines). The
+crawler lists live in `@frontlit/site-seo` and are shared with the CourseLit
+storefront.
 
 It is served on every host that does not redirect; the sitemap itself
 always lists canonical URLs.
