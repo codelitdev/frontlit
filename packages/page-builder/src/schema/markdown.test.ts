@@ -37,7 +37,7 @@ describe("layoutToMarkdown", () => {
         { name: "data-slot", settings: { slot: "content-feed" } },
         { name: "footer", settings: {} },
       ],
-      () => "FEED",
+      { slot: () => "FEED" },
     );
     expect(markdown).toBe(`## Ship faster
 
@@ -66,5 +66,40 @@ FEED`);
 
   it("skips blocks it can't read", () => {
     expect(layoutToMarkdown([{ name: "nope", settings: {} }])).toBe("");
+  });
+
+  it("renders an app's own blocks with the serializers it passes", () => {
+    const markdown = layoutToMarkdown(
+      [
+        {
+          name: "curriculum",
+          settings: { title: "What you'll learn", lessons: ["Intro", "Setup"] },
+        },
+        { name: "broken", settings: {} },
+        { name: "content", settings: { title: "About", body: paragraph("Hi.") } },
+      ],
+      {
+        blocks: {
+          curriculum: (s) => [
+            `## ${s.title}`,
+            s.lessons.map((l: string) => `- ${l}`).join("\n"),
+          ],
+          broken: () => {
+            throw new Error("bad settings");
+          },
+        },
+      },
+    );
+    expect(markdown).toBe(
+      "## What you'll learn\n\n- Intro\n- Setup\n\n## About\n\nHi.",
+    );
+  });
+
+  it("lets an app replace a built-in block's Markdown", () => {
+    expect(
+      layoutToMarkdown([{ name: "header", settings: { title: "Acme" } }], {
+        blocks: { header: (s) => `# ${s.title}` },
+      }),
+    ).toBe("# Acme");
   });
 });
