@@ -298,19 +298,6 @@ export async function listDocuments(
   });
 }
 
-/** Every document of `kind` matching `q`, newest first, without paging. */
-export async function listAllDocuments(
-  kind: DocumentKind,
-  input: { teamId: string; q?: string },
-) {
-  const conditions = [eq(documents.teamId, input.teamId), eq(documents.kind, kind)];
-  if (input.q) conditions.push(ilike(documents.draftTitle, `%${input.q}%`));
-  return db.query.documents.findMany({
-    where: and(...conditions),
-    orderBy: (row, { desc }) => desc(row.updatedAt),
-  });
-}
-
 export async function countDocuments(
   kind: DocumentKind,
   input: { teamId: string; q?: string },

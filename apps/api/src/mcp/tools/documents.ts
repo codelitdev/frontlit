@@ -14,26 +14,24 @@ import {
 } from "@frontlit/api-contract";
 import type { DocumentKind } from "../../db/schema";
 import {
+  countDocuments,
   createDocument,
   deleteDocument,
   deriveDocumentStatus,
   discardDocumentDraft,
   getDocumentByDocumentId,
-  listAllDocuments,
+  listDocuments,
   publishDocument,
   updateDocument,
   withPublishReport,
 } from "../../documents/queries";
 import { AUTH_ERROR, INTERNAL_ERROR, NOT_FOUND, jsonResult } from "./responses";
 import { getTeamId } from "./auth";
-import { listInputSchema, listPageInfoShape, pageOfItems } from "./list-options";
+import { listPaging, listPagingInput } from "./paging";
 import { DocsContentError, describeContentFormat } from "@frontlit/text-editor/docs";
 import { documentationErrorBody } from "../../documentation/content-validation";
 import { omitInternal, serializeDates } from "../../utils/public";
-import {
-  attachDocumentIndex,
-  attachOneDocumentIndex,
-} from "../../documentation/index-status";
+import { attachOneDocumentIndex } from "../../documentation/index-status";
 
 /** Documentation-only columns on the shared documents table; other content
  * kinds do not declare them in their output schema. */
@@ -165,50 +163,21 @@ export function registerDocumentTools(
 
   const summarySchema = z.object({
     documentId: z.string(),
-    title: z.string().nullable().describe("Live title; null when never published."),
-    draftTitle: z.string(),
+    title: z.string().describe("Draft title."),
     slug: z.string(),
-    ...(kind === "doc"
-      ? {
-          draftSlug: z
-            .string()
-            .nullable()
-            .describe("Slug the next publish moves the page to, if it differs."),
-          draftVersion: z.number().int(),
-        }
-      : {}),
     status: documentStatusSchema,
     publishedAt: z.string().nullable(),
     updatedAt: z.string().nullable(),
-    hasUnpublishedChanges: z
-      .boolean()
-      .describe("The draft differs from what's live (always true for a draft)."),
   });
-  const toSummary = (doc: Awaited<ReturnType<typeof listAllDocuments>>[number]) => {
-    const status = deriveDocumentStatus(doc);
-    return serializeDates({
-      documentId: doc.documentId,
-      title: doc.publishedAt ? doc.title : null,
-      draftTitle: doc.draftTitle,
-      slug: doc.slug,
-      ...(kind === "doc"
-        ? { draftSlug: doc.draftSlug, draftVersion: doc.draftVersion }
-        : {}),
-      status,
-      publishedAt: doc.publishedAt,
-      updatedAt: doc.updatedAt,
-      hasUnpublishedChanges: status !== "published",
-    });
-  };
 
   server.registerTool(
     `list_${label}s`,
     {
-      description: `Lists the team's ${humanLabel}s as summaries (status, publishedAt, hasUnpublishedChanges), newest edit first. Filter by title (q) or status; page with limit/cursor. Bodies are opt-in via include: "body"; get_${label} returns one ${humanLabel} in full.`,
-      inputSchema: listInputSchema("Search term matched against the draft title"),
+      description: `Lists the team's ${humanLabel}s, most recently edited first, as summaries: status (draft, published or published_with_changes) and publishedAt, without bodies. Use get_${label} for one ${humanLabel}'s content. Results are paged; total is the number of matching ${humanLabel}s.`,
+      inputSchema: { q: z.string().optional(), ...listPagingInput },
       outputSchema: z.object({
-        items: z.array(itemSchema.partial().merge(summarySchema)),
-        ...listPageInfoShape,
+        items: z.array(summarySchema),
+        total: z.number(),
       }),
       annotations: {
         readOnlyHint: true,
@@ -219,21 +188,25 @@ export function registerDocumentTools(
       const teamId = getTeamId(extra);
       if (!teamId) return AUTH_ERROR;
       try {
-        const rows = await listAllDocuments(kind, { teamId, q: args.q });
-        const { slice, total, nextCursor } = pageOfItems(
-          rows.map((row) => ({ row, status: deriveDocumentStatus(row) })),
-          args,
-        );
-        const docs = slice.map(({ row }) => row);
-        const items =
-          args.include === "body"
-            ? (await attachDocumentIndex(kind, docs)).map((doc) => {
-                // Summary first so status fields lead the serialized item.
-                const summary = toSummary(doc);
-                return { ...summary, ...toPublicDocument(doc), ...summary };
-              })
-            : docs.map(toSummary);
-        return jsonResult({ items, total, nextCursor });
+        const [items, total] = await Promise.all([
+          listDocuments(kind, { teamId, q: args.q, ...listPaging(args) }),
+          countDocuments(kind, { teamId, q: args.q }),
+        ]);
+        // No bodies: they make a list too large for MCP clients, which
+        // truncate the result before the status fields.
+        return jsonResult({
+          items: items.map((doc) =>
+            serializeDates({
+              documentId: doc.documentId,
+              title: doc.draftTitle,
+              slug: doc.slug,
+              status: deriveDocumentStatus(doc),
+              publishedAt: doc.publishedAt,
+              updatedAt: doc.updatedAt,
+            }),
+          ),
+          total,
+        });
       } catch (error) {
         return handleError(error);
       }

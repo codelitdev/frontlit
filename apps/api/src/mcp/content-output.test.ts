@@ -84,7 +84,7 @@ describe("typed content tools through the MCP SDK", () => {
     };
   }
 
-  it("lists pages as small summaries with status, filtering and paging", async () => {
+  it("lists pages as small summaries with status, in pages of results", async () => {
     const client = await connect();
     const big = "x".repeat(200_000);
     const shared = (name: string) => ({
@@ -95,12 +95,11 @@ describe("typed content tools through the MCP SDK", () => {
       shared: true,
     });
     const ids: string[] = [];
-    for (const name of ["Live", "Edited", "Hidden"]) {
+    for (const name of ["Live", "Edited", "Unpublished"]) {
       const { data } = await call(client, "create_page", { name });
       ids.push(data.pageId);
       await call(client, "update_page", {
         pageId: data.pageId,
-        robotsAllowed: name !== "Hidden",
         layout: [
           shared("header"),
           {
@@ -115,120 +114,78 @@ describe("typed content tools through the MCP SDK", () => {
         ],
       });
     }
-    const [live, edited] = ids;
-    await call(client, "publish_page", { pageId: live });
-    await call(client, "publish_page", { pageId: edited });
-    await call(client, "update_page", { pageId: edited, title: "Changed" });
+    await call(client, "publish_page", { pageId: ids[0] });
+    await call(client, "publish_page", { pageId: ids[1] });
+    await call(client, "update_page", { pageId: ids[1], title: "Changed" });
 
     const all = await call(client, "list_pages");
-    expect(all.text.length).toBeLessThan(5_000);
+    expect(all.text.length).toBeLessThan(2_000);
     expect(all.data.total).toBe(3);
-    expect(all.data.nextCursor).toBeNull();
-    expect(all.data.sharedHeaderFooterHasUnpublishedChanges).toBe(false);
-    expect(Object.keys(all.data.items[0]).slice(0, 4)).toEqual([
-      "pageId",
-      "name",
-      "slug",
-      "status",
-    ]);
-    expect(all.data.items[0]).not.toHaveProperty("draftLayout");
     const byName = Object.fromEntries(
       all.data.items.map((item: any) => [item.name, item]),
     );
-    expect(byName.Live).toMatchObject({
-      status: "published",
-      hasUnpublishedChanges: false,
-      robotsAllowed: true,
-    });
+    expect(byName.Live).toMatchObject({ status: "published", robotsAllowed: true });
     expect(byName.Live.publishedAt).toEqual(expect.any(String));
-    expect(byName.Edited).toMatchObject({
-      status: "published_with_changes",
-      hasUnpublishedChanges: true,
-    });
-    expect(byName.Hidden).toMatchObject({
+    expect(byName.Edited).toMatchObject({ status: "published_with_changes" });
+    expect(byName.Unpublished).toMatchObject({
       status: "draft",
       publishedAt: null,
-      hasUnpublishedChanges: true,
       robotsAllowed: null,
-      draftRobotsAllowed: false,
     });
 
-    const drafts = await call(client, "list_pages", { status: "draft" });
-    expect(drafts.data.items.map((item: any) => item.name)).toEqual(["Hidden"]);
-    expect(drafts.data.total).toBe(1);
-
-    const first = await call(client, "list_pages", { limit: 2 });
+    const first = await call(client, "list_pages", { itemsPerPage: 2 });
+    const second = await call(client, "list_pages", { itemsPerPage: 2, page: 2 });
     expect(first.data.items).toHaveLength(2);
-    expect(first.data.nextCursor).toBe("2");
-    const rest = await call(client, "list_pages", { limit: 2, cursor: "2" });
-    expect(rest.data.items).toHaveLength(1);
-    expect(rest.data.nextCursor).toBeNull();
-
-    const body = await call(client, "list_pages", { include: "body", limit: 1 });
-    expect(body.data.items[0].draftLayout).toEqual(expect.any(Array));
-    expect(Object.keys(body.data.items[0])[3]).toBe("status");
-
-    // A shared header edit is reported once, not as changes on every page.
-    await call(client, "update_page", {
-      pageId: edited,
-      layout: [
-        { ...shared("header"), settings: { ctaLabel: "New" } },
-        shared("footer"),
-      ],
-    });
-    const chrome = await call(client, "list_pages", { status: "published" });
-    expect(chrome.data.items.map((item: any) => item.name)).toEqual(["Live"]);
-    expect(chrome.data.sharedHeaderFooterHasUnpublishedChanges).toBe(true);
+    expect(second.data.items).toHaveLength(1);
+    expect(second.data.total).toBe(3);
   });
 
   it.each(["article", "documentation_page", "product_update"])(
-    "lists %ss as summaries without bodies",
+    "lists %ss as small summaries with status",
     async (label) => {
       const client = await connect();
-      const ids: string[] = [];
-      for (const title of ["Live", "Draft"]) {
-        const { data } = await call(client, `create_${label}`, {
+      for (const title of ["First", "Second"])
+        await call(client, `create_${label}`, {
           title,
-          markdown: `${"Long paragraph. ".repeat(20_000)}`,
+          markdown: "Long paragraph. ".repeat(20_000),
         });
-        ids.push(data.documentId);
-      }
-      let docArgs = {};
-      if (label === "documentation_page") {
-        const { data: settings } = await call(client, "get_documentation_settings");
-        docArgs = {
-          expectedDraftVersion: 1,
-          expectedDocsDraftVersion: settings.draftVersion,
-          expectedPublicationId: settings.activePublicationId ?? null,
-        };
-      }
-      await call(client, `publish_${label}`, { documentId: ids[0], ...docArgs });
 
-      const all = await call(client, `list_${label}s`);
-      expect(all.text.length).toBeLessThan(3_000);
-      expect(all.data.total).toBe(2);
-      expect(all.data.items[0]).not.toHaveProperty("draftContent");
-      const byTitle = Object.fromEntries(
-        all.data.items.map((item: any) => [item.draftTitle, item]),
-      );
-      expect(byTitle.Live).toMatchObject({
-        status: "published",
-        title: "Live",
-        hasUnpublishedChanges: false,
-      });
-      expect(byTitle.Draft).toMatchObject({
+      const listed = await call(client, `list_${label}s`);
+      expect(listed.text.length).toBeLessThan(1_000);
+      expect(listed.data.total).toBe(2);
+      expect(listed.data.items[0]).toEqual({
+        documentId: expect.any(String),
+        title: "Second",
+        slug: "second",
         status: "draft",
-        title: null,
         publishedAt: null,
-        hasUnpublishedChanges: true,
+        updatedAt: expect.any(String),
       });
+      const paged = await call(client, `list_${label}s`, { itemsPerPage: 1, page: 2 });
+      expect(paged.data.items.map((item: any) => item.title)).toEqual(["First"]);
+    },
+  );
 
-      const drafts = await call(client, `list_${label}s`, { status: "draft" });
-      expect(drafts.data.items.map((item: any) => item.draftTitle)).toEqual(["Draft"]);
-
-      const body = await call(client, `list_${label}s`, { include: "body", limit: 1 });
-      expect(body.data.items[0].draftContent).toEqual(expect.any(Object));
-      expect(body.data.nextCursor).toBe("1");
+  it.each(["article", "product_update"])(
+    "shows a published %s's status in the list",
+    async (label) => {
+      const client = await connect();
+      const { data } = await call(client, `create_${label}`, { title: "Live" });
+      await call(client, `publish_${label}`, { documentId: data.documentId });
+      const before = await call(client, `list_${label}s`);
+      expect(before.data.items[0]).toMatchObject({
+        status: "published",
+        publishedAt: expect.any(String),
+      });
+      await call(client, `update_${label}`, {
+        documentId: data.documentId,
+        title: "Live, edited",
+      });
+      const after = await call(client, `list_${label}s`);
+      expect(after.data.items[0]).toMatchObject({
+        title: "Live, edited",
+        status: "published_with_changes",
+      });
     },
   );
 

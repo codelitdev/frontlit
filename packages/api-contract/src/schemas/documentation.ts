@@ -45,8 +45,6 @@ export const documentationSchema = makeDocumentSchema(documentationMetaSchema).e
   publishable: z.boolean().optional(),
   diagnostics: z.array(z.any()).optional(),
   validatedAgainstPublicationId: z.string().nullable().optional(),
-  /** Set on a publish: the publication it queued. */
-  publicationId: z.string().optional(),
 });
 /** DM-VALIDATE: preserve content fields until the headless validator can reject them. */
 export const documentationContentInputSchema = textEditorContentSchema.passthrough();
@@ -197,8 +195,6 @@ export const documentationSettingsSchema = z.object({
   source: z.enum(["editor", "git"]),
   draftVersion: z.number().int(),
   activePublicationId: z.string().nullable(),
-  /** The live API reference spec, when one is published. */
-  activeApiSpecId: z.string().nullable().optional(),
   indexing: z.object({
     enabled: z.boolean(),
   }),

@@ -1,21 +1,17 @@
 import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
+import { pageSchema, successMessageSchema } from "@frontlit/api-contract";
 import {
-  pageSchema,
-  pageStatusSchema,
-  successMessageSchema,
-} from "@frontlit/api-contract";
-import {
+  countPages,
   createPage,
   deletePage,
   discardPageDraft,
   getPageByPageId,
-  listAllPages,
+  listPages,
   publishPage,
   updatePage,
   type PageView,
 } from "../../pages/queries";
-import { listInputSchema, listPageInfoShape, pageOfItems } from "./list-options";
 import {
   AUTH_ERROR,
   INTERNAL_ERROR,
@@ -24,31 +20,24 @@ import {
   jsonResult,
 } from "./responses";
 import { getTeamId } from "./auth";
+import { listPaging, listPagingInput } from "./paging";
 import { omitInternal, serializeDates } from "../../utils/public";
 import { PAGE_TEXT_FORMAT } from "@frontlit/page-builder/schema";
 import { InvalidPageLayoutError } from "../../pages/shared-widgets";
 import { PageOwnedByGitError } from "../../pages/git-pr";
 
-const pageSummarySchema = z.object({
-  pageId: z.string(),
-  name: z.string(),
-  slug: z.string(),
-  status: pageStatusSchema,
-  publishedAt: z.string().nullable(),
-  updatedAt: z.string().nullable(),
-  hasUnpublishedChanges: z
-    .boolean()
-    .describe("The draft differs from what's live (always true for a draft)."),
-  robotsAllowed: z
-    .boolean()
-    .nullable()
-    .describe("Live page lets search engines index it; null when unpublished."),
-  draftRobotsAllowed: z
-    .boolean()
-    .describe("The draft lets search engines index it once published."),
-  deletable: z.boolean(),
+const pageSummarySchema = pageSchema.pick({
+  pageId: true,
+  name: true,
+  slug: true,
+  status: true,
+  publishedAt: true,
+  updatedAt: true,
+  robotsAllowed: true,
 });
 
+/** List items carry no layouts: those make a list too large for MCP
+ * clients, which truncate the result before the status fields. */
 function toPageSummary(page: PageView) {
   return serializeDates({
     pageId: page.pageId,
@@ -57,10 +46,7 @@ function toPageSummary(page: PageView) {
     status: page.status,
     publishedAt: page.publishedAt,
     updatedAt: page.updatedAt,
-    hasUnpublishedChanges: page.status !== "published",
     robotsAllowed: page.robotsAllowed,
-    draftRobotsAllowed: page.draftRobotsAllowed !== false,
-    deletable: page.deletable,
   });
 }
 
@@ -73,16 +59,14 @@ export function registerPageTools(server: McpToolRegistrar): void {
     "list_pages",
     {
       description:
-        "Lists the team's pages as summaries (status, publishedAt, hasUnpublishedChanges, robots flags), newest edit first. Filter by name (q) or status; page with limit/cursor. Bodies are opt-in via include: \"body\"; get_page returns one page's full layout. A pending shared header/footer edit is reported once in sharedHeaderFooterHasUnpublishedChanges, not as changes on each page.",
-      inputSchema: listInputSchema("Search term matched against page name"),
+        "Lists the team's pages, most recently edited first, as summaries: status (draft, published or published_with_changes), publishedAt and robotsAllowed, without layouts. Use get_page for a page's layout. Results are paged; total is the number of matching pages.",
+      inputSchema: {
+        q: z.string().optional().describe("Search term matched against page name"),
+        ...listPagingInput,
+      },
       outputSchema: z.object({
-        items: z.array(pageSchema.partial().merge(pageSummarySchema)),
-        ...listPageInfoShape,
-        sharedHeaderFooterHasUnpublishedChanges: z
-          .boolean()
-          .describe(
-            "The shared header/footer draft differs from the live site. Publishing any page publishes it too.",
-          ),
+        items: z.array(pageSummarySchema),
+        total: z.number(),
       }),
       annotations: {
         readOnlyHint: true,
@@ -93,23 +77,11 @@ export function registerPageTools(server: McpToolRegistrar): void {
       const teamId = getTeamId(extra);
       if (!teamId) return AUTH_ERROR;
       try {
-        const { items, sharedHeaderFooterHasUnpublishedChanges } = await listAllPages({
-          teamId,
-          q: args.q,
-        });
-        const { slice, total, nextCursor } = pageOfItems(items, args);
-        return jsonResult({
-          items: slice.map((page) => {
-            const summary = toPageSummary(page);
-            // Summary first so status fields lead the serialized item.
-            return args.include === "body"
-              ? { ...summary, ...toPublicPage(page), ...summary }
-              : summary;
-          }),
-          total,
-          nextCursor,
-          sharedHeaderFooterHasUnpublishedChanges,
-        });
+        const [items, total] = await Promise.all([
+          listPages({ teamId, q: args.q, ...listPaging(args) }),
+          countPages({ teamId, q: args.q }),
+        ]);
+        return jsonResult({ items: items.map(toPageSummary), total });
       } catch {
         return INTERNAL_ERROR;
       }
