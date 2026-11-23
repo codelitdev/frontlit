@@ -12,7 +12,7 @@ import {
   removeRedirectDomain,
   setPrimaryCustomDomain,
   setRedirectSubdomain,
-  setHideFromSearch,
+  setSearchVisibility,
   setTeamSubdomain,
   updateRedirectDomain,
   verifyCustomDomain,
@@ -71,8 +71,8 @@ const impl = s.router(
           body: toPublicSettings((await getDomainSettings((req as any).teamId))!),
         };
       },
-      setHideFromSearch: async ({ body, req }) => {
-        await setHideFromSearch((req as any).teamId, body.hideFromSearch);
+      setSearchVisibility: async ({ body, req }) => {
+        await setSearchVisibility((req as any).teamId, body);
         await revalidateAfterDomainChange((req as any).teamId);
         return {
           status: 200,
@@ -192,7 +192,7 @@ const impl = s.router(
       get: "domains.get",
       setSubdomain: "domains.setSubdomain",
       setRedirectSubdomain: "domains.setRedirectSubdomain",
-      setHideFromSearch: "domains.setHideFromSearch",
+      setSearchVisibility: "domains.setSearchVisibility",
       attachCustomDomain: "domains.attachCustomDomain",
       setPrimaryCustomDomain: "domains.setPrimaryCustomDomain",
       verifyCustomDomain: "domains.verifyCustomDomain",

@@ -52,4 +52,6 @@ export const publicTeamSettingsSchema = z.object({
   canonicalHost: z.string().nullable(),
   /** Pre-launch: robots disallow everything and pages are noindex. */
   hideFromSearch: z.boolean(),
+  /** robots.txt disallows AI training crawlers. */
+  blockAiTraining: z.boolean(),
 });

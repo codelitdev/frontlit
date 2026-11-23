@@ -100,6 +100,8 @@ export interface PublicSettings {
   canonicalHost: string | null;
   /** Pre-launch: noindex everywhere, robots disallow all. */
   hideFromSearch: boolean;
+  /** robots.txt disallows AI training crawlers. */
+  blockAiTraining: boolean;
 }
 
 export async function getSettings(teamId: string): Promise<PublicSettings | null> {

@@ -1,0 +1,1 @@
+ALTER TABLE "teams" ADD COLUMN "block_ai_training" boolean DEFAULT true NOT NULL;

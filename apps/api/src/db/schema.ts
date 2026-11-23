@@ -92,6 +92,9 @@ export const teams = pgTable(
      * the sitemap is empty. On for new sites; cleared when a custom domain is
      * first verified. */
     hideFromSearch: boolean("hide_from_search").notNull().default(true),
+    /** robots.txt disallows AI training crawlers (GPTBot, ClaudeBot, ...)
+     * while AI search crawlers stay allowed. */
+    blockAiTraining: boolean("block_ai_training").notNull().default(true),
     customDomainCnameTarget: text("custom_domain_cname_target"),
     customDomainTxtRecordName: text("custom_domain_txt_record_name"),
     /** One ownership TXT token shared by every host in `customDomains`. */

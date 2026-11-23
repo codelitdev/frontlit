@@ -3,7 +3,7 @@ import {
   addRedirectDomainBodySchema,
   contract,
   domainSettingsSchema,
-  setHideFromSearchBodySchema,
+  setSearchVisibilityBodySchema,
   setPrimaryCustomDomainBodySchema,
   setRedirectSubdomainBodySchema,
   updateRedirectDomainBodySchema,
@@ -46,6 +46,7 @@ describe("domains contract", () => {
       canonicalHost: "example.com",
       redirectSubdomain: true,
       hideFromSearch: false,
+      blockAiTraining: true,
       platformDomain: "frontlit.app",
       redirectDomains: [],
     });
@@ -53,10 +54,14 @@ describe("domains contract", () => {
     expect(setRedirectSubdomainBodySchema.parse({ redirectSubdomain: false })).toEqual({
       redirectSubdomain: false,
     });
-    expect(contract.domains.setHideFromSearch.path).toBe("/domain/search-visibility");
-    expect(setHideFromSearchBodySchema.parse({ hideFromSearch: true })).toEqual({
+    expect(contract.domains.setSearchVisibility.path).toBe("/domain/search-visibility");
+    expect(setSearchVisibilityBodySchema.parse({ hideFromSearch: true })).toEqual({
       hideFromSearch: true,
     });
+    expect(setSearchVisibilityBodySchema.parse({ blockAiTraining: false })).toEqual({
+      blockAiTraining: false,
+    });
+    expect(setSearchVisibilityBodySchema.safeParse({}).success).toBe(false);
     expect(
       setPrimaryCustomDomainBodySchema.parse({ hostname: "WWW.Example.com" }),
     ).toEqual({ hostname: "www.example.com" });

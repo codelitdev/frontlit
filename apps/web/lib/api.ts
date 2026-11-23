@@ -1473,6 +1473,7 @@ export interface DomainSettings {
   canonicalHost: string | null;
   redirectSubdomain: boolean;
   hideFromSearch: boolean;
+  blockAiTraining: boolean;
   platformDomain: string;
   redirectDomains: RedirectDomain[];
 }
@@ -1548,10 +1549,11 @@ export function setPrimaryCustomDomain(hostname: string) {
   );
 }
 
-export function setHideFromSearch(hideFromSearch: boolean) {
-  return unwrap<DomainSettings>(
-    client.domains.setHideFromSearch({ body: { hideFromSearch } }),
-  );
+export function setSearchVisibility(body: {
+  hideFromSearch?: boolean;
+  blockAiTraining?: boolean;
+}) {
+  return unwrap<DomainSettings>(client.domains.setSearchVisibility({ body }));
 }
 
 export function setRedirectSubdomain(redirectSubdomain: boolean) {

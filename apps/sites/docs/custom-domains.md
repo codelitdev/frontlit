@@ -21,6 +21,8 @@ The canonical host is the verified primary, else the other verified custom host,
 
 New sites start hidden from search engines (`hideFromSearch`): every page is `noindex`, robots.txt disallows everything and the sitemap is empty. The first verified custom domain turns it off; the team can also toggle it under Search engines on the Domain page.
 
+The same card has "Block AI training crawlers" (`blockAiTraining`, on by default): robots.txt disallows crawlers that collect training data (GPTBot, ClaudeBot, Google-Extended, CCBot, ...) while AI search crawlers (OAI-SearchBot, Claude-SearchBot, PerplexityBot, ...) stay allowed.
+
 A pending half of a pair resolves (and redirects) as soon as its sibling is verified. The shared TXT already proves the zone belongs to the team, so `www` starts working the moment its CNAME exists. The workspace still shows it as pending with a warning until Check DNS passes.
 
 ## DNS
