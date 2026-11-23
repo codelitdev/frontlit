@@ -195,6 +195,36 @@ describe("typed content tools through the MCP SDK", () => {
     },
   );
 
+  it("publishes a documentation page with schema-valid output", async () => {
+    const client = await connect();
+    const created = await client.callTool({
+      name: "create_documentation_page",
+      arguments: { title: "Guide" },
+    });
+    expect(created.isError).not.toBe(true);
+    // Creating a page stores the team's docs settings row, which carries
+    // activeApiSpecId.
+    const settings = await client.callTool({
+      name: "get_documentation_settings",
+      arguments: {},
+    });
+    expect(settings.isError, JSON.stringify(settings.content)).not.toBe(true);
+    const { draftVersion, activePublicationId } = settings.structuredContent as any;
+    const published = await client.callTool({
+      name: "publish_documentation_page",
+      arguments: {
+        documentId: (created.structuredContent as any).documentId,
+        expectedDraftVersion: 1,
+        expectedDocsDraftVersion: draftVersion,
+        expectedPublicationId: activePublicationId,
+      },
+    });
+    expect(published.isError, JSON.stringify(published.content)).not.toBe(true);
+    expect(published.structuredContent).toMatchObject({
+      publicationId: expect.any(String),
+    });
+  });
+
   it("returns schema-valid output from every read-only tool without required input", async () => {
     const client = await connect();
     const { tools } = await client.listTools();
