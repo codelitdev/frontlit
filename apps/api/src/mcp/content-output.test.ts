@@ -100,6 +100,7 @@ describe("typed content tools through the MCP SDK", () => {
       ids.push(data.pageId);
       await call(client, "update_page", {
         pageId: data.pageId,
+        robotsAllowed: name !== "Unpublished",
         layout: [
           shared("header"),
           {
@@ -124,13 +125,18 @@ describe("typed content tools through the MCP SDK", () => {
     const byName = Object.fromEntries(
       all.data.items.map((item: any) => [item.name, item]),
     );
-    expect(byName.Live).toMatchObject({ status: "published", robotsAllowed: true });
+    expect(byName.Live).toMatchObject({
+      status: "published",
+      robotsAllowed: true,
+      draftRobotsAllowed: true,
+    });
     expect(byName.Live.publishedAt).toEqual(expect.any(String));
     expect(byName.Edited).toMatchObject({ status: "published_with_changes" });
     expect(byName.Unpublished).toMatchObject({
       status: "draft",
       publishedAt: null,
       robotsAllowed: null,
+      draftRobotsAllowed: false,
     });
 
     const first = await call(client, "list_pages", { itemsPerPage: 2 });

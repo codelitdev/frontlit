@@ -26,15 +26,23 @@ import { PAGE_TEXT_FORMAT } from "@frontlit/page-builder/schema";
 import { InvalidPageLayoutError } from "../../pages/shared-widgets";
 import { PageOwnedByGitError } from "../../pages/git-pr";
 
-const pageSummarySchema = pageSchema.pick({
-  pageId: true,
-  name: true,
-  slug: true,
-  status: true,
-  publishedAt: true,
-  updatedAt: true,
-  robotsAllowed: true,
-});
+const pageSummarySchema = pageSchema
+  .pick({
+    pageId: true,
+    name: true,
+    slug: true,
+    status: true,
+    publishedAt: true,
+    updatedAt: true,
+    robotsAllowed: true,
+  })
+  .extend({
+    draftRobotsAllowed: z
+      .boolean()
+      .describe(
+        "Whether search engines may index the page once its draft is published.",
+      ),
+  });
 
 /** List items carry no layouts: those make a list too large for MCP
  * clients, which truncate the result before the status fields. */
@@ -47,6 +55,8 @@ function toPageSummary(page: PageView) {
     publishedAt: page.publishedAt,
     updatedAt: page.updatedAt,
     robotsAllowed: page.robotsAllowed,
+    // Unset means the default: indexable.
+    draftRobotsAllowed: page.draftRobotsAllowed !== false,
   });
 }
 
@@ -59,7 +69,7 @@ export function registerPageTools(server: McpToolRegistrar): void {
     "list_pages",
     {
       description:
-        "Lists the team's pages, most recently edited first, as summaries: status (draft, published or published_with_changes), publishedAt and robotsAllowed, without layouts. Use get_page for a page's layout. Results are paged; total is the number of matching pages.",
+        "Lists the team's pages, most recently edited first, as summaries: status (draft, published or published_with_changes), publishedAt, robotsAllowed (live page; null when unpublished) and draftRobotsAllowed, without layouts. Use get_page for a page's layout. Results are paged; total is the number of matching pages.",
       inputSchema: {
         q: z.string().optional().describe("Search term matched against page name"),
         ...listPagingInput,
