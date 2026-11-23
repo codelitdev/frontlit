@@ -2,7 +2,11 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { TextRenderer } from "../text-renderer";
+import { readFileSync } from "node:fs";
+import { getSchema } from "@tiptap/core";
+import { createExtensions } from "../extensions";
 import { extractDocsHeadings } from "./headings";
+import { parseDocsMarkdown } from "./markdown";
 
 describe("DM-CONVERT renderer anchors", () => {
   it("keeps duplicate IDs stable when React replays the mapped element tree", () => {
@@ -73,4 +77,22 @@ describe("DM-CONVERT renderer anchors", () => {
     expect(html).toContain('<h4 id="details"');
     expect(html).toContain("theme-heading-four");
   });
+  it.each(["supported.md", "rich-blocks.md"])(
+    "articles accept docs Markdown output unchanged: %s",
+    (name) => {
+      // The API converts article and product update Markdown with the docs
+      // parser, so every node it produces must exist in the article schema.
+      const markdown = readFileSync(
+        new URL(`./fixtures/${name}`, import.meta.url),
+        "utf8",
+      );
+      const { content } = parseDocsMarkdown(markdown);
+      const node = getSchema(createExtensions()).nodeFromJSON(content);
+      node.check();
+      expect(node.toJSON()).toEqual(content);
+      expect(
+        renderToStaticMarkup(TextRenderer({ json: content as never })),
+      ).toBeTruthy();
+    },
+  );
 });

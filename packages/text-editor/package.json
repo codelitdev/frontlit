@@ -1,6 +1,6 @@
 {
   "name": "@frontlit/text-editor",
-  "version": "0.1.0-alpha.4",
+  "version": "0.1.0",
   "description": "A TipTap-based rich text editor and static renderer for React",
   "author": "FrontLit",
   "license": "MIT",
@@ -10,6 +10,7 @@
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
+    "schema",
     "README.md",
     "LICENSE"
   ],
@@ -29,6 +30,11 @@
       "import": "./dist/docs.js",
       "default": "./dist/docs.js"
     },
+    "./blocks": {
+      "types": "./dist/blocks.d.ts",
+      "import": "./dist/blocks.js",
+      "default": "./dist/blocks.js"
+    },
     "./headings": {
       "types": "./dist/headings.d.ts",
       "import": "./dist/headings.js",
@@ -36,7 +42,8 @@
     },
     "./styles.css": "./dist/styles.css",
     "./prose.css": "./dist/prose.css",
-    "./tokens.css": "./dist/tokens.css"
+    "./tokens.css": "./dist/tokens.css",
+    "./schema/*.json": "./schema/*.json"
   },
   "sideEffects": [
     "**/*.css"
@@ -66,7 +73,8 @@
     "dev": "tsup --watch",
     "clean": "rimraf dist",
     "check-types": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "schema:generate": "bun scripts/generate-content-format.ts"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
@@ -74,24 +82,25 @@
   },
   "dependencies": {
     "@floating-ui/dom": "^1.6.0",
-    "@tiptap/core": "^3.0.0",
-    "@tiptap/extension-bubble-menu": "^3.10.4",
-    "@tiptap/extension-code": "3.31.3",
-    "@tiptap/extension-code-block": "3.31.3",
-    "@tiptap/extension-code-block-lowlight": "^3.0.0",
-    "@tiptap/extension-dropcursor": "^3.0.0",
-    "@tiptap/extension-gapcursor": "^3.0.0",
-    "@tiptap/extension-heading": "^3.0.0",
-    "@tiptap/extension-highlight": "^3.11.0",
-    "@tiptap/extension-image": "^3.0.0",
-    "@tiptap/extension-link": "^3.0.0",
-    "@tiptap/extension-placeholder": "^3.0.0",
-    "@tiptap/extension-table": "^3.10.7",
-    "@tiptap/extensions": "3.31.3",
-    "@tiptap/pm": "^3.0.0",
-    "@tiptap/react": "^3.0.0",
-    "@tiptap/starter-kit": "^3.0.0",
-    "@tiptap/static-renderer": "^3.10.7",
+    "@tiptap/core": "^3.31.3",
+    "@tiptap/extension-bubble-menu": "^3.31.3",
+    "@tiptap/extension-code": "^3.31.3",
+    "@tiptap/extension-code-block": "^3.31.3",
+    "@tiptap/extension-code-block-lowlight": "^3.31.3",
+    "@tiptap/extension-dropcursor": "^3.31.3",
+    "@tiptap/extension-gapcursor": "^3.31.3",
+    "@tiptap/extension-heading": "^3.31.3",
+    "@tiptap/extension-highlight": "^3.31.3",
+    "@tiptap/extension-image": "^3.31.3",
+    "@tiptap/extension-link": "^3.31.3",
+    "@tiptap/extension-placeholder": "^3.31.3",
+    "@tiptap/extension-table": "^3.31.3",
+    "@tiptap/extensions": "^3.31.3",
+    "@tiptap/pm": "^3.31.3",
+    "@tiptap/react": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
+    "@tiptap/static-renderer": "^3.31.3",
+    "@tiptap/suggestion": "^3.31.3",
     "acorn": "^8.19.0",
     "clsx": "^2.1.1",
     "highlight.js": "^11.10.0",

@@ -6,7 +6,7 @@ import type { HeroSettings } from "./settings";
 import { renderTitle, titleProps } from "../_shared/title";
 import { Image } from "../../components/image";
 import { NavLink } from "../../components/nav-link";
-import { TextRenderer } from "../../components/text-renderer";
+import { PageText } from "../../components/page-text";
 import { VideoWithPreview } from "../../components/video-with-preview";
 import { CodeSnippet } from "../../primitives/code-snippet";
 import { isVideo } from "../../utils";
@@ -111,7 +111,7 @@ export function HeroWidget({
       </Display>
       {description && (
         <Subheader1 theme={overriddenTheme} component="span">
-          <TextRenderer json={description} theme={overriddenTheme} />
+          <PageText json={description} theme={overriddenTheme} />
         </Subheader1>
       )}
       <div

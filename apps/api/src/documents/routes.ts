@@ -15,6 +15,7 @@ import {
   listDocuments,
   publishDocument,
   updateDocument,
+  withPublishReport,
 } from "./queries";
 import { omitInternal, serializeDates } from "../utils/public";
 import {
@@ -32,7 +33,7 @@ import {
 function toPublicDocument<T extends Record<string, unknown>>(doc: T) {
   return serializeDates(
     omitInternal(
-      { ...doc, status: deriveDocumentStatus(doc as any) },
+      { ...withPublishReport(doc), status: deriveDocumentStatus(doc as any) },
       "teamId",
       "kind",
       "authorAccountId",

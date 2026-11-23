@@ -11,10 +11,17 @@ import {
   Underline,
 } from "lucide-react";
 import LinkEditorPopover from "./components/link-editor-popover";
+import type { Profile } from "./core/types";
+import {
+  dismissSelectionMenu,
+  resetSelectionMenu,
+  SELECTION_MENU_KEY,
+  shouldShowSelectionMenu,
+} from "./ui/selection-menu";
 
 interface BubbleMenuProps {
   editor: Editor;
-  profile?: "default" | "documentation";
+  profile: Profile;
 }
 
 const buttonBase =
@@ -31,7 +38,7 @@ const TipTapBubbleMenu = ({
   editor,
   className,
   children,
-  pluginKey = "inlineBubbleMenu",
+  pluginKey = SELECTION_MENU_KEY,
   updateDelay,
   resizeDelay,
   shouldShow,
@@ -87,18 +94,25 @@ function InlineButton({
   icon: Icon,
   label,
   active,
+  toggle = true,
   onClick,
+  buttonRef,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   active?: boolean;
+  /** A mark on or off (`aria-pressed`); false for buttons that open something. */
+  toggle?: boolean;
   onClick: () => void;
+  buttonRef?: React.Ref<HTMLButtonElement>;
 }): React.JSX.Element {
   return (
     <button
+      ref={buttonRef}
       type="button"
       aria-label={label}
       title={label}
+      aria-pressed={toggle ? Boolean(active) : undefined}
       className={`${buttonBase} ${
         active
           ? "bg-primary text-primary-foreground hover:bg-primary/90"
@@ -113,9 +127,42 @@ function InlineButton({
 
 const InlineBubbleMenu = ({
   editor,
-  profile = "default",
+  profile,
 }: BubbleMenuProps): React.JSX.Element | null => {
   const [isLinkEditing, setIsLinkEditing] = useState(false);
+  const linkButton = useRef<HTMLButtonElement | null>(null);
+
+  // A toolbar: ←/→/Home/End move between buttons; Escape returns to the
+  // text with the selection kept and hides the menu until it changes.
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented) return; // the link field handled it
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      setIsLinkEditing(false);
+      editor.view.focus();
+      dismissSelectionMenu(editor);
+      return;
+    }
+    const buttons = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>("[role=toolbar] button"),
+    );
+    const at = buttons.indexOf(document.activeElement as HTMLElement);
+    if (at === -1) return;
+    const to =
+      event.key === "ArrowRight"
+        ? (at + 1) % buttons.length
+        : event.key === "ArrowLeft"
+          ? (at - 1 + buttons.length) % buttons.length
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? buttons.length - 1
+              : null;
+    if (to === null) return;
+    event.preventDefault();
+    buttons[to]?.focus();
+  };
 
   const openLinkEditor = useCallback(() => {
     setIsLinkEditing((prev) => !prev);
@@ -124,6 +171,7 @@ const InlineBubbleMenu = ({
   useEffect(() => {
     const handleSelectionUpdate = () => {
       setIsLinkEditing(false);
+      resetSelectionMenu(editor);
     };
 
     editor.on("selectionUpdate", handleSelectionUpdate);
@@ -140,55 +188,77 @@ const InlineBubbleMenu = ({
   return (
     <TipTapBubbleMenu
       editor={editor}
+      shouldShow={shouldShowSelectionMenu}
       className="bubble-menu flex flex-col gap-1 rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-xl"
     >
-      <div className="flex items-center gap-1">
-        <InlineButton
-          icon={Bold}
-          label="Bold"
-          active={editor.isActive("bold")}
-          onClick={() => editor.chain().focus().toggleBold().run()}
-        />
-        <InlineButton
-          icon={Italic}
-          label="Italic"
-          active={editor.isActive("italic")}
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-        />
-        {profile !== "documentation" && (
-          <InlineButton
-            icon={Underline}
-            label="Underline"
-            active={editor.isActive("underline")}
-            onClick={() => editor.chain().focus().toggleMark("underline").run()}
+      <div onKeyDown={onKeyDown}>
+        <div
+          role="toolbar"
+          aria-label="Text formatting"
+          className="flex items-center gap-1"
+        >
+          {profile.marks.includes("bold") && (
+            <InlineButton
+              icon={Bold}
+              label="Bold"
+              active={editor.isActive("bold")}
+              onClick={() => editor.chain().focus().toggleBold().run()}
+            />
+          )}
+          {profile.marks.includes("italic") && (
+            <InlineButton
+              icon={Italic}
+              label="Italic"
+              active={editor.isActive("italic")}
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+            />
+          )}
+          {profile.marks.includes("underline") && (
+            <InlineButton
+              icon={Underline}
+              label="Underline"
+              active={editor.isActive("underline")}
+              onClick={() => editor.chain().focus().toggleMark("underline").run()}
+            />
+          )}
+          {profile.marks.includes("strike") && (
+            <InlineButton
+              icon={Strikethrough}
+              label="Strikethrough"
+              active={editor.isActive("strike")}
+              onClick={() => editor.chain().focus().toggleStrike().run()}
+            />
+          )}
+          {profile.marks.includes("code") && (
+            <InlineButton
+              icon={Code}
+              label="Inline code"
+              active={editor.isActive("code")}
+              onClick={() => editor.chain().focus().toggleCode().run()}
+            />
+          )}
+          {profile.marks.includes("link") && (
+            <InlineButton
+              icon={LinkIcon}
+              label={editor.isActive("link") ? "Edit link" : "Insert link"}
+              active={editor.isActive("link")}
+              toggle={false}
+              onClick={openLinkEditor}
+              buttonRef={linkButton}
+            />
+          )}
+        </div>
+        {isLinkEditing && (
+          <LinkEditorPopover
+            editor={editor}
+            onClose={() => {
+              setIsLinkEditing(false);
+              linkButton.current?.focus();
+            }}
+            variant="inline"
           />
         )}
-        <InlineButton
-          icon={Strikethrough}
-          label="Strikethrough"
-          active={editor.isActive("strike")}
-          onClick={() => editor.chain().focus().toggleStrike().run()}
-        />
-        <InlineButton
-          icon={Code}
-          label="Inline code"
-          active={editor.isActive("code")}
-          onClick={() => editor.chain().focus().toggleCode().run()}
-        />
-        <InlineButton
-          icon={LinkIcon}
-          label="Insert link"
-          active={editor.isActive("link")}
-          onClick={openLinkEditor}
-        />
       </div>
-      {isLinkEditing && (
-        <LinkEditorPopover
-          editor={editor}
-          onClose={() => setIsLinkEditing(false)}
-          variant="inline"
-        />
-      )}
     </TipTapBubbleMenu>
   );
 };

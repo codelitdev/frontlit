@@ -40,6 +40,7 @@ export function principalFromHeader(
         subject: account.id,
         email: account.email,
         scopes: [],
+        authenticatedAt: new Date(),
       },
       account,
       accountId: account.id,

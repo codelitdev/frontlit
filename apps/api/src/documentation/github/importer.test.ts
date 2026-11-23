@@ -190,6 +190,30 @@ describe("immutable Git documentation manifest", () => {
       fixture({}, [{ path: "docs/module", type: "commit", mode: "160000", sha }]),
     ).rejects.toMatchObject({ diagnostics: [{ code: "INVALID_REFERENCE" }] });
   });
+  it("reports every broken page in one pass, each with its file and line", async () => {
+    await expect(
+      fixture({
+        "a-list.md": md("", "- 1. Step\n"),
+        "b-fine.md": md(),
+        "c-html.md": md("", "Intro\n\n<script>bad()</script>\n"),
+        "d-frontmatter.md": "---\ndescription: no title\n---\n\nBody\n",
+        "e-one.md": md("slug: same\n"),
+        "f-two.md": md("slug: same\n"),
+      }),
+    ).rejects.toMatchObject({
+      name: "DocsContentError",
+      diagnostics: [
+        { code: "INVALID_DOCUMENT", file: "docs/a-list.md", line: 5 },
+        { code: "UNSUPPORTED_NODE", file: "docs/c-html.md", line: 7 },
+        { code: "INVALID_FRONTMATTER", file: "docs/d-frontmatter.md" },
+        {
+          code: "DUPLICATE_ROUTE",
+          file: "docs/f-two.md",
+          relatedFiles: ["docs/e-one.md"],
+        },
+      ],
+    });
+  });
   it("rejects path traversal, non-UTF8 and binary referenced images", async () => {
     await expect(fixture({ "../escape.md": md() })).rejects.toMatchObject({
       diagnostics: [{ code: "INVALID_REFERENCE" }],

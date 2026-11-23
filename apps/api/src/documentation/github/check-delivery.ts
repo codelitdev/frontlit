@@ -1,3 +1,4 @@
+import type { DocsDiagnostic } from "@frontlit/text-editor/docs";
 import {
   DocsGitHubApp,
   GitHubDocsError,
@@ -5,6 +6,38 @@ import {
   type GitDocsCheckInput,
   type GitWriteGuard,
 } from "./app";
+
+/** One GitHub request carries at most 50 annotations; reports keep to one. */
+export const GIT_CHECK_ANNOTATION_LIMIT = 50;
+
+/** Only codes go to GitHub; messages stay in FrontLit. A diagnostic with a
+ * file but no line is annotated at line 1 so the page is still identified. */
+export function gitCheckAnnotations(diagnostics: DocsDiagnostic[]) {
+  return diagnostics
+    .filter((d) => d.file)
+    .slice(0, GIT_CHECK_ANNOTATION_LIMIT)
+    .map((d) => {
+      const line = d.line && d.line > 0 ? d.line : 1;
+      return {
+        path: d.file!,
+        start_line: line,
+        end_line: line,
+        annotation_level:
+          d.severity === "error" ? ("failure" as const) : ("warning" as const),
+        message: d.code,
+      };
+    });
+}
+
+/** Codes and the annotation count, never diagnostic messages. */
+export function gitCheckCodes(diagnostics: DocsDiagnostic[], annotated: number) {
+  const codes = [...new Set(diagnostics.map((d) => d.code))].slice(0, 100).join(", ");
+  const total = diagnostics.filter((d) => d.file).length;
+  return total > annotated
+    ? `${codes}
+${total} problems found; the first ${annotated} are annotated.`
+    : codes;
+}
 
 /** Delivers one fixed, already validated report. A caller's durable report job
  * retries this independently from import/publication. Remote annotation counts

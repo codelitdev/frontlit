@@ -60,7 +60,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
-        openWorldHint: true,
       },
     },
     async (_args: any, extra: any) => {
@@ -89,7 +88,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: true,
       },
     },
     async (args: any, extra: any) => {
@@ -121,7 +119,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
-        openWorldHint: true,
       },
     },
     async (_args: any, extra: any) => {
@@ -157,7 +154,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: true,
       },
     },
     async (args: any, extra: any) => {
@@ -186,7 +182,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: true,
       },
     },
     async (args: any, extra: any) => {
@@ -212,7 +207,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
-        openWorldHint: true,
       },
     },
     async (_args: any, extra: any) => {
@@ -249,7 +243,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
-        openWorldHint: true,
       },
     },
     async (args: any, extra: any) => {
@@ -274,7 +267,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
-        openWorldHint: true,
       },
     },
     async (args: any, extra: any) => {
@@ -304,7 +296,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: true,
       },
     },
     async (args: any, extra: any) => {
@@ -335,7 +326,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
-        openWorldHint: true,
       },
     },
     async (args: any, extra: any) => {
@@ -361,7 +351,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: true,
       },
     },
     async (args: any, extra: any) => {
@@ -386,7 +375,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
-        openWorldHint: true,
       },
     },
     async (args: any, extra: any) => {
@@ -411,7 +399,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
-        openWorldHint: true,
       },
     },
     async (_args: any, extra: any) => {
@@ -443,7 +430,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: true,
       },
     },
     async (args: any, extra: any) => {
@@ -477,7 +463,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: true,
       },
     },
     async (args: any, extra: any) => {
@@ -503,7 +488,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
-        openWorldHint: true,
       },
     },
     async (args: any, extra: any) => {
@@ -529,7 +513,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
-        openWorldHint: true,
       },
     },
     async (_args: any, extra: any) => {
@@ -558,7 +541,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: true,
       },
     },
     async (args: any, extra: any) => {
@@ -594,7 +576,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: true,
       },
     },
     async (args: any, extra: any) => {
@@ -622,7 +603,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
-        openWorldHint: true,
       },
     },
     async (args: any, extra: any) => {
@@ -647,7 +627,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
-        openWorldHint: true,
       },
     },
     async (args: any, extra: any) => {
@@ -673,7 +652,6 @@ export function registerEmailTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
-        openWorldHint: true,
       },
     },
     async (args: any, extra: any) => {

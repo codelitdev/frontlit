@@ -1,6 +1,6 @@
 {
   "name": "@frontlit/components-demo",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Vite demo of FrontLit's published page-builder and text-editor packages",

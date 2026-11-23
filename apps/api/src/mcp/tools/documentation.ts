@@ -249,7 +249,6 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
         outputSchema: z.union([command.output, documentationValidationErrorSchema]),
         annotations: {
           readOnlyHint: "read" in command ? command.read : false,
-          openWorldHint: false,
         },
       },
       async (args: any, extra: any) => {
@@ -280,7 +279,7 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
         code: z.literal("INTERACTIVE_OWNER_REQUIRED"),
         action: z.string(),
       }),
-      annotations: { readOnlyHint: true, openWorldHint: false },
+      annotations: { readOnlyHint: true },
     },
     async () => ({
       ...jsonResult({
@@ -302,7 +301,7 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
         documentationValidationReportSchema,
         documentationValidationErrorSchema,
       ]),
-      annotations: { readOnlyHint: true, openWorldHint: false },
+      annotations: { readOnlyHint: true },
     },
     async (args: any, extra: any) => {
       const teamId = getTeamId(extra);
@@ -328,7 +327,7 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
       description: "Read documentation ownership and draft settings.",
       inputSchema: {},
       outputSchema: documentationSettingsSchema,
-      annotations: { readOnlyHint: true, openWorldHint: false },
+      annotations: { readOnlyHint: true },
     },
     async (_args: any, extra: any) => {
       const teamId = getTeamId(extra);
@@ -346,7 +345,7 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
         documentationSettingsSchema,
         documentationValidationErrorSchema,
       ]),
-      annotations: { readOnlyHint: false, openWorldHint: false },
+      annotations: { readOnlyHint: false },
     },
     async (args: any, extra: any) => {
       const teamId = getTeamId(extra);
@@ -378,7 +377,6 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -407,7 +405,6 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -436,7 +433,6 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
-        openWorldHint: false,
       },
     },
     async (_args: any, extra: any) => {
@@ -471,7 +467,6 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {
@@ -502,7 +497,6 @@ export function registerDocumentationTools(server: McpToolRegistrar): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
-        openWorldHint: false,
       },
     },
     async (args: any, extra: any) => {

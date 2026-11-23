@@ -1,6 +1,5 @@
 import React from "react";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import { CircleAlert, Info, Lightbulb, OctagonAlert, StickyNote } from "lucide-react";
 import { DynamicIcon, type IconName } from "lucide-react/dynamic";
 import type { NodeProps } from "@tiptap/static-renderer";
 import type { TypeTableRow } from "../docs/blocks";
@@ -16,36 +15,6 @@ const childAttrs = (node: ProseMirrorNode) => {
   return attrs;
 };
 
-const CALLOUT_ICONS = {
-  note: StickyNote,
-  tip: Lightbulb,
-  info: Info,
-  warning: CircleAlert,
-  danger: OctagonAlert,
-};
-
-export function Callout({ node, children }: BlockProps) {
-  const type = (node.attrs.type ?? "info") as keyof typeof CALLOUT_ICONS;
-  const Icon = CALLOUT_ICONS[type] ?? Info;
-  return (
-    <div className="te-callout" data-type={type} role="note">
-      <Icon className="te-callout__icon" aria-hidden />
-      <div className="te-callout__body">
-        {node.attrs.title && <p className="te-callout__title">{node.attrs.title}</p>}
-        {children}
-      </div>
-    </div>
-  );
-}
-
-export function Tabs({ node, children }: BlockProps) {
-  return (
-    <DocsTabs className="te-tabs" labels={childAttrs(node).map((attrs) => attrs.label)}>
-      {children}
-    </DocsTabs>
-  );
-}
-
 export function CodeGroup({ node, children }: BlockProps) {
   const labels = childAttrs(node).map(
     (attrs, index) => attrs.title ?? attrs.language ?? `Code ${index + 1}`,
@@ -55,14 +24,6 @@ export function CodeGroup({ node, children }: BlockProps) {
       {children}
     </DocsTabs>
   );
-}
-
-export function Steps({ children }: BlockProps) {
-  return <ol className="te-steps">{children}</ol>;
-}
-
-export function Step({ children }: BlockProps) {
-  return <li className="te-step">{children}</li>;
 }
 
 export function Cards({ children }: BlockProps) {
@@ -93,19 +54,6 @@ export function Card({ node, children }: BlockProps) {
     </a>
   ) : (
     <div className="te-card">{body}</div>
-  );
-}
-
-export function Accordions({ children }: BlockProps) {
-  return <div className="te-accordions">{children}</div>;
-}
-
-export function Accordion({ node, children }: BlockProps) {
-  return (
-    <details className="te-accordion">
-      <summary className="te-accordion__title">{node.attrs.title}</summary>
-      <div className="te-accordion__body">{children}</div>
-    </details>
   );
 }
 
@@ -144,16 +92,10 @@ export function TypeTable({ node }: BlockProps) {
   );
 }
 
+/** Renderers of the docs-only blocks; the library renders Callout, Tabs, Steps and Accordion. */
 export const docsBlockMapping = {
-  callout: Callout,
-  tabs: Tabs,
-  tab: ({ children }: BlockProps) => <>{children}</>,
   codeGroup: CodeGroup,
-  steps: Steps,
-  step: Step,
   cards: Cards,
   card: Card,
-  accordions: Accordions,
-  accordion: Accordion,
   typeTable: TypeTable,
 };

@@ -15,6 +15,10 @@ import { FullScreenLoading } from "@/components/workspace/loading";
 import { SlugEditor } from "@/components/workspace/slug-editor";
 import { WritingEditorDocumentHeader } from "@/components/workspace/writing-editor-document-header";
 import { WritingEditorShell } from "@/components/workspace/writing-editor-shell";
+import {
+  PUBLISH_BLOCKED_REASON,
+  PublishBlockers,
+} from "@/components/workspace/publish-blockers";
 import { Input } from "@/components/ui/codelit/input";
 import { Label } from "@/components/ui/codelit/label";
 import { Textarea } from "@/components/ui/codelit/textarea";
@@ -200,6 +204,9 @@ export default function ArticleEditor({
       settingsOpen={settingsOpen}
       onSettingsOpenChange={setSettingsOpen}
       onPublish={handlePublish}
+      publishBlockedReason={
+        post.publishable === false ? PUBLISH_BLOCKED_REASON : undefined
+      }
       onDiscardDraft={handleDiscardDraft}
       discardDescription="Discard all unpublished changes on this article? This cannot be undone."
       settings={
@@ -274,15 +281,21 @@ export default function ArticleEditor({
         contentClassName="max-w-[46rem]"
         editorClassName="writing-editor-content min-h-[420px]"
         beforeContent={
-          <WritingEditorDocumentHeader
-            title={title}
-            titlePlaceholder="Article title"
-            description={description}
-            descriptionPlaceholder="Add a short description…"
-            onTitleChange={handleTitleChange}
-            onDescriptionChange={handleDescriptionChange}
-            titleTestId="blog-title-input"
-          />
+          <>
+            <WritingEditorDocumentHeader
+              title={title}
+              titlePlaceholder="Article title"
+              description={description}
+              descriptionPlaceholder="Add a short description…"
+              onTitleChange={handleTitleChange}
+              onDescriptionChange={handleDescriptionChange}
+              titleTestId="blog-title-input"
+            />
+            <PublishBlockers
+              publishable={post.publishable}
+              diagnostics={post.diagnostics}
+            />
+          </>
         }
       />
     </WritingEditorShell>

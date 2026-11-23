@@ -1,4 +1,7 @@
-import "@frontlit/text-editor/styles.css";
+// Rich-text reading styles only. The package's styles.css is a whole
+// Tailwind build for the editor (toolbar, menus, block settings); the site
+// compiles its own utilities (globals.css).
+import "@frontlit/text-editor/prose.css";
 import "./globals.css";
 import { fontCss } from "@/lib/font-css";
 import { ColorModeProvider } from "@/components/color-mode-provider";

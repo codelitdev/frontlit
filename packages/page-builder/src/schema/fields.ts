@@ -1,11 +1,12 @@
 import { z } from "zod";
 import {
-  parseDocsMarkdown,
-  serializeDocsMarkdown,
-  validateDocsContent,
-  DocsContentError,
-} from "@frontlit/text-editor/docs";
+  ContentError,
+  parseMarkdown,
+  serializeMarkdown,
+  validateContent,
+} from "@frontlit/text-editor/blocks";
 import { getMediaAlt, getMediaUrl } from "../models/media";
+import { PAGE_TEXT_FORMAT, pageTextProfile } from "./rich-text";
 
 /**
  * Block settings exist in two shapes:
@@ -34,7 +35,7 @@ const tiptapDoc = z
   })
   .passthrough()
   .superRefine((value, ctx) => {
-    const { diagnostics } = validateDocsContent(value);
+    const { diagnostics } = validateContent(pageTextProfile, value);
     for (const item of diagnostics) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: item.message });
     }
@@ -42,13 +43,13 @@ const tiptapDoc = z
 
 const markdown = z
   .string()
-  .describe("Markdown (CommonMark + GFM).")
+  .describe(PAGE_TEXT_FORMAT)
   .transform((value, ctx) => {
     try {
-      return parseDocsMarkdown(value, { frontmatter: false }).content;
+      return parseMarkdown(pageTextProfile, value);
     } catch (error) {
       const message =
-        error instanceof DocsContentError
+        error instanceof ContentError
           ? error.diagnostics
               .map((d) => (d.line ? `line ${d.line}: ${d.message}` : d.message))
               .join("; ")
@@ -77,7 +78,9 @@ export const fileKinds: FieldKinds = {
 };
 
 export const exportKinds: FieldKinds = {
-  richText: tiptapDoc.transform((value) => serializeDocsMarkdown(value).trimEnd()),
+  richText: tiptapDoc.transform((value) =>
+    serializeMarkdown(pageTextProfile, value).trimEnd(),
+  ),
   media: storedMedia.transform((value) => {
     const url = getMediaUrl(value);
     if (!url) return undefined;

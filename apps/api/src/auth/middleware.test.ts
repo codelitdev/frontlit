@@ -134,6 +134,7 @@ describe("FrontLit auth middleware projection", () => {
         subject: "auth-user-1",
         email: "owner@example.com",
         scopes: [],
+        authenticatedAt: new Date(),
       },
       account,
       accountId: account.id,

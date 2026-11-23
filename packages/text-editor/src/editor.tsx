@@ -19,14 +19,28 @@ import BubbleMenu from "./bubble-menu";
 import type { ReactEditorProps } from "./types";
 import { cn } from "./lib/cn";
 import { useImagePicker } from "./image-picker";
-import { createDocsExtensions } from "./docs/extensions";
-import { withDocsBlockViews } from "./components/docs-block-views";
-import { Gapcursor, TrailingNode } from "@tiptap/extensions";
-import Placeholder from "@tiptap/extension-placeholder";
-import { isSafeDocsUrl } from "./docs/urls";
+import { docsBlockUi } from "./components/docs-block-views";
+import { resolveProfile, type ProfileInput } from "./profiles";
+import { checkUrlAttr } from "./core/url-check";
+import { EditorBlocksContext } from "./ui/block-frame";
+import { collectBlockUi, createEditorExtensions } from "./ui/editor-extensions";
+import { getInsertItems, type InsertItem } from "./ui/insert-items";
+import { TableBar } from "./ui/table-bar";
+import { useMediaPicker, MEDIA_ACCEPT } from "./ui/media-picker";
+import type { BlockUi, ResolveMedia } from "./ui/types";
 
 export interface EditorProps {
-  profile?: "default" | "documentation";
+  /** `"default"`, `"documentation"`, or a profile from `defineProfile`. */
+  profile?: ProfileInput;
+  /**
+   * Blocks that may not be added now, with the reason shown to the author
+   * (e.g. `{ embed: "Upgrade to add embeds" }`). Existing ones stay editable.
+   */
+  unavailable?: Record<string, string>;
+  /** UI for host blocks in the profile (library blocks bring their own). */
+  blocks?: BlockUi[];
+  /** Preview URLs for media IDs already in the document. */
+  resolveMedia?: ResolveMedia;
   onChange: (json: JSONContent) => void;
   onFlushChangeReady?: (flush: () => void) => void;
   /** How long to wait after the last edit before calling `onChange`. Defaults to 1000. */
@@ -37,6 +51,8 @@ export interface EditorProps {
   url?: string;
   initialContent?: ReactEditorProps["initialContent"];
   placeholder?: string;
+  /** Accessible name of the editing area. Defaults to "Rich text editor". */
+  ariaLabel?: string;
   autoFocus?: boolean;
   imageSizeLimit?: number;
   onError?: (...args: any[]) => void;
@@ -58,6 +74,7 @@ const Editor: EditorType = Object.assign(
     onFlushChangeReady,
     debounceMs = 1000,
     placeholder,
+    ariaLabel = "Rich text editor",
     children,
     showToolbar = true,
     editable = true,
@@ -70,33 +87,46 @@ const Editor: EditorType = Object.assign(
     editorClassName,
     contentClassName,
     beforeContent,
-    profile = "default" as EditorProps["profile"],
+    profile: profileInput = "default" as ProfileInput,
+    unavailable,
+    blocks,
+    resolveMedia,
   }) => {
     const [isUploading, setIsUploading] = useState(false);
+    // Render nothing on the server and in the first client render, so
+    // hydration matches; the editor needs the DOM anyway.
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const pickImage = useImagePicker();
+    const pickMedia = useMediaPicker();
+    const profile = resolveProfile(profileInput);
+    const imageSchema = profile.blockSchemas.get("image");
+    const allowsBase64 =
+      imageSchema?.attrs.src.validate("data:image/png;base64,AA==") === true;
+    const mediaImages = Boolean(imageSchema?.attrs.media);
+    // Host UIs arrive as a new array on every render; rebuild only when the set changes.
+    const blockKey = (blocks ?? []).map((block) => block.schema.name).join(",");
+    const blocksRef = useRef(blocks);
+    blocksRef.current = blocks;
+    const ui = useMemo(
+      () => collectBlockUi(profile, [...docsBlockUi, ...(blocksRef.current ?? [])]),
+      [profile, blockKey],
+    );
+    const previews = useRef(new Map<string, { url?: string; name?: string }>()).current;
+    const itemsRef = useRef<InsertItem[]>([]);
     const hasInteractedRef = useRef(false);
     const lastSerializedContentRef = useRef(JSON.stringify(initialContent ?? emptyDoc));
     const refreshRef = useRef<EditorProps["refresh"]>(refresh);
 
     const extensions = useMemo(
       () =>
-        withDocsBlockViews(
-          profile === "documentation"
-            ? [
-                ...createDocsExtensions(),
-                Placeholder.configure({
-                  placeholder: placeholder || "Write something…",
-                }),
-                // Editing only: lets authors type before or after a block that
-                // starts or ends the doc. Empty paragraphs are not saved to Markdown.
-                Gapcursor,
-                TrailingNode,
-              ]
-            : createExtensions({ placeholder }),
-          profile ?? "default",
-        ),
-      [placeholder, profile],
+        createEditorExtensions(profile, {
+          placeholder,
+          ui,
+          getItems: () => itemsRef.current,
+        }),
+      [placeholder, profile, ui],
     );
 
     const changeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -117,6 +147,10 @@ const Editor: EditorType = Object.assign(
           attributes: {
             class: `tiptap-content ${editorClassName ?? ""}`,
             "data-placeholder": placeholder ?? "",
+            role: "textbox",
+            "aria-multiline": "true",
+            "aria-label": ariaLabel,
+            ...(editable ? {} : { "aria-readonly": "true" }),
           },
         },
         onUpdate: ({ editor: instance }) => {
@@ -211,7 +245,7 @@ const Editor: EditorType = Object.assign(
 
     const handleImageUpload = useCallback(
       async (file: File) => {
-        if (profile === "documentation") {
+        if (!allowsBase64) {
           onError?.(
             "Upload a public image using the media library before inserting it.",
           );
@@ -248,7 +282,7 @@ const Editor: EditorType = Object.assign(
           setIsUploading(false);
         }
       },
-      [editor, profile, onError, imageSizeLimit],
+      [editor, allowsBase64, onError, imageSizeLimit],
     );
 
     const handleSelectFile = useCallback(
@@ -267,8 +301,15 @@ const Editor: EditorType = Object.assign(
 
     const insertPickedImage = useCallback(
       (image: { src: string; alt?: string }) => {
-        if (profile === "documentation" && !isSafeDocsUrl(image.src, true)) {
-          onError?.("Documentation images require a stable public HTTPS URL.");
+        const check = imageSchema
+          ? checkUrlAttr(profile, imageSchema.attrs.src, image.src)
+          : "Images are not allowed here.";
+        if (check !== true) {
+          onError?.(
+            profile.options.name === "documentation"
+              ? "Documentation images require a stable public HTTPS URL."
+              : check,
+          );
           return;
         }
         editor
@@ -281,10 +322,25 @@ const Editor: EditorType = Object.assign(
           })
           .run();
       },
-      [editor, profile, onError],
+      [editor, profile, imageSchema, onError],
     );
 
     const openFileDialog = useCallback(() => {
+      if (mediaImages && pickMedia) {
+        void pickMedia({ kind: "image", accept: MEDIA_ACCEPT.image }).then((picked) => {
+          if (!picked) return;
+          previews.set(picked.id, { url: picked.previewUrl, name: picked.name });
+          editor
+            ?.chain()
+            .focus()
+            .insertContent({
+              type: "image",
+              attrs: { media: picked.id, src: null, alt: picked.alt ?? "" },
+            })
+            .run();
+        });
+        return;
+      }
       if (pickImage) {
         void pickImage().then((image) => {
           if (image) insertPickedImage(image);
@@ -292,58 +348,90 @@ const Editor: EditorType = Object.assign(
         return;
       }
       fileInputRef.current?.click();
-    }, [insertPickedImage, pickImage]);
+    }, [editor, insertPickedImage, mediaImages, pickImage, pickMedia, previews]);
 
-    if (typeof window === "undefined") {
+    itemsRef.current = useMemo(
+      () =>
+        getInsertItems(profile, {
+          ui,
+          unavailable,
+          insertImage: () => openFileDialog(),
+          // The default editor has always offered headings 1–3.
+          headingLevels:
+            profile.options.name === "default"
+              ? profile.headingLevels.filter((level) => level <= 3)
+              : undefined,
+        }),
+      [profile, ui, unavailable, openFileDialog],
+    );
+    const blocksContext = useMemo(
+      () => ({ ui, pickMedia, resolveMedia, previews }),
+      [ui, pickMedia, resolveMedia, previews],
+    );
+
+    if (!mounted) {
       return <></>;
     }
 
     return (
-      <div
-        className={cn("tiptap-editor flex flex-col gap-4 border", className)}
-        onPointerDownCapture={() => {
-          hasInteractedRef.current = true;
-        }}
-        onKeyDownCapture={() => {
-          hasInteractedRef.current = true;
-        }}
-      >
-        {editable && showToolbar && (
-          <div
-            className="sticky top-0 bg-background"
-            style={{
-              zIndex: 1,
-            }}
-          >
-            <Toolbar
-              editor={editor}
-              onRequestImageUpload={openFileDialog}
-              isUploadingImage={isUploading}
-              profile={profile}
-            />
-          </div>
-        )}
-        <div className="flex w-full justify-center">
-          <div className={cn("flex w-full max-w-3xl flex-col", contentClassName)}>
-            {beforeContent}
-            <EditorContent
-              editor={editor}
-              className={`${editorClassName ?? ""} ${editorClassName?.includes("min-h-") ? "" : "min-h-[200px]"}`}
-            />
-            {pickImage ? null : (
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleSelectFile}
+      <EditorBlocksContext.Provider value={blocksContext}>
+        <div
+          className={cn("tiptap-editor flex flex-col gap-4 border", className)}
+          onPointerDownCapture={() => {
+            hasInteractedRef.current = true;
+          }}
+          onKeyDownCapture={() => {
+            hasInteractedRef.current = true;
+          }}
+        >
+          {editable && showToolbar && (
+            <div
+              className="sticky top-0 bg-background"
+              style={{
+                zIndex: 1,
+              }}
+            >
+              <Toolbar
+                editor={editor}
+                isUploadingImage={isUploading}
+                profile={profile}
+                items={itemsRef.current}
               />
-            )}
-            {children}
-            {editor && <BubbleMenu editor={editor} profile={profile} />}
+            </div>
+          )}
+          <div className="flex w-full justify-center">
+            <div
+              className={cn(
+                "relative flex w-full max-w-3xl flex-col",
+                contentClassName,
+              )}
+            >
+              {beforeContent}
+              <EditorContent
+                editor={editor}
+                className={`${editorClassName ?? ""} ${editorClassName?.includes("min-h-") ? "" : "min-h-[200px]"}`}
+              />
+              {pickImage ? null : (
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleSelectFile}
+                />
+              )}
+              {children}
+              {editor && <BubbleMenu editor={editor} profile={profile} />}
+              {editor && editable && profile.nodeNames.has("table") && (
+                <TableBar
+                  editor={editor}
+                  headerToggle={profile.options.tables !== "simple"}
+                />
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      </EditorBlocksContext.Provider>
     );
   },
   {

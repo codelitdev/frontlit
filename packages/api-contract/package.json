@@ -1,7 +1,7 @@
 {
   "name": "@frontlit/api-contract",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared ts-rest contract (Zod schemas + route definitions) for the FrontLit API — single source of truth for server validation, the OpenAPI doc, and the typed web client",
   "author": "FrontLit",
   "license": "MIT",

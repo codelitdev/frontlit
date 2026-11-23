@@ -1,0 +1,369 @@
+{
+  "$id": "https://frontlit.app/schema/content.v1.json",
+  "title": "FrontLit content format",
+  "description": "Markdown accepted for articles, product updates and documentation through the FrontLit API and MCP. Blocks are tags on their own lines with literal props.",
+  "markdown": {
+    "syntax": "CommonMark with GFM tables. Rich blocks are JSX-style tags, each opening and closing tag on its own line with a blank line around inner content. Prop values are literals: \"text\", {42}, {true}, {[\"a\", \"b\"]} or {{ key: \"value\" }} (icons: {<Rocket />}). Variables, function calls, spreads, raw HTML, expressions and imports are refused.",
+    "marks": [
+      "**bold**",
+      "*italic*",
+      "~~strike~~",
+      "`code`",
+      "[text](https://… or /path or mailto:…)"
+    ],
+    "nodes": [
+      "# Heading",
+      "> Quote",
+      "- Item",
+      "1. Item",
+      "```lang title=\"file.ts\"",
+      "---",
+      "Two trailing spaces",
+      "| GFM | table |"
+    ],
+    "headingLevels": [1, 2, 3, 4, 5, 6]
+  },
+  "blocks": [
+    {
+      "name": "image",
+      "summary": "An image in standard Markdown image syntax.",
+      "example": "![Team photo](https://example.com/photo.png \"Optional title\")",
+      "attributes": [
+        {
+          "name": "src",
+          "prop": "src",
+          "type": "https URL",
+          "default": null,
+          "required": false,
+          "description": "An https URL."
+        },
+        {
+          "name": "alt",
+          "prop": "alt",
+          "type": "string",
+          "default": null,
+          "required": false,
+          "description": "Text for screen readers."
+        },
+        {
+          "name": "title",
+          "prop": "title",
+          "type": "string",
+          "default": null,
+          "required": false,
+          "description": "Tooltip text."
+        },
+        {
+          "name": "width",
+          "default": null,
+          "required": false,
+          "description": "Not used."
+        },
+        {
+          "name": "height",
+          "default": null,
+          "required": false,
+          "description": "Not used."
+        }
+      ]
+    },
+    {
+      "name": "callout",
+      "tag": "Callout",
+      "summary": "A highlighted note holding any blocks.",
+      "example": "<Callout type=\"tip\" title=\"Good to know\">\n\nStart with three tiers.\n\n</Callout>",
+      "content": "block+",
+      "attributes": [
+        {
+          "name": "type",
+          "prop": "type",
+          "type": "\"note\" | \"tip\" | \"info\" | \"success\" | \"warning\" | \"danger\"",
+          "default": null,
+          "required": false,
+          "description": "Kind of note; the renderer picks its colour and icon. Absent means info."
+        },
+        {
+          "name": "title",
+          "prop": "title",
+          "type": "string",
+          "default": null,
+          "required": false,
+          "description": "Optional heading shown above the text."
+        }
+      ]
+    },
+    {
+      "name": "tabs",
+      "tag": "Tabs",
+      "summary": "Content split into labelled tabs; each <Tab> holds any blocks.",
+      "example": "<Tabs items={[\"npm\", \"bun\"]}>\n\n<Tab value=\"npm\">\n\nnpm install\n\n</Tab>\n\n<Tab value=\"bun\">\n\nbun add\n\n</Tab>\n\n</Tabs>",
+      "content": "tab+",
+      "attributes": [
+        {
+          "name": "items",
+          "prop": "items",
+          "type": "string[]",
+          "default": null,
+          "required": false,
+          "description": "Tab labels in order. Optional; when given, each <Tab value> must be one of them."
+        }
+      ],
+      "children": [
+        {
+          "name": "tab",
+          "tag": "Tab",
+          "summary": "One tab of a <Tabs> block.",
+          "example": "<Tab value=\"npm\">…</Tab>",
+          "content": "block+",
+          "attributes": [
+            {
+              "name": "label",
+              "prop": "value",
+              "type": "string",
+              "default": "",
+              "required": false,
+              "description": "Tab label."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "steps",
+      "tag": "Steps",
+      "summary": "A numbered sequence; each <Step> holds any blocks, usually a heading first.",
+      "example": "<Steps>\n\n<Step>\n\n### Install\n\nRun the installer.\n\n</Step>\n\n</Steps>",
+      "content": "step+",
+      "attributes": [],
+      "children": [
+        {
+          "name": "step",
+          "tag": "Step",
+          "summary": "One step of a <Steps> block.",
+          "example": "<Step>…</Step>",
+          "content": "block+",
+          "attributes": []
+        }
+      ]
+    },
+    {
+      "name": "cards",
+      "tag": "Cards",
+      "summary": "A grid of link cards; each <Card> has a title and optional href, icon and text.",
+      "example": "<Cards>\n\n<Card title=\"Quick start\" href=\"/docs/quick-start\" icon={<Rocket />}>\n\nUpload your first file.\n\n</Card>\n\n</Cards>",
+      "content": "card+",
+      "attributes": [],
+      "children": [
+        {
+          "name": "card",
+          "tag": "Card",
+          "summary": "One link card of a <Cards> grid.",
+          "example": "<Card title=\"Quick start\" href=\"/docs/quick-start\" icon={<Rocket />} />",
+          "content": "block*",
+          "attributes": [
+            {
+              "name": "title",
+              "prop": "title",
+              "type": "string",
+              "default": "",
+              "required": true,
+              "description": "Card title."
+            },
+            {
+              "name": "href",
+              "prop": "href",
+              "type": "URL",
+              "default": null,
+              "required": false,
+              "description": "Optional link target."
+            },
+            {
+              "name": "icon",
+              "prop": "icon",
+              "type": "<IconName />",
+              "default": null,
+              "required": false,
+              "description": "Optional lucide icon, written as icon={<Rocket />}."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "accordions",
+      "tag": "Accordions",
+      "summary": "Collapsible sections; each <Accordion> has a title and holds any blocks.",
+      "example": "<Accordions type=\"single\">\n\n<Accordion title=\"Is it free?\">\n\nYes.\n\n</Accordion>\n\n</Accordions>",
+      "content": "accordion+",
+      "attributes": [
+        {
+          "name": "type",
+          "prop": "type",
+          "type": "\"single\" | \"multiple\"",
+          "default": null,
+          "required": false,
+          "description": "Whether one or several items can be open at once."
+        }
+      ],
+      "children": [
+        {
+          "name": "accordion",
+          "tag": "Accordion",
+          "summary": "One collapsible item of an <Accordions> block.",
+          "example": "<Accordion title=\"Is it free?\">…</Accordion>",
+          "content": "block+",
+          "attributes": [
+            {
+              "name": "title",
+              "prop": "title",
+              "type": "string",
+              "default": "",
+              "required": true,
+              "description": "Always-visible title."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "codeGroup",
+      "tag": "CodeGroup",
+      "summary": "Code fences shown as tabs; each fence's title=\"…\" is its tab label.",
+      "example": "<CodeGroup>\n\n```ts title=\"client.ts\"\nupload();\n```\n\n</CodeGroup>",
+      "content": "codeBlock+",
+      "attributes": []
+    },
+    {
+      "name": "typeTable",
+      "tag": "TypeTable",
+      "summary": "A table of props or options with their types and defaults.",
+      "example": "<TypeTable\n  type={{\n    apiKey: { type: \"string\", default: \"KEY\", description: \"Your key.\" },\n  }}\n/>",
+      "attributes": [
+        {
+          "name": "rows",
+          "type": "rows",
+          "default": [],
+          "required": false,
+          "description": "Rows of name, type, default, description and required."
+        },
+        {
+          "name": "type",
+          "prop": "type",
+          "type": "{ [name]: { type: string; default?: string; description?: string; required?: boolean } }",
+          "default": null,
+          "required": true,
+          "description": "One entry per row, keyed by the prop or option name."
+        }
+      ]
+    },
+    {
+      "name": "button",
+      "tag": "Button",
+      "summary": "A link styled as a button, for a call to action.",
+      "example": "<Button label=\"Start the course\" href=\"/courses/intro\" />",
+      "attributes": [
+        {
+          "name": "label",
+          "prop": "label",
+          "type": "string",
+          "default": "",
+          "required": true,
+          "description": "Button text."
+        },
+        {
+          "name": "href",
+          "prop": "href",
+          "type": "URL",
+          "default": null,
+          "required": true,
+          "description": "Where the button goes: https, http, mailto or a site path."
+        },
+        {
+          "name": "variant",
+          "prop": "variant",
+          "type": "\"primary\" | \"secondary\"",
+          "default": null,
+          "required": false,
+          "description": "Visual weight. Absent means primary."
+        }
+      ]
+    },
+    {
+      "name": "webPreview",
+      "tag": "WebPreview",
+      "summary": "A link card previewing a web page, with an optional image.",
+      "example": "<WebPreview url=\"https://example.com/guide\" title=\"The guide\" description=\"Everything in one place.\" />",
+      "attributes": [
+        {
+          "name": "url",
+          "prop": "url",
+          "type": "URL",
+          "default": null,
+          "required": true,
+          "description": "The page to link to (http or https)."
+        },
+        {
+          "name": "title",
+          "prop": "title",
+          "type": "string",
+          "default": null,
+          "required": false,
+          "description": "Card title. Absent shows the link's host name."
+        },
+        {
+          "name": "description",
+          "prop": "description",
+          "type": "string",
+          "default": null,
+          "required": false,
+          "description": "One or two sentences about the page."
+        },
+        {
+          "name": "image",
+          "prop": "image",
+          "type": "URL",
+          "default": null,
+          "required": false,
+          "description": "Optional thumbnail (https)."
+        }
+      ]
+    },
+    {
+      "name": "h5p",
+      "tag": "H5P",
+      "summary": "An interactive H5P activity (quiz, flashcards, timeline…) by its embed URL.",
+      "example": "<H5P src=\"https://h5p.org/h5p/embed/712\" title=\"Drag the words\" />",
+      "attributes": [
+        {
+          "name": "src",
+          "prop": "src",
+          "type": "URL",
+          "default": null,
+          "required": true,
+          "description": "The activity's embed URL (https, on h5p.org or *.h5p.com)."
+        },
+        {
+          "name": "title",
+          "prop": "title",
+          "type": "string",
+          "default": null,
+          "required": false,
+          "description": "Accessible title of the activity frame."
+        },
+        {
+          "name": "height",
+          "prop": "height",
+          "type": "number",
+          "default": null,
+          "required": false,
+          "description": "Frame height in pixels (default 480)."
+        }
+      ]
+    }
+  ],
+  "limits": {
+    "bytes": 1048576,
+    "nodes": 20000,
+    "depth": 64
+  }
+}

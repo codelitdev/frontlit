@@ -16,7 +16,7 @@ export function sessionTokenFromCookieHeader(
   if (!cookie) return undefined;
   const match = cookie.match(
     new RegExp(
-      `(?:^|;\\s*)(?:__Secure-)?${AUTH_COOKIE_PREFIX}\\.session_token=([^;]+)`,
+      `(?:^|;\\s*)(?:__Secure-|__Host-)?${AUTH_COOKIE_PREFIX}\\.session_token=([^;]+)`,
     ),
   );
   if (!match?.[1]) return undefined;

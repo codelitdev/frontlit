@@ -5,7 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import type { ThemeStyle, WidgetProps } from "../../models";
 import type { FeaturedSettings } from "./settings";
 import { itemHeadingLevel, renderTitle, titleProps } from "../_shared/title";
-import { TextRenderer } from "../../components/text-renderer";
+import { PageText } from "../../components/page-text";
 import {
   Header1,
   Header4,
@@ -64,7 +64,7 @@ export function FeaturedWidget({
           </Header1>
           {description && (
             <Subheader1 theme={overriddenTheme} component="span">
-              <TextRenderer json={description} theme={overriddenTheme} />
+              <PageText json={description} theme={overriddenTheme} />
             </Subheader1>
           )}
         </div>

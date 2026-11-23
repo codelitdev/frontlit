@@ -1,6 +1,7 @@
 import {
   DocsContentError,
   diagnostic,
+  incompleteDocsBlocks,
   isSafeDocsUrl,
   requireDocsContent,
   serializeDocsMarkdown,
@@ -27,6 +28,19 @@ export function normalizeDocumentationContent(input: unknown): TextEditorContent
   // Derivation failure must leave the prior draft intact too.
   serializeDocsMarkdown(content);
   return content as TextEditorContentRow;
+}
+
+/**
+ * Markdown sent through the API or MCP arrives whole (it isn't an editor
+ * draft being typed), so a block missing a required prop, such as a Button
+ * without its link, is refused instead of saved as an invisible block.
+ */
+export function requireCompleteMarkdownBlocks(content: unknown) {
+  const missing = incompleteDocsBlocks(content);
+  if (missing.length)
+    throw new DocsContentError(
+      missing.map((item) => ({ ...item, severity: "error", blocksSave: true })),
+    );
 }
 
 export function validateDocumentationFeaturedImage(

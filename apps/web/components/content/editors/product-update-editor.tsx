@@ -18,6 +18,10 @@ import { FullScreenLoading } from "@/components/workspace/loading";
 import { SlugEditor } from "@/components/workspace/slug-editor";
 import { WritingEditorDocumentHeader } from "@/components/workspace/writing-editor-document-header";
 import { WritingEditorShell } from "@/components/workspace/writing-editor-shell";
+import {
+  PUBLISH_BLOCKED_REASON,
+  PublishBlockers,
+} from "@/components/workspace/publish-blockers";
 import { IconButton } from "@/components/ui/codelit/icon-button";
 import { Input } from "@/components/ui/codelit/input";
 import { Label } from "@/components/ui/codelit/label";
@@ -183,6 +187,9 @@ export default function ProductUpdateEditor({
       settingsOpen={settingsOpen}
       onSettingsOpenChange={setSettingsOpen}
       onPublish={handlePublish}
+      publishBlockedReason={
+        entry.publishable === false ? PUBLISH_BLOCKED_REASON : undefined
+      }
       onDiscardDraft={handleDiscardDraft}
       discardDescription="Discard all unpublished changes on this product update? This cannot be undone."
       headerActions={
@@ -262,12 +269,18 @@ export default function ProductUpdateEditor({
         contentClassName="max-w-[46rem]"
         editorClassName="writing-editor-content min-h-[420px]"
         beforeContent={
-          <WritingEditorDocumentHeader
-            title={title}
-            titlePlaceholder="Product update title"
-            onTitleChange={handleTitleChange}
-            titleTestId="changelog-title-input"
-          />
+          <>
+            <WritingEditorDocumentHeader
+              title={title}
+              titlePlaceholder="Product update title"
+              onTitleChange={handleTitleChange}
+              titleTestId="changelog-title-input"
+            />
+            <PublishBlockers
+              publishable={entry.publishable}
+              diagnostics={entry.diagnostics}
+            />
+          </>
         }
       />
     </WritingEditorShell>

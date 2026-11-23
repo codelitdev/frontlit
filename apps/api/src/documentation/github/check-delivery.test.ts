@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { deliverGitDocsCheck } from "./check-delivery";
+import { diagnostic } from "@frontlit/text-editor/docs";
+import {
+  deliverGitDocsCheck,
+  gitCheckAnnotations,
+  gitCheckCodes,
+} from "./check-delivery";
 import {
   GitHubDocsError,
   type DocsGitHubApp,
@@ -170,5 +175,47 @@ describe("independent GitHub check delivery", () => {
       code: "GITHUB_CHECK_RECOVERY_CONFLICT",
     });
     expect(f.guard).not.toHaveBeenCalled();
+  });
+  it("annotates file-only diagnostics at line 1 and truncates at the request cap", () => {
+    const diagnostics = [
+      diagnostic("INVALID_DOCUMENT", "Private message", { file: "docs/a.md" }),
+      diagnostic("UNSUPPORTED_NODE", "Private message", {
+        file: "docs/b.md",
+        line: 7,
+      }),
+      diagnostic("INVALID_REFERENCE", "No file"),
+      ...Array.from({ length: 60 }, (_, i) =>
+        diagnostic("BROKEN_LINK", "Private message", {
+          file: `docs/page-${i}.md`,
+          line: 2,
+        }),
+      ),
+    ];
+    const annotations = gitCheckAnnotations(diagnostics);
+    expect(annotations).toHaveLength(50);
+    expect(annotations.slice(0, 2)).toEqual([
+      {
+        path: "docs/a.md",
+        start_line: 1,
+        end_line: 1,
+        annotation_level: "failure",
+        message: "INVALID_DOCUMENT",
+      },
+      {
+        path: "docs/b.md",
+        start_line: 7,
+        end_line: 7,
+        annotation_level: "failure",
+        message: "UNSUPPORTED_NODE",
+      },
+    ]);
+    const summary = gitCheckCodes(diagnostics, annotations.length);
+    expect(summary).toBe(
+      "INVALID_DOCUMENT, UNSUPPORTED_NODE, INVALID_REFERENCE, BROKEN_LINK\n62 problems found; the first 50 are annotated.",
+    );
+    expect(summary).not.toContain("Private message");
+    expect(gitCheckCodes(diagnostics.slice(0, 2), 2)).toBe(
+      "INVALID_DOCUMENT, UNSUPPORTED_NODE",
+    );
   });
 });

@@ -5,7 +5,7 @@ import type { PricingSettings, PricingTier } from "./settings";
 import { PricingPeriodSwitch } from "./period-switch";
 import { renderTitle, titleProps } from "../_shared/title";
 import { NavLink } from "../../components/nav-link";
-import { TextRenderer } from "../../components/text-renderer";
+import { PageText } from "../../components/page-text";
 import {
   Badge,
   Button,
@@ -156,7 +156,7 @@ export function PricingWidget({
           </Header1>
           {description && (
             <Subheader1 theme={overriddenTheme} component="span">
-              <TextRenderer json={description} theme={overriddenTheme} />
+              <PageText json={description} theme={overriddenTheme} />
             </Subheader1>
           )}
         </div>

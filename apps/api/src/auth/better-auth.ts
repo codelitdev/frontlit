@@ -7,7 +7,11 @@ import { jwt } from "better-auth/plugins/jwt";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { oauthProviderResourceClient } from "@better-auth/oauth-provider/resource-client";
 import { cimd } from "@better-auth/cimd";
-import { createOAuthProviderOptions } from "@codelitdev/oauth-server-kit/better-auth";
+import {
+  createOAuthProviderOptions,
+  secureEmailAndPasswordOptions,
+  secureSessionOptions,
+} from "@codelitdev/oauth-server-kit/better-auth";
 import type { HostedLoginMethod } from "@codelitdev/oauth-server-kit/express";
 import { db } from "../db/client";
 import * as schema from "../db/schema";
@@ -16,7 +20,7 @@ import { MailNotConfiguredError, sendMail } from "../utils/mail";
 import { ensureFrontLitAccountForUser } from "../account/queries";
 import { MCP_SCOPES_SUPPORTED } from "../mcp/policy";
 import { fetchClientMetadataResource } from "./cimd-fetch";
-import { AUTH_COOKIE_PREFIX } from "./cookie-prefix";
+import { authCookieOptions } from "./cookie-options";
 import {
   CAPTCHA_PROTECTED_ENDPOINTS,
   TURNSTILE_TESTING_SECRET,
@@ -149,21 +153,19 @@ export const auth = betterAuth({
       );
     },
   },
-  advanced: {
-    cookiePrefix: AUTH_COOKIE_PREFIX,
-    ...(authCookieDomain
-      ? {
-          crossSubDomainCookies: {
-            enabled: true,
-            domain: authCookieDomain,
-          },
-        }
-      : {}),
-  },
+  // `__Secure-frontlit.session_token` when AUTH_COOKIE_DOMAIN shares it with
+  // the web app, `__Host-` on a single https host, plain over http. Client
+  // addresses come only from the header `createClientIpMiddleware` sets.
+  advanced: authCookieOptions({ baseURL: authBaseUrl, cookieDomain: authCookieDomain }),
+  // Password sign-in stays off: FrontLit signs people in with email codes,
+  // Google and OAuth.
+  emailAndPassword: secureEmailAndPasswordOptions(),
   user: {
     modelName: "authUser",
   },
   session: {
+    // No cookie cache: a revoked session stops working immediately.
+    ...secureSessionOptions(),
     modelName: "authSession",
     expiresIn: 60 * 60 * 24 * 30,
     updateAge: 60 * 60 * 24,

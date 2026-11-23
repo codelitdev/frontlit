@@ -1,0 +1,74 @@
+---
+title: Overview
+description: Run the FrontLit API, dashboard, and public sites locally.
+nav_order: 20
+---
+
+FrontLit is a Bun workspace with four apps and several packages:
+
+- `apps/api` — the REST/OpenAPI/MCP API (Express, ts-rest, better-auth, Drizzle/Postgres).
+- `apps/web` — the dashboard (Next.js), authenticated against `apps/api`.
+- `apps/sites` — public tenant sites (Next.js).
+- `apps/docs` — this documentation site (fumadocs).
+- `packages/api-contract` — the shared ts-rest contract (Zod schemas + routes).
+- `packages/page-builder` / `packages/text-editor` — the page builder and rich text editor.
+
+## Start local dependencies
+
+`docker-compose.yml` is the self-host product stack. For development, start
+only Postgres, Redis, and SendLit:
+
+```bash
+docker compose -f docker-compose.local.yml up
+```
+
+Postgres is on `127.0.0.1:5433`. SendLit is on `http://localhost:3001`.
+Redis is on `127.0.0.1:6379` (used by SendLit inside Compose). The
+`frontlit-migrate` job applies FrontLit schema to Postgres — wait for
+`FrontLit migrations applied.` before starting the API.
+
+Do not run this at the same time as `docker compose up` (the self-host
+stack) — both publish those ports. See [Self hosting](/docs/self-hosting) for
+the in-Docker product.
+
+On first SendLit boot, copy the one-time organization key into
+`apps/api/.env` as `SENDLIT_ORGANIZATION_API_KEY`:
+
+```bash
+docker compose -f docker-compose.local.yml logs sendlit-api
+```
+
+## Run FrontLit on the host
+
+```bash
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+cp apps/sites/.env.example apps/sites/.env
+# Point DB_CONNECTION_STRING at localhost:5433 (Compose publishes Postgres there).
+bun run --filter @frontlit/api-contract build
+```
+
+Then start the apps in **separate terminals** (`&&` waits for each process
+to exit):
+
+```bash
+bun run dev:api
+bun run dev:web
+bun run dev:sites
+```
+
+Or run all three together:
+
+```bash
+bun run dev
+```
+
+The API listens on `http://localhost:4000`. `GET /health` confirms it's up,
+`GET /docs/` serves the interactive Swagger UI, and `GET /openapi.json`
+serves the raw OpenAPI document. Private content authoring uses typed
+resources below `/content`.
+
+The dashboard listens on `http://localhost:3000`. Signing in sends a
+one-time code to your email (logged to the API's console in development
+instead of actually emailed). Public sites listen on
+`http://localhost:3002`.
