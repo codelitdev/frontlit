@@ -27,13 +27,11 @@ import {
 } from "../../documents/queries";
 import { AUTH_ERROR, INTERNAL_ERROR, NOT_FOUND, jsonResult } from "./responses";
 import { getTeamId } from "./auth";
+import { listPaging, listPagingInput } from "./paging";
 import { DocsContentError, describeContentFormat } from "@frontlit/text-editor/docs";
 import { documentationErrorBody } from "../../documentation/content-validation";
 import { omitInternal, serializeDates } from "../../utils/public";
-import {
-  attachDocumentIndex,
-  attachOneDocumentIndex,
-} from "../../documentation/index-status";
+import { attachOneDocumentIndex } from "../../documentation/index-status";
 
 /** Documentation-only columns on the shared documents table; other content
  * kinds do not declare them in their output schema. */
@@ -163,13 +161,22 @@ export function registerDocumentTools(
     },
   );
 
+  const summarySchema = z.object({
+    documentId: z.string(),
+    title: z.string().describe("Draft title."),
+    slug: z.string(),
+    status: documentStatusSchema,
+    publishedAt: z.string().nullable(),
+    updatedAt: z.string().nullable(),
+  });
+
   server.registerTool(
     `list_${label}s`,
     {
-      description: `Lists ${humanLabel}s for the current team, optionally filtered by a title search term.`,
-      inputSchema: { q: z.string().optional() },
+      description: `Lists the team's ${humanLabel}s, most recently edited first, as summaries: status (draft, published or published_with_changes) and publishedAt, without bodies. Use get_${label} for one ${humanLabel}'s content. Results are paged; total is the number of matching ${humanLabel}s.`,
+      inputSchema: { q: z.string().optional(), ...listPagingInput },
       outputSchema: z.object({
-        items: z.array(itemSchema),
+        items: z.array(summarySchema),
         total: z.number(),
       }),
       annotations: {
@@ -181,11 +188,22 @@ export function registerDocumentTools(
       const teamId = getTeamId(extra);
       if (!teamId) return AUTH_ERROR;
       try {
-        const items = await listDocuments(kind, { teamId, q: args.q });
-        const total = await countDocuments(kind, { teamId, q: args.q });
+        const [items, total] = await Promise.all([
+          listDocuments(kind, { teamId, q: args.q, ...listPaging(args) }),
+          countDocuments(kind, { teamId, q: args.q }),
+        ]);
+        // No bodies: they make a list too large for MCP clients, which
+        // truncate the result before the status fields.
         return jsonResult({
-          items: (await attachDocumentIndex(kind, items)).map((item) =>
-            toPublicDocument(item),
+          items: items.map((doc) =>
+            serializeDates({
+              documentId: doc.documentId,
+              title: doc.draftTitle,
+              slug: doc.slug,
+              status: deriveDocumentStatus(doc),
+              publishedAt: doc.publishedAt,
+              updatedAt: doc.updatedAt,
+            }),
           ),
           total,
         });

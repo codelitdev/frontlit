@@ -10,6 +10,7 @@ import {
   listPages,
   publishPage,
   updatePage,
+  type PageView,
 } from "../../pages/queries";
 import {
   AUTH_ERROR,
@@ -19,10 +20,45 @@ import {
   jsonResult,
 } from "./responses";
 import { getTeamId } from "./auth";
+import { listPaging, listPagingInput } from "./paging";
 import { omitInternal, serializeDates } from "../../utils/public";
 import { PAGE_TEXT_FORMAT } from "@frontlit/page-builder/schema";
 import { InvalidPageLayoutError } from "../../pages/shared-widgets";
 import { PageOwnedByGitError } from "../../pages/git-pr";
+
+const pageSummarySchema = pageSchema
+  .pick({
+    pageId: true,
+    name: true,
+    slug: true,
+    status: true,
+    publishedAt: true,
+    updatedAt: true,
+    robotsAllowed: true,
+  })
+  .extend({
+    draftRobotsAllowed: z
+      .boolean()
+      .describe(
+        "Whether search engines may index the page once its draft is published.",
+      ),
+  });
+
+/** List items carry no layouts: those make a list too large for MCP
+ * clients, which truncate the result before the status fields. */
+function toPageSummary(page: PageView) {
+  return serializeDates({
+    pageId: page.pageId,
+    name: page.name,
+    slug: page.slug,
+    status: page.status,
+    publishedAt: page.publishedAt,
+    updatedAt: page.updatedAt,
+    robotsAllowed: page.robotsAllowed,
+    // Unset means the default: indexable.
+    draftRobotsAllowed: page.draftRobotsAllowed !== false,
+  });
+}
 
 function toPublicPage<T extends Record<string, unknown>>(page: T) {
   return serializeDates(omitInternal(page, "teamId"));
@@ -33,12 +69,13 @@ export function registerPageTools(server: McpToolRegistrar): void {
     "list_pages",
     {
       description:
-        "Lists pages for the current team, optionally filtered by a name search term.",
+        "Lists the team's pages, most recently edited first, as summaries: status (draft, published or published_with_changes), publishedAt, robotsAllowed (live page; null when unpublished) and draftRobotsAllowed, without layouts. Use get_page for a page's layout. Results are paged; total is the number of matching pages.",
       inputSchema: {
         q: z.string().optional().describe("Search term matched against page name"),
+        ...listPagingInput,
       },
       outputSchema: z.object({
-        items: z.array(pageSchema),
+        items: z.array(pageSummarySchema),
         total: z.number(),
       }),
       annotations: {
@@ -51,10 +88,10 @@ export function registerPageTools(server: McpToolRegistrar): void {
       if (!teamId) return AUTH_ERROR;
       try {
         const [items, total] = await Promise.all([
-          listPages({ teamId, q: args.q }),
+          listPages({ teamId, q: args.q, ...listPaging(args) }),
           countPages({ teamId, q: args.q }),
         ]);
-        return jsonResult({ items: items.map(toPublicPage), total });
+        return jsonResult({ items: items.map(toPageSummary), total });
       } catch {
         return INTERNAL_ERROR;
       }
