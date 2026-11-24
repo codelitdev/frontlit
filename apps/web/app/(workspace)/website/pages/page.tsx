@@ -210,6 +210,17 @@ export default function PagesPage() {
         </div>
 
         <section className="py-6">
+          {pages.some((page) => page.sharedWidgetsHaveChanges) && (
+            <p
+              role="status"
+              data-testid="shared-changes-notice"
+              className="mb-4 rounded-lg border bg-[var(--warning-soft)] px-4 py-3 text-sm text-[var(--warning)]"
+            >
+              The header or footer has unpublished edits. They are shared by every page:
+              publishing any page takes them live, and discarding any page&apos;s draft
+              resets them.
+            </p>
+          )}
           {visiblePages.length === 0 ? (
             <div className="rounded-xl border border-dashed px-6 py-12 text-center">
               <FilePlus2 className="mx-auto size-6 text-muted-foreground" />

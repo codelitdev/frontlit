@@ -234,6 +234,7 @@ export default function PageEditorPage({
         backLabel="Pages"
         status={page.status}
         statusTestId="page-status-badge"
+        pendingSharedChanges={page.sharedWidgetsHaveChanges}
         saveState={saveState}
         publishing={publishing}
         leading={
@@ -256,7 +257,11 @@ export default function PageEditorPage({
         publishingLabel={page.git ? "Opening pull request…" : "Publishing…"}
         extra={page.git ? <GitPageLinks git={page.git} /> : undefined}
         onDiscardDraft={handleDiscardDraft}
-        discardDescription="Discard all unpublished changes on this page? This cannot be undone."
+        discardDescription={
+          page.sharedWidgetsHaveChanges
+            ? "Discard all unpublished changes on this page, and the unpublished header/footer edits shared by every page? This cannot be undone."
+            : "Discard all unpublished changes on this page? This cannot be undone."
+        }
       />
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <PageBuilder

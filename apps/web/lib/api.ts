@@ -322,7 +322,11 @@ export interface Page {
   name: string;
   slug: string;
   deletable: boolean;
+  /** The page's own content vs what's live. */
   status: PageStatus;
+  /** The site's shared header/footer have unpublished edits; publishing any
+   * page takes them live. */
+  sharedWidgetsHaveChanges: boolean;
   publishedAt?: string | null;
   // Published fields — what the public site renders.
   layout: WidgetInstance[];
