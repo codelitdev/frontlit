@@ -1,5 +1,12 @@
 # @frontlit/page-builder
 
+## 0.2.0
+
+### Minor Changes
+
+- 01c830f: Footer: shows the Branding logo next to the site title (turn it off with the new `showLogo` switch), and adds social icon links (`socials`: Facebook, X/Twitter, Instagram, LinkedIn, YouTube, Discord, GitHub) in every layout. A platform without a URL shows no icon.
+- e5281b3: `layoutToMarkdown` takes an options object: `slot` (was the second argument) and `blocks`, Markdown serializers for an app's own block types (or overrides for built-in ones), so pages built with custom blocks keep their content in the Markdown version.
+
 ## 0.1.0
 
 ### Minor Changes
