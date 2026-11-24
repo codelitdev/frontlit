@@ -26,6 +26,7 @@ export function EditorToolbar({
   backLabel,
   status,
   statusTestId,
+  pendingSharedChanges = false,
   saveState = "idle",
   publishing,
   publishingLabel = "Publishing…",
@@ -40,6 +41,10 @@ export function EditorToolbar({
   backLabel: string;
   status: DocumentStatus;
   statusTestId?: string;
+  /** Edits outside this document that its Publish also takes live, such as
+   * a page's shared header/footer. They enable Publish and Discard even
+   * when the document itself is unchanged. */
+  pendingSharedChanges?: boolean;
   /** Autosave progress, shown next to the document status. */
   saveState?: SaveState;
   publishing?: boolean;
@@ -65,6 +70,15 @@ export function EditorToolbar({
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <DocumentStatusBadge status={status} data-testid={statusTestId} />
+        {pendingSharedChanges && (
+          <Badge
+            variant="warning"
+            data-testid="shared-changes-badge"
+            title="The header or footer has unpublished edits. They are shared by every page, so publishing any page takes them live."
+          >
+            Header/footer changes
+          </Badge>
+        )}
         {extra}
         {saveState === "saving" && <Badge variant="neutral">Saving…</Badge>}
         {saveState === "saved" && (
@@ -82,7 +96,7 @@ export function EditorToolbar({
             <Button
               variant="outline"
               size="sm"
-              disabled={publishing || status === "published"}
+              disabled={publishing || (status === "published" && !pendingSharedChanges)}
             >
               Discard draft
             </Button>
@@ -101,7 +115,7 @@ export function EditorToolbar({
         <Button
           size="sm"
           onClick={onPublish}
-          disabled={publishing || status === "published"}
+          disabled={publishing || (status === "published" && !pendingSharedChanges)}
           data-testid="publish-button"
         >
           {publishing ? publishingLabel : publishLabel}

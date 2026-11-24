@@ -51,13 +51,8 @@ function releaseEntry(release: LoadedRelease | null, page: { id: string }) {
 export function derivePageStatus(
   page: PageRow,
   entry: ReleaseEntry | null,
-  /** The draft header/footer differ from the live ones. They are shared by
-   * every page and go live with any page's publish, so every published
-   * page has changes to publish. */
-  chromeChanged = false,
 ): PageStatus {
   if (!entry) return "draft";
-  if (chromeChanged) return "published_with_changes";
   try {
     return pageRevisionFile(draftDocument(page)).hash === entry.revision.hash
       ? "published"
@@ -79,7 +74,13 @@ function stableJson(value: unknown): string {
   );
 }
 
-function chromeChanged(release: LoadedRelease | null, draft: SharedWidgetsRow) {
+/** The draft header/footer differ from the live ones. They are shared by
+ * every page and go live with any page's publish, so this is reported
+ * once for the site, not folded into each page's own status. */
+function sharedWidgetsChanged(
+  release: LoadedRelease | null,
+  draft: SharedWidgetsRow,
+): boolean {
   if (!release) return false;
   return (["header", "footer"] as const).some(
     (name) =>
@@ -102,7 +103,8 @@ function toPageView(
   const content = entry?.revision.content;
   return {
     ...page,
-    status: derivePageStatus(page, entry, chromeChanged(release, draftSharedWidgets)),
+    status: derivePageStatus(page, entry),
+    sharedWidgetsHaveChanges: sharedWidgetsChanged(release, draftSharedWidgets),
     publishedAt: entry ? release!.createdAt : null,
     layout:
       entry && release
@@ -117,6 +119,15 @@ function toPageView(
 }
 
 export type PageView = ReturnType<typeof toPageView>;
+
+/** Whether the team's draft header/footer differ from the live ones. */
+export async function sharedWidgetsHaveChanges(teamId: string) {
+  const [settings, release] = await Promise.all([
+    getTeamSettings(teamId),
+    getActiveRelease(teamId),
+  ]);
+  return sharedWidgetsChanged(release, settings.draftSharedWidgets);
+}
 
 async function viewPages(teamId: string, rows: PageRow[]) {
   const [settings, release] = await Promise.all([

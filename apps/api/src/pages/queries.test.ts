@@ -21,6 +21,7 @@ import {
   getPageByPageId,
   getPublishedPageBySlug,
   publishPage,
+  sharedWidgetsHaveChanges,
   updatePage,
 } from "./queries";
 import { activateRelease, getActiveRelease, listReleases } from "./releases";
@@ -249,27 +250,35 @@ describe("pages draft/publish", () => {
     expect(discarded?.status).toBe("published");
   });
 
-  it("a header/footer-only edit is a change to publish on every published page", async () => {
+  it("reports a header/footer-only edit once for the site, not as page changes", async () => {
     const first = await createPage({ teamId, name: "First" });
     const second = await createPage({ teamId, name: "Second" });
     const unpublished = await createPage({ teamId, name: "Unpublished" });
     await publishPage(teamId, first.pageId);
     await publishPage(teamId, second.pageId);
-    expect((await getPageByPageId(first.pageId))?.status).toBe("published");
+    const clean = await getPageByPageId(first.pageId);
+    expect(clean?.status).toBe("published");
+    expect(clean?.sharedWidgetsHaveChanges).toBe(false);
+    expect(await sharedWidgetsHaveChanges(teamId)).toBe(false);
 
     const edited = await updatePage(teamId, first.pageId, {
       layout: pageLayout([], {}, { copyrightText: "© Acme" }),
     });
-    expect(edited?.status).toBe("published_with_changes");
-    expect((await getPageByPageId(second.pageId))?.status).toBe(
-      "published_with_changes",
-    );
-    expect((await getPageByPageId(unpublished.pageId))?.status).toBe("draft");
-
-    // Publishing any page takes the footer live, so every page is clean again.
-    await publishPage(teamId, second.pageId);
-    expect((await getPageByPageId(first.pageId))?.status).toBe("published");
+    // Each page's status stays about its own content (#109)...
+    expect(edited?.status).toBe("published");
     expect((await getPageByPageId(second.pageId))?.status).toBe("published");
+    expect((await getPageByPageId(unpublished.pageId))?.status).toBe("draft");
+    // ...and the pending header/footer edit is a site-wide flag (#131).
+    expect(edited?.sharedWidgetsHaveChanges).toBe(true);
+    expect((await getPageByPageId(unpublished.pageId))?.sharedWidgetsHaveChanges).toBe(
+      true,
+    );
+    expect(await sharedWidgetsHaveChanges(teamId)).toBe(true);
+
+    // Publishing any page takes the footer live.
+    const published = await publishPage(teamId, second.pageId);
+    expect(published?.sharedWidgetsHaveChanges).toBe(false);
+    expect(await sharedWidgetsHaveChanges(teamId)).toBe(false);
   });
 
   it("discard-draft resets a header/footer-only edit", async () => {
@@ -282,6 +291,7 @@ describe("pages draft/publish", () => {
     const discarded = await discardPageDraft(teamId, created.pageId);
 
     expect(discarded?.status).toBe("published");
+    expect(discarded?.sharedWidgetsHaveChanges).toBe(false);
     expect(discarded?.draftLayout[0].settings).not.toMatchObject({
       ctaLabel: "Draft CTA",
     });

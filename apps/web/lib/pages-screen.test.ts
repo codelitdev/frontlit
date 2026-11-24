@@ -20,6 +20,7 @@ function page(
     name,
     slug,
     status,
+    sharedWidgetsHaveChanges: false,
     deletable: slug !== "",
     layout: [],
     draftLayout: [],

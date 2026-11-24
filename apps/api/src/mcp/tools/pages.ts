@@ -8,6 +8,7 @@ import {
   discardPageDraft,
   getPageByPageId,
   listPages,
+  sharedWidgetsHaveChanges,
   publishPage,
   updatePage,
   type PageView,
@@ -69,7 +70,7 @@ export function registerPageTools(server: McpToolRegistrar): void {
     "list_pages",
     {
       description:
-        "Lists the team's pages, most recently edited first, as summaries: status (draft, published or published_with_changes), publishedAt, robotsAllowed (live page; null when unpublished) and draftRobotsAllowed, without layouts. Use get_page for a page's layout. Results are paged; total is the number of matching pages.",
+        "Lists the team's pages, most recently edited first, as summaries: status (draft, published or published_with_changes, for the page's own content), publishedAt, robotsAllowed (live page; null when unpublished) and draftRobotsAllowed, without layouts. sharedWidgetsHaveChanges is true when the site's shared header/footer have unpublished edits; publishing any page takes them live. Use get_page for a page's layout. Results are paged; total is the number of matching pages.",
       inputSchema: {
         q: z.string().optional().describe("Search term matched against page name"),
         ...listPagingInput,
@@ -77,6 +78,9 @@ export function registerPageTools(server: McpToolRegistrar): void {
       outputSchema: z.object({
         items: z.array(pageSummarySchema),
         total: z.number(),
+        sharedWidgetsHaveChanges: z
+          .boolean()
+          .describe("The shared header/footer have unpublished edits."),
       }),
       annotations: {
         readOnlyHint: true,
@@ -87,11 +91,16 @@ export function registerPageTools(server: McpToolRegistrar): void {
       const teamId = getTeamId(extra);
       if (!teamId) return AUTH_ERROR;
       try {
-        const [items, total] = await Promise.all([
+        const [items, total, sharedChanges] = await Promise.all([
           listPages({ teamId, q: args.q, ...listPaging(args) }),
           countPages({ teamId, q: args.q }),
+          sharedWidgetsHaveChanges(teamId),
         ]);
-        return jsonResult({ items: items.map(toPageSummary), total });
+        return jsonResult({
+          items: items.map(toPageSummary),
+          total,
+          sharedWidgetsHaveChanges: sharedChanges,
+        });
       } catch {
         return INTERNAL_ERROR;
       }
