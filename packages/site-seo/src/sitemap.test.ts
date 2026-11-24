@@ -15,4 +15,9 @@ describe("buildSitemapXml", () => {
     expect(xml).toContain("<lastmod>2026-01-01T00:00:00.000Z</lastmod>");
     expect(xml).toContain("<loc>https://acme.frontlit.app/blog/hello</loc>");
   });
+
+  it("escapes XML characters in URLs", () => {
+    const xml = buildSitemapXml("acme.frontlit.app", [{ path: "/search?a=1&b=2" }]);
+    expect(xml).toContain("<loc>https://acme.frontlit.app/search?a=1&amp;b=2</loc>");
+  });
 });
