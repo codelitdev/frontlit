@@ -34,6 +34,10 @@ export const pageSchema = z.object({
   slug: z.string(),
   deletable: z.boolean(),
   status: pageStatusSchema,
+  /** The site's draft header/footer differ from the live ones. They are
+   * shared by every page, so this is site-wide; publishing any page takes
+   * them live and discarding any page's draft resets them. */
+  sharedWidgetsHaveChanges: z.boolean(),
   publishedAt: z.string().nullable().optional(),
   // Published fields — what the public site renders.
   layout: z.array(widgetInstanceSchema),
