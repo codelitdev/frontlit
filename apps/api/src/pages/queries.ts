@@ -1,7 +1,12 @@
 import { and, count, eq, ilike } from "drizzle-orm";
 import { isReservedPageSlug } from "@frontlit/api-contract";
 import { db } from "../db/client";
-import { pages, teamSettings, type WidgetInstanceRow } from "../db/schema";
+import {
+  pages,
+  type SharedWidgetsRow,
+  teamSettings,
+  type WidgetInstanceRow,
+} from "../db/schema";
 import { getTeamSettings } from "../settings/queries";
 import { isSlugTakenForTeam, slugify, uniqueSlugForTeam } from "./slug";
 import {
@@ -46,8 +51,13 @@ function releaseEntry(release: LoadedRelease | null, page: { id: string }) {
 export function derivePageStatus(
   page: PageRow,
   entry: ReleaseEntry | null,
+  /** The draft header/footer differ from the live ones. They are shared by
+   * every page and go live with any page's publish, so every published
+   * page has changes to publish. */
+  chromeChanged = false,
 ): PageStatus {
   if (!entry) return "draft";
+  if (chromeChanged) return "published_with_changes";
   try {
     return pageRevisionFile(draftDocument(page)).hash === entry.revision.hash
       ? "published"
@@ -59,6 +69,24 @@ export function derivePageStatus(
   }
 }
 
+/** JSON with object keys sorted, so equal settings compare equal whatever
+ * order they were saved in. */
+function stableJson(value: unknown): string {
+  return JSON.stringify(value, (_key, v) =>
+    v && typeof v === "object" && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)))
+      : v,
+  );
+}
+
+function chromeChanged(release: LoadedRelease | null, draft: SharedWidgetsRow) {
+  if (!release) return false;
+  return (["header", "footer"] as const).some(
+    (name) =>
+      stableJson(draft[name].settings ?? {}) !== stableJson(release.site[name] ?? {}),
+  );
+}
+
 async function getRawPageByPageId(pageId: string) {
   return db.query.pages.findFirst({ where: eq(pages.pageId, pageId) });
 }
@@ -68,13 +96,13 @@ async function getRawPageByPageId(pageId: string) {
 function toPageView(
   page: PageRow,
   release: LoadedRelease | null,
-  draftSharedWidgets: Parameters<typeof hydrateSharedWidgets>[1],
+  draftSharedWidgets: SharedWidgetsRow,
 ) {
   const entry = releaseEntry(release, page);
   const content = entry?.revision.content;
   return {
     ...page,
-    status: derivePageStatus(page, entry),
+    status: derivePageStatus(page, entry, chromeChanged(release, draftSharedWidgets)),
     publishedAt: entry ? release!.createdAt : null,
     layout:
       entry && release

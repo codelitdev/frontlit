@@ -249,6 +249,44 @@ describe("pages draft/publish", () => {
     expect(discarded?.status).toBe("published");
   });
 
+  it("a header/footer-only edit is a change to publish on every published page", async () => {
+    const first = await createPage({ teamId, name: "First" });
+    const second = await createPage({ teamId, name: "Second" });
+    const unpublished = await createPage({ teamId, name: "Unpublished" });
+    await publishPage(teamId, first.pageId);
+    await publishPage(teamId, second.pageId);
+    expect((await getPageByPageId(first.pageId))?.status).toBe("published");
+
+    const edited = await updatePage(teamId, first.pageId, {
+      layout: pageLayout([], {}, { copyrightText: "© Acme" }),
+    });
+    expect(edited?.status).toBe("published_with_changes");
+    expect((await getPageByPageId(second.pageId))?.status).toBe(
+      "published_with_changes",
+    );
+    expect((await getPageByPageId(unpublished.pageId))?.status).toBe("draft");
+
+    // Publishing any page takes the footer live, so every page is clean again.
+    await publishPage(teamId, second.pageId);
+    expect((await getPageByPageId(first.pageId))?.status).toBe("published");
+    expect((await getPageByPageId(second.pageId))?.status).toBe("published");
+  });
+
+  it("discard-draft resets a header/footer-only edit", async () => {
+    const created = await createPage({ teamId, name: "Home" });
+    await publishPage(teamId, created.pageId);
+    await updatePage(teamId, created.pageId, {
+      layout: pageLayout([], { ctaLabel: "Draft CTA" }, {}),
+    });
+
+    const discarded = await discardPageDraft(teamId, created.pageId);
+
+    expect(discarded?.status).toBe("published");
+    expect(discarded?.draftLayout[0].settings).not.toMatchObject({
+      ctaLabel: "Draft CTA",
+    });
+  });
+
   it("shares draft and published header/footer settings across every team page", async () => {
     const first = await createPage({ teamId, name: "First" });
     const second = await createPage({

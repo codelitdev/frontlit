@@ -320,7 +320,24 @@ export function blockSettingsSchemas(k: FieldKinds) {
       .object({
         ...common,
         layout: z.enum(["columns", "centered", "minimal"]).optional(),
+        showLogo: z
+          .boolean()
+          .optional()
+          .describe("Show the Branding logo image next to the site title."),
         tagline: z.string().optional(),
+        socials: z
+          .object({
+            facebook: z.string().optional(),
+            twitter: z.string().optional(),
+            instagram: z.string().optional(),
+            linkedin: z.string().optional(),
+            youtube: z.string().optional(),
+            discord: z.string().optional(),
+            github: z.string().optional(),
+          })
+          .strict()
+          .optional()
+          .describe("Profile URLs, shown as icons. Leave a platform out to hide it."),
         columns: k
           .list(
             z.object({

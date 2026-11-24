@@ -3688,8 +3688,41 @@
             "minimal"
           ]
         },
+        "showLogo": {
+          "type": "boolean",
+          "description": "Show the Branding logo image next to the site title.",
+          "default": true
+        },
         "tagline": {
           "type": "string"
+        },
+        "socials": {
+          "type": "object",
+          "properties": {
+            "facebook": {
+              "type": "string"
+            },
+            "twitter": {
+              "type": "string"
+            },
+            "instagram": {
+              "type": "string"
+            },
+            "linkedin": {
+              "type": "string"
+            },
+            "youtube": {
+              "type": "string"
+            },
+            "discord": {
+              "type": "string"
+            },
+            "github": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Profile URLs, shown as icons. Leave a platform out to hide it."
         },
         "columns": {
           "type": "array",

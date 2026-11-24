@@ -2,6 +2,7 @@ import type { FooterSettings } from "./settings";
 import { generateUniqueId } from "../../utils/generate-unique-id";
 
 export const footerDefaults: Partial<FooterSettings> = {
+  showLogo: true,
   showThemeSwitcher: true,
   columns: [
     {

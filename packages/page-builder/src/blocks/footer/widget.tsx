@@ -2,6 +2,8 @@ import React from "react";
 import type { WidgetProps, ThemeStyle } from "../../models";
 import type { FooterSettings } from "./settings";
 import { NavLink } from "../../components/nav-link";
+import { Image } from "../../components/image";
+import { FooterSocialLinks } from "./social-links";
 import {
   Caption,
   Header3,
@@ -13,6 +15,8 @@ import {
 
 export function FooterWidget({
   settings: {
+    showLogo = true,
+    socials,
     tagline: ownTagline,
     columns = [],
     copyrightText,
@@ -31,12 +35,36 @@ export function FooterWidget({
   // subtitle. Unset branding renders nothing.
   const logoText = pageData.siteTitle;
   const tagline = ownTagline || pageData.siteSubtitle;
+  const logoImage = showLogo ? pageData.siteLogoUrl : null;
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
   overriddenTheme.structure.section.padding.y =
     verticalPadding || theme.theme.structure.section.padding.y;
 
   const colorModeControl = showThemeSwitcher ? themeSwitcher : null;
+
+  const brand = (TitleTag: typeof Header3 | typeof Header4) =>
+    logoImage || logoText ? (
+      <div className="flex items-center gap-2">
+        {logoImage && (
+          <Image
+            src={logoImage}
+            alt={pageData.siteLogoAlt || logoText || ""}
+            width="w-8"
+            height="h-8"
+            sizes="32px"
+            className="aspect-square shrink-0"
+            noDefaultImage
+          />
+        )}
+        {logoText && (
+          <TitleTag theme={overriddenTheme} as="p">
+            {logoText}
+          </TitleTag>
+        )}
+      </div>
+    ) : null;
+  const socialLinks = <FooterSocialLinks socials={socials} theme={overriddenTheme} />;
 
   return (
     <Section
@@ -48,11 +76,7 @@ export function FooterWidget({
     >
       {layout === "minimal" ? (
         <div className="flex w-full flex-wrap items-center justify-between gap-4">
-          {logoText && (
-            <Header4 theme={overriddenTheme} as="p">
-              {logoText}
-            </Header4>
-          )}
+          {brand(Header4)}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             {columns.flatMap((column) =>
               column.links.map((link) => (
@@ -70,19 +94,17 @@ export function FooterWidget({
             {copyrightText && (
               <Caption theme={overriddenTheme}>{copyrightText}</Caption>
             )}
+            {socialLinks}
             {colorModeControl}
           </div>
         </div>
       ) : layout === "centered" ? (
         <div className="flex w-full flex-col items-center gap-6 text-center">
           <div className="flex max-w-sm flex-col items-center gap-3">
-            {logoText && (
-              <Header3 theme={overriddenTheme} as="p">
-                {logoText}
-              </Header3>
-            )}
+            {brand(Header3)}
             {tagline && <Text2 theme={overriddenTheme}>{tagline}</Text2>}
           </div>
+          {socialLinks}
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
             {columns.flatMap((column) =>
               column.links.map((link) => (
@@ -102,12 +124,13 @@ export function FooterWidget({
       ) : (
         <div className="flex w-full flex-col gap-8 lg:!flex-row lg:justify-between">
           <div className="flex max-w-sm flex-col gap-3">
-            {logoText && (
-              <Header3 theme={overriddenTheme} as="p">
-                {logoText}
-              </Header3>
-            )}
+            {brand(Header3)}
             {tagline && <Text2 theme={overriddenTheme}>{tagline}</Text2>}
+            <FooterSocialLinks
+              socials={socials}
+              theme={overriddenTheme}
+              className="mt-2 flex flex-wrap items-center gap-2"
+            />
           </div>
           <div className="flex flex-col flex-wrap gap-8 lg:!flex-row">
             {columns.map((column) => (
