@@ -1,3 +1,7 @@
+function escapeXml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 /** A public URL for `sitemap.xml`: a site-relative path plus its last
  * change, when known. */
 export interface SitemapUrl {
@@ -10,7 +14,7 @@ export interface SitemapUrl {
 export function buildSitemapXml(canonicalHost: string, entries: SitemapUrl[]): string {
   const urls = entries
     .map((entry) => {
-      const loc = `https://${canonicalHost}${entry.path}`;
+      const loc = escapeXml(`https://${canonicalHost}${entry.path}`);
       return `  <url>
     <loc>${loc}</loc>
     ${entry.lastmod ? `<lastmod>${entry.lastmod}</lastmod>` : ""}
