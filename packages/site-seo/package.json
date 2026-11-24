@@ -1,6 +1,6 @@
 {
   "name": "@frontlit/site-seo",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Framework-free robots.txt, sitemap, llms.txt, Markdown negotiation, JSON-LD and RSS builders for public sites",
   "author": "FrontLit",
   "license": "MIT",
