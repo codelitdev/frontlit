@@ -1,6 +1,7 @@
 import React from "react";
 import type { WidgetEditorProps } from "../../models";
 import type { FooterColumn, FooterLink, FooterSettings } from "./settings";
+import { SOCIAL_PLATFORMS } from "./social-links";
 import { generateUniqueId } from "../../utils";
 import { FieldGroup, ListField, TextField, ToggleField } from "../_shared/fields";
 
@@ -14,6 +15,11 @@ export function FooterEditor({
   return (
     <div className="flex flex-col">
       <FieldGroup title="Brand">
+        <ToggleField
+          label="Show logo"
+          value={settings.showLogo !== false}
+          onChange={(showLogo) => update({ showLogo })}
+        />
         <TextField
           label="Tagline"
           value={settings.tagline}
@@ -21,6 +27,19 @@ export function FooterEditor({
           hint="Leave empty to use the subtitle from Branding."
           onChange={(tagline) => update({ tagline: tagline || undefined })}
         />
+      </FieldGroup>
+      <FieldGroup title="Social links">
+        {SOCIAL_PLATFORMS.map(({ key, label }) => (
+          <TextField
+            key={key}
+            label={label}
+            value={settings.socials?.[key]}
+            placeholder="https://"
+            onChange={(url) =>
+              update({ socials: { ...settings.socials, [key]: url || undefined } })
+            }
+          />
+        ))}
       </FieldGroup>
       <FieldGroup title="Link columns">
         <ListField<FooterColumn>
