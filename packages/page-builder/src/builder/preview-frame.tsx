@@ -5,6 +5,12 @@ import { createPortal } from "react-dom";
 
 const COPIED_ATTR = "data-pb-preview-style";
 
+// A bare about:blank frame is in quirks mode, where tables take their text
+// colour from <body> instead of the themed wrapper (dark-mode snippets
+// render dark text on a dark background). The doctype keeps the preview in
+// standards mode, like the published site.
+const PREVIEW_DOC = "<!doctype html><html><head></head><body></body></html>";
+
 const THEME_FONT_VARS = [
   "--font-sans",
   "--font-mono",
@@ -102,7 +108,8 @@ export function PreviewFrame({
 
     const init = () => {
       const doc = iframe.contentDocument;
-      if (!doc) return;
+      // Skip the placeholder about:blank that precedes the srcdoc document.
+      if (!doc || doc.compatMode !== "CSS1Compat") return;
       if (!doc.getElementById("pb-preview-base")) {
         const base = doc.createElement("style");
         base.id = "pb-preview-base";
@@ -134,8 +141,7 @@ export function PreviewFrame({
       measure();
     };
 
-    // about:blank documents are usually ready synchronously, but Chrome
-    // can replace the document with a second load event — init on both.
+    // The srcdoc may already be loaded by the time the effect runs.
     if (iframe.contentDocument?.readyState === "complete") init();
     iframe.addEventListener("load", init);
     return () => {
@@ -146,7 +152,7 @@ export function PreviewFrame({
   }, []);
 
   return (
-    <iframe ref={iframeRef} title={title} className={className}>
+    <iframe ref={iframeRef} title={title} className={className} srcDoc={PREVIEW_DOC}>
       {mountNode ? createPortal(children, mountNode) : null}
     </iframe>
   );
