@@ -1,4 +1,5 @@
 import { MediaUploadDialog, type MediaUploadDialogProps } from "./media-upload-dialog";
+import { resolveMediaUploaderLabels } from "./labels";
 import type { LibraryImage, SelectedImage } from "./types";
 
 const DEFAULT_IMAGE_ACCEPTED_TYPES = [
@@ -20,18 +21,20 @@ export type ImageUploadDialogProps<TMedia extends LibraryImage = LibraryImage> =
 export function ImageUploadDialog<TMedia extends LibraryImage = LibraryImage>({
   acceptedTypes = DEFAULT_IMAGE_ACCEPTED_TYPES,
   maxUploadBytes = DEFAULT_IMAGE_MAX_BYTES,
-  title = "Select image",
+  title,
   metadataMode = "alt",
   onSelect,
+  labels,
   ...props
 }: ImageUploadDialogProps<TMedia>) {
   return (
     <MediaUploadDialog<TMedia>
       acceptedTypes={acceptedTypes}
       maxUploadBytes={maxUploadBytes}
-      title={title}
+      title={title ?? resolveMediaUploaderLabels(labels).selectImageTitle}
       metadataMode={metadataMode}
       onSelect={(selected: SelectedImage<TMedia>) => onSelect(selected)}
+      labels={labels}
       {...props}
     />
   );

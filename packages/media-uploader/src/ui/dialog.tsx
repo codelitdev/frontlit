@@ -35,9 +35,12 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  closeLabel = "Close",
   ...props
 }: ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
+  /** Screen-reader text of the close button. */
+  closeLabel?: string;
 }) {
   return (
     <DialogPortal>
@@ -54,7 +57,7 @@ function DialogContent({
           {showCloseButton ? (
             <DialogPrimitive.Close className="absolute top-4 right-4 rounded-[var(--radius-sm)] text-muted-foreground opacity-70 outline-none transition-opacity hover:opacity-100 focus-visible:shadow-[var(--shadow-focus)] disabled:pointer-events-none">
               <XIcon className="size-4" />
-              <span className="sr-only">Close</span>
+              <span className="sr-only">{closeLabel}</span>
             </DialogPrimitive.Close>
           ) : null}
         </DialogPrimitive.Content>
