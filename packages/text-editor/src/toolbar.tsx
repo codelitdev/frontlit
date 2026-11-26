@@ -18,6 +18,7 @@ import {
 import LinkEditorPopover from "./components/link-editor-popover.js";
 import type { Profile } from "./core/types";
 import type { InsertItem } from "./ui/insert-items";
+import { useTextEditorLabels } from "./labels-context";
 
 interface ToolbarProps {
   profile: Profile;
@@ -72,17 +73,6 @@ function IconButton({
   );
 }
 
-const headingOptions: Array<{
-  label: string;
-  value: string;
-  level?: Level;
-}> = [
-  { label: "Paragraph", value: "paragraph" },
-  { label: "Heading 1", value: "h1", level: 1 },
-  { label: "Heading 2", value: "h2", level: 2 },
-  { label: "Heading 3", value: "h3", level: 3 },
-];
-
 function Divider(): React.JSX.Element {
   return <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-border" />;
 }
@@ -93,6 +83,7 @@ const Toolbar = ({
   isUploadingImage,
   profile,
 }: ToolbarProps): React.JSX.Element | null => {
+  const labels = useTextEditorLabels();
   const [activePopover, setActivePopover] = useState<PopoverType>(null);
   const [wordCount, setWordCount] = useState(0);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -138,11 +129,15 @@ const Toolbar = ({
   const levels = profile.headingLevels.filter(
     (level) => profile.options.name !== "default" || level <= 3,
   );
+  const paragraphOption: { label: string; value: string; level?: Level } = {
+    label: labels.paragraph,
+    value: "paragraph",
+  };
   const availableHeadingOptions = [
-    headingOptions[0],
+    paragraphOption,
     ...(hasNode("heading")
       ? levels.map((level) => ({
-          label: `Heading ${level}`,
+          label: labels.heading(level),
           value: `h${level}`,
           level: level as Level,
         }))
@@ -154,7 +149,7 @@ const Toolbar = ({
       option.level
         ? editor.isActive("heading", { level: option.level })
         : editor.isActive("paragraph"),
-    ) ?? headingOptions[0];
+    ) ?? paragraphOption;
   const readTime = wordCount === 0 ? 0 : Math.max(1, Math.ceil(wordCount / 200));
 
   const selectHeading = (level?: Level) => {
@@ -170,13 +165,13 @@ const Toolbar = ({
         <div className="flex min-h-11 flex-wrap items-center gap-1 px-4 py-1">
           <IconButton
             icon={Undo2}
-            label="Undo"
+            label={labels.undo}
             disabled={!editor.can().undo()}
             onClick={() => editor.chain().focus().undo().run()}
           />
           <IconButton
             icon={Redo2}
-            label="Redo"
+            label={labels.redo}
             disabled={!editor.can().redo()}
             onClick={() => editor.chain().focus().redo().run()}
           />
@@ -221,7 +216,7 @@ const Toolbar = ({
           {hasMark("bold") && (
             <IconButton
               icon={Bold}
-              label="Bold"
+              label={labels.bold}
               active={editor.isActive("bold")}
               onClick={() => editor.chain().focus().toggleBold().run()}
             />
@@ -229,7 +224,7 @@ const Toolbar = ({
           {hasMark("italic") && (
             <IconButton
               icon={Italic}
-              label="Italic"
+              label={labels.italic}
               active={editor.isActive("italic")}
               onClick={() => editor.chain().focus().toggleItalic().run()}
             />
@@ -237,7 +232,7 @@ const Toolbar = ({
           {hasMark("underline") && (
             <IconButton
               icon={Underline}
-              label="Underline"
+              label={labels.underline}
               active={editor.isActive("underline")}
               onClick={() => editor.chain().focus().toggleMark("underline").run()}
             />
@@ -245,7 +240,7 @@ const Toolbar = ({
           {hasMark("code") && (
             <IconButton
               icon={Code}
-              label="Inline code"
+              label={labels.inlineCode}
               active={editor.isActive("code")}
               onClick={() => editor.chain().focus().toggleCode().run()}
             />
@@ -253,7 +248,7 @@ const Toolbar = ({
           {hasMark("link") && (
             <IconButton
               icon={LinkIcon}
-              label="Insert link"
+              label={labels.insertLink}
               active={editor.isActive("link")}
               onClick={() =>
                 setActivePopover((current) => (current === "link" ? null : "link"))
@@ -265,7 +260,7 @@ const Toolbar = ({
           {hasNode("bulletList") && (
             <IconButton
               icon={ListIcon}
-              label="Bullet list"
+              label={labels.bulletList}
               active={editor.isActive("bulletList")}
               onClick={() => editor.chain().focus().toggleBulletList().run()}
             />
@@ -273,7 +268,7 @@ const Toolbar = ({
           {hasNode("orderedList") && (
             <IconButton
               icon={ListOrdered}
-              label="Numbered list"
+              label={labels.numberedList}
               active={editor.isActive("orderedList")}
               onClick={() => editor.chain().focus().toggleOrderedList().run()}
             />
@@ -281,7 +276,7 @@ const Toolbar = ({
           {hasNode("blockquote") && (
             <IconButton
               icon={Quote}
-              label="Blockquote"
+              label={labels.blockquote}
               active={editor.isActive("blockquote")}
               onClick={() => editor.chain().focus().toggleBlockquote().run()}
             />
@@ -302,7 +297,7 @@ const Toolbar = ({
               }
             >
               <Plus className="size-4" />
-              Insert
+              {labels.insert}
             </button>
             {activePopover === "insert" && (
               <div className="te-popover absolute right-0 top-full z-30 mt-1 w-52 rounded-md p-1 shadow-lg">
@@ -323,7 +318,7 @@ const Toolbar = ({
                     >
                       <Icon className="size-4 shrink-0" />
                       <span className="flex min-w-0 flex-col">
-                        <span>{busy ? "Uploading image…" : item.label}</span>
+                        <span>{busy ? labels.uploadingImage : item.label}</span>
                         {item.unavailable && (
                           <span className="truncate text-xs text-muted-foreground">
                             {item.unavailable}
@@ -338,11 +333,11 @@ const Toolbar = ({
           </div>
 
           <span className="ml-auto hidden pl-8 text-xs tabular-nums text-muted-foreground xl:inline">
-            {wordCount.toLocaleString()} {wordCount === 1 ? "word" : "words"}
+            {labels.wordCount(wordCount)}
             <span aria-hidden className="mx-2">
               ·
             </span>
-            {readTime} min
+            {labels.readTime(readTime)}
           </span>
         </div>
       </div>

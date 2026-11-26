@@ -10,6 +10,7 @@ import {
 import type { EditorView } from "@tiptap/pm/view";
 import { focusTableBar } from "./table-bar";
 import { focusSelectionMenu, hideSelectionMenu } from "./selection-menu";
+import { defaultTextEditorLabels } from "../labels";
 
 export const dragHandleKey = new PluginKey("dragHandle");
 
@@ -171,9 +172,13 @@ function dropGap(view: EditorView, y: number): { pos: number; y: number } {
  * transaction, so undo puts it back. (Pointer events rather than HTML5
  * drag and drop, which behaves differently across browsers.)
  */
-export const DragHandle = Extension.create({
+export const DragHandle = Extension.create<{ title: string }>({
   name: "dragHandle",
+  addOptions() {
+    return { title: defaultTextEditorLabels.dragHandle };
+  },
   addProseMirrorPlugins() {
+    const title = this.options.title;
     let handle: HTMLElement | null = null;
     let current: number | null = null;
     let dragging = false;
@@ -191,7 +196,7 @@ export const DragHandle = Extension.create({
             host.style.position = "relative";
           handle = document.createElement("div");
           handle.className = "te-drag-handle";
-          handle.title = "Drag to move (or Ctrl/⌘+Shift+↑/↓)";
+          handle.title = title;
           // A pointer affordance only; keyboard users move blocks with
           // Mod-Shift-↑/↓ (BlockKeyboard), so it stays out of the a11y tree.
           handle.setAttribute("aria-hidden", "true");

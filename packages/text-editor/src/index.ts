@@ -1,6 +1,11 @@
 export { default as Editor } from "./editor";
 export type { EditorProps } from "./editor";
 export {
+  defaultTextEditorLabels,
+  resolveTextEditorLabels,
+  type TextEditorLabels,
+} from "./labels";
+export {
   ImagePickerContextProvider,
   useImagePicker,
   type PickedImage,

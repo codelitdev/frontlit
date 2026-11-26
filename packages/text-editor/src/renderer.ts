@@ -5,6 +5,11 @@
  */
 export { TextRenderer, type TextRendererProps } from "./text-renderer";
 export { ContentRenderer, type ContentRendererProps } from "./ui/renderer";
+export {
+  defaultTextEditorLabels,
+  resolveTextEditorLabels,
+  type TextEditorLabels,
+} from "./labels";
 export type {
   BlockRenderer,
   BlockRendererProps,

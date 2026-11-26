@@ -41,11 +41,14 @@ export function EmbedFrame({
   title,
   height,
   className,
+  defaultTitle = "Embedded content",
 }: {
   code: string;
   title?: string | null;
   height?: number | null;
   className?: string;
+  /** Accessible title of a frame without one. */
+  defaultTitle?: string;
 }) {
   const ref = useRef<HTMLIFrameElement | null>(null);
   const [current, setCurrent] = useState(
@@ -66,7 +69,7 @@ export function EmbedFrame({
     <iframe
       ref={ref}
       className={className ?? "te-embed"}
-      title={title || "Embedded content"}
+      title={title || defaultTitle}
       srcDoc={code}
       sandbox={EMBED_SANDBOX}
       referrerPolicy="no-referrer"

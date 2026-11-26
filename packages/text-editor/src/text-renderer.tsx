@@ -2,6 +2,7 @@ import React from "react";
 import type { TextEditorContent } from "./text-editor-content";
 import type { TextRendererTheme } from "./renderer-theme";
 import { docsBlockMapping } from "./components/docs-blocks";
+import type { TextEditorLabels } from "./labels";
 import { resolveProfile, type ProfileInput } from "./profiles";
 import { ContentRenderer } from "./ui/renderer";
 import type { BlockRenderer, ResolveMedia } from "./ui/types";
@@ -16,6 +17,12 @@ export interface TextRendererProps {
   blocks?: Record<string, BlockRenderer>;
   /** Media ID → URL for media blocks. The package never fetches media. */
   resolveMedia?: ResolveMedia;
+  /**
+   * Translations of built-in text (code copy buttons, fallback titles of
+   * embeds, videos and files, type-table headings), laid over the English
+   * defaults.
+   */
+  labels?: Partial<TextEditorLabels>;
 }
 
 /**
@@ -31,6 +38,7 @@ export function TextRenderer({
   profile = "default",
   blocks,
   resolveMedia,
+  labels: labelsInput,
 }: TextRendererProps) {
   const resolved = resolveProfile(profile);
   const docsBlocks = Object.fromEntries(
@@ -46,6 +54,7 @@ export function TextRenderer({
       theme={theme}
       blocks={{ ...(docsBlocks as Record<string, never>), ...blocks }}
       resolveMedia={resolveMedia}
+      labels={labelsInput}
     />
   );
 }

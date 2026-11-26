@@ -13,6 +13,8 @@ import {
   PanelTop,
   Trash2,
 } from "lucide-react";
+import { resolveTextEditorLabels, type TextEditorLabels } from "../labels";
+import { useTextEditorLabels } from "../labels-context";
 
 /** Where the cursor is in a table: 1-based row and column, the table's size and position. */
 export interface TableCursor {
@@ -47,26 +49,31 @@ const button =
   "inline-flex h-7 min-w-7 items-center justify-center gap-1 rounded px-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40 aria-pressed:bg-muted aria-pressed:text-foreground aria-pressed:ring-1 aria-pressed:ring-inset aria-pressed:ring-foreground/60";
 
 /** The bar's controls, from the current cell: what they say and what they run. */
-export function tableActions(cursor: TableCursor, headerToggle: boolean) {
+export function tableActions(
+  cursor: TableCursor,
+  headerToggle: boolean,
+  labelsInput?: Partial<TextEditorLabels>,
+) {
+  const labels = resolveTextEditorLabels(labelsInput);
   const { row, column, rows, columns } = cursor;
   return [
     {
       id: "rowAbove",
-      label: "Insert row above",
+      label: labels.insertRowAbove,
       icon: BetweenHorizontalStart,
       run: (e: Editor) => e.chain().focus().addRowBefore().run(),
     },
     {
       id: "rowBelow",
-      label: "Insert row below",
+      label: labels.insertRowBelow,
       icon: BetweenHorizontalEnd,
       run: (e: Editor) => e.chain().focus().addRowAfter().run(),
     },
     // The last row or column can't be deleted on its own; "Delete table" does that.
     {
       id: "deleteRow",
-      label: `Delete row ${row}`,
-      text: "Row",
+      label: labels.deleteRow(row),
+      text: labels.row,
       icon: Trash2,
       disabled: rows <= 1,
       run: (e: Editor) => e.chain().focus().deleteRow().run(),
@@ -74,20 +81,20 @@ export function tableActions(cursor: TableCursor, headerToggle: boolean) {
     },
     {
       id: "columnLeft",
-      label: "Insert column left",
+      label: labels.insertColumnLeft,
       icon: BetweenVerticalStart,
       run: (e: Editor) => e.chain().focus().addColumnBefore().run(),
     },
     {
       id: "columnRight",
-      label: "Insert column right",
+      label: labels.insertColumnRight,
       icon: BetweenVerticalEnd,
       run: (e: Editor) => e.chain().focus().addColumnAfter().run(),
     },
     {
       id: "deleteColumn",
-      label: `Delete column ${column}`,
-      text: "Column",
+      label: labels.deleteColumn(column),
+      text: labels.column,
       icon: Trash2,
       disabled: columns <= 1,
       run: (e: Editor) => e.chain().focus().deleteColumn().run(),
@@ -97,7 +104,7 @@ export function tableActions(cursor: TableCursor, headerToggle: boolean) {
       ? [
           {
             id: "headerRow",
-            label: "Header row",
+            label: labels.headerRow,
             icon: PanelTop,
             pressed: cursor.headerRow,
             run: (e: Editor) => e.chain().focus().toggleHeaderRow().run(),
@@ -106,8 +113,8 @@ export function tableActions(cursor: TableCursor, headerToggle: boolean) {
       : []),
     {
       id: "deleteTable",
-      label: "Delete table",
-      text: "Table",
+      label: labels.deleteTable,
+      text: labels.table,
       icon: Trash2,
       run: (e: Editor) => e.chain().focus().deleteTable().run(),
     },
@@ -147,6 +154,7 @@ export function TableBar({
   editor: Editor;
   headerToggle: boolean;
 }) {
+  const labels = useTextEditorLabels();
   const [cursor, setCursor] = useState<TableCursor | null>(() =>
     editor.isEditable ? tableCursor(editor.state) : null,
   );
@@ -181,7 +189,7 @@ export function TableBar({
     });
   }, [editor, tablePos]);
   if (!cursor) return null;
-  const actions = tableActions(cursor, headerToggle);
+  const actions = tableActions(cursor, headerToggle, labels);
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Escape") {
       event.preventDefault();
@@ -210,7 +218,7 @@ export function TableBar({
     <div
       ref={bar}
       role="toolbar"
-      aria-label={`Table, row ${cursor.row} of ${cursor.rows}, column ${cursor.column} of ${cursor.columns}`}
+      aria-label={labels.tableToolbar(cursor)}
       className="te-popover te-table-bar absolute left-0 top-0 z-20 flex items-center gap-0.5 rounded-md p-0.5 shadow-md"
       onKeyDown={onKeyDown}
     >

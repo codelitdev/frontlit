@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import { Check, Trash2, X } from "lucide-react";
+import { useTextEditorLabels } from "../labels-context";
 
 interface LinkEditorPopoverProps {
   editor: Editor;
@@ -17,6 +18,7 @@ const LinkEditorPopover = ({
   variant = "panel",
   containerRef,
 }: LinkEditorPopoverProps): React.JSX.Element => {
+  const labels = useTextEditorLabels();
   const [linkValue, setLinkValue] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
   const localContainerRef = useRef<HTMLDivElement | null>(null);
@@ -80,7 +82,7 @@ const LinkEditorPopover = ({
           ref={inputRef}
           type="text"
           inputMode="url"
-          placeholder="https://example.com"
+          placeholder={labels.linkPlaceholder}
           value={linkValue}
           onChange={(event) => setLinkValue(event.target.value)}
           onKeyDown={handleKeyDown}
@@ -88,7 +90,7 @@ const LinkEditorPopover = ({
         />
         <button
           type="button"
-          aria-label="Cancel link editing"
+          aria-label={labels.cancelLinkEditing}
           className="inline-flex h-8 w-8 items-center justify-center rounded border border-border text-foreground transition-colors hover:bg-muted"
           onClick={onClose}
         >
@@ -96,7 +98,7 @@ const LinkEditorPopover = ({
         </button>
         <button
           type="button"
-          aria-label="Remove link"
+          aria-label={labels.removeLink}
           className="inline-flex h-8 w-8 items-center justify-center rounded border border-border text-foreground transition-colors hover:bg-muted"
           onClick={removeLink}
         >
@@ -104,7 +106,7 @@ const LinkEditorPopover = ({
         </button>
         <button
           type="button"
-          aria-label="Apply link"
+          aria-label={labels.applyLink}
           className="inline-flex h-8 w-8 items-center justify-center rounded bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
           onClick={applyLink}
         >
@@ -120,12 +122,14 @@ const LinkEditorPopover = ({
       className="absolute left-2 top-full z-20 mt-2 w-full max-w-sm rounded-md border border-border bg-background p-3 shadow-lg"
     >
       <div className="flex flex-col gap-2">
-        <label className="text-xs font-medium text-muted-foreground">Link URL</label>
+        <label className="text-xs font-medium text-muted-foreground">
+          {labels.linkUrl}
+        </label>
         <input
           ref={inputRef}
           type="text"
           inputMode="url"
-          placeholder="https://example.com"
+          placeholder={labels.linkPlaceholder}
           value={linkValue}
           onChange={(event) => setLinkValue(event.target.value)}
           onKeyDown={handleKeyDown}
@@ -138,7 +142,7 @@ const LinkEditorPopover = ({
             onClick={onClose}
           >
             <X className="h-4 w-4" />
-            Cancel
+            {labels.cancel}
           </button>
           <button
             type="button"
@@ -146,7 +150,7 @@ const LinkEditorPopover = ({
             onClick={removeLink}
           >
             <Trash2 className="h-4 w-4" />
-            Remove
+            {labels.remove}
           </button>
           <button
             type="button"
@@ -154,7 +158,7 @@ const LinkEditorPopover = ({
             onClick={applyLink}
           >
             <Check className="h-4 w-4" />
-            Apply
+            {labels.apply}
           </button>
         </div>
       </div>

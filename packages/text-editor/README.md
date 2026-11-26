@@ -22,6 +22,7 @@ It needs only `react` and `react-dom`: no Next.js, no backend and no upload serv
 - [Saving and validating on the server](#saving-and-validating-on-the-server)
 - [Rendering content](#rendering-content)
 - [Keyboard and accessibility](#keyboard-and-accessibility)
+- [Translating the text](#translating-the-text)
 - [For AI agents](#for-ai-agents)
 - [Styling](#styling)
 - [What's exported](#whats-exported)
@@ -467,6 +468,33 @@ The editing area is a labelled text box. Set its name with `ariaLabel` (default
 "Rich text editor"). Screen readers announce the highlighted `/` menu option while
 focus stays in the text.
 
+## Translating the text
+
+`Editor`, `TextRenderer` and `ContentRenderer` take `labels`, a partial
+`TextEditorLabels`: the toolbar, selection menu, link editor, `/` menu, table bar,
+drag handle, placeholder, the messages passed to `onError`, and the renderer's
+built-in text (code copy buttons, fallback titles of embeds, videos and files,
+type-table headings). Anything you leave out stays English
+(`defaultTextEditorLabels`). Text that contains a value is a function, so you can
+call your own translator:
+
+```tsx
+<Editor
+  onChange={save}
+  labels={{
+    bold: "Negrita",
+    heading: (level) => `Encabezado ${level}`,
+    wordCount: (count) => `${count} ${count === 1 ? "palabra" : "palabras"}`,
+  }}
+/>
+
+<TextRenderer json={content} labels={{ copyCode: "Copiar código", copy: "Copiar" }} />
+```
+
+The `placeholder` and `ariaLabel` props still win over the labels. Block editing
+controls (settings popovers of callouts, tabs, embeds and other blocks) are not
+translated yet.
+
 ## For AI agents
 
 `contentFormat()` (from `@frontlit/text-editor/docs`) describes the documentation
@@ -497,8 +525,8 @@ If you run Tailwind CSS v4 yourself, skip `styles.css` and import the parts inst
 
 | Entry | For | Main exports |
 | --- | --- | --- |
-| `@frontlit/text-editor` | Browser | `Editor`, `TextRenderer`, `MediaPickerContextProvider`, `ImagePickerContextProvider`, `BlockFrame`, `ItemFrame`, `TextField`, `SettingsField`, `emptyDoc`, types `BlockUi`, `BlockRendererProps`, `TextEditorContent` |
-| `@frontlit/text-editor/renderer` | Server components | `TextRenderer`, type `BlockRendererProps` |
+| `@frontlit/text-editor` | Browser | `Editor`, `TextRenderer`, `defaultTextEditorLabels`, type `TextEditorLabels`, `MediaPickerContextProvider`, `ImagePickerContextProvider`, `BlockFrame`, `ItemFrame`, `TextField`, `SettingsField`, `emptyDoc`, types `BlockUi`, `BlockRendererProps`, `TextEditorContent` |
+| `@frontlit/text-editor/renderer` | Server components | `TextRenderer`, `ContentRenderer`, `defaultTextEditorLabels`, types `BlockRendererProps`, `TextEditorLabels` |
 | `@frontlit/text-editor/blocks` | Browser and server | `defineProfile`, the block library (`image()`, `callout()`, …), `attr`, `validateContent`, `incompleteBlocks`, `parseMarkdown`, `serializeMarkdown`, `formatReference`, `ContentError`, type `BlockSchema` |
 | `@frontlit/text-editor/docs` | Server | The documentation profile: `parseDocsMarkdown`, `serializeDocsMarkdown`, `validateDocsContent`, `contentFormat`, `describeContentFormat` |
 | `@frontlit/text-editor/styles.css` | Browser | All styles |

@@ -28,6 +28,8 @@ import { getInsertItems, type InsertItem } from "./ui/insert-items";
 import { TableBar } from "./ui/table-bar";
 import { useMediaPicker, MEDIA_ACCEPT } from "./ui/media-picker";
 import type { BlockUi, ResolveMedia } from "./ui/types";
+import { resolveTextEditorLabels, type TextEditorLabels } from "./labels";
+import { TextEditorLabelsContext } from "./labels-context";
 
 export interface EditorProps {
   /** `"default"`, `"documentation"`, or a profile from `defineProfile`. */
@@ -53,6 +55,11 @@ export interface EditorProps {
   placeholder?: string;
   /** Accessible name of the editing area. Defaults to "Rich text editor". */
   ariaLabel?: string;
+  /**
+   * Translations of the editor's text (toolbar, menus, tooltips, link
+   * editing, placeholder, error messages), laid over the English defaults.
+   */
+  labels?: Partial<TextEditorLabels>;
   autoFocus?: boolean;
   imageSizeLimit?: number;
   onError?: (...args: any[]) => void;
@@ -74,7 +81,7 @@ const Editor: EditorType = Object.assign(
     onFlushChangeReady,
     debounceMs = 1000,
     placeholder,
-    ariaLabel = "Rich text editor",
+    ariaLabel: ariaLabelProp,
     children,
     showToolbar = true,
     editable = true,
@@ -91,7 +98,12 @@ const Editor: EditorType = Object.assign(
     unavailable,
     blocks,
     resolveMedia,
+    labels: labelsProp,
   }) => {
+    const labels = useMemo(() => resolveTextEditorLabels(labelsProp), [labelsProp]);
+    const ariaLabel = ariaLabelProp ?? labels.editorAriaLabel;
+    const defaultPlaceholder = labels.placeholder;
+    const dragHandleTitle = labels.dragHandle;
     const [isUploading, setIsUploading] = useState(false);
     // Render nothing on the server and in the first client render, so
     // hydration matches; the editor needs the DOM anyway.
@@ -122,11 +134,12 @@ const Editor: EditorType = Object.assign(
     const extensions = useMemo(
       () =>
         createEditorExtensions(profile, {
-          placeholder,
+          placeholder: placeholder || defaultPlaceholder,
           ui,
           getItems: () => itemsRef.current,
+          dragHandleTitle,
         }),
-      [placeholder, profile, ui],
+      [placeholder, defaultPlaceholder, dragHandleTitle, profile, ui],
     );
 
     const changeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -246,14 +259,12 @@ const Editor: EditorType = Object.assign(
     const handleImageUpload = useCallback(
       async (file: File) => {
         if (!allowsBase64) {
-          onError?.(
-            "Upload a public image using the media library before inserting it.",
-          );
+          onError?.(labels.imageNeedsLibrary);
           return;
         }
         const sizeLimit = imageSizeLimit ?? 2097152; // 2 MB
         if (file.size > sizeLimit) {
-          onError?.("File is larger than the allowed size");
+          onError?.(labels.imageTooLarge);
           return;
         }
 
@@ -282,7 +293,7 @@ const Editor: EditorType = Object.assign(
           setIsUploading(false);
         }
       },
-      [editor, allowsBase64, onError, imageSizeLimit],
+      [editor, allowsBase64, onError, imageSizeLimit, labels],
     );
 
     const handleSelectFile = useCallback(
@@ -303,7 +314,7 @@ const Editor: EditorType = Object.assign(
       (image: { src: string; alt?: string }) => {
         const check = imageSchema
           ? checkUrlAttr(profile, imageSchema.attrs.src, image.src)
-          : "Images are not allowed here.";
+          : labels.imagesNotAllowed;
         if (check !== true) {
           onError?.(
             profile.options.name === "documentation"
@@ -322,7 +333,7 @@ const Editor: EditorType = Object.assign(
           })
           .run();
       },
-      [editor, profile, imageSchema, onError],
+      [editor, profile, imageSchema, onError, labels],
     );
 
     const openFileDialog = useCallback(() => {
@@ -355,6 +366,7 @@ const Editor: EditorType = Object.assign(
         getInsertItems(profile, {
           ui,
           unavailable,
+          labels,
           insertImage: () => openFileDialog(),
           // The default editor has always offered headings 1–3.
           headingLevels:
@@ -362,7 +374,7 @@ const Editor: EditorType = Object.assign(
               ? profile.headingLevels.filter((level) => level <= 3)
               : undefined,
         }),
-      [profile, ui, unavailable, openFileDialog],
+      [profile, ui, unavailable, openFileDialog, labels],
     );
     const blocksContext = useMemo(
       () => ({ ui, pickMedia, resolveMedia, previews }),
@@ -374,64 +386,66 @@ const Editor: EditorType = Object.assign(
     }
 
     return (
-      <EditorBlocksContext.Provider value={blocksContext}>
-        <div
-          className={cn("tiptap-editor flex flex-col gap-4 border", className)}
-          onPointerDownCapture={() => {
-            hasInteractedRef.current = true;
-          }}
-          onKeyDownCapture={() => {
-            hasInteractedRef.current = true;
-          }}
-        >
-          {editable && showToolbar && (
-            <div
-              className="sticky top-0 bg-background"
-              style={{
-                zIndex: 1,
-              }}
-            >
-              <Toolbar
-                editor={editor}
-                isUploadingImage={isUploading}
-                profile={profile}
-                items={itemsRef.current}
-              />
-            </div>
-          )}
-          <div className="flex w-full justify-center">
-            <div
-              className={cn(
-                "relative flex w-full max-w-3xl flex-col",
-                contentClassName,
-              )}
-            >
-              {beforeContent}
-              <EditorContent
-                editor={editor}
-                className={`${editorClassName ?? ""} ${editorClassName?.includes("min-h-") ? "" : "min-h-[200px]"}`}
-              />
-              {pickImage ? null : (
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleSelectFile}
-                />
-              )}
-              {children}
-              {editor && <BubbleMenu editor={editor} profile={profile} />}
-              {editor && editable && profile.nodeNames.has("table") && (
-                <TableBar
+      <TextEditorLabelsContext.Provider value={labels}>
+        <EditorBlocksContext.Provider value={blocksContext}>
+          <div
+            className={cn("tiptap-editor flex flex-col gap-4 border", className)}
+            onPointerDownCapture={() => {
+              hasInteractedRef.current = true;
+            }}
+            onKeyDownCapture={() => {
+              hasInteractedRef.current = true;
+            }}
+          >
+            {editable && showToolbar && (
+              <div
+                className="sticky top-0 bg-background"
+                style={{
+                  zIndex: 1,
+                }}
+              >
+                <Toolbar
                   editor={editor}
-                  headerToggle={profile.options.tables !== "simple"}
+                  isUploadingImage={isUploading}
+                  profile={profile}
+                  items={itemsRef.current}
                 />
-              )}
+              </div>
+            )}
+            <div className="flex w-full justify-center">
+              <div
+                className={cn(
+                  "relative flex w-full max-w-3xl flex-col",
+                  contentClassName,
+                )}
+              >
+                {beforeContent}
+                <EditorContent
+                  editor={editor}
+                  className={`${editorClassName ?? ""} ${editorClassName?.includes("min-h-") ? "" : "min-h-[200px]"}`}
+                />
+                {pickImage ? null : (
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleSelectFile}
+                  />
+                )}
+                {children}
+                {editor && <BubbleMenu editor={editor} profile={profile} />}
+                {editor && editable && profile.nodeNames.has("table") && (
+                  <TableBar
+                    editor={editor}
+                    headerToggle={profile.options.tables !== "simple"}
+                  />
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </EditorBlocksContext.Provider>
+        </EditorBlocksContext.Provider>
+      </TextEditorLabelsContext.Provider>
     );
   },
   {

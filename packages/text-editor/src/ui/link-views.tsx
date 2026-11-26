@@ -5,6 +5,7 @@ import {
   H5P_MIN_HEIGHT,
 } from "../core/library/links";
 import { isExternalUrl } from "../core/urls";
+import { defaultTextEditorLabels, type TextEditorLabels } from "../labels";
 
 /**
  * Static markup for Button, WebPreview and H5P, shared by the renderer and
@@ -95,10 +96,12 @@ export function H5PFrame({
   src,
   title,
   height,
+  labels = defaultTextEditorLabels,
 }: {
   src?: string | null;
   title?: string | null;
   height?: number | null;
+  labels?: Pick<TextEditorLabels, "h5pActivity">;
 }) {
   if (!src) return null;
   const h = Math.min(
@@ -109,7 +112,7 @@ export function H5PFrame({
     <iframe
       className="te-h5p"
       src={src}
-      title={title || "H5P activity"}
+      title={title || labels.h5pActivity}
       // Cross-origin content keeps its own origin; it needs scripts and storage.
       sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
       allow="fullscreen"
