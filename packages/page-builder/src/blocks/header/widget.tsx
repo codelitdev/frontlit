@@ -10,6 +10,7 @@ import { HeaderLink } from "./header-link";
 import { HeaderMobileMenu } from "./mobile-menu";
 import { GithubStars } from "./github-stars";
 import { parseGithubRepo } from "./github";
+import { defaultPageBuilderLabels, pickLabels } from "../../labels";
 
 export function HeaderWidget({
   settings: {
@@ -27,7 +28,7 @@ export function HeaderWidget({
     verticalPadding,
     background,
   },
-  state: { theme },
+  state: { theme, labels },
   pageData,
 }: WidgetProps<HeaderSettings>) {
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
@@ -81,7 +82,9 @@ export function HeaderWidget({
         >
           <Button theme={overriddenTheme} variant="ghost" size="sm" className="gap-1.5">
             <Github className="h-4 w-4" aria-hidden />
-            <span className="sr-only">GitHub repository</span>
+            <span className="sr-only">
+              {(labels ?? defaultPageBuilderLabels).githubRepository}
+            </span>
             {showGithubStars && <GithubStars repo={repo} />}
           </Button>
         </a>
@@ -107,6 +110,7 @@ export function HeaderWidget({
             ctaLabel={ctaLabel}
             ctaHref={ctaHref}
             theme={overriddenTheme}
+            labels={pickLabels(labels, ["toggleMenu", "close"])}
           />
         </div>
       )}

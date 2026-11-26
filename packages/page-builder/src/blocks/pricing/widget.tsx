@@ -6,6 +6,7 @@ import { PricingPeriodSwitch } from "./period-switch";
 import { renderTitle, titleProps } from "../_shared/title";
 import { NavLink } from "../../components/nav-link";
 import { PageText } from "../../components/page-text";
+import { defaultPageBuilderLabels } from "../../labels";
 import {
   Badge,
   Button,
@@ -51,8 +52,9 @@ export function PricingWidget({
     verticalPadding,
     background,
   },
-  state: { theme },
+  state: { theme, labels: labelsState },
 }: WidgetProps<PricingSettings>) {
+  const labels = labelsState ?? defaultPageBuilderLabels;
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
   overriddenTheme.structure.section.padding.y =
@@ -88,7 +90,9 @@ export function PricingWidget({
           >
             <div className="flex items-center justify-between gap-2">
               <Preheader theme={overriddenTheme}>{tier.name}</Preheader>
-              {tier.highlighted && <Badge theme={overriddenTheme}>Most popular</Badge>}
+              {tier.highlighted && (
+                <Badge theme={overriddenTheme}>{labels.mostPopular}</Badge>
+              )}
             </div>
             <PageCardHeader theme={overriddenTheme} as="p">
               {pricingSwitcher ? (
@@ -165,8 +169,8 @@ export function PricingWidget({
           (pricingSwitcher ? (
             <PricingPeriodSwitch
               defaultPeriod={defaultPeriod}
-              monthlyCaption={monthlyPriceCaption || "Monthly"}
-              yearlyCaption={yearlyPriceCaption || "Yearly"}
+              monthlyCaption={monthlyPriceCaption || labels.monthly}
+              yearlyCaption={yearlyPriceCaption || labels.yearly}
               theme={overriddenTheme}
             >
               {plans}

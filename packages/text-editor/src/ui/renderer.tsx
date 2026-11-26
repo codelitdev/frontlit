@@ -19,6 +19,12 @@ import type { Profile } from "../core/types";
 import { isSafeUrl } from "../core/urls";
 import { mediaBlockRenderers, textBlockRenderers } from "./block-renderers";
 import type { BlockRenderer, ResolveMedia } from "./types";
+import {
+  blocksTakingLabels,
+  defaultTextEditorLabels,
+  resolveTextEditorLabels,
+  type TextEditorLabels,
+} from "../labels";
 
 export interface ContentRendererProps {
   profile: Profile;
@@ -29,6 +35,8 @@ export interface ContentRendererProps {
   blocks?: Record<string, BlockRenderer>;
   /** Media ID → URL, for Image, Video, Audio, PDF and File blocks. */
   resolveMedia?: ResolveMedia;
+  /** Translations of built-in text (copy buttons, fallback titles), laid over the English defaults. */
+  labels?: Partial<TextEditorLabels>;
 }
 
 const typographyClasses = (typography?: {
@@ -99,10 +107,14 @@ function renderMappingsInline(options: Parameters<typeof TiptapStaticRenderer>[1
 }
 
 /** Built-in renderers for library blocks the profile holds. */
-export function libraryRenderers(profile: Profile, resolveMedia?: ResolveMedia) {
+export function libraryRenderers(
+  profile: Profile,
+  resolveMedia?: ResolveMedia,
+  labels: TextEditorLabels = defaultTextEditorLabels,
+) {
   const all: Record<string, unknown> = {
-    ...textBlockRenderers,
-    ...mediaBlockRenderers(resolveMedia),
+    ...textBlockRenderers(labels),
+    ...mediaBlockRenderers(resolveMedia, labels),
   };
   // Images stored only by URL keep Tiptap's own markup.
   if (!profile.blockSchemas.get("image")?.attrs.media) delete all.image;
@@ -123,7 +135,9 @@ export function ContentRenderer({
   theme,
   blocks,
   resolveMedia,
+  labels: labelsInput,
 }: ContentRendererProps) {
+  const labels = resolveTextEditorLabels(labelsInput);
   const extensions = extensionsFor(profile);
   const unique = profile.options.headingAnchors !== "legacy";
   const content = removeEmptyTextNodes(
@@ -149,7 +163,12 @@ export function ContentRenderer({
       name,
       ({ node, children }: { node: ProseMirrorNode; children?: React.ReactNode }) => (
         <div className="te-host-block" data-block={name}>
-          <Component node={node} attrs={node.attrs} resolveMedia={resolveMedia}>
+          <Component
+            node={node}
+            attrs={node.attrs}
+            resolveMedia={resolveMedia}
+            {...(blocksTakingLabels.has(Component) ? { labels } : {})}
+          >
             {children}
           </Component>
         </div>
@@ -219,18 +238,21 @@ export function ContentRenderer({
             </Tag>
           );
         },
-        ...(libraryRenderers(profile, resolveMedia) as object),
+        ...(libraryRenderers(profile, resolveMedia, labels) as object),
         codeBlock: ({ node, children }) => (
           <RenderedCodeBlock
             node={node}
             language={node?.attrs?.language}
             title={node?.attrs?.title}
+            labels={labels}
           >
             {children}
           </RenderedCodeBlock>
         ),
         codeMirror: ({ node, children }) => (
-          <RenderedCodeBlock node={node}>{children}</RenderedCodeBlock>
+          <RenderedCodeBlock node={node} labels={labels}>
+            {children}
+          </RenderedCodeBlock>
         ),
         ...hosted,
       },

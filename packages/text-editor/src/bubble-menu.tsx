@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import LinkEditorPopover from "./components/link-editor-popover";
 import type { Profile } from "./core/types";
+import { useTextEditorLabels } from "./labels-context";
 import {
   dismissSelectionMenu,
   resetSelectionMenu,
@@ -129,6 +130,7 @@ const InlineBubbleMenu = ({
   editor,
   profile,
 }: BubbleMenuProps): React.JSX.Element | null => {
+  const labels = useTextEditorLabels();
   const [isLinkEditing, setIsLinkEditing] = useState(false);
   const linkButton = useRef<HTMLButtonElement | null>(null);
 
@@ -194,13 +196,13 @@ const InlineBubbleMenu = ({
       <div onKeyDown={onKeyDown}>
         <div
           role="toolbar"
-          aria-label="Text formatting"
+          aria-label={labels.textFormatting}
           className="flex items-center gap-1"
         >
           {profile.marks.includes("bold") && (
             <InlineButton
               icon={Bold}
-              label="Bold"
+              label={labels.bold}
               active={editor.isActive("bold")}
               onClick={() => editor.chain().focus().toggleBold().run()}
             />
@@ -208,7 +210,7 @@ const InlineBubbleMenu = ({
           {profile.marks.includes("italic") && (
             <InlineButton
               icon={Italic}
-              label="Italic"
+              label={labels.italic}
               active={editor.isActive("italic")}
               onClick={() => editor.chain().focus().toggleItalic().run()}
             />
@@ -216,7 +218,7 @@ const InlineBubbleMenu = ({
           {profile.marks.includes("underline") && (
             <InlineButton
               icon={Underline}
-              label="Underline"
+              label={labels.underline}
               active={editor.isActive("underline")}
               onClick={() => editor.chain().focus().toggleMark("underline").run()}
             />
@@ -224,7 +226,7 @@ const InlineBubbleMenu = ({
           {profile.marks.includes("strike") && (
             <InlineButton
               icon={Strikethrough}
-              label="Strikethrough"
+              label={labels.strikethrough}
               active={editor.isActive("strike")}
               onClick={() => editor.chain().focus().toggleStrike().run()}
             />
@@ -232,7 +234,7 @@ const InlineBubbleMenu = ({
           {profile.marks.includes("code") && (
             <InlineButton
               icon={Code}
-              label="Inline code"
+              label={labels.inlineCode}
               active={editor.isActive("code")}
               onClick={() => editor.chain().focus().toggleCode().run()}
             />
@@ -240,7 +242,7 @@ const InlineBubbleMenu = ({
           {profile.marks.includes("link") && (
             <InlineButton
               icon={LinkIcon}
-              label={editor.isActive("link") ? "Edit link" : "Insert link"}
+              label={editor.isActive("link") ? labels.editLink : labels.insertLink}
               active={editor.isActive("link")}
               toggle={false}
               onClick={openLinkEditor}

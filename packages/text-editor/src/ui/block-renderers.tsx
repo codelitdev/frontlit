@@ -15,6 +15,7 @@ import { EmbedFrame } from "./embed-frame";
 import { H5PFrame, LinkButton, WebPreviewCard } from "./link-views";
 import { Caption, FileLink, HostedVideo, PdfView } from "./media-views";
 import { mediaUrl, type ResolveMedia } from "./types";
+import { defaultTextEditorLabels, type TextEditorLabels } from "../labels";
 
 type BlockProps = NodeProps<ProseMirrorNode, React.ReactNode>;
 
@@ -79,7 +80,9 @@ export function Accordion({ node, children }: BlockProps) {
 }
 
 /** Renderers of the library's text blocks. */
-export const textBlockRenderers = {
+export const textBlockRenderers = (
+  labels: TextEditorLabels = defaultTextEditorLabels,
+) => ({
   button: ({ node }: BlockProps) => (
     <LinkButton
       href={node.attrs.href}
@@ -100,6 +103,7 @@ export const textBlockRenderers = {
       src={node.attrs.src}
       title={node.attrs.title}
       height={node.attrs.height}
+      labels={labels}
     />
   ),
   callout: Callout,
@@ -109,13 +113,16 @@ export const textBlockRenderers = {
   step: Step,
   accordions: Accordions,
   accordion: Accordion,
-};
+});
 
 /**
  * Renderers of the library's media and embed blocks. Media URLs come only
  * from the host's `resolveMedia`; a block without a source renders nothing.
  */
-export function mediaBlockRenderers(resolveMedia?: ResolveMedia) {
+export function mediaBlockRenderers(
+  resolveMedia?: ResolveMedia,
+  labels: TextEditorLabels = defaultTextEditorLabels,
+) {
   const resolve = (id: unknown) => mediaUrl(resolveMedia, id);
   return {
     image: ({ node }: BlockProps) => {
@@ -140,7 +147,12 @@ export function mediaBlockRenderers(resolveMedia?: ResolveMedia) {
       if (provider && isVideoId(provider, videoId))
         body = (
           <div className="te-video">
-            <HostedVideo provider={provider} videoId={videoId} title={caption} />
+            <HostedVideo
+              provider={provider}
+              videoId={videoId}
+              title={caption}
+              labels={labels}
+            />
           </div>
         );
       else if (media) {
@@ -175,12 +187,19 @@ export function mediaBlockRenderers(resolveMedia?: ResolveMedia) {
     },
     pdf: ({ node }: BlockProps) => {
       const file = resolve(node.attrs.media);
-      return file ? <PdfView url={file.url} title={node.attrs.title} /> : null;
+      return file ? (
+        <PdfView url={file.url} title={node.attrs.title} labels={labels} />
+      ) : null;
     },
     file: ({ node }: BlockProps) => {
       const file = resolve(node.attrs.media);
       return file ? (
-        <FileLink url={file.url} label={node.attrs.label} name={file.name} />
+        <FileLink
+          url={file.url}
+          label={node.attrs.label}
+          name={file.name}
+          labels={labels}
+        />
       ) : null;
     },
     embed: ({ node }: BlockProps) =>
@@ -189,6 +208,7 @@ export function mediaBlockRenderers(resolveMedia?: ResolveMedia) {
           code={node.attrs.code}
           title={node.attrs.title}
           height={node.attrs.height}
+          defaultTitle={labels.embeddedContent}
         />
       ) : null,
   };

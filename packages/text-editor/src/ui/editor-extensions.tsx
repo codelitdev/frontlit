@@ -36,12 +36,14 @@ export interface EditorExtensionOptions {
   ui: ReadonlyMap<string, BlockUi>;
   /** Current insert entries for the `/` menu (read on every keystroke). */
   getItems(): InsertItem[];
+  /** Tooltip of the block drag handle. */
+  dragHandleTitle?: string;
 }
 
 /** Browser editor extensions: the profile's, with node views, the `/` menu and drag handles. */
 export function createEditorExtensions(
   profile: Profile,
-  { placeholder, ui, getItems }: EditorExtensionOptions,
+  { placeholder, ui, getItems, dragHandleTitle }: EditorExtensionOptions,
 ): Extensions {
   const views = new Map<string, NodeViewComponent>();
   for (const [name, block] of ui) {
@@ -65,7 +67,7 @@ export function createEditorExtensions(
       },
     ),
     createSlashCommand(getItems),
-    DragHandle,
+    dragHandleTitle ? DragHandle.configure({ title: dragHandleTitle }) : DragHandle,
     BlockKeyboard,
   ];
 }

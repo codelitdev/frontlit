@@ -11,6 +11,13 @@ export {
   useImageUploaderAdapters,
 } from "./media-uploader-provider";
 
+export {
+  defaultMediaUploaderLabels,
+  resolveMediaUploaderLabels,
+  type MediaUploaderLabels,
+  type MediaUploaderDescriptionContext,
+} from "./labels";
+
 export { formatFileSize } from "./format-file-size";
 export {
   matchesMime,

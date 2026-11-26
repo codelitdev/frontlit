@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { formatFileSize } from "./format-file-size";
+import { type MediaUploaderLabels, resolveMediaUploaderLabels } from "./labels";
 import { useMediaUploaderAdapters } from "./media-uploader-provider";
 import { allowsImages, getMimeCategory, matchesMime, type MimeCategory } from "./mime";
 import type {
@@ -59,25 +60,9 @@ export type MediaUploadDialogProps<TMedia extends LibraryMedia = LibraryMedia> =
     validateFile?: (file: File) => string | null | Promise<string | null>;
     defaultTab?: "upload" | "media" | "unsplash";
     metadataMode?: "auto" | "alt" | "title" | "none";
+    /** Translations of the dialog's text, laid over the English defaults. */
+    labels?: Partial<MediaUploaderLabels>;
   };
-
-function defaultDescription(
-  allowExistingMedia: boolean,
-  showUnsplash: boolean,
-  acceptsOnlyImages: boolean,
-) {
-  const noun = acceptsOnlyImages ? "image" : "file";
-  if (allowExistingMedia && showUnsplash) {
-    return `Upload a new ${noun}, choose one from your library, or pick from Unsplash.`;
-  }
-  if (allowExistingMedia) {
-    return `Upload a new ${noun} or choose one from your library.`;
-  }
-  if (showUnsplash) {
-    return `Upload a new ${noun} or pick from Unsplash.`;
-  }
-  return `Upload a new ${noun}.`;
-}
 
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -128,7 +113,9 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
   isUploading: isUploadingProp,
   uploadProgress: uploadProgressProp,
   cancelUpload: cancelUploadProp,
+  labels: labelsProp,
 }: MediaUploadDialogProps<TMedia>) {
+  const labels = resolveMediaUploaderLabels(labelsProp);
   const adapters = useMediaUploaderAdapters<TMedia>({
     uploadMedia: uploadMediaProp,
     listMedia: listMediaProp,
@@ -165,10 +152,15 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
   const showExistingMedia = allowExistingMedia && Boolean(listMedia);
   const showUnsplash = allowUnsplash && acceptsImages && Boolean(searchUnsplash);
 
-  const resolvedTitle = title ?? (acceptsOnlyImages ? "Select image" : "Select file");
+  const resolvedTitle =
+    title ?? (acceptsOnlyImages ? labels.selectImageTitle : labels.selectFileTitle);
   const resolvedDescription =
     description ??
-    defaultDescription(showExistingMedia, showUnsplash, acceptsOnlyImages);
+    labels.description({
+      kind: acceptsOnlyImages ? "image" : "file",
+      library: showExistingMedia,
+      unsplash: showUnsplash,
+    });
 
   const tabCount = 1 + (showExistingMedia ? 1 : 0) + (showUnsplash ? 1 : 0);
 
@@ -251,7 +243,7 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
     if (!selectedMedia) return;
     selectMedia({
       src: selectedMedia.url,
-      alt: selectedMedia.alt || selectedMedia.fileName || "Media",
+      alt: selectedMedia.alt || selectedMedia.fileName || labels.mediaAlt,
       fileName: selectedMedia.fileName || selectedMedia.title || undefined,
       mimeType: selectedMedia.mimeType || undefined,
       byteSize: selectedMedia.byteSize || undefined,
@@ -261,20 +253,13 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
 
   async function validateSelectedFile(selected: File): Promise<boolean> {
     if (!matchesMime(selected.type, selected.name, acceptedTypes)) {
-      const allowedText = acceptedTypes?.length
-        ? acceptedTypes.join(", ")
-        : "all formats";
-      setFileError(
-        `File format not accepted (${selected.type || "unknown"}). Allowed: ${allowedText}.`,
-      );
+      setFileError(labels.formatNotAccepted(selected.type, acceptedTypes ?? []));
       setFile(null);
       return false;
     }
 
     if (selected.size > maxUploadBytes) {
-      setFileError(
-        `File is too large. Maximum allowed size is ${formatFileSize(maxUploadBytes)}.`,
-      );
+      setFileError(labels.fileTooLarge(formatFileSize(maxUploadBytes)));
       setFile(null);
       return false;
     }
@@ -288,7 +273,7 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
           return false;
         }
       } catch (err) {
-        setFileError(errorMessage(err, "Validation failed."));
+        setFileError(errorMessage(err, labels.validationFailed));
         setFile(null);
         return false;
       }
@@ -346,7 +331,7 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
         media,
       });
     } catch (error) {
-      setUploadError(errorMessage(error, "Failed to upload file."));
+      setUploadError(errorMessage(error, labels.uploadFailed));
     }
   }
 
@@ -361,7 +346,7 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
         current && items.some((item) => item.id === current.id) ? current : null,
       );
     } catch (error) {
-      setMediaError(errorMessage(error, "Failed to load media."));
+      setMediaError(errorMessage(error, labels.loadMediaFailed));
     } finally {
       setLoadingMedia(false);
     }
@@ -370,22 +355,22 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
   function selectUnsplashUrl() {
     const trimmedUrl = unsplashUrl.trim();
     if (!trimmedUrl) {
-      setUnsplashError("Enter an Unsplash image URL");
+      setUnsplashError(labels.enterUnsplashUrl);
       return;
     }
     try {
       const parsed = new URL(trimmedUrl);
       if (!parsed.hostname.includes("unsplash.com")) {
-        setUnsplashError("Enter a valid Unsplash URL");
+        setUnsplashError(labels.invalidUnsplashUrl);
         return;
       }
     } catch {
-      setUnsplashError("Enter a valid Unsplash URL");
+      setUnsplashError(labels.invalidUnsplashUrl);
       return;
     }
     selectMedia({
       src: trimmedUrl,
-      alt: unsplashAlt.trim() || "Unsplash image",
+      alt: unsplashAlt.trim() || labels.unsplashImageAlt,
       fileName: "unsplash-image.jpg",
       mimeType: "image/jpeg",
     });
@@ -405,7 +390,7 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
     if (!searchUnsplash) return;
     const query = unsplashQuery.trim();
     if (!query) {
-      setUnsplashError("Enter a search term");
+      setUnsplashError(labels.enterSearchTerm);
       return;
     }
     setLoadingUnsplash(true);
@@ -416,7 +401,7 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
       if (!result.configured) return;
       setUnsplashResults(result.items);
     } catch (error) {
-      setUnsplashError(errorMessage(error, "Failed to search Unsplash"));
+      setUnsplashError(errorMessage(error, labels.unsplashSearchFailed));
     } finally {
       setLoadingUnsplash(false);
     }
@@ -445,13 +430,13 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
 
   const metadataLabel =
     metadataMode === "alt" || (metadataMode === "auto" && currentCategory === "image")
-      ? "Alt text"
-      : "Display title / caption";
+      ? labels.altTextLabel
+      : labels.titleLabel;
 
   const metadataPlaceholder =
     metadataMode === "alt" || (metadataMode === "auto" && currentCategory === "image")
-      ? "Describe the image for accessibility"
-      : "Give this file a display title";
+      ? labels.altTextPlaceholder
+      : labels.titlePlaceholder;
 
   return (
     <Dialog
@@ -471,7 +456,11 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
           {children}
         </DialogTrigger>
       ) : null}
-      <DialogContent className="max-w-2xl" showCloseButton={!isUploading}>
+      <DialogContent
+        className="max-w-2xl"
+        showCloseButton={!isUploading}
+        closeLabel={labels.close}
+      >
         <DialogHeader>
           <DialogTitle>{resolvedTitle}</DialogTitle>
           <DialogDescription>{resolvedDescription}</DialogDescription>
@@ -481,12 +470,12 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
             <TabsList
               className={`grid w-full ${tabCount === 3 ? "grid-cols-3" : "grid-cols-2"}`}
             >
-              <TabsTrigger value="upload">Upload</TabsTrigger>
+              <TabsTrigger value="upload">{labels.uploadTab}</TabsTrigger>
               {showExistingMedia ? (
-                <TabsTrigger value="media">Your media</TabsTrigger>
+                <TabsTrigger value="media">{labels.libraryTab}</TabsTrigger>
               ) : null}
               {showUnsplash ? (
-                <TabsTrigger value="unsplash">Unsplash</TabsTrigger>
+                <TabsTrigger value="unsplash">{labels.unsplashTab}</TabsTrigger>
               ) : null}
             </TabsList>
           ) : null}
@@ -532,7 +521,7 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
                     <div className="relative group">
                       <img
                         src={previewUrl}
-                        alt="Preview"
+                        alt={labels.previewAlt}
                         className="max-h-48 w-auto max-w-full rounded-md object-contain border bg-muted/20"
                       />
                     </div>
@@ -579,7 +568,7 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
                       disabled={isUploading}
                       className="text-xs text-muted-foreground hover:text-destructive"
                     >
-                      <X className="mr-1 size-3.5" /> Remove file
+                      <X className="mr-1 size-3.5" /> {labels.removeFile}
                     </Button>
                     <Button
                       type="button"
@@ -592,7 +581,7 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
                       disabled={isUploading}
                       className="text-xs"
                     >
-                      Change file
+                      {labels.changeFile}
                     </Button>
                   </div>
                 </div>
@@ -608,17 +597,16 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
                     }`}
                   />
                   <p className="text-sm font-medium text-muted-foreground">
-                    {acceptsOnlyImages
-                      ? "Drop image here or click"
-                      : "Drop file here or click"}
+                    {acceptsOnlyImages ? labels.dropImage : labels.dropFile}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {acceptedTypes?.length
                       ? acceptedTypes.join(", ")
                       : acceptsOnlyImages
-                        ? "JPEG, PNG, GIF, WebP"
-                        : "Any file"}
-                    {" · "}up to {formatFileSize(maxUploadBytes)}
+                        ? labels.imageFormats
+                        : labels.anyFile}
+                    {" · "}
+                    {labels.upTo(formatFileSize(maxUploadBytes))}
                   </p>
                 </>
               )}
@@ -661,10 +649,10 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
                 disabled={!file || isUploading}
               >
                 {isUploading
-                  ? `Uploading… ${Math.round(uploadProgress)}%`
+                  ? labels.uploading(Math.round(uploadProgress))
                   : acceptsOnlyImages
-                    ? "Upload image"
-                    : "Upload file"}
+                    ? labels.uploadImage
+                    : labels.uploadFile}
               </Button>
             </DialogFooter>
           </TabsContent>
@@ -673,7 +661,7 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
             <TabsContent value="media" className="space-y-4 py-4">
               <div className="flex gap-2">
                 <Input
-                  placeholder="Search library"
+                  placeholder={labels.searchLibrary}
                   value={mediaQuery}
                   onChange={(event) => setMediaQuery(event.target.value)}
                   onKeyDown={(event) => {
@@ -698,7 +686,7 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
               ) : null}
 
               {loadingMedia ? (
-                <p className="text-sm text-muted-foreground">Loading library…</p>
+                <p className="text-sm text-muted-foreground">{labels.loadingLibrary}</p>
               ) : mediaItems.length ? (
                 <div className="grid max-h-80 grid-cols-3 gap-3 overflow-y-auto pr-1">
                   {mediaItems.map((item) => {
@@ -738,7 +726,10 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
                           )}
                         </div>
                         <div className="truncate px-2 py-1.5 text-xs text-muted-foreground">
-                          {item.fileName || item.title || item.alt || "File"}
+                          {item.fileName ||
+                            item.title ||
+                            item.alt ||
+                            labels.untitledFile}
                         </div>
                       </button>
                     );
@@ -747,7 +738,7 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
               ) : (
                 <div className="flex min-h-48 flex-col items-center justify-center rounded-md border border-dashed text-muted-foreground">
                   <ImageIcon className="mb-2 size-6" />
-                  <p className="text-sm">No media yet</p>
+                  <p className="text-sm">{labels.noMedia}</p>
                 </div>
               )}
 
@@ -757,7 +748,7 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
                   onClick={confirmSelectedMedia}
                   disabled={!selectedMedia}
                 >
-                  Select
+                  {labels.select}
                 </Button>
               </DialogFooter>
             </TabsContent>
@@ -768,7 +759,7 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
               {unsplashConfigured === false ? (
                 <>
                   <div className="space-y-1.5">
-                    <Label htmlFor="unsplash-url">Unsplash URL</Label>
+                    <Label htmlFor="unsplash-url">{labels.unsplashUrlLabel}</Label>
                     <Input
                       id="unsplash-url"
                       placeholder="https://images.unsplash.com/..."
@@ -780,10 +771,10 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="unsplash-alt">Alt text</Label>
+                    <Label htmlFor="unsplash-alt">{labels.altTextLabel}</Label>
                     <Input
                       id="unsplash-alt"
-                      placeholder="Describe the image"
+                      placeholder={labels.unsplashAltPlaceholder}
                       value={unsplashAlt}
                       onChange={(event) => setUnsplashAlt(event.target.value)}
                     />
@@ -794,7 +785,7 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
                       disabled={!unsplashUrl.trim()}
                       onClick={selectUnsplashUrl}
                     >
-                      Insert
+                      {labels.insert}
                     </Button>
                   </DialogFooter>
                 </>
@@ -802,7 +793,7 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
                 <>
                   <div className="flex gap-2">
                     <Input
-                      placeholder="Search Unsplash"
+                      placeholder={labels.searchUnsplash}
                       value={unsplashQuery}
                       onChange={(event) => setUnsplashQuery(event.target.value)}
                       onKeyDown={(event) => {
@@ -822,7 +813,9 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
                     </Button>
                   </div>
                   {loadingUnsplash ? (
-                    <p className="text-sm text-muted-foreground">Searching Unsplash…</p>
+                    <p className="text-sm text-muted-foreground">
+                      {labels.searchingUnsplash}
+                    </p>
                   ) : unsplashResults.length ? (
                     <div className="grid max-h-80 grid-cols-3 gap-3 overflow-y-auto pr-1">
                       {unsplashResults.map((photo) => (
@@ -833,7 +826,7 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
                           onClick={() =>
                             selectMedia({
                               src: photo.url,
-                              alt: photo.alt || "Unsplash image",
+                              alt: photo.alt || labels.unsplashImageAlt,
                               fileName: `unsplash-${photo.id}.jpg`,
                               mimeType: "image/jpeg",
                             })
@@ -842,12 +835,12 @@ export function MediaUploadDialog<TMedia extends LibraryMedia = LibraryMedia>({
                           <div className="aspect-square bg-muted">
                             <img
                               src={photo.thumbUrl}
-                              alt={photo.alt || "Unsplash"}
+                              alt={photo.alt || labels.unsplash}
                               className="size-full object-cover"
                             />
                           </div>
                           <div className="truncate px-2 py-1.5 text-xs text-muted-foreground">
-                            {photo.photographer || "Unsplash"}
+                            {photo.photographer || labels.unsplash}
                           </div>
                         </button>
                       ))}

@@ -4,6 +4,7 @@ import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import type { ThemeStyle } from "../models";
 import { Sheet, SheetContent, SheetTrigger } from "./components/ui/sheet";
 import { cn } from "./lib/utils";
+import { usePageBuilderLabels } from "../components/labels-provider";
 
 interface DrawerProps {
   trigger: ReactNode;
@@ -14,6 +15,8 @@ interface DrawerProps {
   style?: React.CSSProperties;
   className?: string;
   theme?: ThemeStyle;
+  /** Screen-reader text of the close button; otherwise from `PageBuilderLabelsProvider`, then "Close". */
+  closeLabel?: string;
 }
 
 export function Drawer({
@@ -25,7 +28,9 @@ export function Drawer({
   style,
   className = "",
   theme: _theme,
+  closeLabel,
 }: DrawerProps) {
+  const labels = usePageBuilderLabels();
   const triggerWrapRef = useRef<HTMLSpanElement>(null);
   const [container, setContainer] = useState<HTMLElement | null>(null);
 
@@ -51,6 +56,7 @@ export function Drawer({
         side={side}
         style={style}
         container={container}
+        closeLabel={closeLabel ?? labels.close}
         className={cn(
           "bg-background text-foreground",
           !container && "pb-theme",

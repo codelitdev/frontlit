@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import * as React from "react";
 import type { ThemeStyle } from "../models";
 import { cn } from "./lib/utils";
+import { usePageBuilderLabels } from "../components/labels-provider";
 
 const AlertDialogThemeContext = React.createContext<ThemeStyle | undefined>(undefined);
 
@@ -51,6 +52,8 @@ export interface AlertDialogContentProps
   closeClassName?: string;
   overlayClassName?: string;
   showCloseButton?: boolean;
+  /** Screen-reader text of the close button; otherwise from `PageBuilderLabelsProvider`, then "Close". */
+  closeLabel?: string;
   theme?: ThemeStyle;
 }
 
@@ -66,10 +69,12 @@ export const AlertDialogContent = React.forwardRef<
       overlayClassName,
       showCloseButton = false,
       theme: providedTheme,
+      closeLabel,
       ...props
     },
     ref,
   ) => {
+    const labels = usePageBuilderLabels();
     const theme = useAlertDialogTheme(providedTheme);
     const styles = theme?.interactives?.dialog;
 
@@ -100,7 +105,7 @@ export const AlertDialogContent = React.forwardRef<
               )}
             >
               <X className="size-4" />
-              <span className="sr-only">Close</span>
+              <span className="sr-only">{closeLabel ?? labels.close}</span>
             </AlertDialogPrimitive.Cancel>
           ) : null}
         </AlertDialogPrimitive.Content>

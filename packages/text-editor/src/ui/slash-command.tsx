@@ -21,6 +21,7 @@ import {
   size,
 } from "@floating-ui/dom";
 import { filterInsertItems, type InsertItem } from "./insert-items";
+import { useTextEditorLabels } from "../labels-context";
 
 interface MenuProps {
   items: InsertItem[];
@@ -92,6 +93,7 @@ export const InsertMenu = forwardRef<MenuHandle, MenuProps>(function InsertMenu(
   { items, command, editorDom, hidden },
   ref,
 ) {
+  const labels = useTextEditorLabels();
   const [active, setActive] = useState(() => nextMenuIndex(items, -1, "first"));
   // Keys can arrive faster than renders; read and write the latest index here.
   const activeRef = useRef(active);
@@ -147,7 +149,7 @@ export const InsertMenu = forwardRef<MenuHandle, MenuProps>(function InsertMenu(
         id={`${id}-list`}
         className="min-h-0 flex-1 overflow-y-auto p-1.5"
         role="listbox"
-        aria-label="Insert block"
+        aria-label={labels.insertBlock}
         // A scrolling region must be focusable (axe scrollable-region-focusable).
         // Keys drive the menu from the text, so focus that lands here (a click on
         // the scrollbar) goes straight back to the editor, cursor intact.
@@ -156,7 +158,7 @@ export const InsertMenu = forwardRef<MenuHandle, MenuProps>(function InsertMenu(
       >
         {items.length === 0 && (
           <div role="status" className="px-2.5 py-2 text-sm text-muted-foreground">
-            No matching blocks
+            {labels.noMatchingBlocks}
           </div>
         )}
         {groups.map((group, groupIndex) => (
@@ -228,13 +230,13 @@ export const InsertMenu = forwardRef<MenuHandle, MenuProps>(function InsertMenu(
       <div className="te-insert-menu__footer" aria-hidden>
         <span>
           <kbd>↑</kbd>
-          <kbd>↓</kbd> navigate
+          <kbd>↓</kbd> {labels.menuNavigate}
         </span>
         <span>
-          <kbd>↵</kbd> insert
+          <kbd>↵</kbd> {labels.menuInsert}
         </span>
         <span>
-          <kbd>esc</kbd> close
+          <kbd>esc</kbd> {labels.menuClose}
         </span>
       </div>
     </div>

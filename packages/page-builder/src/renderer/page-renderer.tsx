@@ -11,6 +11,11 @@ import {
   PageBuilderLinkProvider,
   type PageBuilderLinkComponent,
 } from "../components/nav-link";
+import {
+  PageBuilderLabelsProvider,
+  usePageBuilderLabels,
+} from "../components/labels-provider";
+import { resolvePageBuilderLabels, type PageBuilderLabels } from "../labels";
 
 export interface PageRendererProps {
   layout: WidgetInstance[];
@@ -41,6 +46,12 @@ export interface PageRendererProps {
    * framework dependency.
    */
   linkComponent?: PageBuilderLinkComponent;
+  /**
+   * Translations of the page's built-in text (theme toggle, mobile menu,
+   * close buttons, pricing badge and switch, copy buttons, video text), laid
+   * over an enclosing `PageBuilderLabelsProvider` and then English.
+   */
+  labels?: Partial<PageBuilderLabels>;
   className?: string;
 }
 
@@ -67,8 +78,11 @@ export function PageRenderer({
   onAddWidgetBelow,
   injectThemeStyles = true,
   linkComponent,
+  labels: labelsProp,
   className,
 }: PageRendererProps) {
+  const outerLabels = usePageBuilderLabels();
+  const labels = resolvePageBuilderLabels(outerLabels, labelsProp);
   // Refs to each block's wrapper, keyed by widget id. Refs (unlike DOM
   // attribute lookups) stay correct even when SSR and client render
   // different generated widget ids.
@@ -96,6 +110,7 @@ export function PageRenderer({
       theme={theme.theme}
       size="sm"
       variant="outline"
+      labels={labels}
     />
   ) : undefined;
 
@@ -153,7 +168,7 @@ export function PageRenderer({
       >
         <Widget
           settings={settings as any}
-          state={{ theme }}
+          state={{ theme, labels }}
           pageData={resolvedPageData}
           data={
             instance.name === "data-slot"
@@ -168,47 +183,49 @@ export function PageRenderer({
   }
 
   return (
-    <PageBuilderLinkProvider component={linkComponent}>
-      <div
-        data-pb-theme={themeScope}
-        className={cn(
-          "pb-theme flex min-h-full flex-col bg-background text-foreground",
-          nextTheme === "dark" && "dark",
-          className,
-        )}
-      >
-        {/* Emitted first so the variables exist before any content paints. */}
-        {injectThemeStyles && (
-          <style>{generateThemeStyles(theme, themeSelector)}</style>
-        )}
-        {header &&
-          renderInstance(header, {
-            allowUp: false,
-            allowDown: false,
-            locked: true,
-            allowAddBelow: true,
-          })}
-        <div className="flex flex-1 flex-col">
-          {children !== undefined &&
-          !body.some((instance) => instance.name === "data-slot")
-            ? children
-            : body.map((instance, index) =>
-                renderInstance(instance, {
-                  allowUp: instance.moveable && index !== 0,
-                  allowDown: instance.moveable && index !== body.length - 1,
-                  locked: !instance.deletable,
-                  allowAddBelow: true,
-                }),
-              )}
+    <PageBuilderLabelsProvider labels={labelsProp}>
+      <PageBuilderLinkProvider component={linkComponent}>
+        <div
+          data-pb-theme={themeScope}
+          className={cn(
+            "pb-theme flex min-h-full flex-col bg-background text-foreground",
+            nextTheme === "dark" && "dark",
+            className,
+          )}
+        >
+          {/* Emitted first so the variables exist before any content paints. */}
+          {injectThemeStyles && (
+            <style>{generateThemeStyles(theme, themeSelector)}</style>
+          )}
+          {header &&
+            renderInstance(header, {
+              allowUp: false,
+              allowDown: false,
+              locked: true,
+              allowAddBelow: true,
+            })}
+          <div className="flex flex-1 flex-col">
+            {children !== undefined &&
+            !body.some((instance) => instance.name === "data-slot")
+              ? children
+              : body.map((instance, index) =>
+                  renderInstance(instance, {
+                    allowUp: instance.moveable && index !== 0,
+                    allowDown: instance.moveable && index !== body.length - 1,
+                    locked: !instance.deletable,
+                    allowAddBelow: true,
+                  }),
+                )}
+          </div>
+          {footer &&
+            renderInstance(footer, {
+              allowUp: false,
+              allowDown: false,
+              locked: true,
+              allowAddBelow: false,
+            })}
         </div>
-        {footer &&
-          renderInstance(footer, {
-            allowUp: false,
-            allowDown: false,
-            locked: true,
-            allowAddBelow: false,
-          })}
-      </div>
-    </PageBuilderLinkProvider>
+      </PageBuilderLinkProvider>
+    </PageBuilderLabelsProvider>
   );
 }

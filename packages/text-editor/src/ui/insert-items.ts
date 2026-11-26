@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { Profile } from "../core/types";
 import type { BlockUi, Icon } from "./types";
+import { resolveTextEditorLabels, type TextEditorLabels } from "../labels";
 
 export interface InsertItem {
   /** Block or base node name. */
@@ -34,14 +35,6 @@ export interface InsertItem {
 }
 
 const HEADING_ICONS = [Heading1, Heading2, Heading3, Heading4, Heading5, Heading6];
-const HEADING_DESCRIPTIONS = [
-  "Largest heading",
-  "Large section heading",
-  "Medium section heading",
-  "Small section heading",
-  "Smaller heading",
-  "Smallest heading",
-];
 
 /** Deletes the typed `/query` (when inserting from the slash menu) and focuses. */
 const chain = (editor: Editor, range?: Range) => {
@@ -112,7 +105,13 @@ export interface InsertItemOptions {
   insertImage?(editor: Editor, range?: Range): void;
   /** Heading levels offered (default: the profile's, at most 1–3 in the default menu). */
   headingLevels?: readonly number[];
+  /** Translated entry text, laid over the English defaults. */
+  labels?: Partial<TextEditorLabels>;
 }
+
+/** Section names the labels translate; other groups keep the block's own name. */
+const groupLabel = (group: string, labels: TextEditorLabels) =>
+  group === "Text" ? labels.textGroup : group === "Media" ? labels.mediaGroup : group;
 
 /** Insert entries for a profile: base nodes it holds, then its blocks that have UI. */
 export function getInsertItems(
@@ -120,14 +119,16 @@ export function getInsertItems(
   options: InsertItemOptions,
 ): InsertItem[] {
   const has = (name: string) => profile.nodeNames.has(name);
+  const labels = resolveTextEditorLabels(options.labels);
+  const textGroup = labels.textGroup;
   const items: InsertItem[] = [
     {
       name: "paragraph",
-      label: "Text",
+      label: labels.text,
       icon: Pilcrow,
       keywords: ["paragraph", "plain"],
-      description: "Plain paragraph",
-      group: "Text",
+      description: labels.textDescription,
+      group: textGroup,
       run: (editor, range) => chain(editor, range).setParagraph().run(),
     },
   ];
@@ -135,11 +136,11 @@ export function getInsertItems(
     for (const level of options.headingLevels ?? profile.headingLevels)
       items.push({
         name: "heading",
-        label: `Heading ${level}`,
+        label: labels.heading(level),
         icon: HEADING_ICONS[level - 1],
         keywords: ["title", `h${level}`, "heading"],
-        description: HEADING_DESCRIPTIONS[level - 1],
-        group: "Text",
+        description: labels.headingDescription(level),
+        group: textGroup,
         run: (editor, range) =>
           chain(editor, range)
             .setHeading({ level: level as 1 })
@@ -148,61 +149,61 @@ export function getInsertItems(
   if (has("bulletList"))
     items.push({
       name: "bulletList",
-      label: "Bullet list",
+      label: labels.bulletList,
       icon: List,
       keywords: ["unordered", "ul", "-"],
-      description: "A simple list of items",
-      group: "Text",
+      description: labels.bulletListDescription,
+      group: textGroup,
       run: (editor, range) => chain(editor, range).toggleBulletList().run(),
     });
   if (has("orderedList"))
     items.push({
       name: "orderedList",
-      label: "Numbered list",
+      label: labels.numberedList,
       icon: ListOrdered,
       keywords: ["ordered", "ol", "1."],
-      description: "A list with numbers",
-      group: "Text",
+      description: labels.numberedListDescription,
+      group: textGroup,
       run: (editor, range) => chain(editor, range).toggleOrderedList().run(),
     });
   if (has("blockquote"))
     items.push({
       name: "blockquote",
-      label: "Quote",
+      label: labels.quote,
       icon: Quote,
       keywords: ["blockquote", "citation"],
-      description: "Quoted text",
-      group: "Text",
+      description: labels.quoteDescription,
+      group: textGroup,
       run: (editor, range) => chain(editor, range).toggleBlockquote().run(),
     });
   if (has("codeBlock"))
     items.push({
       name: "codeBlock",
-      label: "Code block",
+      label: labels.codeBlock,
       icon: Code,
       keywords: ["code", "snippet", "pre", "```"],
-      description: "Code with syntax highlighting",
-      group: "Text",
+      description: labels.codeBlockDescription,
+      group: textGroup,
       run: (editor, range) => chain(editor, range).toggleCodeBlock().run(),
     });
   if (has("horizontalRule"))
     items.push({
       name: "horizontalRule",
-      label: "Divider",
+      label: labels.divider,
       icon: Minus,
       keywords: ["horizontal rule", "hr", "separator", "---"],
-      description: "A line between sections",
-      group: "Text",
+      description: labels.dividerDescription,
+      group: textGroup,
       run: (editor, range) => chain(editor, range).setHorizontalRule().run(),
     });
   if (has("table"))
     items.push({
       name: "table",
-      label: "Table",
+      label: labels.table,
       icon: Table,
       keywords: ["grid", "rows", "columns"],
-      description: "Rows and columns",
-      group: "Text",
+      description: labels.tableDescription,
+      group: textGroup,
       run: (editor, range) =>
         chain(editor, range)
           .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
@@ -214,15 +215,18 @@ export function getInsertItems(
     const ui = options.ui.get(block.name);
     if (!ui) continue;
     const group = ui.insert.group ?? "Blocks";
+    // The library's Image entry (not a host's own image UI) takes the labels.
+    const libraryImage = block.name === "image" && ui.insert.label === "Image";
     for (const entry of [ui.insert, ...(ui.variants ?? [])]) {
-      const { label, icon, keywords, description } = entry;
+      const { icon, keywords } = entry;
+      const translated = libraryImage && entry === ui.insert;
       items.push({
         name: block.name,
-        label,
+        label: translated ? labels.image : entry.label,
         icon,
         keywords,
-        description,
-        group: entry.group ?? group,
+        description: translated ? labels.imageDescription : entry.description,
+        group: groupLabel(entry.group ?? group, labels),
         unavailable: options.unavailable?.[block.name],
         run:
           block.name === "image" && options.insertImage

@@ -4,6 +4,7 @@ import type { ThemeStyle, WidgetProps } from "../../models";
 import type { CodeSnippetSettings } from "./settings";
 import { Caption, Section } from "../../primitives";
 import { CodeSnippet } from "../../primitives/code-snippet";
+import { pickLabels } from "../../labels";
 
 export function CodeSnippetWidget({
   settings: {
@@ -16,7 +17,7 @@ export function CodeSnippetWidget({
     verticalPadding,
     background,
   },
-  state: { theme },
+  state: { theme, labels },
 }: WidgetProps<CodeSnippetSettings>) {
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
@@ -37,6 +38,7 @@ export function CodeSnippetWidget({
           code={code}
           prompt={showPrompt ? "$" : undefined}
           theme={overriddenTheme}
+          labels={pickLabels(labels, ["copied", "copyToClipboard", "copy"])}
         />
         {caption && <Caption theme={overriddenTheme}>{caption}</Caption>}
       </div>

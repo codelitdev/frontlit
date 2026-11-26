@@ -127,12 +127,32 @@ function AvatarPicker() {
 }
 ```
 
+### 4. Translating the text
+
+Both dialogs take `labels`, a partial `MediaUploaderLabels`. Anything you leave out stays English (`defaultMediaUploaderLabels`). Text that contains a value is a function, so you can call your own translator:
+
+```tsx
+<ImageUploadDialog
+  onSelect={onSelect}
+  labels={{
+    selectImageTitle: "Seleccionar imagen",
+    uploadTab: "Subir",
+    dropImage: "Suelta la imagen aquí o haz clic",
+    upTo: (size) => `hasta ${size}`,
+    uploading: (progress) => `Subiendo… ${progress}%`,
+  }}
+/>
+```
+
+An explicit `title` or `description` prop still wins over the labels.
+
 ## What's inside
 
 - `MediaUploadDialog` — General-purpose file & media dialog with drag-and-drop upload, library browser, and Unsplash tabs.
 - `ImageUploadDialog` — Specialized dialog pre-configured for images and alt-text editing.
 - `MediaUploaderProvider` / `ImageUploaderProvider` — React Context providers for storage and search adapters.
 - `useMediaUploaderAdapters` / `useImageUploaderAdapters` — Hook to access configured adapters within dialogs.
+- `MediaUploaderLabels` / `defaultMediaUploaderLabels` — The dialogs' text and its English defaults.
 - `formatFileSize` — Formats byte count into human-readable strings (`KB`, `MB`, `GB`).
 - `matchesMime`, `allowsImages`, `getMimeCategory` — MIME type matching, categorizing, and filtering utilities.
 

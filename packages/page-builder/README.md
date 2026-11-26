@@ -105,6 +105,22 @@ Because nothing crosses the server/client boundary as a function, it takes no ca
 - **Images** — call `setImageAttributesResolver` once at start-up to swap an image's `src`/`srcSet` for your optimizer's URLs (the sites app uses Next's `getImageProps`).
 - **Dark mode** — section backgrounds switch with the `dark` class on an ancestor, so the server needs no colour mode.
 
+### Translating the built-in text
+
+The rendered page has a little text of its own: the theme toggle, the header's mobile menu and GitHub link, close buttons of dialogs, drawers and the video modal, the pricing badge and Monthly/Yearly switch, code-snippet copy buttons, video thumbnail alt text and the embed frame's title. Translate it with a partial `PageBuilderLabels`; anything you leave out stays English (`defaultPageBuilderLabels`). Text that contains a value is a function (`videoThumbnailAlt: (title) => …`).
+
+- `PageRenderer` and `ServerPageRenderer` take `labels`.
+- `PageBuilderLabelsProvider` (from `/components` or `/renderer`) sets them for every component below it: `PageRenderer`, `ThemeModeSwitcher`, `DialogContent`, `AlertDialogContent`, `Drawer`, `CodeSnippet`, `VideoWithPreview`. It is a client component, so from a server component pass it only strings.
+- `ThemeModeSwitcher`, `CodeSnippet`, `VideoWithPreview` and the header's mobile menu also take `labels`; `DialogContent`, `AlertDialogContent` and `Drawer` take `closeLabel`.
+
+```tsx
+<PageBuilderLabelsProvider labels={{ switchToDarkMode: "Modo oscuro", close: "Cerrar" }}>
+  <PageRenderer layout={layout} theme={theme} pageData={pageData} />
+</PageBuilderLabelsProvider>
+```
+
+Blocks get the labels as `state.labels` (set only by the renderer's `labels` prop); a custom block should fall back to `defaultPageBuilderLabels`. The builder's own UI is not translated.
+
 The server build is separate from the main bundle (`tsup.server.config.ts`): its client islands are listed in `tsup.islands.ts`, built on their own with a `"use client"` banner, and imported — not bundled — by the server entry. A block that needs state or effects must either live in that list or be split so only its interactive part does. The block lookup used by the server renderer is `src/server/registry.ts`; keep it in step with `src/registry.ts` when adding a block.
 
 ## What's inside

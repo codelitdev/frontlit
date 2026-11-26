@@ -4,6 +4,8 @@ import React from "react";
 import { Check, Copy } from "lucide-react";
 import type { ThemeStyle } from "../models";
 import { cn } from "./lib/utils";
+import type { PageBuilderLabels } from "../labels";
+import { usePageBuilderLabels } from "../components/labels-provider";
 
 export interface CodeSnippetProps {
   code: string;
@@ -11,13 +13,22 @@ export interface CodeSnippetProps {
   prompt?: string;
   theme?: ThemeStyle;
   className?: string;
+  /** Copy button text; otherwise from `PageBuilderLabelsProvider`, then English. */
+  labels?: Partial<Pick<PageBuilderLabels, "copied" | "copyToClipboard" | "copy">>;
 }
 
 /**
  * A command or short code sample in a bordered monospace box with a copy
  * button — the `curl … | sh` install box of developer-tool landing pages.
  */
-export function CodeSnippet({ code, prompt, theme, className }: CodeSnippetProps) {
+export function CodeSnippet({
+  code,
+  prompt,
+  theme,
+  className,
+  labels: labelsProp,
+}: CodeSnippetProps) {
+  const labels = usePageBuilderLabels(labelsProp);
   const [copied, setCopied] = React.useState(false);
   const typography = theme?.typography?.code;
   const card = theme?.interactives?.card;
@@ -55,8 +66,8 @@ export function CodeSnippet({ code, prompt, theme, className }: CodeSnippetProps
       </pre>
       <button
         type="button"
-        aria-label={copied ? "Copied" : "Copy to clipboard"}
-        title={copied ? "Copied" : "Copy"}
+        aria-label={copied ? labels.copied : labels.copyToClipboard}
+        title={copied ? labels.copied : labels.copy}
         className="m-1.5 inline-flex h-8 w-8 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onClick={() => {
           void navigator.clipboard?.writeText(code).then(() => setCopied(true));

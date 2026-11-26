@@ -1,6 +1,7 @@
 import React from "react";
 import { extractTextFromNode } from "../extract-text-from-node";
 import { CopyCodeButton } from "./copy-code-button";
+import { defaultTextEditorLabels, type TextEditorLabels } from "../labels";
 
 function textFromChildren(node: React.ReactNode): string {
   if (node == null || typeof node === "boolean") return "";
@@ -19,11 +20,13 @@ export function RenderedCodeBlock({
   children,
   language,
   title,
+  labels = defaultTextEditorLabels,
 }: {
   node?: { textContent?: string; content?: unknown };
   children?: React.ReactNode;
   language?: string;
   title?: string | null;
+  labels?: Pick<TextEditorLabels, "copy" | "copied" | "copyCode">;
 }): React.JSX.Element {
   const source = extractTextFromNode(node) || textFromChildren(children);
 
@@ -35,7 +38,12 @@ export function RenderedCodeBlock({
           {children}
         </code>
       </pre>
-      <CopyCodeButton source={source} />
+      <CopyCodeButton
+        source={source}
+        copyLabel={labels.copy}
+        copiedLabel={labels.copied}
+        copyCodeLabel={labels.copyCode}
+      />
     </div>
   );
 }

@@ -4,6 +4,11 @@ import { DynamicIcon, type IconName } from "lucide-react/dynamic";
 import type { NodeProps } from "@tiptap/static-renderer";
 import type { TypeTableRow } from "../docs/blocks";
 import { DocsTabs } from "./docs-tabs";
+import {
+  blocksTakingLabels,
+  defaultTextEditorLabels,
+  type TextEditorLabels,
+} from "../labels";
 
 type BlockProps = NodeProps<ProseMirrorNode, React.ReactNode>;
 
@@ -15,12 +20,16 @@ const childAttrs = (node: ProseMirrorNode) => {
   return attrs;
 };
 
-export function CodeGroup({ node, children }: BlockProps) {
-  const labels = childAttrs(node).map(
-    (attrs, index) => attrs.title ?? attrs.language ?? `Code ${index + 1}`,
+export function CodeGroup({
+  node,
+  children,
+  labels = defaultTextEditorLabels,
+}: BlockProps & { labels?: TextEditorLabels }) {
+  const tabs = childAttrs(node).map(
+    (attrs, index) => attrs.title ?? attrs.language ?? labels.codeTab(index + 1),
   );
   return (
-    <DocsTabs className="te-tabs te-code-group" labels={labels}>
+    <DocsTabs className="te-tabs te-code-group" labels={tabs}>
       {children}
     </DocsTabs>
   );
@@ -57,17 +66,20 @@ export function Card({ node, children }: BlockProps) {
   );
 }
 
-export function TypeTable({ node }: BlockProps) {
+export function TypeTable({
+  node,
+  labels = defaultTextEditorLabels,
+}: BlockProps & { labels?: TextEditorLabels }) {
   const rows = (node.attrs.rows ?? []) as TypeTableRow[];
   return (
     <div className="te-type-table">
       <table>
         <thead>
           <tr>
-            <th>Prop</th>
-            <th>Type</th>
-            <th>Default</th>
-            <th>Description</th>
+            <th>{labels.typeTableProp}</th>
+            <th>{labels.typeTableType}</th>
+            <th>{labels.typeTableDefault}</th>
+            <th>{labels.typeTableDescription}</th>
           </tr>
         </thead>
         <tbody>
@@ -76,7 +88,7 @@ export function TypeTable({ node }: BlockProps) {
               <td>
                 <code>{row.name}</code>
                 {row.required && (
-                  <span className="te-type-table__required"> (required)</span>
+                  <span className="te-type-table__required">{` ${labels.typeTableRequired}`}</span>
                 )}
               </td>
               <td>
@@ -99,3 +111,5 @@ export const docsBlockMapping = {
   card: Card,
   typeTable: TypeTable,
 };
+blocksTakingLabels.add(CodeGroup);
+blocksTakingLabels.add(TypeTable);

@@ -1,6 +1,7 @@
 import React from "react";
 import { Download, FileText } from "lucide-react";
 import { videoEmbedUrl, type VideoProvider } from "../core/urls";
+import { defaultTextEditorLabels, type TextEditorLabels } from "../labels";
 
 /**
  * Static media markup shared by the renderer and the editor's previews.
@@ -11,10 +12,12 @@ export function HostedVideo({
   provider,
   videoId,
   title,
+  labels = defaultTextEditorLabels,
 }: {
   provider: VideoProvider;
   videoId: string;
   title?: string | null;
+  labels?: Pick<TextEditorLabels, "video">;
 }) {
   const src = videoEmbedUrl(provider, videoId);
   if (!src) return null;
@@ -22,7 +25,7 @@ export function HostedVideo({
     <iframe
       className="te-video__frame"
       src={src}
-      title={title || "Video"}
+      title={title || labels.video}
       allow="encrypted-media; picture-in-picture; fullscreen"
       allowFullScreen
       referrerPolicy="strict-origin-when-cross-origin"
@@ -39,30 +42,40 @@ export function FileLink({
   url,
   label,
   name,
+  labels = defaultTextEditorLabels,
 }: {
   url: string;
   label?: string | null;
   name?: string;
+  labels?: Pick<TextEditorLabels, "downloadFile">;
 }) {
   return (
     <a className="te-file" href={url} download={name ?? true} rel="noopener noreferrer">
       <Download className="te-file__icon" aria-hidden />
-      <span>{label || name || "Download file"}</span>
+      <span>{label || name || labels.downloadFile}</span>
     </a>
   );
 }
 
-export function PdfView({ url, title }: { url: string; title?: string | null }) {
+export function PdfView({
+  url,
+  title,
+  labels = defaultTextEditorLabels,
+}: {
+  url: string;
+  title?: string | null;
+  labels?: Pick<TextEditorLabels, "pdf" | "openPdf">;
+}) {
   return (
     <object
       className="te-pdf"
       data={url}
       type="application/pdf"
-      aria-label={title || "PDF"}
+      aria-label={title || labels.pdf}
     >
       <a className="te-file" href={url} rel="noopener noreferrer">
         <FileText className="te-file__icon" aria-hidden />
-        <span>{title || "Open PDF"}</span>
+        <span>{title || labels.openPdf}</span>
       </a>
     </object>
   );

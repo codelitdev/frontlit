@@ -20,7 +20,20 @@ async function writeClipboard(text: string): Promise<void> {
 }
 
 /** The copy button of a rendered code block; the only client part of it. */
-export function CopyCodeButton({ source }: { source: string }) {
+export function CopyCodeButton({
+  source,
+  copyLabel = "Copy",
+  copiedLabel = "Copied",
+  copyCodeLabel = "Copy code",
+}: {
+  source: string;
+  /** Tooltip before copying. */
+  copyLabel?: string;
+  /** Tooltip and accessible name after copying. */
+  copiedLabel?: string;
+  /** Accessible name before copying. */
+  copyCodeLabel?: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -43,8 +56,8 @@ export function CopyCodeButton({ source }: { source: string }) {
     <button
       type="button"
       className="te-code-copy"
-      aria-label={copied ? "Copied" : "Copy code"}
-      title={copied ? "Copied" : "Copy"}
+      aria-label={copied ? copiedLabel : copyCodeLabel}
+      title={copied ? copiedLabel : copyLabel}
       onClick={() => {
         void handleCopy();
       }}
