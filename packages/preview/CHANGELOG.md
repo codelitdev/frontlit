@@ -1,5 +1,13 @@
 # @frontlit/preview
 
+## 0.1.2
+
+### Patch Changes
+
+- Updated dependencies [e82df2e]
+- Updated dependencies [5ca41eb]
+  - @frontlit/page-builder@0.3.0
+
 ## 0.1.1
 
 ### Patch Changes

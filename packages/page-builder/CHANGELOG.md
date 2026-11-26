@@ -1,5 +1,19 @@
 # @frontlit/page-builder
 
+## 0.3.0
+
+### Minor Changes
+
+- 5ca41eb: Translate the rendered page's built-in text. `PageRenderer` and `ServerPageRenderer` take an optional `labels` prop, and the new `PageBuilderLabelsProvider` sets labels for every component below it. Covered: the theme toggle, the header's mobile menu and GitHub link, the close buttons of `DialogContent`, `AlertDialogContent`, `Drawer` and the video modal, the pricing "Most popular" badge and Monthly/Yearly switch, code-snippet copy buttons, video thumbnail alt text and "not supported" message, and the embed frame's title. Labels with a value in them are functions (`videoThumbnailAlt: (title) => …`). Anything not passed stays English; `PageBuilderLabels`, `defaultPageBuilderLabels` and `resolvePageBuilderLabels` are exported from the root, `/components`, `/renderer` and `/server`. Blocks receive the labels as `state.labels`. `ThemeModeSwitcher`, `CodeSnippet` and `VideoWithPreview` also take `labels`; `DialogContent`, `AlertDialogContent` and `Drawer` take `closeLabel`.
+
+### Patch Changes
+
+- e82df2e: Render the builder preview in standards mode so tables in embeds inherit the theme's text colour. In dark mode they showed dark text on a dark background.
+- Updated dependencies [bdb7029]
+- Updated dependencies [c417e00]
+  - @frontlit/media-uploader@0.2.0
+  - @frontlit/text-editor@0.2.0
+
 ## 0.2.0
 
 ### Minor Changes
