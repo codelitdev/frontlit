@@ -1,0 +1,5 @@
+---
+"@frontlit/page-builder": minor
+---
+
+Translate the rendered page's built-in text. `PageRenderer` and `ServerPageRenderer` take an optional `labels` prop, and the new `PageBuilderLabelsProvider` sets labels for every component below it. Covered: the theme toggle, the header's mobile menu and GitHub link, the close buttons of `DialogContent`, `AlertDialogContent`, `Drawer` and the video modal, the pricing "Most popular" badge and Monthly/Yearly switch, code-snippet copy buttons, video thumbnail alt text and "not supported" message, and the embed frame's title. Labels with a value in them are functions (`videoThumbnailAlt: (title) => …`). Anything not passed stays English; `PageBuilderLabels`, `defaultPageBuilderLabels` and `resolvePageBuilderLabels` are exported from the root, `/components`, `/renderer` and `/server`. Blocks receive the labels as `state.labels`. `ThemeModeSwitcher`, `CodeSnippet` and `VideoWithPreview` also take `labels`; `DialogContent`, `AlertDialogContent` and `Drawer` take `closeLabel`.

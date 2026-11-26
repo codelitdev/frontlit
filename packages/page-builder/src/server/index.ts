@@ -3,6 +3,11 @@
  * pulls in no builder UI and only the client islands the page actually needs.
  */
 export * from "./page-renderer";
+export {
+  defaultPageBuilderLabels,
+  resolvePageBuilderLabels,
+  type PageBuilderLabels,
+} from "../labels";
 export { setImageAttributesResolver } from "../components/image";
 export type {
   ImageAttributesInput,

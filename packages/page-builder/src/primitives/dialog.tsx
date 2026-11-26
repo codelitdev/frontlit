@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import * as React from "react";
 import type { ThemeStyle } from "../models";
 import { cn } from "./lib/utils";
+import { usePageBuilderLabels } from "../components/labels-provider";
 
 const DialogThemeContext = React.createContext<ThemeStyle | undefined>(undefined);
 
@@ -50,6 +51,8 @@ export interface DialogContentProps
   closeClassName?: string;
   overlayClassName?: string;
   showCloseButton?: boolean;
+  /** Screen-reader text of the close button; otherwise from `PageBuilderLabelsProvider`, then "Close". */
+  closeLabel?: string;
   theme?: ThemeStyle;
 }
 
@@ -65,10 +68,12 @@ export const DialogContent = React.forwardRef<
       overlayClassName,
       showCloseButton = true,
       theme: providedTheme,
+      closeLabel,
       ...props
     },
     ref,
   ) => {
+    const labels = usePageBuilderLabels();
     const theme = useDialogTheme(providedTheme);
     const styles = theme?.interactives?.dialog;
 
@@ -99,7 +104,7 @@ export const DialogContent = React.forwardRef<
               )}
             >
               <X className="size-4" />
-              <span className="sr-only">Close</span>
+              <span className="sr-only">{closeLabel ?? labels.close}</span>
             </DialogPrimitive.Close>
           ) : null}
         </DialogPrimitive.Content>

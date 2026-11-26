@@ -7,6 +7,8 @@ import type { HeaderNavLink } from "./settings";
 import { NavLink } from "../../components/nav-link";
 import { Button, Drawer } from "../../primitives";
 import { HeaderLink } from "./header-link";
+import type { PageBuilderLabels } from "../../labels";
+import { usePageBuilderLabels } from "../../components/labels-provider";
 
 /**
  * The header's mobile drawer. It is the only interactive part of the header,
@@ -17,12 +19,15 @@ export function HeaderMobileMenu({
   ctaLabel,
   ctaHref,
   theme,
+  labels: labelsProp,
 }: {
   links: HeaderNavLink[];
   ctaLabel?: string;
   ctaHref?: string;
   theme: ThemeStyle;
+  labels?: Partial<Pick<PageBuilderLabels, "toggleMenu" | "close">>;
 }) {
+  const labels = usePageBuilderLabels(labelsProp);
   const [open, setOpen] = useState(false);
 
   return (
@@ -31,10 +36,11 @@ export function HeaderMobileMenu({
       setOpen={setOpen}
       side="right"
       theme={theme}
+      closeLabel={labels.close}
       trigger={
         <Button variant="outline" size="sm" theme={theme}>
           <MenuIcon className="h-4 w-4" />
-          <span className="sr-only">Toggle menu</span>
+          <span className="sr-only">{labels.toggleMenu}</span>
         </Button>
       }
     >

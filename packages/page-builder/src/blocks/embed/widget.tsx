@@ -4,6 +4,7 @@ import type { ThemeStyle, WidgetProps } from "../../models";
 import type { EmbedSettings } from "./settings";
 import { InlineEmbed } from "../../components/inline-embed";
 import { Section } from "../../primitives";
+import { defaultPageBuilderLabels } from "../../labels";
 
 const aspectRatioMap: Record<string, number> = {
   "16:9": 16 / 9,
@@ -22,7 +23,7 @@ export function EmbedWidget({
     verticalPadding,
     background,
   },
-  state: { theme },
+  state: { theme, labels },
   editing,
 }: WidgetProps<EmbedSettings>) {
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
@@ -74,7 +75,7 @@ export function EmbedWidget({
             style={fillStyle}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
-            title="Embedded content"
+            title={(labels ?? defaultPageBuilderLabels).embeddedContent}
           />
         )}
         {/* Clicks inside an iframe (a URL embed, or one inside a snippet)

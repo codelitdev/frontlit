@@ -6,6 +6,8 @@ import { Button, type ButtonProps } from "../primitives";
 import { Button as ChromeButton } from "../primitives/components/ui/button";
 import type { ThemeStyle } from "../models";
 import type { ResolvedColorMode } from "../utils";
+import type { PageBuilderLabels } from "../labels";
+import { usePageBuilderLabels } from "./labels-provider";
 
 /**
  * Light / dark toggle. Public sites pass `theme` so the button uses
@@ -22,6 +24,7 @@ export function ThemeModeSwitcher({
   className,
   size,
   variant,
+  labels: labelsProp,
 }: {
   resolved: ResolvedColorMode;
   onToggle: () => void;
@@ -29,14 +32,17 @@ export function ThemeModeSwitcher({
   className?: string;
   size?: ButtonProps["size"];
   variant?: ButtonProps["variant"];
+  /** Translated toggle text; otherwise from `PageBuilderLabelsProvider`, then English. */
+  labels?: Partial<Pick<PageBuilderLabels, "switchToDarkMode" | "switchToLightMode">>;
 }) {
+  const labels = usePageBuilderLabels(labelsProp);
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
   }, []);
   const painted = mounted ? resolved : "light";
   const next = painted === "dark" ? "light" : "dark";
-  const label = next === "dark" ? "Switch to dark mode" : "Switch to light mode";
+  const label = next === "dark" ? labels.switchToDarkMode : labels.switchToLightMode;
   const Icon = painted === "dark" ? Sun : Moon;
 
   if (theme) {

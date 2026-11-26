@@ -4,6 +4,7 @@ import { getMediaUrl, getMediaAlt } from "../../models/media";
 import type { MediaSettings } from "./settings";
 import { Image } from "../../components/image";
 import { VideoWithPreview } from "../../components/video-with-preview";
+import { pickLabels } from "../../labels";
 import { isVideo } from "../../utils";
 import { Section } from "../../primitives";
 import { cn } from "../../primitives/lib/utils";
@@ -34,8 +35,9 @@ export function MediaWidget({
     verticalPadding,
     background,
   },
-  state: { theme },
+  state: { theme, labels },
 }: WidgetProps<MediaSettings>) {
+  const videoTitle: string = getMediaAlt(media) || (media as any)?.caption || "";
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
   overriddenTheme.structure.section.padding.y =
@@ -55,12 +57,14 @@ export function MediaWidget({
         {isVideoContent ? (
           <VideoWithPreview
             videoUrl={youtubeLink || getMediaUrl(media) || ""}
-            title={getMediaAlt(media) || (media as any)?.caption || ""}
+            title={videoTitle}
             thumbnailUrl={
               (media as any)?.thumbnail || (media as any)?.thumbnailUrl || ""
             }
             aspectRatio={aspectRatio}
             modal={playVideoInModal}
+            thumbnailAlt={labels?.videoThumbnailAlt(videoTitle)}
+            labels={pickLabels(labels, ["close", "videoNotSupported"])}
           />
         ) : (
           <Image

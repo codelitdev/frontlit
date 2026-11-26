@@ -2,6 +2,7 @@ import type { ComponentType, ReactNode } from "react";
 import type { Theme } from "./theme";
 import type { ThemeStyle } from "./theme-style";
 import type { SectionBackground } from "./section-background";
+import type { PageBuilderLabels } from "../labels";
 
 /**
  * The kind of page a widget/block can be placed on. Kept intentionally
@@ -76,7 +77,12 @@ export interface PageData extends Record<string, unknown> {
 
 export interface WidgetProps<T extends WidgetDefaultSettings = WidgetDefaultSettings> {
   settings: T;
-  state: { theme: Theme };
+  /**
+   * `labels`: built-in text set by the renderer's `labels` prop. Without it,
+   * blocks use English, and their client islands the nearest
+   * `PageBuilderLabelsProvider`.
+   */
+  state: { theme: Theme; labels?: PageBuilderLabels };
   pageData: PageData;
   /** Host-resolved data rendered by a generic `data-slot` block. */
   data?: ReactNode;

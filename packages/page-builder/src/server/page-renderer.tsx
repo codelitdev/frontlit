@@ -4,6 +4,7 @@ import { LAYOUT_BLOCK_NAMES } from "../registry-names";
 import { generateThemeStyles } from "../renderer/generate-theme-styles";
 import { cn } from "../primitives/lib/utils";
 import { serverBlockRegistry } from "./registry";
+import { resolvePageBuilderLabels, type PageBuilderLabels } from "../labels";
 
 export interface ServerPageRendererProps {
   layout: WidgetInstance[];
@@ -18,6 +19,13 @@ export interface ServerPageRendererProps {
   /** Extra content inside the themed root (e.g. a fixed "Preview" badge),
    * so it can use the theme's colours. */
   overlay?: ReactNode;
+  /**
+   * Translations of the page's built-in text, laid over English. Without it,
+   * client islands (mobile menu, copy buttons, videos) use the nearest
+   * `PageBuilderLabelsProvider`. Function labels are resolved here, so only
+   * strings reach the islands.
+   */
+  labels?: Partial<PageBuilderLabels>;
   className?: string;
 }
 
@@ -38,8 +46,10 @@ export function ServerPageRenderer({
   dataSlots,
   themeSwitcher,
   overlay,
+  labels: labelsProp,
   className,
 }: ServerPageRendererProps) {
+  const labels = labelsProp ? resolvePageBuilderLabels(labelsProp) : undefined;
   const themeScope = `pb-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
   const header = layout.find((widget) => widget.name === "header");
@@ -57,7 +67,7 @@ export function ServerPageRenderer({
       <Widget
         key={instance.widgetId}
         settings={settings}
-        state={{ theme }}
+        state={{ theme, labels }}
         pageData={pageData}
         data={
           instance.name === "data-slot"

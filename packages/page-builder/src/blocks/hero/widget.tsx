@@ -9,6 +9,7 @@ import { NavLink } from "../../components/nav-link";
 import { PageText } from "../../components/page-text";
 import { VideoWithPreview } from "../../components/video-with-preview";
 import { CodeSnippet } from "../../primitives/code-snippet";
+import { pickLabels } from "../../labels";
 import { isVideo } from "../../utils";
 import clsx from "clsx";
 import {
@@ -58,8 +59,9 @@ export function HeroWidget({
     background,
     layout = "normal",
   },
-  state: { theme },
+  state: { theme, labels },
 }: WidgetProps<HeroSettings>) {
+  const videoTitle: string = getMediaAlt(media) || (media as any)?.caption || "";
   const overriddenTheme: ThemeStyle = JSON.parse(JSON.stringify(theme.theme));
   overriddenTheme.structure.page.width = maxWidth || theme.theme.structure.page.width;
   overriddenTheme.structure.section.padding.y =
@@ -77,8 +79,10 @@ export function HeroWidget({
       {isVideo(youtubeLink, media) ? (
         <VideoWithPreview
           videoUrl={youtubeLink || mediaUrl || ""}
-          title={getMediaAlt(media) || (media as any)?.caption || ""}
+          title={videoTitle}
           thumbnailUrl={(media as any)?.thumbnail || (media as any)?.thumbnailUrl || ""}
+          thumbnailAlt={labels?.videoThumbnailAlt(videoTitle)}
+          labels={pickLabels(labels, ["close", "videoNotSupported"])}
         />
       ) : (
         <Image
@@ -145,6 +149,7 @@ export function HeroWidget({
           prompt="$"
           theme={overriddenTheme}
           className="max-w-xl"
+          labels={pickLabels(labels, ["copied", "copyToClipboard", "copy"])}
         />
       )}
       {smallPrint && <Caption theme={overriddenTheme}>{smallPrint}</Caption>}

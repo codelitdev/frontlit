@@ -6,3 +6,9 @@ export * from "./nav-link";
 export * from "./theme-mode-switcher";
 export * from "./text-renderer";
 export { truncateTextEditorContent } from "@frontlit/text-editor";
+export * from "./labels-provider";
+export {
+  defaultPageBuilderLabels,
+  resolvePageBuilderLabels,
+  type PageBuilderLabels,
+} from "../labels";
