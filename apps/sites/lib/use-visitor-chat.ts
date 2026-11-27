@@ -317,6 +317,17 @@ export function useVisitorChat({
     }
   }, [sessionToken, storageKey]);
 
+  // Tell the embed loader whether this visitor has an ongoing chat, so later
+  // page loads can start the chat hidden and still notice replies. Session
+  // chats live in memory only, so they never ask for that.
+  useEffect(() => {
+    if (sessionToken || window.parent === window) return;
+    window.parent.postMessage(
+      { type: "frontlit:conversation", active: Boolean(conversation) },
+      "*",
+    );
+  }, [conversation, sessionToken]);
+
   useEffect(() => {
     if (!conversation) return;
     let cancelled = false;

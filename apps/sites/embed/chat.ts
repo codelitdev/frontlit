@@ -78,6 +78,16 @@ function css(el: HTMLElement, styles: Record<string, string>) {
   let pendingOpen: OpenOptions | null = null;
   let preconnected = false;
 
+  /** Host-page key remembering an ongoing anonymous chat for this team. */
+  let activeKey = "";
+  const remembersChat = () => {
+    try {
+      return !!activeKey && localStorage.getItem(activeKey) === "1";
+    } catch {
+      return false;
+    }
+  };
+
   const docked = () => config?.variant === "text_input";
   const bubbleSize = () => {
     const size = config?.style?.bubbleSize;
@@ -210,6 +220,15 @@ function css(el: HTMLElement, styles: Record<string, string>) {
       return;
     const data = event.data as { type?: string; height?: number } | null;
     if (data?.type === "frontlit:close") close();
+    if (data?.type === "frontlit:conversation" && activeKey) {
+      try {
+        const active = (data as { active?: boolean }).active;
+        if (active) localStorage.setItem(activeKey, "1");
+        else localStorage.removeItem(activeKey);
+      } catch {
+        // Storage blocked: replies are noticed only after the chat is opened.
+      }
+    }
     if (data?.type === "frontlit:incoming" && (!isOpen || document.hidden)) {
       unread += 1;
       paintTitle();
@@ -221,7 +240,8 @@ function css(el: HTMLElement, styles: Record<string, string>) {
     }
   }
 
-  function open(options?: OpenOptions) {
+  /** Creates the chat iframe; `visible` false starts it hidden. */
+  function open(options?: OpenOptions, visible = true) {
     if (options?.token) token = options.token;
     if (!config) {
       pendingOpen = options ?? {};
@@ -247,7 +267,8 @@ function css(el: HTMLElement, styles: Record<string, string>) {
       (docked() ? "?layout=docked" : "") +
       (token ? `#token=${encodeURIComponent(token)}` : "");
     iframe.title = config.name || "Chat";
-    iframe.allow = "clipboard-write";
+    // autoplay lets the reply chime play once the visitor has used the page.
+    iframe.allow = "clipboard-write; autoplay";
     if (docked()) {
       css(iframe, {
         position: "fixed",
@@ -279,10 +300,12 @@ function css(el: HTMLElement, styles: Record<string, string>) {
       });
     }
     if (token) iframe.dataset.token = token;
+    if (!visible) iframe.style.display = "none";
     document.body.appendChild(iframe);
     frame = iframe;
-    isOpen = true;
-    markRead();
+    isOpen = visible;
+    if (visible) markRead();
+    else paintLauncher();
   }
 
   function close() {
@@ -308,6 +331,14 @@ function css(el: HTMLElement, styles: Record<string, string>) {
       const options = pendingOpen;
       pendingOpen = null;
       open(options);
+    } else if (remembersChat()) {
+      // An ongoing chat: start it hidden once the page is idle so a reply
+      // can mark the launcher and the tab.
+      const preload = () => {
+        if (!frame) open(undefined, false);
+      };
+      if ("requestIdleCallback" in window) requestIdleCallback(preload);
+      else setTimeout(preload, 2000);
     }
   }
 
@@ -315,6 +346,7 @@ function css(el: HTMLElement, styles: Record<string, string>) {
     if (started || !options?.teamId) return;
     started = true;
     showLauncher = options.launcher !== false;
+    activeKey = `frontlit:chat:${options.teamId}`;
     if (options.config) {
       start(options.config);
       return;
