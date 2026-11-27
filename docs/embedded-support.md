@@ -204,19 +204,25 @@ POST /support-sessions
     `prefill` in the composer.
   - Can be called more than once while the session is valid (e.g. the iframe
     reloads).
-- **First message** (when `open` returned `ticket: null`):
+- **First message** (when `open` returned `ticket: null`): the widget calls
+  the existing chat endpoint with the session token instead of a
+  conversation:
 
   ```
-  POST /public/{teamId}/support-sessions/messages
-  { token, content, attachments? }
-  → { ticketId, accessToken, ... }   // same shape as today's chatbot ticket create
+  POST /public/{teamId}/chat
+  { message, sessionToken, attachmentIds? }
+  → { conversationId, conversationToken, answer, ... }   // unchanged shape
   ```
 
   It creates the ticket (`source = "chatbot"`, requester snapshot and context
-  from the session, §6.4–6.5), adds the message (which triggers the AI as
-  usual), queues `contact_sync`, and returns a ticket access grant. If an
-  open ticket appeared in the meantime (another tab), it adds the message to
-  that ticket instead of creating a second one.
+  from the session, §6.4–6.5, no receipt email), adds the message, runs the
+  AI as usual, queues `contact_sync`, and returns a ticket access grant as
+  `conversationToken`. If an open ticket appeared in the meantime (another
+  tab), it adds the message to that ticket instead of creating a second
+  one. The attachment presign endpoint takes `sessionToken` the same way,
+  for a file sent before any text. Reusing the chat endpoint keeps one code
+  path for AI replies and attachments; there is no separate
+  `support-sessions/messages` endpoint.
 - **After that the session token's job is done.** The widget uses the ticket
   access grant with the existing public ticket message endpoints. No second
   token type to maintain.
@@ -501,11 +507,13 @@ alone; they're small.
 
 ## 8. Security and privacy
 
-- `POST /support-sessions` needs a new, narrow **`support:sessions`** API
-  key scope. Creating tickets today needs `helpdesk:write`
-  (`apps/api/src/auth/operation-policy.ts`), which can also read, reply to
-  and change any ticket. With the narrow scope, a leaked CourseLit server key
-  can start chats under any name but can't read or change the inbox.
+- `POST /support-sessions` accepts a new, narrow **`support:sessions`** API
+  key scope (`api_keys.scope`, chosen when the key is created; existing keys
+  are `full`). Team API keys otherwise have full-team authority, including
+  reading and changing every ticket. A `support:sessions` key is refused
+  (403) on every other REST route and on MCP, checked in the auth middleware
+  every API-key request passes. A leaked CourseLit server key can start
+  chats under any name but can't read or change the inbox.
 - The endpoint must only be called from the host's server, never from the
   browser. The docs say so explicitly.
 - Session tokens are random, stored hashed, expire after about 1 hour, and
@@ -521,8 +529,8 @@ alone; they're small.
 
 ## 9. Tasks
 
-Four phases, each a PR with its own e2e smoke. CourseLit can integrate after
-phase 2.
+Four phases, each a PR with its own e2e smoke. CourseLit integrates after
+the whole of #41 is released.
 
 **Phase 1: widget and loader**
 
@@ -548,8 +556,8 @@ phase 2.
 - [ ] `support:sessions` API key scope.
 - [ ] `support_sessions` table; `POST /support-sessions` (contract, queries,
       route, MCP tool).
-- [ ] `POST /public/{teamId}/support-sessions/open` and
-      `.../support-sessions/messages`.
+- [ ] `POST /public/{teamId}/support-sessions/open`, and `sessionToken` on
+      the public chat and attachment presign endpoints.
 - [ ] Widget with a session token: call `open`, show the open ticket or a
       blank chat with the prefill, create the ticket on the first message;
       keep it in memory only (no localStorage).
@@ -559,8 +567,8 @@ phase 2.
       ticket ID, write `tickets.contactId` back.
 - [ ] Docs: "Add in-app support to your product" (backend session route,
       snippet with `launcher: false`, Contact support button).
-- [ ] First integration: CourseLit dashboard (session route, snippet,
-      Contact support on upload errors).
+- [ ] Copy-ready embed snippet on the Chatbot settings page (team ID and
+      this environment's embed host filled in; bubble or own button).
 
 **Phase 3: who answers**
 
@@ -577,6 +585,13 @@ phase 2.
 - [ ] Delayed `reply` mail through `ticket_mail_outbox` (`nextAttemptAt`
       +2 min, skip if all seen, one pending row per ticket), including agent
       replies.
+
+**After release**
+
+CourseLit integrates only once #41 has shipped:
+
+- [ ] First integration: CourseLit dashboard (session route, snippet,
+      Contact support on upload errors).
 
 ## 10. Acceptance criteria
 
@@ -628,7 +643,6 @@ phase 2.
 
 ## 11. Later
 
-- Copy-ready embed snippet and live preview on the Chatbot settings page.
 - Allowed domains (`frame-ancestors`) for the anonymous embed, to protect AI
   usage.
 - Opt-in telemetry: automatic capture of client errors and usage events, with

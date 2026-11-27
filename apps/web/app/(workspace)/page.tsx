@@ -25,6 +25,7 @@ import {
   ThumbsUp,
   X,
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { TextRenderer } from "@frontlit/text-editor";
 import type { TextEditorContent } from "@frontlit/text-editor";
@@ -56,6 +57,7 @@ import {
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
 import { useWorkspaceAccess } from "@/components/workspace/workspace-access";
 import { cn } from "@/lib/utils";
+import { RequesterDetails } from "@/components/workspace/requester-details";
 import { workspaceContentPath } from "@frontlit/api-contract";
 
 type InboxFilter = "open" | "escalated" | "agent" | "closed";
@@ -330,8 +332,10 @@ export default function InboxPage() {
     void loadInbox();
   }, [loadInbox]);
 
+  // `?ticket=` opens that ticket: from email links and alert notifications.
+  const linkedTicketId = useSearchParams().get("ticket");
   useEffect(() => {
-    const ticketId = new URLSearchParams(window.location.search).get("ticket");
+    const ticketId = linkedTicketId;
     if (!ticketId || !currentTeamId) return;
     let cancelled = false;
     getTicket(ticketId)
@@ -354,7 +358,7 @@ export default function InboxPage() {
     return () => {
       cancelled = true;
     };
-  }, [currentTeamId]);
+  }, [currentTeamId, linkedTicketId]);
 
   useEffect(() => {
     setPendingFiles([]);
@@ -447,6 +451,10 @@ export default function InboxPage() {
         ticket.subject,
         requesterLabel(ticket),
         ticket.requesterEmail,
+        // The customer's own user ID and account (docs/embedded-support.md §6.4).
+        ticket.requesterExternalId,
+        ticket.requesterAccount?.name,
+        ticket.requesterAccount?.id,
         sourceLabel(ticket),
       ]
         .filter(Boolean)
@@ -854,6 +862,8 @@ export default function InboxPage() {
               </div>
             </header>
 
+            <RequesterDetails ticket={selectedTicket} />
+
             <div
               ref={threadRef}
               onScroll={() => {
@@ -873,7 +883,18 @@ export default function InboxPage() {
                 </p>
                 {selectedTicket.ai && <TicketAiPanel ai={selectedTicket.ai} />}
                 <div className="space-y-5">
-                  {selectedTicket.messages.map((message) => {
+                  {selectedTicket.messages.map((message, index, all) => {
+                    // "Seen" under our latest reply once the requester has
+                    // had it on screen.
+                    const seen =
+                      message.author !== "requester" &&
+                      !all
+                        .slice(index + 1)
+                        .some((later) => later.author !== "requester") &&
+                      !!selectedTicket.requesterLastReadAt &&
+                      !!message.createdAt &&
+                      Date.parse(selectedTicket.requesterLastReadAt) >=
+                        Date.parse(message.createdAt);
                     const isRequester = message.author === "requester";
                     return (
                       <div
@@ -968,6 +989,7 @@ export default function InboxPage() {
                             {message.createdAt
                               ? ` · ${new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
                               : ""}
+                            {seen ? " · Seen" : ""}
                           </p>
                         </div>
                       </div>

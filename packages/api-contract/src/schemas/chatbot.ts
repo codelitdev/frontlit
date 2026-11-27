@@ -43,6 +43,9 @@ export const chatbotSettingsSchema = z.object({
   variant: chatbotWidgetVariantSchema,
   /** Style knobs for the selected variant. */
   widgetStyle: chatbotWidgetStyleSchema,
+  /** What the embed snippet needs (docs/embedded-support.md §6.3): the
+   * team's public ID and this environment's widget host. Read-only. */
+  embed: z.object({ teamId: z.string(), origin: z.string() }).optional(),
   createdAt: z.string().nullable(),
   updatedAt: z.string().nullable(),
 });
@@ -90,6 +93,10 @@ export const chatRequestBodySchema = z
      * message to the same persisted chatbot conversation. */
     conversationId: z.string().optional(),
     conversationToken: z.string().optional(),
+    /** An in-app support session token (docs/embedded-support.md §6.2).
+     * Without a conversation, the first message starts the requester's
+     * ticket from the session, or continues their open one. */
+    sessionToken: z.string().optional(),
     attachmentIds: z.array(z.string().min(1)).max(5).optional(),
     /** Ignored. Persisted ticket messages are the only model history. */
     history: z
@@ -117,6 +124,9 @@ export const chatAttachmentPresignBodySchema = z
   .object({
     conversationId: z.string().optional(),
     conversationToken: z.string().optional(),
+    /** Same as on the chat body: a file sent first starts the session's
+     * ticket. */
+    sessionToken: z.string().optional(),
   })
   .refine(
     (value) => Boolean(value.conversationId) === Boolean(value.conversationToken),

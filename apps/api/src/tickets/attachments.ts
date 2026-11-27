@@ -5,6 +5,8 @@ import { getMedia, getMediaUploadSignature, sealMedia } from "../media/service";
 import { generateTicketToken } from "./token";
 import { seedLegacyGrant } from "../inbox-ai/grants";
 import { tickets } from "../db/schema";
+import { sessionTicketFields, type SupportSession } from "../support/sessions";
+import { enqueueTicketContactSync } from "./queries";
 
 export const ATTACHMENT_MAX_BYTES = 15 * 1024 * 1024;
 export const ATTACHMENT_MAX_PER_MESSAGE = 5;
@@ -17,8 +19,12 @@ export async function signatureForTicketAttachments(teamId: string) {
   return getMediaUploadSignature(attachmentUploadGroup(teamId));
 }
 
-export async function createChatConversation(teamId: string) {
+/** An empty chat ticket, for a file sent before any message. With an
+ * in-app support session it carries the session's requester and context
+ * and syncs the contact (docs/embedded-support.md §6.4). */
+export async function createChatConversation(teamId: string, session?: SupportSession) {
   const { token, tokenHash } = generateTicketToken();
+  const fields = session ? sessionTicketFields(session) : null;
   const [ticket] = await db
     .insert(tickets)
     .values({
@@ -27,9 +33,16 @@ export async function createChatConversation(teamId: string) {
       requesterEmail: null,
       source: "chatbot",
       accessTokenHash: tokenHash,
+      ...(fields ? { ...fields, requesterName: fields.requesterName ?? null } : {}),
     })
     .returning();
   await seedLegacyGrant(teamId, ticket.id, tokenHash);
+  if (fields) {
+    await enqueueTicketContactSync(teamId, {
+      ...ticket,
+      requesterEmail: fields.requesterEmail,
+    });
+  }
   return { ticket, token };
 }
 

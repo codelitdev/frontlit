@@ -294,6 +294,11 @@ export const apiKeys = pgTable(
     name: text("name"),
     keyHash: text("key_hash").notNull().unique(),
     keyPrefix: text("key_prefix").notNull(),
+    /** `full`, or `support:sessions` for a key that can only mint support
+     * sessions (docs/embedded-support.md §8). */
+    scope: text("scope", { enum: ["full", "support:sessions"] })
+      .notNull()
+      .default("full"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [index("api_keys_team_idx").on(table.teamId)],
@@ -950,6 +955,20 @@ export const tickets = pgTable(
       enum: ticketAiStopReasons,
     }),
     aiStoppedAt: timestamp("ai_stopped_at"),
+    /** The requester's user ID in the host app, from an in-app support
+     * session (docs/embedded-support.md §6.4). Searchable in the inbox. */
+    requesterExternalId: text("requester_external_id"),
+    /** The requester's account in the host app (e.g. a CourseLit school). */
+    requesterAccount: jsonb("requester_account").$type<RequesterAccount>(),
+    /** SendLit contact ID, written back by the contact_sync worker. SendLit
+     * is the system of record for contacts; nothing in support needs it. */
+    contactId: text("contact_id"),
+    /** Incident context from the host app (page, error, request ID, ...).
+     * Untrusted data: shown to agents and the AI, never as HTML (§6.5). */
+    context: jsonb("context").$type<Record<string, unknown>>(),
+    /** When the requester last had the conversation on screen. Agent and
+     * bot replies after it are unread for them. */
+    requesterLastReadAt: timestamp("requester_last_read_at"),
     lastMessageAt: timestamp("last_message_at").notNull().defaultNow(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -960,8 +979,37 @@ export const tickets = pgTable(
       table.status,
       table.lastMessageAt,
     ),
+    index("tickets_team_external_id_idx").on(table.teamId, table.requesterExternalId),
     publicIdCheck("ticket_id", "tkt"),
   ],
+);
+
+export type RequesterAccount = { id: string; name?: string; url?: string };
+
+/**
+ * A short-lived in-app support session (docs/embedded-support.md §6.2),
+ * minted by the host app's server. Holds who is asking and what failed
+ * until the first message turns it into a ticket. No ticket exists before.
+ */
+export const supportSessions = pgTable(
+  "support_sessions",
+  {
+    id: text("id").primaryKey().$defaultFn(genId),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    requesterEmail: text("requester_email").notNull(),
+    requesterName: text("requester_name"),
+    requesterExternalId: text("requester_external_id"),
+    requesterAccount: jsonb("requester_account").$type<RequesterAccount>(),
+    context: jsonb("context").$type<Record<string, unknown>>(),
+    /** Prefilled into the composer; the user still sends it. */
+    message: text("message"),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("support_sessions_team_idx").on(table.teamId)],
 );
 
 export const ticketMessageAuthors = ["requester", "agent", "bot"] as const;

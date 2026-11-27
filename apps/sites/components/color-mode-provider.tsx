@@ -1,7 +1,12 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { COLOR_MODE_STORAGE_KEY, isColorMode, type ColorMode } from "@/lib/color-mode";
+import {
+  COLOR_MODE_LOCK_ATTRIBUTE,
+  COLOR_MODE_STORAGE_KEY,
+  isColorMode,
+  type ColorMode,
+} from "@/lib/color-mode";
 
 type ColorModeContextValue = {
   mode: ColorMode;
@@ -31,6 +36,14 @@ export function ColorModeProvider({ children }: { children: ReactNode }) {
     if (!ready) return;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const apply = () => {
+      // Pages such as the embedded chat lock themselves to light mode.
+      if (
+        document.documentElement.getAttribute(COLOR_MODE_LOCK_ATTRIBUTE) === "light"
+      ) {
+        setResolved("light");
+        document.documentElement.classList.remove("dark");
+        return;
+      }
       const next = resolve(mode, media.matches);
       setResolved(next);
       document.documentElement.classList.toggle("dark", next === "dark");

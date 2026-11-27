@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/codelit/button";
 import { cn } from "@/lib/utils";
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
 import { InboxAiPolicyForm } from "@/components/workspace/inbox-ai-policy-form";
+import { EmbedSnippetCard } from "@/components/workspace/embed-snippet-card";
 import type { InboxAiSettings } from "@/lib/api";
 
 const VARIANTS: {
@@ -274,6 +275,8 @@ export default function ChatbotPage() {
   ]);
   const [settings, setSettings] = useState<ChatbotSettings | null>(null);
   const [inboxAi, setInboxAi] = useState<InboxAiSettings | null>(null);
+  /** Kept apart from `settings`: saving returns settings without it. */
+  const [embed, setEmbed] = useState<ChatbotSettings["embed"]>(undefined);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testMessage, setTestMessage] = useState("");
@@ -287,6 +290,7 @@ export default function ChatbotPage() {
     Promise.all([getChatbotSettings(), getInboxAiSettings()])
       .then(([chatbot, ai]) => {
         setSettings(chatbot);
+        setEmbed(chatbot.embed);
         setInboxAi(ai);
       })
       .finally(() => setLoading(false));
@@ -559,6 +563,14 @@ export default function ChatbotPage() {
             </Button>
           </CardContent>
         </Card>
+
+        {embed && (
+          <EmbedSnippetCard
+            teamId={embed.teamId}
+            origin={embed.origin}
+            enabled={settings.enabled}
+          />
+        )}
 
         <div>
           <h2 className="mb-2 text-lg font-semibold">Test grounding</h2>

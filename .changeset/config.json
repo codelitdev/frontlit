@@ -13,6 +13,7 @@
     "@frontlit/sites",
     "@frontlit/docs",
     "@frontlit/api-contract",
-    "@frontlit/components-demo"
+    "@frontlit/components-demo",
+    "@frontlit/in-app-support-example"
   ]
 }

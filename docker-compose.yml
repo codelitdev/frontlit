@@ -123,6 +123,7 @@ services:
             # Cache invalidations go to the sites container directly.
             SITES_REVALIDATE_URL: http://frontlit-sites:3002
             PLATFORM_SITE_DOMAIN: ${PLATFORM_SITE_DOMAIN:-localhost}
+            EMBED_ORIGIN: ${EMBED_ORIGIN:-http://embed.localhost:3002}
             PLATFORM_TEAM_ID: ${PLATFORM_TEAM_ID:-}
             CUSTOM_DOMAIN_CNAME_TARGET: ${CUSTOM_DOMAIN_CNAME_TARGET:-}
             ENABLE_TRUST_PROXY: ${ENABLE_TRUST_PROXY:-false}

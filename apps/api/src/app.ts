@@ -23,6 +23,7 @@ import docSectionsRoutes from "./documentation/routes";
 import docsGitHubRoutes from "./documentation/github/routes";
 import docsGitHubWebhooks from "./documentation/github/webhooks";
 import chatbotRoutes from "./chatbot/routes";
+import supportSessionRoutes from "./support/routes";
 import ticketsRoutes from "./tickets/routes";
 import domainsRoutes from "./domains/routes";
 import settingsRoutes from "./settings/routes";
@@ -142,6 +143,7 @@ export function createApp() {
   app.use(changelogsRoutes);
   app.use(emailRoutes);
   app.use(chatbotRoutes);
+  app.use(supportSessionRoutes);
   app.use(ticketsRoutes);
   app.use(domainsRoutes);
   app.use(settingsRoutes);

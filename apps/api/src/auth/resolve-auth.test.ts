@@ -59,6 +59,7 @@ function dependencies(overrides: Partial<AuthDependencies> = {}): AuthDependenci
       keyHash: "hash",
       keyPrefix: "fl_live_1234",
       name: "Default",
+      scope: "full" as const,
       createdAt: new Date(),
     })),
     resolveSession: vi.fn(

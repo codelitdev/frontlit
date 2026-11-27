@@ -4,7 +4,8 @@ import { inboxAiRuns } from "../db/schema";
 import { logger } from "../services/log";
 import { incrementCounter } from "../services/metrics";
 import { TICKET_PROVIDER_RETRIES } from "./config";
-import { runInboxAi, ticketHasActiveLease } from "./generate";
+import { needsHuman, runInboxAi, ticketHasActiveLease } from "./generate";
+import { notifyUnanswered } from "../tickets/queries";
 import { claimNextTicketMail, failTicketMailJob, processTicketMailJob } from "./mail";
 
 async function claimNextAiJob() {
@@ -48,6 +49,9 @@ async function processOneAiJob(): Promise<boolean> {
     runId: job.id,
   });
   if (result.skipReason === "lease_wait") return true;
+  if (needsHuman(result)) {
+    await notifyUnanswered(job.teamId, job.ticketId, job.triggerMessageId);
+  }
   incrementCounter("inbox_ai_jobs_total", {
     event: result.outcome === "human_only" ? "skipped" : result.outcome,
   });

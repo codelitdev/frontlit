@@ -3,9 +3,15 @@ import { WebSocketServer, type WebSocket } from "ws";
 import { resolveAuth } from "../auth/resolve-auth";
 import { getTeamByTeamId, getTeamMembership } from "../team/queries";
 import { logger } from "../services/log";
-import { subscribeInbox } from "./live";
+import { subscribeInbox, subscribeTicket } from "./live";
+import { getTicketByTicketId, verifyTicketAccess } from "./queries";
 
 const PATH = "/inbox/stream";
+/** A visitor's chat follows its own ticket. Any origin may embed the chat;
+ * the ticket's access token is the credential. */
+const VISITOR_PATH = "/public/stream";
+
+type LiveAuth = { room: "team"; key: string } | { room: "ticket"; key: string };
 
 function trustedOrigin(): string {
   return (process.env.WEB_CLIENT || "http://localhost:3000").replace(/\/$/, "");
@@ -16,10 +22,23 @@ function originAllowed(origin: string | undefined): boolean {
   return origin.replace(/\/$/, "") === trustedOrigin();
 }
 
-async function authorizeUpgrade(request: IncomingMessage) {
-  if (!originAllowed(request.headers.origin)) return null;
+async function authorizeVisitor(url: URL): Promise<LiveAuth | null> {
+  const teamPublicId = url.searchParams.get("teamId");
+  const ticketId = url.searchParams.get("ticketId");
+  const token = url.searchParams.get("token");
+  if (!teamPublicId || !ticketId || !token) return null;
+  const team = await getTeamByTeamId(teamPublicId);
+  if (!team) return null;
+  const ticket = await getTicketByTicketId(team.id, ticketId);
+  if (!ticket || !(await verifyTicketAccess(ticket, token))) return null;
+  return { room: "ticket", key: ticket.ticketId };
+}
 
+async function authorizeUpgrade(request: IncomingMessage): Promise<LiveAuth | null> {
   const url = new URL(request.url ?? "/", "http://localhost");
+  if (url.pathname === VISITOR_PATH) return authorizeVisitor(url);
+
+  if (!originAllowed(request.headers.origin)) return null;
   if (url.pathname !== PATH) return null;
 
   const teamPublicId = url.searchParams.get("teamId");
@@ -37,7 +56,7 @@ async function authorizeUpgrade(request: IncomingMessage) {
   const membership = await getTeamMembership(team.id, auth.accountId);
   if (!membership) return null;
 
-  return { teamInternalId: team.id };
+  return { room: "team", key: team.id };
 }
 
 export function attachInboxLive(server: Server): WebSocketServer {
@@ -45,7 +64,7 @@ export function attachInboxLive(server: Server): WebSocketServer {
 
   server.on("upgrade", (request, socket, head) => {
     const url = new URL(request.url ?? "/", "http://localhost");
-    if (url.pathname !== PATH) return;
+    if (url.pathname !== PATH && url.pathname !== VISITOR_PATH) return;
 
     void authorizeUpgrade(request)
       .then((auth) => {
@@ -55,7 +74,7 @@ export function attachInboxLive(server: Server): WebSocketServer {
           return;
         }
         wss.handleUpgrade(request, socket, head, (ws) => {
-          wss.emit("connection", ws, request, auth.teamInternalId);
+          wss.emit("connection", ws, request, auth);
         });
       })
       .catch((error) => {
@@ -69,8 +88,11 @@ export function attachInboxLive(server: Server): WebSocketServer {
       });
   });
 
-  wss.on("connection", (ws: WebSocket, _request: IncomingMessage, teamId: string) => {
-    const unsubscribe = subscribeInbox(teamId, ws);
+  wss.on("connection", (ws: WebSocket, _request: IncomingMessage, auth: LiveAuth) => {
+    const unsubscribe =
+      auth.room === "team"
+        ? subscribeInbox(auth.key, ws)
+        : subscribeTicket(auth.key, ws);
     const heartbeat = setInterval(() => {
       if (ws.readyState !== ws.OPEN) return;
       ws.ping();

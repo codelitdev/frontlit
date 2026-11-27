@@ -370,6 +370,7 @@ describe("public critical paths", () => {
               email: "customer@example.com",
               name: "Casey",
               sourcePath: "/help",
+              ticketId: expect.any(String),
             },
           }),
         ]),

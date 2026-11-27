@@ -9,10 +9,11 @@ import {
   type TicketStatus,
   type TextEditorContentRow,
   type TicketMessageSource,
+  type RequesterAccount,
 } from "../db/schema";
 import { generateTicketToken, hashTicketToken } from "./token";
 import { enqueueOutboxJob } from "../email/outbox";
-import { publishInboxUpdate } from "./live";
+import { publishInboxUpdate, publishNeedsReply } from "./live";
 import { withDbTransaction } from "../db/transaction";
 import {
   mintAccessGrant,
@@ -53,6 +54,13 @@ export async function createTicket(input: {
   requesterName?: string;
   source: TicketSource;
   scheduleAi?: boolean;
+  /** From an in-app support session (docs/embedded-support.md §6.4). */
+  requesterExternalId?: string | null;
+  requesterAccount?: RequesterAccount | null;
+  context?: Record<string, unknown> | null;
+  /** Email the requester a receipt with the magic link. Default true;
+   * in-app chats skip it, since the user is in the chat. */
+  sendReceipt?: boolean;
 }) {
   const { token, tokenHash } = generateTicketToken();
 
@@ -64,6 +72,9 @@ export async function createTicket(input: {
         subject: input.subject,
         requesterEmail: input.requesterEmail,
         requesterName: input.requesterName,
+        requesterExternalId: input.requesterExternalId ?? null,
+        requesterAccount: input.requesterAccount ?? null,
+        context: input.context ?? null,
         source: input.source,
         accessTokenHash: tokenHash,
       })
@@ -100,11 +111,12 @@ export async function createTicket(input: {
   });
 
   if (input.requesterEmail) {
-    await enqueueOutboxJob(input.teamId, "contact_sync", {
-      email: input.requesterEmail,
-      ...(input.requesterName ? { name: input.requesterName } : {}),
-      sourcePath: ticketContactSourcePath(input.source),
+    await enqueueTicketContactSync(input.teamId, {
+      ...ticket,
+      requesterEmail: input.requesterEmail,
     });
+  }
+  if (input.requesterEmail && input.sendReceipt !== false) {
     await enqueueTicketMail({
       teamId: input.teamId,
       ticketDbId: ticket.id,
@@ -130,6 +142,42 @@ export async function createTicket(input: {
   return { ticket, token, firstMessage };
 }
 
+/**
+ * Upserts the ticket's requester as a SendLit contact (the CRM) and links
+ * the ticket to it: the worker writes `tickets.contactId` back. External ID
+ * and account go to SendLit as custom fields (docs/embedded-support.md §6.4).
+ */
+export async function enqueueTicketContactSync(
+  teamId: string,
+  ticket: {
+    id: string;
+    source: TicketSource;
+    requesterEmail: string;
+    requesterName?: string | null;
+    requesterExternalId?: string | null;
+    requesterAccount?: RequesterAccount | null;
+  },
+) {
+  await enqueueOutboxJob(teamId, "contact_sync", {
+    email: ticket.requesterEmail,
+    ...(ticket.requesterName ? { name: ticket.requesterName } : {}),
+    sourcePath: ticketContactSourcePath(ticket.source),
+    ticketId: ticket.id,
+    ...(ticket.requesterExternalId ? { externalId: ticket.requesterExternalId } : {}),
+    ...(ticket.requesterAccount ? { account: ticket.requesterAccount } : {}),
+  });
+}
+
+/** Inbox search: subject or requester email, or the host app's user ID
+ * exactly (docs/embedded-support.md §6.4). */
+function ticketSearch(q: string) {
+  return or(
+    ilike(tickets.subject, `%${q}%`),
+    ilike(tickets.requesterEmail, `%${q}%`),
+    eq(tickets.requesterExternalId, q.trim()),
+  )!;
+}
+
 export async function listTickets(input: {
   teamId: string;
   status?: TicketStatus;
@@ -142,13 +190,7 @@ export async function listTickets(input: {
   if (input.status) conditions.push(eq(tickets.status, input.status));
   if (input.assigneeAccountId)
     conditions.push(eq(tickets.assigneeAccountId, input.assigneeAccountId));
-  if (input.q)
-    conditions.push(
-      or(
-        ilike(tickets.subject, `%${input.q}%`),
-        ilike(tickets.requesterEmail, `%${input.q}%`),
-      )!,
-    );
+  if (input.q) conditions.push(ticketSearch(input.q));
 
   const offset = ((input.offset ?? 1) - 1) * (input.itemsPerPage ?? 20);
   const limit = input.itemsPerPage ?? 20;
@@ -171,13 +213,7 @@ export async function countTickets(input: {
   if (input.status) conditions.push(eq(tickets.status, input.status));
   if (input.assigneeAccountId)
     conditions.push(eq(tickets.assigneeAccountId, input.assigneeAccountId));
-  if (input.q)
-    conditions.push(
-      or(
-        ilike(tickets.subject, `%${input.q}%`),
-        ilike(tickets.requesterEmail, `%${input.q}%`),
-      )!,
-    );
+  if (input.q) conditions.push(ticketSearch(input.q));
 
   const [{ value }] = await db
     .select({ value: count() })
@@ -259,8 +295,55 @@ export async function addTicketMessage(input: {
     });
   }
 
-  if (existing) publishInboxUpdate(input.teamId, existing.ticketId);
+  if (existing) {
+    publishInboxUpdate(input.teamId, existing.ticketId);
+    // A human already owns the conversation and no AI run follows: alert
+    // agents now. Chat messages always go through the AI run, which alerts
+    // when it does not answer (notifyUnanswered).
+    if (
+      input.author === "requester" &&
+      existing.source !== "chatbot" &&
+      (existing.aiState === "escalated" || existing.aiState === "taken_over")
+    ) {
+      await notifyUnanswered(input.teamId, existing.id, message.id);
+    }
+  }
   return message;
+}
+
+/** The requester has the conversation on screen: earlier replies are read,
+ * and agents see "Seen". */
+export async function markRequesterRead(
+  teamId: string,
+  ticket: { id: string; ticketId: string },
+) {
+  await db
+    .update(tickets)
+    .set({ requesterLastReadAt: new Date() })
+    .where(eq(tickets.id, ticket.id));
+  publishInboxUpdate(teamId, ticket.ticketId);
+}
+
+/**
+ * Alerts agents that a requester message is waiting for a human. Called when
+ * the AI did not answer it (no AI, auto-reply off, handed off) or a human
+ * already owns the conversation. Answered messages never alert, like
+ * AI-first help desks.
+ */
+export async function notifyUnanswered(
+  teamId: string,
+  ticketDbId: string,
+  messageDbId: string,
+) {
+  const [ticket, message] = await Promise.all([
+    db.query.tickets.findFirst({ where: eq(tickets.id, ticketDbId) }),
+    db.query.ticketMessages.findFirst({ where: eq(ticketMessages.id, messageDbId) }),
+  ]);
+  if (!ticket || !message || message.author !== "requester") return;
+  publishNeedsReply(teamId, ticket.ticketId, {
+    from: ticket.requesterName || ticket.requesterEmail || "Website visitor",
+    text: ticketMessageText(message.content),
+  });
 }
 
 export async function updateTicket(

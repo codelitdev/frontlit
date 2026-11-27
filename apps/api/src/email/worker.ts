@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/client";
-import { teams } from "../db/schema";
+import { teams, tickets } from "../db/schema";
 import { logger } from "../services/log";
 import {
   claimNextOutboxJob,
@@ -9,14 +9,22 @@ import {
   provisionRetryForeverEnabled,
   requeueFailedProvisionJobs,
 } from "./outbox";
-import { addContactTag, upsertContact } from "./sendlit-client";
+import {
+  addContactTag,
+  type SendlitCustomFields,
+  updateContact,
+  upsertContact,
+} from "./sendlit-client";
 import { getSendlitApiKey } from "../integrations/queries";
 import { retryProvisionSendlitForTeam } from "./provisioning";
 
 /** Upserts the lead as a SendLit contact and tags it `frontlit` plus the
  * capturing page's slug, so email can be segmented by source page
  * (architecture.md §10.2). */
-async function processContactSync(teamId: string, payload: Record<string, unknown>) {
+export async function processContactSync(
+  teamId: string,
+  payload: Record<string, unknown>,
+) {
   const apiKey = await getSendlitApiKey(teamId);
   if (!apiKey) throw new Error("Team has no SendLit integration yet");
 
@@ -25,11 +33,29 @@ async function processContactSync(teamId: string, payload: Record<string, unknow
     typeof payload.name === "string" && payload.name.trim()
       ? payload.name.trim()
       : undefined;
+  const customFields = requesterCustomFields(payload);
   const contact = await upsertContact(apiKey, {
     email,
     ...(name ? { name } : {}),
+    ...(customFields ? { customFields } : {}),
   });
+  // SendLit only applies custom fields on create; merge them into an
+  // existing contact so the host app's user ID stays current.
+  if (customFields && !sameFields(contact.customFields, customFields)) {
+    await updateContact(apiKey, contact.contactId, {
+      customFields: { ...contact.customFields, ...customFields },
+    });
+  }
   await addContactTag(apiKey, contact.contactId, "frontlit");
+  if (customFields) await addContactTag(apiKey, contact.contactId, "source:in-app");
+
+  // Link the ticket to its contact (docs/embedded-support.md §6.4).
+  if (typeof payload.ticketId === "string") {
+    await db
+      .update(tickets)
+      .set({ contactId: contact.contactId })
+      .where(eq(tickets.id, payload.ticketId));
+  }
 
   const sourcePath =
     typeof payload.sourcePath === "string" ? payload.sourcePath : undefined;
@@ -37,6 +63,31 @@ async function processContactSync(teamId: string, payload: Record<string, unknow
     const tag = `source:${sourcePath.replace(/^\/+/, "").replace(/\/+/g, "-") || "home"}`;
     await addContactTag(apiKey, contact.contactId, tag);
   }
+}
+
+/** The host app's user and account from an in-app support session, as
+ * SendLit custom fields. Null when the ticket didn't come from one. */
+export function requesterCustomFields(
+  payload: Record<string, unknown>,
+): SendlitCustomFields | null {
+  const fields: SendlitCustomFields = {};
+  if (typeof payload.externalId === "string") fields.externalId = payload.externalId;
+  const account = payload.account as
+    | { id?: unknown; name?: unknown; url?: unknown }
+    | undefined;
+  if (account && typeof account.id === "string") {
+    fields.accountId = account.id;
+    if (typeof account.name === "string") fields.accountName = account.name;
+    if (typeof account.url === "string") fields.accountUrl = account.url;
+  }
+  return Object.keys(fields).length ? fields : null;
+}
+
+function sameFields(
+  current: Record<string, unknown> | undefined,
+  next: SendlitCustomFields,
+): boolean {
+  return Object.entries(next).every(([key, value]) => current?.[key] === value);
 }
 
 async function processProvisionSendlit(
