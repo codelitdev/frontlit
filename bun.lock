@@ -32,10 +32,10 @@
         "@aws-sdk/client-s3": "^3.1111.0",
         "@better-auth/cimd": "1.7.22",
         "@better-auth/oauth-provider": "1.7.22",
-        "@codelitdev/mcp-server-kit": "0.15.0",
-        "@codelitdev/oauth-server-kit": "0.15.0",
-        "@codelitdev/observability": "0.15.0",
-        "@codelitdev/platform": "0.15.0",
+        "@codelitdev/mcp-server-kit": "0.17.0",
+        "@codelitdev/oauth-server-kit": "0.17.0",
+        "@codelitdev/observability": "0.17.0",
+        "@codelitdev/platform": "0.17.0",
         "@frontlit/api-contract": "workspace:*",
         "@frontlit/page-builder": "workspace:*",
         "@frontlit/text-editor": "workspace:*",
@@ -65,8 +65,8 @@
         "zod-to-json-schema": "^3.25.2",
       },
       "devDependencies": {
-        "@codelitdev/billing": "0.15.0",
-        "@codelitdev/platform-conformance": "0.15.0",
+        "@codelitdev/billing": "0.17.0",
+        "@codelitdev/platform-conformance": "0.17.0",
         "@electric-sql/pglite": "^0.2.17",
         "@modelcontextprotocol/client": "^2.2.0",
         "@types/cors": "^2.8.12",
@@ -86,7 +86,7 @@
       "name": "@frontlit/docs",
       "version": "0.1.0",
       "dependencies": {
-        "@codelitdev/design-system": "0.15.0",
+        "@codelitdev/design-system": "0.17.0",
         "@frontlit/api-contract": "workspace:*",
         "@frontlit/page-builder": "workspace:*",
         "@frontlit/text-editor": "workspace:*",
@@ -144,7 +144,7 @@
       "name": "@frontlit/web",
       "version": "0.1.0",
       "dependencies": {
-        "@codelitdev/design-system": "0.15.0",
+        "@codelitdev/design-system": "0.17.0",
         "@frontlit/api-contract": "workspace:*",
         "@frontlit/media-uploader": "workspace:*",
         "@frontlit/page-builder": "workspace:*",
@@ -649,19 +649,19 @@
 
     "@changesets/write": ["@changesets/write@0.4.0", "", { "dependencies": { "@changesets/types": "^6.1.0", "fs-extra": "^7.0.1", "human-id": "^4.1.1", "prettier": "^2.7.1" } }, "sha512-CdTLvIOPiCNuH71pyDu3rA+Q0n65cmAbXnwWH84rKGiFumFzkmHNT8KHTMEchcxN+Kl8I54xGUhJ7l3E7X396Q=="],
 
-    "@codelitdev/billing": ["@codelitdev/billing@0.15.0", "", { "dependencies": { "drizzle-orm": "^0.45.2", "nanoid": "^5.1.6", "zod": "^3.25.76" }, "peerDependencies": { "dodopayments": "^2.48.0" }, "optionalPeers": ["dodopayments"], "bin": { "codelit-billing": "bin/codelit-billing.js" } }, "sha512-Xgm38nwzpYxbt+5oONPJJaP4PjxC5joPIoaZ3u2FRR8t5Zdrzhy2KXTXN6QpUDuVskW2r/EuzERjXe+vQP1TYQ=="],
+    "@codelitdev/billing": ["@codelitdev/billing@0.17.0", "", { "dependencies": { "drizzle-orm": "^0.45.2", "nanoid": "^5.1.6", "zod": "^3.25.76" }, "peerDependencies": { "dodopayments": "^2.48.0" }, "optionalPeers": ["dodopayments"], "bin": { "codelit-billing": "bin/codelit-billing.js" } }, "sha512-5tkJNjPtAU2z6Mpb0LorRN8SA+yWn16Z05zPc+VpCsncq+kQNNecYCQMAjCRN73gIvVRlYbgB41SOj3WWaqJWA=="],
 
-    "@codelitdev/design-system": ["@codelitdev/design-system@0.15.0", "", { "peerDependencies": { "react": ">=18", "react-dom": ">=18" } }, "sha512-0q45jVYerXQGwWP+QKIdd4VI6DDUxQB5d4//KEXP9q0ceKTDd4RbTwSWLQrq+R6WW0vH8FFwa7Ii8O+IjqsBFQ=="],
+    "@codelitdev/design-system": ["@codelitdev/design-system@0.17.0", "", { "peerDependencies": { "react": ">=18", "react-dom": ">=18" } }, "sha512-haITlznpiFonbn1vooOR2ohGSrLPL5aFH2gxpGD9wZGrj08U6TDtgqSVlrY5hv0O36cERnesN+bqaeg+1ZXhEw=="],
 
-    "@codelitdev/mcp-server-kit": ["@codelitdev/mcp-server-kit@0.15.0", "", { "dependencies": { "@modelcontextprotocol/server": "^2.4.0", "zod": "^3.25.76", "zod-to-json-schema": "^3.25.2" }, "peerDependencies": { "@codelitdev/platform": ">=0.15.0" } }, "sha512-ZnkFaMa87mLqkoVkpUCypD3U/v3g8PUfhbmQj9OB4Nsl0TvE7nsI8jeZ+b0tAmsI0PQ3B4abDttdT6NK4/BOig=="],
+    "@codelitdev/mcp-server-kit": ["@codelitdev/mcp-server-kit@0.17.0", "", { "dependencies": { "@modelcontextprotocol/server": "^2.4.0", "zod": "^3.25.76", "zod-to-json-schema": "^3.25.2" }, "peerDependencies": { "@codelitdev/platform": ">=0.17.0" } }, "sha512-EOxjDJanOJDtyBLewnQXKqxV4adSOQrWd48Ko54ZigstvXDCoNSqMnoQVb/znnJzr1Dglm0q+irwAFhcwxIzsw=="],
 
-    "@codelitdev/oauth-server-kit": ["@codelitdev/oauth-server-kit@0.15.0", "", { "peerDependencies": { "@better-auth/oauth-provider": "^1.7.16", "better-auth": "^1.7.16", "express": "^4.21.2" } }, "sha512-5D+9rXLUHfEd/teVU60whrgkjZQDD2nhvXmS0Mmj/3MT0DtZTkBlK4yxRjGZj9dDc/0OhxMa1m740MXAiRB3dA=="],
+    "@codelitdev/oauth-server-kit": ["@codelitdev/oauth-server-kit@0.17.0", "", { "peerDependencies": { "@better-auth/oauth-provider": "^1.7.16", "better-auth": "^1.7.16", "express": "^4.21.2" } }, "sha512-3g9qLQ2CbCLucCfo92UdqsNM5vtX1CghkpCa5KhOQG0II3V3L+3UEwEVCbxXGqsO4POwclpag6fsDdZceZi9mw=="],
 
-    "@codelitdev/observability": ["@codelitdev/observability@0.15.0", "", { "dependencies": { "pino": "^9.6.0" }, "peerDependencies": { "express": "^4.21.2", "posthog-js": "^1.200.0", "posthog-node": "^4.0.0" }, "optionalPeers": ["express", "posthog-js", "posthog-node"] }, "sha512-ojYH3fdivdlb4B+U/WRxQg9YRHQjwowKXgICBDBfjEOPKZ5BlCPQiaA4A5tGK25ztQ9Po26dDp4R4qM4AzYixg=="],
+    "@codelitdev/observability": ["@codelitdev/observability@0.17.0", "", { "dependencies": { "pino": "^9.6.0" }, "peerDependencies": { "express": "^4.21.2", "posthog-js": "^1.200.0", "posthog-node": "^4.0.0" }, "optionalPeers": ["express", "posthog-js", "posthog-node"] }, "sha512-PaRdIyN9hQTos5eYZqaM5X3zU8w1WGx7yPa4wmeEQXOaF8PFIlmlfPMR9xVfQWQER8aWWXxgldPpA2N7yOZg9Q=="],
 
-    "@codelitdev/platform": ["@codelitdev/platform@0.15.0", "", { "dependencies": { "tldts": "7.4.19" }, "peerDependencies": { "@codelitdev/billing": ">=0.15.0", "drizzle-orm": "^0.45.2" }, "optionalPeers": ["@codelitdev/billing", "drizzle-orm"] }, "sha512-sI3p0L8kVrPAhG4nqLYhfGNnFbVLMN9T+ZERPAi2x7NqgvZ9luoNC61Sri5gXi2ffwDKVCYrm3mGi79LKW2RjQ=="],
+    "@codelitdev/platform": ["@codelitdev/platform@0.17.0", "", { "dependencies": { "tldts": "7.4.19" }, "peerDependencies": { "@codelitdev/billing": ">=0.17.0", "drizzle-orm": "^0.45.2" }, "optionalPeers": ["@codelitdev/billing", "drizzle-orm"] }, "sha512-jNNbd6ZgKoDkK1m6EGgzkg7gvbVIzeTG6kXtqsCEbW26viTeLYwBKo7G7y2/a1ltHdrsm+P2hwxRSndFkz4O/w=="],
 
-    "@codelitdev/platform-conformance": ["@codelitdev/platform-conformance@0.15.0", "", { "peerDependencies": { "@codelitdev/platform": ">=0.15.0" } }, "sha512-6y21aiv2Tu/wVfL4fKcab8+fdWVfTJh2D931FromEbiy+1pwRIl2+/8G0TYxmGxbsLTKb8/LTQuegft/QXZZuA=="],
+    "@codelitdev/platform-conformance": ["@codelitdev/platform-conformance@0.17.0", "", { "peerDependencies": { "@codelitdev/platform": ">=0.17.0" } }, "sha512-41LOzKKzcm3fYFO5osO/nBDR5ee+fUdnI0s7RzjCwUe4zD6QKsmto2HR9fKI4AwkL9avLsmvrk9+2CcoP8105g=="],
 
     "@dotenvx/dotenvx": ["@dotenvx/dotenvx@1.75.1", "", { "dependencies": { "@dotenvx/primitives": "^0.8.0", "commander": "^11.1.0", "conf": "^10.2.0", "dotenv": "^17.2.1", "enquirer": "^2.4.1", "env-paths": "^2.2.1", "execa": "^5.1.1", "fdir": "^6.2.0", "ignore": "^5.3.0", "object-treeify": "1.1.33", "open": "^8.4.2", "picomatch": "^4.0.4", "systeminformation": "^5.22.11", "undici": "^7.11.0", "which": "^4.0.0", "yocto-spinner": "^1.1.0" }, "bin": { "dotenvx": "src/cli/dotenvx.js" } }, "sha512-/BITOC9dmS/edY2zQwZNicQ059O6RKabtQfyEafV0nGtfYRNHYy1DIPiYVcov40+tob9hfmBnbR963dS+EQ1DQ=="],
 
