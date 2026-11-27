@@ -17,6 +17,11 @@ import {
   teamSchema,
 } from "./schemas/teams";
 import {
+  deletePushSubscriptionBodySchema,
+  pushConfigSchema,
+  savePushSubscriptionBodySchema,
+} from "./schemas/push";
+import {
   acceptedTeamMemberSchema,
   createTeamInvitationBodySchema,
   cursorPage,
@@ -390,6 +395,35 @@ const teamInvitationsContract = c.router(
     },
   },
   { metadata: { tag: "Teams" } },
+);
+
+/** Web Push for the signed-in admin account's browsers (web app session
+ * only: no API keys, no MCP). */
+const pushSubscriptionsContract = c.router(
+  {
+    config: {
+      method: "GET",
+      path: "/push-subscriptions/config",
+      responses: { 200: pushConfigSchema },
+      summary: "Get the Web Push public key",
+    },
+    save: {
+      method: "PUT",
+      path: "/push-subscriptions",
+      body: savePushSubscriptionBodySchema,
+      responses: { 204: c.noBody() },
+      summary: "Save this browser's push subscription",
+    },
+    remove: {
+      // POST: the web app's API proxy does not forward DELETE bodies.
+      method: "POST",
+      path: "/push-subscriptions/remove",
+      body: deletePushSubscriptionBodySchema,
+      responses: { 204: c.noBody() },
+      summary: "Delete this browser's push subscription",
+    },
+  },
+  { metadata: { tag: "Notifications" } },
 );
 
 /**
@@ -1967,6 +2001,7 @@ const contentContract = c.router({
 type ContractShape = {
   teams: typeof teamsContract;
   teamInvitations: typeof teamInvitationsContract;
+  pushSubscriptions: typeof pushSubscriptionsContract;
   provisioning: typeof provisioningContract;
   pages: typeof pagesContract;
   themes: typeof themesContract;
@@ -1988,6 +2023,7 @@ type ContractShape = {
 export const contract: ContractShape = c.router({
   teams: teamsContract,
   teamInvitations: teamInvitationsContract,
+  pushSubscriptions: pushSubscriptionsContract,
   provisioning: provisioningContract,
   pages: pagesContract,
   themes: themesContract,

@@ -22,6 +22,7 @@ import {
 } from "../inbox-ai/grants";
 import { enqueueInboxAiRun, ticketsChannelForSource } from "../inbox-ai/schedule";
 import { enqueueTicketMail } from "../inbox-ai/mail";
+import { enqueueNeedsReplyPush } from "../push/send";
 
 function ticketContactSourcePath(source: TicketSource): string {
   if (source === "chatbot") return "/chat";
@@ -340,10 +341,12 @@ export async function notifyUnanswered(
     db.query.ticketMessages.findFirst({ where: eq(ticketMessages.id, messageDbId) }),
   ]);
   if (!ticket || !message || message.author !== "requester") return;
-  publishNeedsReply(teamId, ticket.ticketId, {
+  const alert = {
     from: ticket.requesterName || ticket.requesterEmail || "Website visitor",
     text: ticketMessageText(message.content),
-  });
+  };
+  publishNeedsReply(teamId, ticket.ticketId, alert);
+  await enqueueNeedsReplyPush(teamId, ticket.ticketId, alert);
 }
 
 export async function updateTicket(

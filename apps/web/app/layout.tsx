@@ -1,14 +1,21 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "@frontlit/text-editor/styles.css";
 import "./globals.css";
 import * as fonts from "@/lib/fonts";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/codelit/tooltip";
+import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 
 export const metadata: Metadata = {
   title: "FrontLit — the front office of your SaaS",
   description:
     "Build your SaaS website, publish content, support users, and grow your audience from one connected front office.",
+  applicationName: "FrontLit",
+  appleWebApp: { capable: true, title: "FrontLit", statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#f9f6f2",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -22,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <TooltipProvider>
           {children}
           <Toaster />
+          <ServiceWorkerRegister />
         </TooltipProvider>
       </body>
     </html>

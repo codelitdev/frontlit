@@ -157,6 +157,9 @@ export const REST_OPERATION_POLICIES = {
   "teamInvitations.preview": accountOp("unsupported"),
   "teamInvitations.accept": accountOp("unsupported"),
   "teamInvitations.reject": accountOp("unsupported"),
+  "pushSubscriptions.config": accountOp("unsupported"),
+  "pushSubscriptions.save": accountOp("unsupported"),
+  "pushSubscriptions.remove": accountOp("unsupported"),
 
   "pages.create": teamPermission("pages:write", MCP_SCOPES.pagesWrite),
   "pages.list": teamPermission("pages:read", MCP_SCOPES.pagesRead),

@@ -1965,3 +1965,21 @@ export function listDocumentationGitChecks(
     client.content.documentationGithub.listChecks({ query }),
   );
 }
+
+// ---- Push notifications ---------------------------------------------------
+
+/** The VAPID public key, or null when the server has Web Push turned off. */
+export function getPushConfig() {
+  return unwrap<{ publicKey: string | null }>(client.pushSubscriptions.config());
+}
+
+export function savePushSubscription(body: {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}) {
+  return unwrap<void>(client.pushSubscriptions.save({ body }));
+}
+
+export function deletePushSubscription(endpoint: string) {
+  return unwrap<void>(client.pushSubscriptions.remove({ body: { endpoint } }));
+}

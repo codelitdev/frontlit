@@ -132,9 +132,25 @@ FrontLit.push("onUnreadCountChange", (count) => {
 });
 ```
 
-Your team gets a sound, a desktop notification (turned on from the bell in
-the header) and an unread count in the tab title when a customer message
-needs a person. Messages the assistant answers don't alert anyone.
+Your team gets a sound, a notification and an unread count in the tab title
+when a customer message needs a person. Messages the assistant answers don't
+alert anyone.
+
+To get notifications on a phone or computer, even with FrontLit closed, open
+the bell in the header and turn on **Notify me on this device**, then allow
+notifications when the browser asks. Do this once on each device. Clicking a
+notification opens the conversation.
+
+- **Android and desktop browsers:** works in the browser. You can also
+  install FrontLit as an app from the browser menu.
+- **iPhone and iPad (iOS 16.4 or later):** open FrontLit in Safari, tap
+  **Share**, then **Add to Home Screen**. Open FrontLit from the Home Screen
+  and turn on notifications there.
+
+You need access to read the help desk to get these notifications. Logging out
+turns them off for that device. On a self-hosted FrontLit, they need Web Push
+keys (see [Self-hosting](/docs/self-hosting)); without them, the bell offers
+notifications only while a FrontLit tab is open.
 
 ## What your team sees
 

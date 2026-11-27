@@ -167,6 +167,25 @@ export const redirectDomains = pgTable(
   ],
 );
 
+/** A browser's Web Push subscription for an admin account, so support agents
+ * hear about new customer messages with no FrontLit tab open. One row per
+ * browser (endpoint). */
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: text("id").primaryKey().$defaultFn(genId),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull().unique(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("push_subscriptions_account_idx").on(table.accountId)],
+);
+
 export const teamMembers = pgTable(
   "team_members",
   {
@@ -1307,7 +1326,11 @@ export const inboundEmails = pgTable("inbound_emails", {
 // never depends on SendLit being reachable.
 // ---------------------------------------------------------------------------
 
-export const outboxJobTypes = ["contact_sync", "provision_sendlit"] as const;
+export const outboxJobTypes = [
+  "contact_sync",
+  "provision_sendlit",
+  "web_push",
+] as const;
 export type OutboxJobType = (typeof outboxJobTypes)[number];
 
 export const outboxJobStatuses = ["pending", "processing", "done", "failed"] as const;
