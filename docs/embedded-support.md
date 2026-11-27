@@ -57,9 +57,17 @@ error.
 
 ## 4. What exists today
 
-- **Loader:** `apps/sites/app/sites/[teamId]/embed/chat.js/route.ts`
-  serves a small script with bubble and docked layouts, using the team theme.
-- **Chat iframe:** `apps/sites/app/sites/[teamId]/embed/chat/page.tsx`.
+- **Chat iframe:** `apps/sites/app/sites/[teamId]/embed/chat/page.tsx`
+  renders the chat UI. FrontLit-hosted sites show it through the React
+  `ChatWidget` (`apps/sites/components/chat-widget.tsx`, rendered in
+  `apps/sites/app/sites/[teamId]/(site)/layout.tsx`).
+- **Unused host-based loader:**
+  `apps/sites/app/sites/[teamId]/embed/chat.js/route.ts` serves a script
+  meant for external sites (`<script src="https://<team-host>/embed/chat.js">`,
+  architecture.md §7.3). Nothing uses it: hosted sites use `ChatWidget`, and
+  no dashboard screen or user doc points to it. It also sets iframe URLs as
+  relative paths (`/embed/chat`), so on a third-party site it would load that
+  site's own page. This PRD replaces it (§6.3).
 - **Chats are tickets:** there is no separate chat entity. A widget chat is
   a `tickets` row with `source = "chatbot"`, and its messages are
   `ticket_messages` (`author`: `requester` | `agent` | `bot`). The widget
@@ -81,18 +89,13 @@ error.
 
 **Gaps**
 
-- **Bug (must fix):** the loader sets iframe URLs as relative paths
-  (`frame.src = "/embed/chat"`, `dock.src = "/embed/chat?layout=docked"`).
-  On a third-party site that loads the host's own `/embed/chat`, so the embed
-  only works on FrontLit-hosted sites. (Found by reading the code; not yet
-  confirmed in a browser.)
-- **No JS API:** the loader runs in a self-contained function and exposes
-  nothing to the page.
+- **No working embed for other sites:** the only loader is the unused
+  host-based one above, and it has no JS API.
 - **Anonymous chats:** the only link to a visitor is a token in
   localStorage. No identity, account or context, and no way to reach them
   after they close the tab.
-- **Eager loading and polling:** the loader creates the iframe on page load,
-  and the widget polls every 2s whenever a conversation exists, even with the
+- **Eager loading and polling:** `ChatWidget` and the old loader create the
+  iframe on page load, and the widget polls every 2s whenever a conversation exists, even with the
   panel closed. Fine on a marketing site; wasteful in a dashboard every user
   keeps open.
 
@@ -121,7 +124,8 @@ error.
 **Integrating developer**
 
 - Add one backend route that calls `POST /support-sessions` with the API key.
-- Add the snippet (queue stub plus loader) to the app.
+- Add the snippet (queue stub, `init` with the team ID, and the static
+  loader) to the app.
 - Call `FrontLit.open({ token })` from a Help or Contact support button.
 
 ## 6. Design
@@ -187,7 +191,7 @@ POST /support-sessions
   ticket access grant (`ticket_access_grants`, `apps/api/src/inbox-ai/grants.ts`)
   for that ticket, the same kind the magic links in emails use. No second
   token type to maintain.
-- `url` opens the same chat as a standalone page on the team's site (popup or
+- `url` opens the same chat as a standalone page on the widget host (popup or
   new tab) for hosts that don't want the widget.
 
 This works like Stripe Checkout sessions: no crypto in customer code, and
@@ -198,36 +202,64 @@ Per the parity rule (architecture.md §2), the endpoint lives in
 `packages/api-contract` and a `support` queries function, with a matching MCP
 tool (cheap, since it's the same function).
 
-### 6.3 Loader and JS API
+### 6.3 Loader and JS API (GA-style snippet)
 
-- **Fix:** build iframe URLs from the loader's own origin
-  (`new URL(document.currentScript.src).origin`).
-- **Create the iframe on first open.** Today the loader creates and loads the
-  iframe on page load, even if nobody opens it. In a dashboard that every
-  user keeps open all day, that's a wasted page load for each of them.
-- Expose a single global, **`window.FrontLit`** (no aliases like `fl` or
+Replace the host-based loader with the conventional pattern used by Google
+Analytics, Intercom and Crisp: **one static loader at a fixed address, and the
+team ID passed in an `init` call.**
+
+```html
+<script>
+  window.FrontLit = window.FrontLit || {
+    q: [],
+    push(...a) {
+      this.q.push(a);
+    },
+  };
+  FrontLit.push("init", { teamId: "tm_abc123" });
+</script>
+<script async src="https://widget.<platform-domain>/chat.js"></script>
+```
+
+(`widget.<platform-domain>` is a placeholder; the real host depends on the
+platform domain the sites app is set up with.)
+
+- **Fixed widget host.** A reserved host in the sites app serves:
+  - `/chat.js`: the static loader, identical for every team, cached for a
+    long time;
+  - `/t/<teamId>/config`: public, cacheable widget settings (enabled,
+    layout, bubble style, name, theme colours);
+  - `/t/<teamId>/chat`: the chat UI iframe (the existing `/embed/chat` page,
+    with the team taken from the path).
+
+  `apps/sites/proxy.ts` resolves a team from every host today, so this host
+  skips the lookup.
+- **Why:** the address never changes when a team renames its subdomain or
+  switches custom domains, the loader is one cacheable file, and the iframe
+  always loads from a known origin (the old relative-URL problem can't
+  happen). The cost is one small settings request before the bubble shows.
+- **The team ID is public**, like a GA measurement ID. Anyone could already
+  embed a team's anonymous bot by copying a tag, so nothing gets worse;
+  allowed domains (§11) are the protection against misuse.
+- **Lazy iframe.** The loader shows only the bubble (or nothing, if the host
+  opens the chat from its own button). The iframe is created on the first
+  `open`.
+- **JS API**, a single global **`window.FrontLit`** (no aliases like `fl` or
   `frontlit`):
+  - `FrontLit.push("init", { teamId })`, or `FrontLit.init({ teamId })`
+    once loaded.
   - `FrontLit.open({ token })`: open the widget for a support session.
-  - `FrontLit.open()`: open the anonymous chat (current behaviour).
+  - `FrontLit.open()`: open the anonymous chat.
   - `FrontLit.close()`.
-- The loader is async, so the snippet includes a queue stub that the loader
-  replays once it has loaded:
 
-  ```html
-  <script>
-    window.FrontLit = window.FrontLit || {
-      q: [],
-      open(o) {
-        this.q.push(["open", o]);
-      },
-      close() {
-        this.q.push(["close"]);
-      },
-    };
-  </script>
-  <script async src="https://<team-host>/embed/chat.js"></script>
-  ```
-
+  Calls made before the loader finishes go into `q`, and the loader replays
+  them in order.
+- **One code path.** FrontLit-hosted sites get the same snippet injected by
+  the site layout instead of rendering `ChatWidget` separately.
+- **Remove the old loader:** delete `embed/chat.js/route.ts`, its entry in
+  the edge-cache rules (`apps/sites/lib/edge-cache.ts` and its test), and
+  update architecture.md §7.3. There's no production deployment yet, so no
+  migration is needed.
 - The loader passes the token to the iframe in the URL fragment or by
   `postMessage`, not a query string, so it stays out of server logs.
 - **Session chats are never written to localStorage.** The anonymous widget
@@ -239,8 +271,6 @@ tool (cheap, since it's the same function).
 - **Poll only while the panel is open and the tab is visible.** Today the
   widget polls every 2s whenever a conversation exists, even with the panel
   closed. The same open-and-visible condition drives `seenAt` (§6.7).
-- The anonymous embed keeps working as it does today, apart from the lazy
-  iframe and the polling change.
 
 ### 6.4 Requester on the ticket, contact in SendLit
 
@@ -357,9 +387,14 @@ alone; they're small.
 
 ## 9. Tasks
 
-- [ ] **Must fix:** loader builds iframe URLs from its own origin.
-- [ ] Loader: create the iframe on first open; expose `window.FrontLit`
-      (`open`, `close`) and replay queued calls.
+- [ ] Fixed widget host in the sites app (skips the host-to-team lookup):
+      static `/chat.js`, public `/t/<teamId>/config`, and the chat iframe at
+      `/t/<teamId>/chat`.
+- [ ] Static loader: `init` with the team ID, `window.FrontLit` (`open`,
+      `close`), replay queued calls, iframe created on first open.
+- [ ] FrontLit-hosted sites use the same snippet instead of `ChatWidget`.
+- [ ] Remove the old host-based loader (`embed/chat.js/route.ts`, its
+      edge-cache entry and test) and update architecture.md §7.3.
 - [ ] Widget: poll only while the panel is open and the tab is visible.
 - [ ] `support:sessions` API key scope.
 - [ ] `POST /support-sessions` (contract, queries, route, MCP tool) and the
@@ -413,9 +448,11 @@ alone; they're small.
       widget and no email is sent.
 - [ ] With the widget closed, the user gets one email with the reply(ies)
       and can continue the conversation from it.
-- [ ] The widget loads from FrontLit's origin when embedded on
-      app.courselit.app, and `FrontLit.open()` works when called before the
-      loader has finished.
+- [ ] The same snippet (fixed loader address plus team ID) works on
+      app.courselit.app and on a FrontLit-hosted site, and `FrontLit.open()`
+      works when called before the loader has finished.
+- [ ] Changing the team's subdomain or custom domain doesn't break an
+      existing embed.
 - [ ] No iframe is loaded and no polling happens until the user opens the
       widget; polling stops when the panel is closed or the tab is hidden.
 - [ ] After logging out of CourseLit (or on a shared browser), the previous
