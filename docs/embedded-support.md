@@ -252,17 +252,19 @@ team ID passed in an `init` call.** The fixed address is
 ```
 
 - **Dedicated host: `embed.frontlit.app`.** The sites app serves the widget
-  on this one host only, and serves nothing else there:
-  - `/chat.js`: the static loader, identical for every team, cached for a
-    long time;
+  on this one host, and serves nothing else there:
+  - `/chat.js`: the static loader, identical for every team (caching in
+    §6.8);
   - `/<teamId>/config`: public, cacheable widget settings (enabled, layout,
     bubble style, name, theme colours);
   - `/<teamId>/chat`: the chat UI iframe (the existing `/embed/chat` page,
     with the team taken from the path).
 
   In `apps/sites/proxy.ts`: if the host is `EMBED_HOST`, serve these routes
-  (outside `app/sites/[teamId]`) and skip team resolution; no other host
-  serves them.
+  (outside `app/sites/[teamId]`) and skip team resolution. No other host
+  serves the settings or the chat iframe. The one exception is the static
+  loader file, also served as `/embed/chat.js` on every host for hosted
+  sites (§6.8); it's our own code that runs in the host page anyway.
 - **Why a dedicated host (security).** Sites render team-written HTML and
   scripts on the site's own origin (the Embed block uses
   `dangerouslySetInnerHTML`, `packages/page-builder/src/components/inline-embed.tsx`).
@@ -326,7 +328,10 @@ team ID passed in an `init` call.** The fixed address is
   site. The host mints a fresh session on every Help click.
 - **Poll only while the panel is open and the tab is visible.** Closing the
   panel removes the iframe (as `ChatWidget` does today), and a hidden tab
-  pauses polling. The same open-and-visible condition drives `seenAt`
+  pauses polling. The loader keeps the last session token in memory, so
+  reopening calls `support-sessions/open` again and gets the same ticket
+  with a fresh grant. If the session has expired (`401`), the widget says
+  so and the host's button mints a new one on the next click. The same open-and-visible condition drives `seenAt`
   (§6.7).
 
 ### 6.4 Requester on the ticket, contact in SendLit
