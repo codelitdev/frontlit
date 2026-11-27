@@ -60,7 +60,11 @@ error.
 - **Chat iframe:** `apps/sites/app/sites/[teamId]/embed/chat/page.tsx`
   renders the chat UI. FrontLit-hosted sites show it through the React
   `ChatWidget` (`apps/sites/components/chat-widget.tsx`, rendered in
-  `apps/sites/app/sites/[teamId]/(site)/layout.tsx`).
+  `apps/sites/app/sites/[teamId]/(site)/layout.tsx`). `ChatWidget` is
+  already careful about page speed: it starts after idle (`runWhenIdle`),
+  loads the panel lazily (`next/dynamic`), and mounts the iframe only while
+  the panel is open, so polling stops when it's closed. It's still a React
+  client component that every public page loads and hydrates.
 - **Unused host-based loader:**
   `apps/sites/app/sites/[teamId]/embed/chat.js/route.ts` serves a script
   meant for external sites (`<script src="https://<team-host>/embed/chat.js">`,
@@ -94,10 +98,10 @@ error.
 - **Anonymous chats:** the only link to a visitor is a token in
   localStorage. No identity, account or context, and no way to reach them
   after they close the tab.
-- **Eager loading and polling:** `ChatWidget` and the old loader create the
-  iframe on page load, and the widget polls every 2s whenever a conversation
-  exists, even with the panel closed. Fine on a marketing site; wasteful in a
-  dashboard every user keeps open.
+- **Eager loading and polling (old loader only):** the unused `chat.js`
+  loader creates the iframe on page load and keeps it (hidden) when closed,
+  so the widget polls every 2s whenever a conversation exists. `ChatWidget`
+  doesn't have this problem.
 - **No current users:** nobody uses the chat today, FrontLit included, so
   the widget can be reworked freely.
 
@@ -304,9 +308,10 @@ team ID passed in an `init` call.** The fixed address is
 
   Calls made before the loader finishes go into `q`, and the loader replays
   them in order.
-- **One code path.** FrontLit-hosted sites get the same snippet injected by
-  the site layout, and `ChatWidget` is removed. Nobody uses the chat yet, so
-  there's nothing to keep working in parallel.
+- **One loader, two delivery modes** (details in §6.8). FrontLit-hosted
+  sites use the same loader with inline settings, served from the site's own
+  origin, and `ChatWidget` is removed. Nobody uses the chat yet, so there's
+  nothing to keep working in parallel.
 - **Remove the old loader:** delete `embed/chat.js/route.ts`, its entry in
   the edge-cache rules (`apps/sites/lib/edge-cache.ts` and its test), and
   update architecture.md §7.3. There's no production deployment yet, so no
@@ -319,9 +324,10 @@ team ID passed in an `init` call.** The fixed address is
   only, so it can't leak to the next person on a shared computer, survive the
   host app's logout, or show up in the anonymous widget on the marketing
   site. The host mints a fresh session on every Help click.
-- **Poll only while the panel is open and the tab is visible.** Today the
-  widget polls every 2s whenever a conversation exists, even with the panel
-  closed. The same open-and-visible condition drives `seenAt` (§6.7).
+- **Poll only while the panel is open and the tab is visible.** Closing the
+  panel removes the iframe (as `ChatWidget` does today), and a hidden tab
+  pauses polling. The same open-and-visible condition drives `seenAt`
+  (§6.7).
 
 ### 6.4 Requester on the ticket, contact in SendLit
 
@@ -401,6 +407,74 @@ The AI's reply is a head start, not a gate the user has to get past.
 - Anonymous chats have no email address, so their replies only show up in
   the widget.
 
+### 6.8 Page speed: public pages must not get slower
+
+Fast, SEO-friendly sites and docs are FrontLit's main selling point, so the
+widget must cost public pages nothing measurable.
+
+**Where the loader lives and how it's served**
+
+| What          | Where                                                 |
+| ------------- | ----------------------------------------------------- |
+| Loader source | `apps/sites/embed/chat.ts` (plain TS, no React)       |
+| Built loader  | `apps/sites/public/embed/chat.js` (gitignored)        |
+| Settings      | `apps/sites/app/embed/[teamId]/config/route.ts`       |
+| Chat iframe   | `apps/sites/app/embed/[teamId]/chat/page.tsx`         |
+
+`bun build apps/sites/embed/chat.ts --minify` runs before `next build` (and
+in watch mode during `dev`). The loader is identical for every team, so
+it's a static file, not a route handler. The sites image ships it; there's
+nothing new to deploy.
+
+**Two delivery modes for the same loader**
+
+| | External sites (CourseLit) | FrontLit-hosted sites and docs |
+| --- | --- | --- |
+| Loader URL | `https://embed.frontlit.app/chat.js` | `/embed/chat.js` on the site's own host |
+| Settings | fetched from `embed.frontlit.app/<teamId>/config` | written into `init` by the site layout: `FrontLit.push("init", { teamId, config })` |
+| When it loads | `async` | after idle (`runWhenIdle`, as `ChatWidget` does today) |
+| Requests to `embed.frontlit.app` before open | loader + settings | **none** |
+
+- The **loader** (`/embed/chat.js`) is served on every host because it's our
+  own static code running in the host page either way. The **chat iframe**
+  (`/<teamId>/chat`) stays on `embed.frontlit.app` only, so the security
+  reasoning in §6.3 still holds.
+- Hosted pages don't open a connection to a new origin (DNS + TLS, roughly
+  100–300 ms on mobile) or wait for a settings request.
+- Replacing the React `ChatWidget` with a small vanilla loader started after
+  idle means less JavaScript to load and hydrate than today.
+
+**Budget**
+
+- Loader ≤ 5 KB gzipped, no dependencies, no React. Checked in CI.
+- No work before idle on hosted pages; `async` on external sites.
+- The bubble is `position: fixed` and inserted outside the page flow, so it
+  never shifts layout (CLS 0).
+- Chatbot disabled → nothing is added to the page (as today).
+- The iframe loads only on open. On bubble hover or focus, the loader adds a
+  `preconnect` to `embed.frontlit.app`, so opening stays quick and only
+  visitors about to chat pay for the connection.
+
+**Caching**
+
+| Resource                    | Cache-Control                                                   |
+| --------------------------- | --------------------------------------------------------------- |
+| `chat.js` (both hosts)      | `public, max-age=300`, longer at the CDN, purged on deploy      |
+| `<teamId>/config`           | short browser cache, purged when chatbot settings are saved     |
+| `<teamId>/chat` (iframe)    | `private, no-store` (dynamic; the token is in the URL fragment) |
+
+With settings inlined into hosted pages, saving chatbot settings must also
+purge the team's cached pages, using the existing edge-cache tags
+(`apps/sites/lib/edge-cache.ts`). Pages stay host-independent and
+cacheable.
+
+**SEO:** no iframe or extra content is added to the HTML, and the bubble is
+a `<button>` with an `aria-label`. Crawlers see nothing new.
+
+**Measuring:** compare LCP, CLS and INP on a hosted page and a docs page
+before and after, with Lighthouse and the existing `WebVitalsBeacon` RUM
+data the sites app already collects.
+
 ## 7. Data model changes
 
 | Table              | Change                                                       |
@@ -451,7 +525,13 @@ phase 2.
 - [ ] Static loader: `init` (`teamId`, `launcher`), `window.FrontLit`
       (`open`, `close`), replay queued calls, iframe created on first open.
 - [ ] Widget: poll only while the panel is open and the tab is visible.
-- [ ] FrontLit-hosted sites use the same snippet; remove `ChatWidget`.
+- [ ] Loader build (`bun build` before `next build`, watch in `dev`); serve
+      `/embed/chat.js` on every host and on `embed.frontlit.app/chat.js`
+      with the caching in §6.8; CI check on gzipped size (≤ 5 KB).
+- [ ] FrontLit-hosted sites: loader from the site's own origin after idle,
+      settings inlined into `init`, `preconnect` on bubble hover/focus;
+      remove `ChatWidget`. Saving chatbot settings purges the team's cached
+      pages.
 - [ ] Remove the old host-based loader (`embed/chat.js/route.ts`, its
       edge-cache handling and test) and update architecture.md §7.3.
 
@@ -526,6 +606,12 @@ phase 2.
       existing embed.
 - [ ] No iframe is loaded and no polling happens until the user opens the
       widget; polling stops when the panel is closed or the tab is hidden.
+- [ ] On a FrontLit-hosted page, no request goes to `embed.frontlit.app`
+      before the chat is opened.
+- [ ] LCP, CLS and INP on a hosted page and a docs page don't regress
+      compared with before (Lighthouse and `WebVitalsBeacon` data); CLS
+      from the bubble is 0.
+- [ ] The loader is ≤ 5 KB gzipped, enforced in CI.
 - [ ] After logging out of CourseLit (or on a shared browser), the previous
       user's support chat isn't visible in the widget.
 - [ ] A `support:sessions` key can't list or read tickets; an expired or
