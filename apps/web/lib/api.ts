@@ -128,6 +128,8 @@ export interface ApiKey {
   id: string;
   keyPrefix: string;
   name?: string | null;
+  /** `support:sessions` keys can only start in-app support chats. */
+  scope?: "full" | "support:sessions";
   createdAt?: string | null;
 }
 
@@ -184,9 +186,13 @@ export function listTeamKeys(teamId: string) {
   return unwrap<{ items: ApiKey[] }>(client.teams.listKeys({ params: { teamId } }));
 }
 
-export function createTeamKey(teamId: string, name: string) {
+export function createTeamKey(
+  teamId: string,
+  name: string,
+  scope: "full" | "support:sessions" = "full",
+) {
   return unwrap<CreatedApiKey>(
-    client.teams.createKey({ params: { teamId }, body: { name } }),
+    client.teams.createKey({ params: { teamId }, body: { name, scope } }),
   );
 }
 
@@ -1355,6 +1361,12 @@ export interface Ticket {
   requesterEmail: string | null;
   requesterName?: string | null;
   source: TicketSource;
+  /** From an in-app support session (docs/embedded-support.md §6.4). */
+  requesterExternalId?: string | null;
+  requesterAccount?: { id: string; name?: string; url?: string } | null;
+  contactId?: string | null;
+  /** Incident context from the customer's app. Untrusted: text only. */
+  context?: Record<string, unknown> | null;
   assigneeAccountId?: string | null;
   aiState?: "idle" | "generating" | "waiting" | "escalated" | "taken_over";
   lastMessageAt: string | null;

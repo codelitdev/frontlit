@@ -193,12 +193,12 @@ const impl = s.router(contract.teams, {
       const {
         apiKey: { keyHash: _, teamId: _t, ...apiKey },
         secret,
-      } = await createApiKey(resolved.team.id, body.name, tx);
+      } = await createApiKey(resolved.team.id, body.name, tx, body.scope);
       await insertAuditEvent(tx, {
         eventType: "api_key.created",
         teamPublicId: resolved.team.teamId,
         actorAccountId: (req as any).accountId,
-        metadata: { keyPrefix: apiKey.keyPrefix },
+        metadata: { keyPrefix: apiKey.keyPrefix, scope: apiKey.scope },
       });
       return { apiKey, secret };
     });

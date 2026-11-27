@@ -56,6 +56,7 @@ import {
 import { useSetBreadcrumb } from "@/components/workspace/breadcrumb-context";
 import { useWorkspaceAccess } from "@/components/workspace/workspace-access";
 import { cn } from "@/lib/utils";
+import { RequesterDetails } from "@/components/workspace/requester-details";
 import { workspaceContentPath } from "@frontlit/api-contract";
 
 type InboxFilter = "open" | "escalated" | "agent" | "closed";
@@ -447,6 +448,10 @@ export default function InboxPage() {
         ticket.subject,
         requesterLabel(ticket),
         ticket.requesterEmail,
+        // The customer's own user ID and account (docs/embedded-support.md §6.4).
+        ticket.requesterExternalId,
+        ticket.requesterAccount?.name,
+        ticket.requesterAccount?.id,
         sourceLabel(ticket),
       ]
         .filter(Boolean)
@@ -853,6 +858,8 @@ export default function InboxPage() {
                 )}
               </div>
             </header>
+
+            <RequesterDetails ticket={selectedTicket} />
 
             <div
               ref={threadRef}

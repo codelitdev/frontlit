@@ -492,6 +492,8 @@ export const REST_OPERATION_POLICIES = {
     MCP_SCOPES.helpdeskWrite,
   ),
   "tickets.update": teamPermission("helpdesk:write", MCP_SCOPES.helpdeskWrite),
+  // Any team API key, including a `support:sessions` one (auth/middleware.ts).
+  "supportSessions.create": teamPermission("helpdesk:write", MCP_SCOPES.helpdeskWrite),
 
   "domains.get": teamPermission("domains:read", MCP_SCOPES.domainsRead),
   "domains.setSubdomain": teamPermission("domains:write", MCP_SCOPES.domainsWrite),

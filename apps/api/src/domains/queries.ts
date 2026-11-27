@@ -69,7 +69,15 @@ export function getPlatformSiteDomain(): string {
 /** The dedicated chat widget host, `embed.<platform domain>`
  * (docs/embedded-support.md §6.3). Served by apps/sites, not by any team. */
 export function getEmbedHost(): string {
-  return `embed.${getPlatformSiteDomain()}`;
+  return new URL(getEmbedOrigin()).hostname;
+}
+
+/** Origin of the chat widget host; matches apps/sites `EMBED_ORIGIN`.
+ * Defaults to `https://embed.<platform domain>`. */
+export function getEmbedOrigin(): string {
+  return (
+    process.env.EMBED_ORIGIN || `https://embed.${getPlatformSiteDomain()}`
+  ).replace(/\/+$/, "");
 }
 
 /** FrontLit's own team, so it can dogfood the platform: it may claim

@@ -127,6 +127,13 @@
       "when": 1795422215977,
       "tag": "0017_block_ai_training",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795786886730,
+      "tag": "0018_support_sessions",
+      "breakpoints": true
     }
   ]
 }

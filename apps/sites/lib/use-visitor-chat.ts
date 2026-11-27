@@ -53,6 +53,17 @@ function extractText(content: unknown): string {
   return `${ownText}${childText}`;
 }
 
+/** The in-app support session token the embed loader puts in this
+ * iframe's URL fragment (docs/embedded-support.md §6.3), or null. */
+function sessionTokenFromHash(): string | null {
+  if (typeof window === "undefined") return null;
+  const token = new URLSearchParams(window.location.hash.slice(1)).get("token");
+  return token || null;
+}
+
+const SESSION_EXPIRED =
+  "This support session has expired. Close the chat and open Help again.";
+
 function newId(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -60,6 +71,12 @@ function newId(prefix: string) {
 /**
  * Visitor chat conversation state for the public widget / embed panel.
  * Persists as a chatbot ticket so agents can reply from the shared inbox.
+ *
+ * Two modes:
+ * - Anonymous: the conversation is remembered in localStorage.
+ * - In-app support session (`#token=` in the URL): identity comes from the
+ *   host app's server; the conversation lives in memory only, so it can't
+ *   leak to the next person on a shared computer (§6.3).
  */
 export function useVisitorChat({
   apiBaseUrl,
@@ -92,6 +109,33 @@ export function useVisitorChat({
     () => `chat:${apiBaseUrl}:${teamId}`,
     [apiBaseUrl, teamId],
   );
+  const sessionToken = useMemo(() => sessionTokenFromHash(), []);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  /** Remembers the conversation: localStorage for anonymous chats, memory
+   * only for session chats. */
+  const rememberConversation = useCallback(
+    (next: Conversation | null) => {
+      setConversation(next);
+      if (sessionToken) return;
+      if (next) localStorage.setItem(storageKey, JSON.stringify(next));
+      else localStorage.removeItem(storageKey);
+    },
+    [sessionToken, storageKey],
+  );
+
+  const expireSession = useCallback(() => {
+    setSessionExpired(true);
+    setMessages((prev) => [
+      ...prev.filter((message) => message.id !== "session-expired"),
+      {
+        id: "session-expired",
+        role: "assistant",
+        content: SESSION_EXPIRED,
+        error: true,
+      },
+    ]);
+  }, []);
 
   const listRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -137,8 +181,7 @@ export function useVisitorChat({
       url.searchParams.set("token", current.token);
       const response = await fetch(url, { cache: "no-store" });
       if (response.status === 401 || response.status === 404) {
-        localStorage.removeItem(storageKey);
-        setConversation(null);
+        rememberConversation(null);
         setMessages(
           greeting
             ? [
@@ -183,10 +226,51 @@ export function useVisitorChat({
       }
       setMessages(next);
     },
-    [apiBaseUrl, greeting, storageKey, teamId],
+    [apiBaseUrl, greeting, rememberConversation, teamId],
   );
 
+  // Session chat: resume the requester's open ticket, or start blank with
+  // the host app's prefilled message. Nothing is created until they send.
   useEffect(() => {
+    if (!sessionToken) return;
+    let cancelled = false;
+    void (async () => {
+      const response = await fetch(
+        `${apiBaseUrl}/public/${teamId}/support-sessions/open`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ token: sessionToken }),
+        },
+      ).catch(() => null);
+      if (cancelled || !response) return;
+      if (response.status === 401) {
+        expireSession();
+        return;
+      }
+      if (!response.ok) return;
+      const opened = (await response.json()) as {
+        ticket: { ticketId: string; accessToken: string } | null;
+        prefill: string | null;
+      };
+      if (cancelled) return;
+      if (opened.ticket) {
+        setIsHydrating(true);
+        setConversation({
+          id: opened.ticket.ticketId,
+          token: opened.ticket.accessToken,
+        });
+      } else if (opened.prefill) {
+        setInput((current) => current || opened.prefill!);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBaseUrl, expireSession, sessionToken, teamId]);
+
+  useEffect(() => {
+    if (sessionToken) return;
     const stored = localStorage.getItem(storageKey);
     if (!stored) return;
     try {
@@ -198,7 +282,7 @@ export function useVisitorChat({
     } catch {
       localStorage.removeItem(storageKey);
     }
-  }, [storageKey]);
+  }, [sessionToken, storageKey]);
 
   useEffect(() => {
     if (!conversation) return;
@@ -226,6 +310,7 @@ export function useVisitorChat({
   const sendMessage = async () => {
     const question = input.trim();
     if ((!question && pendingFiles.length === 0) || isSending || attaching) return;
+    if (sessionExpired) return;
 
     const history = messages
       .filter((m) => !m.error)
@@ -246,6 +331,7 @@ export function useVisitorChat({
       inputRef.current.style.height = "auto";
     }
 
+    let latest = conversation;
     try {
       const res = await fetch(`${apiBaseUrl}/public/${teamId}/chat`, {
         method: "POST",
@@ -259,9 +345,15 @@ export function useVisitorChat({
                 conversationId: conversation.id,
                 conversationToken: conversation.token,
               }
-            : {}),
+            : sessionToken
+              ? { sessionToken }
+              : {}),
         }),
       });
+      if (res.status === 401 && !conversation && sessionToken) {
+        expireSession();
+        return;
+      }
       if (!res.ok) throw new Error(`Chat failed (${res.status})`);
       const body = (await res.json()) as {
         outcome?: "answered" | "human_only" | "escalated";
@@ -275,8 +367,8 @@ export function useVisitorChat({
         id: body.conversationId,
         token: body.conversationToken,
       };
-      localStorage.setItem(storageKey, JSON.stringify(nextConversation));
-      setConversation(nextConversation);
+      latest = nextConversation;
+      rememberConversation(nextConversation);
       setPendingFiles([]);
       if (body.answer) {
         setMessages((prev) => [
@@ -314,17 +406,8 @@ export function useVisitorChat({
       ]);
     } finally {
       setIsSending(false);
-      const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored) as Conversation;
-          if (parsed.id && parsed.token) {
-            void loadConversation(parsed);
-          }
-        } catch {
-          // Keep the optimistic thread if hydration fails.
-        }
-      }
+      // Replace the optimistic bubbles with the persisted thread.
+      if (latest) void loadConversation(latest).catch(() => undefined);
     }
   };
 
@@ -378,15 +461,14 @@ export function useVisitorChat({
           file,
           conversationId,
           conversationToken,
+          sessionToken,
         });
         conversationId = uploaded.conversationId;
         conversationToken = uploaded.conversationToken;
         added.push(uploaded.attachment);
       }
       if (conversationId && conversationToken) {
-        const next = { id: conversationId, token: conversationToken };
-        localStorage.setItem(storageKey, JSON.stringify(next));
-        setConversation(next);
+        rememberConversation({ id: conversationId, token: conversationToken });
       }
       setPendingFiles((current) => [...current, ...added].slice(0, 5));
     } finally {
@@ -395,7 +477,10 @@ export function useVisitorChat({
   }
 
   const canSend =
-    (Boolean(input.trim()) || pendingFiles.length > 0) && !isSending && !attaching;
+    (Boolean(input.trim()) || pendingFiles.length > 0) &&
+    !isSending &&
+    !attaching &&
+    !sessionExpired;
 
   /** True once the visitor has more than a greeting (or is mid-reply). */
   const hasThread =

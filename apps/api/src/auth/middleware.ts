@@ -14,6 +14,11 @@ import { runWithOAuthClient } from "./oauth-client-context";
 
 type AuthResolver = (input: AuthInput) => Promise<AuthResult>;
 
+function isSupportSessionCreate(request: Request): boolean {
+  const path = (request.originalUrl || request.url).split("?")[0].replace(/\/+$/, "");
+  return request.method === "POST" && path === "/support-sessions";
+}
+
 function defaultResolver(mode: "rest" | "mcp"): AuthResolver {
   const expectedAudience = mode === "mcp" ? mcpResourceUrl : authBaseUrl;
   return (input) => resolveAuth(input, undefined, { expectedAudience });
@@ -50,6 +55,22 @@ export function createAuthMiddleware(
           error: "unauthorized",
           error_description:
             "MCP requires an OAuth bearer token or x-frontlit-apikey; browser sessions are not accepted.",
+        });
+        return;
+      }
+
+      // A support-sessions key may only mint support sessions over REST
+      // (docs/embedded-support.md §8). Checked here, where every API-key
+      // request passes, so no other route or MCP tool can forget it.
+      if (
+        result.kind === "apikey" &&
+        result.apiKeyScope === "support:sessions" &&
+        !(mode === "rest" && isSupportSessionCreate(request))
+      ) {
+        response.status(403).json({
+          error: "insufficient_scope",
+          error_description:
+            "This API key can only create support sessions (POST /support-sessions).",
         });
         return;
       }

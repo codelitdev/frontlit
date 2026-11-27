@@ -114,6 +114,12 @@ import {
   updateChatbotSettingsBodySchema,
 } from "./schemas/chatbot";
 import {
+  createSupportSessionBodySchema,
+  openSupportSessionBodySchema,
+  openSupportSessionResponseSchema,
+  supportSessionSchema,
+} from "./schemas/support";
+import {
   inboxAiSettingsSchema,
   updateInboxAiSettingsBodySchema,
 } from "./schemas/inbox-ai";
@@ -1263,6 +1269,21 @@ const publicContract = c.router(
       description:
         "Records the visitor's rating on a bot answer in their conversation. A thumbs down also files the question under documentation improvements so the team can see which questions the docs and pages don't answer well.",
     },
+    openSupportSession: {
+      method: "POST",
+      path: "/public/:teamId/support-sessions/open",
+      body: openSupportSessionBodySchema,
+      responses: {
+        200: openSupportSessionResponseSchema,
+        401: errorSchema,
+        403: errorSchema,
+        404: errorSchema,
+        429: errorSchema,
+      },
+      summary: "Open the chat widget for an in-app support session",
+      description:
+        "Called by the chat widget with the session token from `POST /support-sessions`. Returns the requester's open chat with a fresh access token, or no ticket and the prefilled message. Creates nothing; the first chat message (with `sessionToken`) creates the ticket. 401 for a missing, expired or other-team token.",
+    },
     captureLead: {
       method: "POST",
       path: "/public/:teamId/leads",
@@ -1403,6 +1424,28 @@ const ticketsContract = c.router(
     },
   },
   { metadata: { tag: "Help Desk" } },
+);
+
+/** In-app support sessions (docs/embedded-support.md §6.2): minted by the
+ * host app's server, never the browser. */
+const supportSessionsContract = c.router(
+  {
+    create: {
+      method: "POST",
+      path: "/support-sessions",
+      body: createSupportSessionBodySchema,
+      responses: {
+        201: supportSessionSchema,
+        400: errorSchema,
+        403: errorSchema,
+        404: errorSchema,
+      },
+      summary: "Start an in-app support session for a signed-in user",
+      description:
+        "Call from your server when a signed-in user asks for help, then pass `token` to `FrontLit.open({ token })` in the browser. Identity, account and context come from your server, so the browser can't fake them. Creates no ticket: the user's first message does, or continues their open chat. Accepts any team API key; a key with the `support:sessions` scope can call nothing else.",
+    },
+  },
+  { metadata: { tag: "Support sessions" } },
 );
 
 /** Per-team RAG chatbot settings. Its LLM provider is configured separately
@@ -1921,6 +1964,7 @@ type ContractShape = {
   ai: typeof aiContract;
   inboxAi: typeof inboxAiContract;
   tickets: typeof ticketsContract;
+  supportSessions: typeof supportSessionsContract;
   domains: typeof domainsContract;
   settings: typeof settingsContract;
   public: typeof publicContract;
@@ -1941,6 +1985,7 @@ export const contract: ContractShape = c.router({
   ai: aiContract,
   inboxAi: inboxAiContract,
   tickets: ticketsContract,
+  supportSessions: supportSessionsContract,
   domains: domainsContract,
   settings: settingsContract,
   public: publicContract,

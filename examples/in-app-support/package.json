@@ -1,0 +1,10 @@
+{
+  "name": "@frontlit/in-app-support-example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A minimal host app that embeds FrontLit's in-app support chat: server-minted support sessions plus the chat snippet",
+  "scripts": {
+    "dev": "node server.mjs"
+  }
+}

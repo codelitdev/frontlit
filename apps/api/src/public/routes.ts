@@ -32,6 +32,15 @@ import {
   toPublicAttachment,
 } from "../tickets/attachments";
 import { omitInternal, serializeDates } from "../utils/public";
+import {
+  findOpenSessionTicket,
+  findSupportSession,
+  openSupportSession,
+  refreshTicketContext,
+  sessionTicketFields,
+  type SupportSession,
+} from "../support/sessions";
+import { mintAccessGrant } from "../inbox-ai/grants";
 import { enqueueOutboxJob } from "../email/outbox";
 import {
   addTicketMessage,
@@ -62,6 +71,11 @@ import {
 } from "../inbox-ai/rate-limit";
 
 const MINUTE = 60_000;
+
+const SESSION_EXPIRED = {
+  status: 401 as const,
+  body: { error: "This support session has expired. Open Help again to continue." },
+};
 const DAY = 24 * 60 * 60 * 1000;
 
 const chatLimiter = postgresPublicLimit({
@@ -284,6 +298,11 @@ function toPublicTicketThread(
         "aiTriggerMessageId",
         "aiStopReason",
         "aiStoppedAt",
+        // Host-app data for agents (docs/embedded-support.md §6.4-6.5).
+        "requesterExternalId",
+        "requesterAccount",
+        "contactId",
+        "context",
       ),
     ),
     messages: messages.map((m) => ({
@@ -716,7 +735,20 @@ const impl = s.router(contract.public, {
 
       let conversationId = body.conversationId;
       let conversationToken = body.conversationToken;
-      if (conversationId && conversationToken) {
+      const session =
+        !conversationId && body.sessionToken
+          ? await findSupportSession(team.id, body.sessionToken)
+          : null;
+      if (!conversationId && body.sessionToken && !session) return SESSION_EXPIRED;
+      if (session) {
+        // A file sent first starts the session's ticket (or reuses the open one).
+        const open = await findOpenSessionTicket(session);
+        const started = open
+          ? { ticket: open, token: await mintAccessGrant(team.id, open.id) }
+          : await createChatConversation(team.id, session);
+        conversationId = started.ticket.ticketId;
+        conversationToken = started.token;
+      } else if (conversationId && conversationToken) {
         const ticket = await getTicketByTicketId(team.id, conversationId);
         if (!ticket || ticket.source !== "chatbot") {
           return {
@@ -830,21 +862,39 @@ const impl = s.router(contract.public, {
       let ticket: Awaited<ReturnType<typeof getTicketByTicketId>>;
       let conversationToken: string;
       let triggerMessageId: string;
+      // An existing chat to append to: the visitor's conversation, or the
+      // session requester's open ticket.
+      let existing: { ticket: NonNullable<typeof ticket>; token: string } | null = null;
+      let session: SupportSession | null = null;
 
       if (body.conversationId && body.conversationToken) {
-        ticket = await getTicketByTicketId(team.id, body.conversationId);
-        if (!ticket || ticket.source !== "chatbot") {
+        const found = await getTicketByTicketId(team.id, body.conversationId);
+        if (!found || found.source !== "chatbot") {
           return {
             status: 404,
             body: { error: "Conversation not found" },
           };
         }
-        if (!(await verifyTicketAccess(ticket, body.conversationToken))) {
+        if (!(await verifyTicketAccess(found, body.conversationToken))) {
           return {
             status: 401,
             body: { error: "Invalid conversation token" },
           };
         }
+        existing = { ticket: found, token: body.conversationToken };
+      } else if (body.sessionToken) {
+        session = await findSupportSession(team.id, body.sessionToken);
+        if (!session) return SESSION_EXPIRED;
+        // Another tab may have started the chat since the widget opened.
+        const open = await findOpenSessionTicket(session);
+        if (open) {
+          await refreshTicketContext(open.id, session);
+          existing = { ticket: open, token: await mintAccessGrant(team.id, open.id) };
+        }
+      }
+
+      if (existing) {
+        ticket = existing.ticket;
         const appended = await addTicketMessage({
           teamId: team.id,
           ticketDbId: ticket.id,
@@ -852,7 +902,7 @@ const impl = s.router(contract.public, {
           content: textTicketMessage(message || "Sent an attachment"),
         });
         triggerMessageId = appended.id;
-        conversationToken = body.conversationToken;
+        conversationToken = existing.token;
         if (attachmentIds.length) {
           await attachFilesToMessage({
             teamId: team.id,
@@ -869,6 +919,8 @@ const impl = s.router(contract.public, {
           requesterEmail: null,
           source: "chatbot",
           scheduleAi: false,
+          // In-app chats carry who is asking and what failed (§6.4-6.5).
+          ...(session ? { ...sessionTicketFields(session), sendReceipt: false } : {}),
         });
         ticket = created.ticket;
         conversationToken = created.token;
@@ -922,6 +974,22 @@ const impl = s.router(contract.public, {
       });
       if (!rated) return { status: 404, body: { error: "Answer not found" } };
       return { status: 200, body: rated };
+    },
+  },
+  openSupportSession: {
+    middleware: [chatLimiter],
+    handler: async ({ params, body }) => {
+      const team = await findTeamByPublicId(params.teamId);
+      if (!team) return { status: 404, body: { error: "Team not found" } };
+      const settings = await getChatbotSettings(team.id);
+      if (!settings.enabled)
+        return {
+          status: 403,
+          body: { error: "Chatbot is not enabled for this team" },
+        };
+      const opened = await openSupportSession(team.id, body.token);
+      if (!opened) return SESSION_EXPIRED;
+      return { status: 200, body: opened };
     },
   },
   captureLead: {

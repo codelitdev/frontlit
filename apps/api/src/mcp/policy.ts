@@ -174,6 +174,7 @@ const toolScopes = {
   list_tickets: MCP_SCOPES.helpdeskRead,
   get_ticket: MCP_SCOPES.helpdeskRead,
   create_ticket: MCP_SCOPES.helpdeskWrite,
+  create_support_session: MCP_SCOPES.helpdeskWrite,
   reply_to_ticket: MCP_SCOPES.helpdeskWrite,
   update_ticket_status: MCP_SCOPES.helpdeskWrite,
   assign_ticket: MCP_SCOPES.helpdeskWrite,

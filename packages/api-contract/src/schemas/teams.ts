@@ -19,10 +19,17 @@ export const teamMembershipSchema = teamSchema.extend({
 
 /** The key's secret is stored hashed and never returned after creation —
  * list/read surfaces only ever see `keyPrefix` (e.g. `fl_live_a1b2`). */
+/** What an API key can do. `full`: everything a key can do on its team.
+ * `support:sessions`: only `POST /support-sessions`, for the host app's
+ * server (docs/embedded-support.md §8). */
+export const apiKeyScopeSchema = z.enum(["full", "support:sessions"]);
+export type ApiKeyScope = z.infer<typeof apiKeyScopeSchema>;
+
 export const apiKeySchema = z.object({
   id: z.string(),
   keyPrefix: z.string(),
   name: z.string().nullable().optional(),
+  scope: apiKeyScopeSchema.optional(),
   createdAt: z.string().nullable().optional(),
 });
 
@@ -53,7 +60,10 @@ export const createTeamBodySchema = z.object({
   pages: z.array(provisionPageItemSchema).optional(),
 });
 export const renameTeamBodySchema = z.object({ name: z.string().min(1) });
-export const createApiKeyBodySchema = z.object({ name: z.string().min(1) });
+export const createApiKeyBodySchema = z.object({
+  name: z.string().min(1),
+  scope: apiKeyScopeSchema.optional().default("full"),
+});
 
 export const provisionTeamBodySchema = z.object({
   externalId: z.string().min(1),

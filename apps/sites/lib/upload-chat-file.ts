@@ -15,6 +15,8 @@ export async function uploadChatFile(input: {
   file: File;
   conversationId?: string;
   conversationToken?: string;
+  /** In-app support session: a file sent first starts the session's ticket. */
+  sessionToken?: string | null;
 }): Promise<{
   attachment: ChatAttachment;
   conversationId: string;
@@ -28,6 +30,9 @@ export async function uploadChatFile(input: {
       body: JSON.stringify({
         conversationId: input.conversationId,
         conversationToken: input.conversationToken,
+        ...(!input.conversationId && input.sessionToken
+          ? { sessionToken: input.sessionToken }
+          : {}),
       }),
     },
   );

@@ -113,12 +113,22 @@ export type SendlitContact = {
   name?: string | null;
   tags: string[];
   subscribed: boolean;
+  customFields?: Record<string, unknown>;
   createdAt?: string;
 };
 
+export type SendlitCustomFields = Record<string, string | number | boolean>;
+
+/** Find-or-create by email. SendLit applies `customFields` only when it
+ * creates the contact; use `updateContact` to change an existing one. */
 export async function upsertContact(
   apiKey: string,
-  input: { email: string; name?: string; tags?: string[] },
+  input: {
+    email: string;
+    name?: string;
+    tags?: string[];
+    customFields?: SendlitCustomFields;
+  },
 ) {
   return request<SendlitContact>("/contacts", {
     method: "POST",
@@ -165,7 +175,11 @@ export async function getContact(apiKey: string, contactId: string) {
 export async function updateContact(
   apiKey: string,
   contactId: string,
-  patch: { name?: string; subscribed?: boolean },
+  patch: {
+    name?: string;
+    subscribed?: boolean;
+    customFields?: Record<string, unknown>;
+  },
 ) {
   return request<SendlitContact>(`/contacts/${contactId}`, {
     method: "PATCH",

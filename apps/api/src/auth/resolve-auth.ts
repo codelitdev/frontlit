@@ -54,6 +54,8 @@ export type AuthResult =
       account: null;
       apiKeyId: string;
       teamId: string;
+      /** Missing means `full` (older callers and test doubles). */
+      apiKeyScope?: "full" | "support:sessions";
     }
   | { status: "invalid_token" }
   | { status: "unauthorized" }
@@ -210,6 +212,7 @@ export async function resolveAuth(
       account: null,
       apiKeyId: apiKey.id,
       teamId: apiKey.teamId,
+      apiKeyScope: apiKey.scope,
     };
   }
 

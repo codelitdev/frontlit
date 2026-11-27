@@ -20,6 +20,13 @@ import { DeleteConfirm } from "@/components/workspace/delete-confirm";
 import { Button } from "@/components/ui/codelit/button";
 import { Input } from "@/components/ui/codelit/input";
 import { Card, CardContent } from "@/components/ui/codelit/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/codelit/select";
 import { Banner } from "@/components/workspace/banner";
 import { toast } from "sonner";
 import { ApiError } from "@/lib/api-client";
@@ -200,6 +207,7 @@ function TeamCard({
   const [name, setName] = useState(team.name);
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [newKeyName, setNewKeyName] = useState("");
+  const [newKeyScope, setNewKeyScope] = useState<"full" | "support:sessions">("full");
   const [createdKey, setCreatedKey] = useState<CreatedApiKey | null>(null);
   const [expanded, setExpanded] = useState(false);
   const canUpdate = team.isOwner || team.effectivePermissions.includes("team:update");
@@ -250,9 +258,10 @@ function TeamCard({
     e.preventDefault();
     if (!canManageKeys || !newKeyName.trim()) return;
     try {
-      const key = await createTeamKey(team.teamId, newKeyName.trim());
+      const key = await createTeamKey(team.teamId, newKeyName.trim(), newKeyScope);
       setCreatedKey(key);
       setNewKeyName("");
+      setNewKeyScope("full");
       await refreshKeys();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Could not create API key");
@@ -321,8 +330,9 @@ function TeamCard({
         {canManageKeys && expanded && (
           <div className="space-y-2 border-t pt-3">
             <p className="text-xs text-muted-foreground">
-              Each API key has full-team authority. Only the owner can create or revoke
-              keys.
+              A full-access key has full-team authority. A support sessions key can only
+              start in-app support chats from your product&apos;s server. Only the owner
+              can create or revoke keys.
             </p>
             {createdKey && (
               <div className="rounded-md border border-warning/30 bg-warning-soft p-2 text-xs">
@@ -337,6 +347,12 @@ function TeamCard({
                 <span>
                   {key.name || "Unnamed key"}{" "}
                   <code className="text-muted-foreground">{key.keyPrefix}…</code>
+                  {key.scope === "support:sessions" && (
+                    <span className="text-xs text-muted-foreground">
+                      {" "}
+                      · Support sessions only
+                    </span>
+                  )}
                 </span>
                 <Button
                   variant="ghost"
@@ -353,8 +369,23 @@ function TeamCard({
                 value={newKeyName}
                 onChange={(e) => setNewKeyName(e.target.value)}
                 placeholder="Key name"
+                aria-label="Key name"
                 className="h-8 flex-1 text-xs"
               />
+              <Select
+                value={newKeyScope}
+                onValueChange={(value) => setNewKeyScope(value as typeof newKeyScope)}
+              >
+                <SelectTrigger className="h-8 w-48 text-xs" aria-label="Key access">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="full">Full access</SelectItem>
+                  <SelectItem value="support:sessions">
+                    Support sessions only
+                  </SelectItem>
+                </SelectContent>
+              </Select>
               <Button type="submit" variant="outline" size="sm">
                 Create key
               </Button>

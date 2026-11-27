@@ -191,6 +191,12 @@ export function registerTeamTools(server: McpToolRegistrar): void {
         "Creates a new API key for the current team. The full key value is only returned once — store it securely.",
       inputSchema: {
         name: z.string().min(1).describe("Human-readable label for this key"),
+        scope: z
+          .enum(["full", "support:sessions"])
+          .optional()
+          .describe(
+            "full (default) or support:sessions: a key that can only mint in-app support sessions from the host app's server",
+          ),
       },
       outputSchema: createdApiKeySchema,
       annotations: {
@@ -206,12 +212,20 @@ export function registerTeamTools(server: McpToolRegistrar): void {
         const { apiKey, secret } = await withDbTransaction(async (tx) => {
           const team = await findTeamById(teamId, tx);
           if (!team) throw new Error("Team not found");
-          const created = await createApiKey(teamId, args.name, tx);
+          const created = await createApiKey(
+            teamId,
+            args.name,
+            tx,
+            args.scope ?? "full",
+          );
           await insertAuditEvent(tx, {
             eventType: "api_key.created",
             teamPublicId: team.teamId,
             actorAccountId: account.id,
-            metadata: { keyPrefix: created.apiKey.keyPrefix },
+            metadata: {
+              keyPrefix: created.apiKey.keyPrefix,
+              scope: created.apiKey.scope,
+            },
           });
           return created;
         });
@@ -221,6 +235,7 @@ export function registerTeamTools(server: McpToolRegistrar): void {
             key: secret,
             keyPrefix: apiKey.keyPrefix,
             name: apiKey.name,
+            scope: apiKey.scope,
             createdAt: apiKey.createdAt,
           }),
         );

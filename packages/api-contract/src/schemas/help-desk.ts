@@ -37,6 +37,18 @@ export const ticketSchema = z.object({
   requesterEmail: z.string().nullable(),
   requesterName: z.string().nullable().optional(),
   source: ticketSourceSchema,
+  /** From an in-app support session (docs/embedded-support.md §6.4):
+   * the requester's user ID and account in the host app. Inbox reads only. */
+  requesterExternalId: z.string().nullable().optional(),
+  requesterAccount: z
+    .object({ id: z.string(), name: z.string().optional(), url: z.string().optional() })
+    .nullable()
+    .optional(),
+  /** SendLit contact ID, once the contact sync has run. */
+  contactId: z.string().nullable().optional(),
+  /** Incident context from the host app (page, error, request ID...).
+   * Untrusted: render as text. */
+  context: z.record(z.unknown()).nullable().optional(),
   assigneeAccountId: z.string().nullable().optional(),
   /** Present on workspace inbox reads so the list can split escalated vs agent. */
   aiState: z

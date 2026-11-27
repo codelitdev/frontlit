@@ -193,9 +193,13 @@
         "vite": "^7.1.12",
       },
     },
+    "examples/in-app-support": {
+      "name": "@frontlit/in-app-support-example",
+      "version": "0.0.0",
+    },
     "examples/text-editor-blocks": {
       "name": "@frontlit/text-editor-blocks-example",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "dependencies": {
         "@frontlit/text-editor": "workspace:*",
         "react": "19.2.8",
@@ -227,7 +231,7 @@
     },
     "packages/media-uploader": {
       "name": "@frontlit/media-uploader",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@radix-ui/react-dialog": "^1.1.15",
         "@radix-ui/react-label": "^2.1.8",
@@ -255,7 +259,7 @@
     },
     "packages/page-builder": {
       "name": "@frontlit/page-builder",
-      "version": "0.1.0",
+      "version": "0.3.0",
       "dependencies": {
         "@frontlit/media-uploader": "workspace:*",
         "@frontlit/text-editor": "workspace:*",
@@ -301,7 +305,7 @@
     },
     "packages/preview": {
       "name": "@frontlit/preview",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "bin": {
         "frontlit-preview": "cli.mjs",
       },
@@ -314,7 +318,7 @@
     },
     "packages/site-seo": {
       "name": "@frontlit/site-seo",
-      "version": "0.0.0",
+      "version": "0.1.1",
       "devDependencies": {
         "tsup": "^8.3.0",
         "typescript": "^5.6.2",
@@ -323,7 +327,7 @@
     },
     "packages/text-editor": {
       "name": "@frontlit/text-editor",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@floating-ui/dom": "^1.6.0",
         "@tiptap/core": "^3.31.3",
@@ -768,6 +772,8 @@
     "@frontlit/components-demo": ["@frontlit/components-demo@workspace:examples/components-demo"],
 
     "@frontlit/docs": ["@frontlit/docs@workspace:apps/docs"],
+
+    "@frontlit/in-app-support-example": ["@frontlit/in-app-support-example@workspace:examples/in-app-support"],
 
     "@frontlit/media-uploader": ["@frontlit/media-uploader@workspace:packages/media-uploader"],
 

@@ -20,6 +20,12 @@ import { notifyRequesterOfReply } from "../../tickets/notify";
 import { omitInternal, serializeDates } from "../../utils/public";
 import { AUTH_ERROR, INTERNAL_ERROR, jsonResult, NOT_FOUND } from "./responses";
 import { getAuthAccount, getTeamId } from "./auth";
+import {
+  createSupportSessionBodySchema,
+  supportSessionSchema,
+} from "@frontlit/api-contract";
+import { findTeamById } from "../../team/queries";
+import { ContextTooLargeError, createSupportSession } from "../../support/sessions";
 
 function toPublicTicket(ticket: Record<string, unknown>) {
   return serializeDates(omitInternal(ticket, "teamId", "accessTokenHash"));
@@ -69,6 +75,37 @@ export function registerHelpdeskTools(server: McpToolRegistrar): void {
         });
         return jsonResult(await toTicketWithMessages(ticket));
       } catch {
+        return INTERNAL_ERROR;
+      }
+    },
+  );
+
+  server.registerTool(
+    "create_support_session",
+    {
+      description:
+        "Starts an in-app support session for a signed-in user of your product (REST twin: POST /support-sessions). Returns a token for FrontLit.open({ token }) and a standalone chat URL, valid for about an hour. Creates no ticket until the user sends a message.",
+      inputSchema: createSupportSessionBodySchema.shape,
+      outputSchema: supportSessionSchema.shape,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+      },
+    },
+    async (args: any, extra: any) => {
+      const teamId = getTeamId(extra);
+      if (!teamId) return AUTH_ERROR;
+      try {
+        const team = await findTeamById(teamId);
+        if (!team) return NOT_FOUND;
+        return jsonResult(await createSupportSession(team, args));
+      } catch (error) {
+        if (error instanceof ContextTooLargeError) {
+          return {
+            isError: true,
+            content: [{ type: "text" as const, text: error.message }],
+          };
+        }
         return INTERNAL_ERROR;
       }
     },

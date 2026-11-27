@@ -24,11 +24,12 @@ export async function createApiKey(
   teamId: string,
   name?: string,
   executor: DbExecutor = db,
+  scope: ApiKey["scope"] = "full",
 ) {
   const { secret, keyHash, keyPrefix } = generateApiKey();
   const [apiKey] = await executor
     .insert(apiKeys)
-    .values({ teamId, name, keyHash, keyPrefix })
+    .values({ teamId, name, keyHash, keyPrefix, scope })
     .returning();
   return { apiKey, secret };
 }
