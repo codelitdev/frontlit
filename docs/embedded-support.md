@@ -6,7 +6,7 @@ user is, their account, and what failed, and the conversation continues by
 email once they leave.
 Tracking issue: [#41](https://github.com/codelitdev/frontlit/issues/41).
 
-Status: proposed. Target customers are small and medium SaaS teams; scope is
+Status: ready for implementation. Target customers are small and medium SaaS teams; scope is
 sized for them and for an early-stage product.
 
 ## 1. Problem
@@ -95,9 +95,11 @@ error.
   localStorage. No identity, account or context, and no way to reach them
   after they close the tab.
 - **Eager loading and polling:** `ChatWidget` and the old loader create the
-  iframe on page load, and the widget polls every 2s whenever a conversation exists, even with the
-  panel closed. Fine on a marketing site; wasteful in a dashboard every user
-  keeps open.
+  iframe on page load, and the widget polls every 2s whenever a conversation
+  exists, even with the panel closed. Fine on a marketing site; wasteful in a
+  dashboard every user keeps open.
+- **No current users:** nobody uses the chat today, FrontLit included, so
+  the widget can be reworked freely.
 
 ## 5. User experience
 
@@ -176,20 +178,43 @@ POST /support-sessions
   external ID, account), context, optional prefilled message, and
   `expiresAt` (about 1 hour). Opening Help and closing it again leaves
   nothing in the inbox.
-- **Opening the widget with a session token:**
+- **Opening the widget** (public, called by the iframe):
+
+  ```
+  POST /public/{teamId}/support-sessions/open
+  { token }
+  → { ticket: { ticketId, accessToken } | null,
+      prefill: "My image upload failed" | null,
+      requester: { name } }
+  ```
+
+  - Rejects (`401`) a missing, expired or other-team token.
   - If the requester (matched by external ID, otherwise email) has an open
-    `chatbot` ticket, the widget shows that conversation, so someone who
-    comes back after an email reply sees the ongoing thread. The new
-    session's context replaces the ticket's context.
-  - Otherwise the widget shows a blank chat, with `message` prefilled in the
-    composer if it was given.
-- **First message:** the public message endpoint accepts the session token,
-  creates the ticket (`source = "chatbot"`, requester snapshot and context
+    `chatbot` ticket, returns it with a fresh ticket access grant
+    (`ticket_access_grants`, `apps/api/src/inbox-ai/grants.ts`, the same
+    kind the magic links in emails use) and replaces the ticket's context
+    with the session's. The widget then loads it through the existing
+    message endpoints, so someone who comes back after an email reply sees
+    the ongoing thread.
+  - Otherwise returns `ticket: null` and the widget shows a blank chat, with
+    `prefill` in the composer.
+  - Can be called more than once while the session is valid (e.g. the iframe
+    reloads).
+- **First message** (when `open` returned `ticket: null`):
+
+  ```
+  POST /public/{teamId}/support-sessions/messages
+  { token, content, attachments? }
+  → { ticketId, accessToken, ... }   // same shape as today's chatbot ticket create
+  ```
+
+  It creates the ticket (`source = "chatbot"`, requester snapshot and context
   from the session, §6.4–6.5), adds the message (which triggers the AI as
-  usual), and queues `contact_sync`.
-- **After that the session token's job is done.** The widget gets a normal
-  ticket access grant (`ticket_access_grants`, `apps/api/src/inbox-ai/grants.ts`)
-  for that ticket, the same kind the magic links in emails use. No second
+  usual), queues `contact_sync`, and returns a ticket access grant. If an
+  open ticket appeared in the meantime (another tab), it adds the message to
+  that ticket instead of creating a second one.
+- **After that the session token's job is done.** The widget uses the ticket
+  access grant with the existing public ticket message endpoints. No second
   token type to maintain.
 - `url` opens the same chat as a standalone page on the widget host (popup or
   new tab) for hosts that don't want the widget.
@@ -206,7 +231,8 @@ tool (cheap, since it's the same function).
 
 Replace the host-based loader with the conventional pattern used by Google
 Analytics, Intercom and Crisp: **one static loader at a fixed address, and the
-team ID passed in an `init` call.**
+team ID passed in an `init` call.** The fixed address is
+`https://frontlit.app/widget.js`.
 
 ```html
 <script>
@@ -218,36 +244,51 @@ team ID passed in an `init` call.**
   };
   FrontLit.push("init", { teamId: "tm_abc123" });
 </script>
-<script async src="https://widget.<platform-domain>/chat.js"></script>
+<script async src="https://frontlit.app/widget.js"></script>
 ```
 
-(`widget.<platform-domain>` is a placeholder; the real host depends on the
-platform domain the sites app is set up with.)
-
-- **Fixed widget host.** A reserved host in the sites app serves:
-  - `/chat.js`: the static loader, identical for every team, cached for a
+- **Platform paths, not a new host.** `frontlit.app` is served by a FrontLit
+  workspace through the sites app, so the widget can't be a page in that
+  workspace. Instead, `apps/sites/proxy.ts` serves a few platform paths the
+  same way on every host, before resolving the team, exactly like it already
+  does for `/schema/page.v1.json` ("frontlit.app serves the canonical
+  `$schema` URLs"):
+  - `/widget.js`: the static loader, identical for every team, cached for a
     long time;
-  - `/t/<teamId>/config`: public, cacheable widget settings (enabled,
+  - `/widget/<teamId>/config`: public, cacheable widget settings (enabled,
     layout, bubble style, name, theme colours);
-  - `/t/<teamId>/chat`: the chat UI iframe (the existing `/embed/chat` page,
-    with the team taken from the path).
+  - `/widget/<teamId>/chat`: the chat UI iframe (the existing `/embed/chat`
+    page, with the team taken from the path).
 
-  `apps/sites/proxy.ts` resolves a team from every host today, so this host
-  skips the lookup.
-- **Why:** the address never changes when a team renames its subdomain or
+  These run as routes outside `app/sites/[teamId]`, so no workspace owns
+  them. Add `widget` to `RESERVED_PAGE_SLUGS`
+  (`packages/api-contract/src/schemas/pages.ts`) so no team can publish a
+  page that clashes. Only `https://frontlit.app/widget.js` is documented;
+  the paths happen to work on other hosts too, which is harmless.
+- **No new DNS, TLS or reserved subdomain.**
+- **Why this pattern:** the address never changes when a team renames its subdomain or
   switches custom domains, the loader is one cacheable file, and the iframe
   always loads from a known origin (the old relative-URL problem can't
   happen). The cost is one small settings request before the bubble shows.
 - **The team ID is public**, like a GA measurement ID. Anyone could already
   embed a team's anonymous bot by copying a tag, so nothing gets worse;
   allowed domains (§11) are the protection against misuse.
-- **Lazy iframe.** The loader shows only the bubble (or nothing, if the host
-  opens the chat from its own button). The iframe is created on the first
-  `open`.
+- **Launcher option.** `init` takes `launcher`:
+  - `true` (default): show the floating bubble, styled from the team's
+    settings. Clicking it calls `FrontLit.open()`.
+  - `false`: show nothing until the host calls `FrontLit.open(...)` from its
+    own button. This is the in-app case (CourseLit's **Contact support**).
+    The panel still has its own close button.
+
+  ```js
+  FrontLit.push("init", { teamId: "tm_abc123", launcher: false });
+  ```
+- **Lazy iframe.** The loader shows only the bubble (or nothing with
+  `launcher: false`). The iframe is created on the first `open`.
 - **JS API**, a single global **`window.FrontLit`** (no aliases like `fl` or
   `frontlit`):
-  - `FrontLit.push("init", { teamId })`, or `FrontLit.init({ teamId })`
-    once loaded.
+  - `FrontLit.push("init", { teamId, launcher? })`, or
+    `FrontLit.init({ ... })` once loaded.
   - `FrontLit.open({ token })`: open the widget for a support session.
   - `FrontLit.open()`: open the anonymous chat.
   - `FrontLit.close()`.
@@ -255,7 +296,8 @@ platform domain the sites app is set up with.)
   Calls made before the loader finishes go into `q`, and the loader replays
   them in order.
 - **One code path.** FrontLit-hosted sites get the same snippet injected by
-  the site layout instead of rendering `ChatWidget` separately.
+  the site layout, and `ChatWidget` is removed. Nobody uses the chat yet, so
+  there's nothing to keep working in parallel.
 - **Remove the old loader:** delete `embed/chat.js/route.ts`, its entry in
   the edge-cache rules (`apps/sites/lib/edge-cache.ts` and its test), and
   update architecture.md §7.3. There's no production deployment yet, so no
@@ -352,13 +394,14 @@ The AI's reply is a head start, not a gate the user has to get past.
 
 ## 7. Data model changes
 
-| Table              | Change                                                        |
-| ------------------ | ------------------------------------------------------------- |
-| `support_sessions` | new: hashed token, team, requester, context, message, expiry  |
-| `tickets`          | `requester_external_id text null`, `requester_account jsonb null` |
-| `tickets`          | `contact_id text null` (SendLit contact ID)                   |
-| `tickets`          | `context jsonb null` (incident context)                       |
-| `ticket_messages`  | `seen_at timestamp null`                                      |
+| Table              | Change                                                       |
+| ------------------ | ------------------------------------------------------------ |
+| `support_sessions` | new: hashed token, team, requester, context, message, expiry |
+| `tickets`          | `requester_external_id text null`                            |
+| `tickets`          | `requester_account jsonb null`                               |
+| `tickets`          | `contact_id text null` (SendLit contact ID)                  |
+| `tickets`          | `context jsonb null` (incident context)                      |
+| `ticket_messages`  | `seen_at timestamp null`                                     |
 
 Plus: the `contact_sync` payload gains `ticketId`, `externalId` and
 `account`; `upsertContact` accepts `customFields`. Expired
@@ -387,41 +430,56 @@ alone; they're small.
 
 ## 9. Tasks
 
-- [ ] Fixed widget host in the sites app (skips the host-to-team lookup):
-      static `/chat.js`, public `/t/<teamId>/config`, and the chat iframe at
-      `/t/<teamId>/chat`.
-- [ ] Static loader: `init` with the team ID, `window.FrontLit` (`open`,
-      `close`), replay queued calls, iframe created on first open.
-- [ ] FrontLit-hosted sites use the same snippet instead of `ChatWidget`.
-- [ ] Remove the old host-based loader (`embed/chat.js/route.ts`, its
-      edge-cache entry and test) and update architecture.md §7.3.
+Four phases, each a PR with its own e2e smoke. CourseLit can integrate after
+phase 2.
+
+**Phase 1: widget and loader**
+
+- [ ] Platform paths in `apps/sites/proxy.ts` (before team resolution):
+      static `/widget.js`, public `/widget/<teamId>/config`, and the chat
+      iframe at `/widget/<teamId>/chat`. Add `widget` to
+      `RESERVED_PAGE_SLUGS`.
+- [ ] Static loader: `init` (`teamId`, `launcher`), `window.FrontLit`
+      (`open`, `close`), replay queued calls, iframe created on first open.
 - [ ] Widget: poll only while the panel is open and the tab is visible.
+- [ ] FrontLit-hosted sites use the same snippet; remove `ChatWidget`.
+- [ ] Remove the old host-based loader (`embed/chat.js/route.ts`, its
+      edge-cache handling and test) and update architecture.md §7.3.
+
+**Phase 2: support sessions and requester**
+
 - [ ] `support:sessions` API key scope.
-- [ ] `POST /support-sessions` (contract, queries, route, MCP tool) and the
-      `support_sessions` table.
-- [ ] Widget with a session token: show the requester's open ticket or a
-      blank chat; keep it in memory only (no localStorage).
-- [ ] Public message endpoint: accept a session token, create the ticket on
-      the first message (requester snapshot, context), and hand back a ticket
-      access grant.
+- [ ] `support_sessions` table; `POST /support-sessions` (contract, queries,
+      route, MCP tool).
+- [ ] `POST /public/{teamId}/support-sessions/open` and
+      `.../support-sessions/messages`.
+- [ ] Widget with a session token: call `open`, show the open ticket or a
+      blank chat with the prefill, create the ticket on the first message;
+      keep it in memory only (no localStorage).
 - [ ] `tickets.requesterExternalId`, `requesterAccount`, `context`; inbox
       ticket view shows them; inbox search by external ID.
 - [ ] `contact_sync`: `customFields` (external ID, account), carry the
       ticket ID, write `tickets.contactId` back.
+- [ ] Docs: "Add in-app support to your product" (backend session route,
+      snippet with `launcher: false`, Contact support button).
+- [ ] First integration: CourseLit dashboard (session route, snippet,
+      Contact support on upload errors).
+
+**Phase 3: who answers**
+
 - [ ] Pass ticket context to the AI prompt; escalate in code when
       `context.error` is set and retrieval finds nothing; prompt rules from
       §6.6.
 - [ ] Widget: always-visible **Talk to a human**, and the post-handoff
       message.
+
+**Phase 4: reply delivery**
+
 - [ ] `ticket_messages.seenAt`, set by the widget only when the panel is
       open and the tab is visible.
 - [ ] Delayed `reply` mail through `ticket_mail_outbox` (`nextAttemptAt`
       +2 min, skip if all seen, one pending row per ticket), including agent
       replies.
-- [ ] Docs: "Add in-app support to your product" (backend session route,
-      snippet, Contact support button).
-- [ ] First integration: CourseLit dashboard (session route, snippet,
-      Contact support on upload errors).
 
 ## 10. Acceptance criteria
 
@@ -430,7 +488,7 @@ alone; they're small.
       shows the user, the school (name and URL), the page and the error,
       without anyone asking.
 - [ ] Opening Help and closing it without sending a message creates no
-      ticket.
+      ticket; reopening within the session (or reloading) works.
 - [ ] A user with an open ticket who clicks Help again sees the same
       conversation.
 - [ ] The ticket shows the CourseLit user ID and school, and searching the
@@ -448,9 +506,12 @@ alone; they're small.
       widget and no email is sent.
 - [ ] With the widget closed, the user gets one email with the reply(ies)
       and can continue the conversation from it.
-- [ ] The same snippet (fixed loader address plus team ID) works on
-      app.courselit.app and on a FrontLit-hosted site, and `FrontLit.open()`
-      works when called before the loader has finished.
+- [ ] The same snippet (`https://frontlit.app/widget.js` plus team ID)
+      works on app.courselit.app and on a FrontLit-hosted site, and
+      `FrontLit.open()` works when called before the loader has finished.
+- [ ] With `launcher: false` no bubble appears, and the chat opens only from
+      the host's own button.
+- [ ] A team can't publish a page at `/widget`.
 - [ ] Changing the team's subdomain or custom domain doesn't break an
       existing embed.
 - [ ] No iframe is loaded and no polling happens until the user opens the
