@@ -162,9 +162,35 @@ export function useVisitorChat({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isSendingRef = useRef(false);
   const stickToBottomRef = useRef(true);
-  /** Replies (bot or teammate) already shown for a conversation, so a
+  /** Replies (bot or teammate) already announced for a conversation, so a
    * reload that brings a new one can chime. */
   const repliesSeenRef = useRef<{ id: string; count: number } | null>(null);
+  /** The panel is showing. The loader starts it hidden (`?preload=1`) for an
+   * ongoing chat and tells it when it is opened or closed. */
+  const panelOpenRef = useRef(true);
+  const seenKey = `${storageKey}:seen`;
+
+  /** Replies the visitor has had in front of them, kept across page loads
+   * so a reply that came in while they were away still counts as new. */
+  const readSeen = useCallback((): { id: string; count: number } | null => {
+    if (sessionToken) return null;
+    try {
+      return JSON.parse(localStorage.getItem(seenKey) || "null");
+    } catch {
+      return null;
+    }
+  }, [seenKey, sessionToken]);
+  const writeSeen = useCallback(
+    (seen: { id: string; count: number }) => {
+      if (sessionToken) return;
+      try {
+        localStorage.setItem(seenKey, JSON.stringify(seen));
+      } catch {
+        // Storage blocked: unseen replies are only marked on this page load.
+      }
+    },
+    [seenKey, sessionToken],
+  );
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     const el = listRef.current;
@@ -237,9 +263,17 @@ export function useVisitorChat({
       }));
 
       const replies = next.filter((message) => message.role === "assistant").length;
-      const seen = repliesSeenRef.current;
-      if (seen?.id === current.id && replies > seen.count) announceIncoming();
+      const announced = repliesSeenRef.current;
+      const stored = readSeen();
+      const known =
+        announced?.id === current.id
+          ? announced.count
+          : stored?.id === current.id
+            ? stored.count
+            : null;
+      if (known !== null && replies > known) announceIncoming();
       repliesSeenRef.current = { id: current.id, count: replies };
+      if (panelOpenRef.current) writeSeen(repliesSeenRef.current);
 
       if (next.length === 0 && greeting) {
         setMessages([
@@ -259,8 +293,24 @@ export function useVisitorChat({
       }
       setMessages(next);
     },
-    [apiBaseUrl, greeting, rememberConversation, teamId],
+    [apiBaseUrl, greeting, readSeen, rememberConversation, teamId, writeSeen],
   );
+
+  // Hidden on load when the loader preloads it; then follow open/close.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("preload")) {
+      panelOpenRef.current = false;
+    }
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== window.parent) return;
+      const data = event.data as { type?: string; open?: boolean } | null;
+      if (data?.type !== "frontlit:panel") return;
+      panelOpenRef.current = Boolean(data.open);
+      if (data.open && repliesSeenRef.current) writeSeen(repliesSeenRef.current);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [writeSeen]);
 
   // Session chat: resume the requester's open ticket, or start blank with
   // the host app's prefilled message. Nothing is created until they send.
@@ -335,10 +385,13 @@ export function useVisitorChat({
       await loadConversation(conversation);
       if (!cancelled) setIsHydrating(false);
     })();
-    // The iframe only exists while the panel is open; a hidden tab pauses
-    // polling and catches up as soon as it is visible again.
+    // Every 2s while the tab is visible; every 15s while it is hidden, so a
+    // reply still chimes and marks the tab in the background.
+    let lastPoll = Date.now();
     const poll = window.setInterval(() => {
-      if (!document.hidden) void loadConversation(conversation);
+      if (document.hidden && Date.now() - lastPoll < 15_000) return;
+      lastPoll = Date.now();
+      void loadConversation(conversation);
     }, 2_000);
     const onVisible = () => {
       if (!document.hidden) void loadConversation(conversation);

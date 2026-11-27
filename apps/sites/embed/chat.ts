@@ -143,6 +143,11 @@ function css(el: HTMLElement, styles: Record<string, string>) {
     }
   }
 
+  /** Lets the chat know whether the visitor can see it. */
+  function tellPanel(open: boolean) {
+    frame?.contentWindow?.postMessage({ type: "frontlit:panel", open }, chatOrigin);
+  }
+
   function markRead() {
     if (!isOpen || document.hidden) return;
     unread = 0;
@@ -256,6 +261,7 @@ function css(el: HTMLElement, styles: Record<string, string>) {
     if (frame) {
       frame.style.display = "";
       isOpen = true;
+      tellPanel(true);
       markRead();
       paintLauncher();
       return;
@@ -264,7 +270,8 @@ function css(el: HTMLElement, styles: Record<string, string>) {
     // The session token goes in the fragment so it never reaches server logs.
     iframe.src =
       config.chatUrl +
-      (docked() ? "?layout=docked" : "") +
+      (docked() ? "?layout=docked" : "?") +
+      (visible ? "" : "&preload=1") +
       (token ? `#token=${encodeURIComponent(token)}` : "");
     iframe.title = config.name || "Chat";
     // autoplay lets the reply chime play once the visitor has used the page.
@@ -313,6 +320,7 @@ function css(el: HTMLElement, styles: Record<string, string>) {
     if (!frame || !isOpen) return;
     frame.style.display = "none";
     isOpen = false;
+    tellPanel(false);
     paintLauncher();
     launcher?.focus();
   }
