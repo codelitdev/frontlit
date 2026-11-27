@@ -529,8 +529,8 @@ alone; they're small.
 
 ## 9. Tasks
 
-Four phases, each a PR with its own e2e smoke. CourseLit can integrate after
-phase 2.
+Four phases, each a PR with its own e2e smoke. CourseLit integrates after
+the whole of #41 is released.
 
 **Phase 1: widget and loader**
 
@@ -567,8 +567,6 @@ phase 2.
       ticket ID, write `tickets.contactId` back.
 - [ ] Docs: "Add in-app support to your product" (backend session route,
       snippet with `launcher: false`, Contact support button).
-- [ ] First integration: CourseLit dashboard (session route, snippet,
-      Contact support on upload errors).
 
 **Phase 3: who answers**
 
@@ -585,6 +583,13 @@ phase 2.
 - [ ] Delayed `reply` mail through `ticket_mail_outbox` (`nextAttemptAt`
       +2 min, skip if all seen, one pending row per ticket), including agent
       replies.
+
+**After release**
+
+CourseLit integrates only once #41 has shipped:
+
+- [ ] First integration: CourseLit dashboard (session route, snippet,
+      Contact support on upload errors).
 
 ## 10. Acceptance criteria
 
