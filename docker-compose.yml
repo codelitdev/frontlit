@@ -43,6 +43,19 @@ services:
             timeout: 5s
             retries: 12
 
+    # Live-event backplane (Redis pub/sub) for the FrontLit API, so agents
+    # and visitors connected to different API replicas see each other's
+    # updates. Pub/sub keeps no data, so there is no volume.
+    frontlit-redis:
+        image: redis:7-alpine
+        restart: unless-stopped
+        command: redis-server --save "" --appendonly no
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 5s
+            retries: 12
+
     # Fresh volumes get `sendlit` from the init script above. This job also
     # creates it on an already-initialized FrontLit Postgres volume.
     sendlit-db-init:
@@ -145,10 +158,14 @@ services:
             GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
             TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
             TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+            # Live-event backplane shared by API replicas (optional).
+            REDIS_URL: ${REDIS_URL:-redis://frontlit-redis:6379}
         depends_on:
             postgres:
                 condition: service_healthy
             sendlit-api:
+                condition: service_healthy
+            frontlit-redis:
                 condition: service_healthy
         command:
             - sh

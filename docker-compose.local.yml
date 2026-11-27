@@ -51,6 +51,20 @@ services:
             timeout: 5s
             retries: 12
 
+    # Live-event backplane for the FrontLit API. Only needed to run more than
+    # one API process; set REDIS_URL=redis://localhost:6381 in apps/api/.env.
+    frontlit-redis:
+        image: redis:7-alpine
+        restart: unless-stopped
+        command: redis-server --save "" --appendonly no
+        ports:
+            - "${FRONTLIT_REDIS_BIND:-127.0.0.1}:${FRONTLIT_REDIS_PORT:-6381}:6379"
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 5s
+            retries: 12
+
     # Applies apps/api/drizzle onto the `frontlit` database. Restart: "no"
     # so `docker compose up` does not loop; re-run with
     # `docker compose -f docker-compose.local.yml up frontlit-migrate`.

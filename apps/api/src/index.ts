@@ -9,7 +9,7 @@ import { createApp } from "./app";
 import { startOutboxWorker } from "./email/worker";
 import { describeChatProvider } from "./ai/provider";
 import { startAuthorizationMaintenance } from "./team/maintenance";
-import { attachInboxLive } from "./tickets/live-server";
+import { attachInboxLive, startLiveBackplane } from "./tickets/live-server";
 import { startInboxAiWorker } from "./inbox-ai/worker";
 import { startSearchIndexWorker } from "./search/indexer";
 import { startSiteCacheWorker } from "./services/site-cache";
@@ -29,6 +29,7 @@ checkConfig()
       logger.info(describeChatProvider());
     });
     attachInboxLive(server);
+    startLiveBackplane();
     startOutboxWorker();
     startInboxAiWorker();
     startSearchIndexWorker();

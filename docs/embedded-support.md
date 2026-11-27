@@ -75,7 +75,10 @@ error.
 - **Chats are tickets:** there is no separate chat entity. A widget chat is
   a `tickets` row with `source = "chatbot"`, and its messages are
   `ticket_messages` (`author`: `requester` | `agent` | `bot`). The widget
-  polls for new messages every 2s (`apps/sites/lib/use-visitor-chat.ts`).
+  follows its ticket over a WebSocket (`/public/stream`) and reloads the
+  thread on each `ticket.updated` signal, with a 30s fallback poll
+  (`apps/sites/lib/use-visitor-chat.ts`). See architecture.md §10.6 for the
+  live-event design.
   Attachments work.
 - **AI replies and handoff:** per-channel `autoReply` policy
   (`apps/api/src/inbox-ai/policy.ts`). The bot escalates when retrieval finds

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  createLiveHub,
+  type LiveBus,
   publishInboxUpdate,
   publishNeedsReply,
   subscribeInbox,
@@ -50,5 +52,44 @@ describe("live hub", () => {
     ]);
     expect(visitor.seen).toEqual([]);
     for (const stop of stops) stop();
+  });
+
+  it("reaches sockets on other instances through the bus, exactly once", () => {
+    // An in-memory stand-in for Redis pub/sub: every subscriber, including
+    // the publisher, gets every message.
+    const listeners: Array<(message: string) => void> = [];
+    const bus: LiveBus = {
+      publish: (message) => listeners.forEach((listener) => listener(message)),
+      subscribe: (listener) => void listeners.push(listener),
+    };
+    const a = createLiveHub();
+    const b = createLiveHub();
+    a.connect(bus);
+    b.connect(bus);
+    const agentOnA = socket();
+    const agentOnB = socket();
+    const visitorOnB = socket();
+    a.subscribeInbox("team_x", agentOnA);
+    b.subscribeInbox("team_x", agentOnB);
+    b.subscribeTicket("tkt_x", visitorOnB);
+
+    a.publishInboxUpdate("team_x", "tkt_x");
+    expect(agentOnA.seen).toEqual([{ type: "inbox.updated", ticketId: "tkt_x" }]);
+    expect(agentOnB.seen).toEqual([{ type: "inbox.updated", ticketId: "tkt_x" }]);
+    expect(visitorOnB.seen).toEqual([{ type: "ticket.updated" }]);
+
+    b.publishNeedsReply("team_x", "tkt_x", { from: "Jane", text: "Hi" });
+    expect(agentOnA.seen).toHaveLength(2);
+    expect(agentOnB.seen).toHaveLength(2);
+    expect(visitorOnB.seen).toHaveLength(1);
+  });
+
+  it("still delivers locally when the bus drops messages", () => {
+    const hub = createLiveHub();
+    hub.connect({ publish: () => {}, subscribe: () => {} });
+    const agent = socket();
+    hub.subscribeInbox("team_y", agent);
+    hub.publishInboxUpdate("team_y", "tkt_y");
+    expect(agent.seen).toEqual([{ type: "inbox.updated", ticketId: "tkt_y" }]);
   });
 });
