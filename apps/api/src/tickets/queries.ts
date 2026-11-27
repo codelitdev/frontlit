@@ -138,7 +138,10 @@ export async function createTicket(input: {
     }
   }
 
-  publishInboxUpdate(input.teamId, ticket.ticketId);
+  publishInboxUpdate(input.teamId, ticket.ticketId, {
+    from: input.requesterName || input.requesterEmail || "Visitor",
+    text: input.message,
+  });
   return { ticket, token, firstMessage };
 }
 
@@ -295,7 +298,18 @@ export async function addTicketMessage(input: {
     });
   }
 
-  if (existing) publishInboxUpdate(input.teamId, existing.ticketId);
+  if (existing) {
+    publishInboxUpdate(
+      input.teamId,
+      existing.ticketId,
+      input.author === "requester"
+        ? {
+            from: existing.requesterName || existing.requesterEmail || "Visitor",
+            text: ticketMessageText(input.content),
+          }
+        : undefined,
+    );
+  }
   return message;
 }
 

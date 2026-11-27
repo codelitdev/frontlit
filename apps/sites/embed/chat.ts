@@ -65,6 +65,13 @@ function css(el: HTMLElement, styles: Record<string, string>) {
   let showLauncher = true;
   let launcher: HTMLButtonElement | null = null;
   let frame: HTMLIFrameElement | null = null;
+  /** The panel is showing. Closing hides the iframe rather than removing it,
+   * so the chat keeps watching for replies. */
+  let isOpen = false;
+  /** Replies that arrived while the panel was closed or the tab hidden. */
+  let unread = 0;
+  let baseTitle = "";
+  let dot: HTMLSpanElement | null = null;
   let chatOrigin = "";
   let token: string | undefined;
   /** `open` called before the settings arrived. */
@@ -88,7 +95,7 @@ function css(el: HTMLElement, styles: Record<string, string>) {
 
   function paintLauncher() {
     if (!launcher || !config) return;
-    const open = !!frame;
+    const open = isOpen;
     const name = config.name || "Chat";
     launcher.setAttribute("aria-expanded", String(open));
     if (docked()) {
@@ -98,6 +105,39 @@ function css(el: HTMLElement, styles: Record<string, string>) {
     }
     launcher.setAttribute("aria-label", open ? `Close ${name}` : `Open ${name}`);
     launcher.innerHTML = svg(open ? "close" : config.style?.bubbleIcon || "chat");
+    if (unread && !open) {
+      dot ??= document.createElement("span");
+      css(dot, {
+        position: "absolute",
+        top: "2px",
+        right: "2px",
+        width: "12px",
+        height: "12px",
+        borderRadius: "9999px",
+        background: "#ef4444",
+        border: "2px solid #fff",
+      });
+      launcher.appendChild(dot);
+      launcher.setAttribute("aria-label", `Open ${name}, new reply`);
+    }
+  }
+
+  /** Mirrors unread replies in the tab title while the tab is hidden. */
+  function paintTitle() {
+    if (unread && document.hidden) {
+      if (!baseTitle) baseTitle = document.title;
+      document.title = `(${unread}) ${baseTitle}`;
+    } else if (baseTitle) {
+      document.title = baseTitle;
+      baseTitle = "";
+    }
+  }
+
+  function markRead() {
+    if (!isOpen || document.hidden) return;
+    unread = 0;
+    paintTitle();
+    paintLauncher();
   }
 
   function renderLauncher() {
@@ -157,7 +197,7 @@ function css(el: HTMLElement, styles: Record<string, string>) {
         color: colors?.primaryForeground ?? "#fafafa",
       });
     }
-    button.addEventListener("click", () => (frame ? close() : open()));
+    button.addEventListener("click", () => (isOpen ? close() : open()));
     button.addEventListener("pointerenter", preconnect);
     button.addEventListener("focus", preconnect);
     document.body.appendChild(button);
@@ -170,6 +210,11 @@ function css(el: HTMLElement, styles: Record<string, string>) {
       return;
     const data = event.data as { type?: string; height?: number } | null;
     if (data?.type === "frontlit:close") close();
+    if (data?.type === "frontlit:incoming" && (!isOpen || document.hidden)) {
+      unread += 1;
+      paintTitle();
+      paintLauncher();
+    }
     if (data?.type === "chat-resize" && docked() && typeof data.height === "number") {
       const cap = Math.round(window.innerHeight * 0.7);
       frame.style.height = `${Math.max(72, Math.min(data.height, cap))}px`;
@@ -182,7 +227,19 @@ function css(el: HTMLElement, styles: Record<string, string>) {
       pendingOpen = options ?? {};
       return;
     }
-    if (!config.enabled || !config.chatUrl || frame) return;
+    if (!config.enabled || !config.chatUrl) return;
+    if (frame && options?.token && frame.dataset.token !== options.token) {
+      // A new support session replaces the old chat.
+      frame.remove();
+      frame = null;
+    }
+    if (frame) {
+      frame.style.display = "";
+      isOpen = true;
+      markRead();
+      paintLauncher();
+      return;
+    }
     const iframe = document.createElement("iframe");
     // The session token goes in the fragment so it never reaches server logs.
     iframe.src =
@@ -221,16 +278,18 @@ function css(el: HTMLElement, styles: Record<string, string>) {
         colorScheme: "normal",
       });
     }
+    if (token) iframe.dataset.token = token;
     document.body.appendChild(iframe);
     frame = iframe;
-    paintLauncher();
+    isOpen = true;
+    markRead();
   }
 
   function close() {
     pendingOpen = null;
-    if (!frame) return;
-    frame.remove();
-    frame = null;
+    if (!frame || !isOpen) return;
+    frame.style.display = "none";
+    isOpen = false;
     paintLauncher();
     launcher?.focus();
   }
@@ -240,6 +299,10 @@ function css(el: HTMLElement, styles: Record<string, string>) {
     if (!config.enabled) return;
     if (config.chatUrl) chatOrigin = new URL(config.chatUrl).origin;
     window.addEventListener("message", onMessage);
+    document.addEventListener("visibilitychange", () => {
+      paintTitle();
+      markRead();
+    });
     if (showLauncher) renderLauncher();
     if (pendingOpen) {
       const options = pendingOpen;

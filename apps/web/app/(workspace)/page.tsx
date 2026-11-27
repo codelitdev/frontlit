@@ -25,6 +25,7 @@ import {
   ThumbsUp,
   X,
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { TextRenderer } from "@frontlit/text-editor";
 import type { TextEditorContent } from "@frontlit/text-editor";
@@ -331,8 +332,10 @@ export default function InboxPage() {
     void loadInbox();
   }, [loadInbox]);
 
+  // `?ticket=` opens that ticket: from email links and alert notifications.
+  const linkedTicketId = useSearchParams().get("ticket");
   useEffect(() => {
-    const ticketId = new URLSearchParams(window.location.search).get("ticket");
+    const ticketId = linkedTicketId;
     if (!ticketId || !currentTeamId) return;
     let cancelled = false;
     getTicket(ticketId)
@@ -355,7 +358,7 @@ export default function InboxPage() {
     return () => {
       cancelled = true;
     };
-  }, [currentTeamId]);
+  }, [currentTeamId, linkedTicketId]);
 
   useEffect(() => {
     setPendingFiles([]);

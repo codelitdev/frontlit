@@ -25,4 +25,22 @@ describe("inbox live hub", () => {
     expect(seen).toHaveLength(1);
     stopOther();
   });
+
+  it("describes a new requester message so the admin app can notify", () => {
+    const seen: string[] = [];
+    const stop = subscribeInbox("team_c", {
+      readyState: 1,
+      send: (data: string) => seen.push(data),
+    });
+    publishInboxUpdate("team_c", "tkt_3", {
+      from: "Jane",
+      text: `  ${"x".repeat(200)}`,
+    });
+    expect(JSON.parse(seen[0])).toEqual({
+      type: "inbox.updated",
+      ticketId: "tkt_3",
+      requesterMessage: { from: "Jane", preview: "x".repeat(140) },
+    });
+    stop();
+  });
 });

@@ -1,6 +1,9 @@
 export type InboxLiveEvent = {
   type: "inbox.updated";
   ticketId: string;
+  /** Set when the update is a new message from the requester, so the
+   * admin app can chime and notify. */
+  requesterMessage?: { from: string; preview: string };
 };
 
 type InboxSocket = {
@@ -25,12 +28,24 @@ export function subscribeInbox(teamId: string, socket: InboxSocket): () => void 
   };
 }
 
-export function publishInboxUpdate(teamId: string, ticketId: string): void {
+export function publishInboxUpdate(
+  teamId: string,
+  ticketId: string,
+  requesterMessage?: { from: string; text: string },
+): void {
   const room = rooms.get(teamId);
   if (!room || room.size === 0) return;
   const payload = JSON.stringify({
     type: "inbox.updated",
     ticketId,
+    ...(requesterMessage
+      ? {
+          requesterMessage: {
+            from: requesterMessage.from,
+            preview: requesterMessage.text.trim().slice(0, 140),
+          },
+        }
+      : {}),
   } satisfies InboxLiveEvent);
   for (const socket of room) {
     if (socket.readyState !== OPEN) continue;

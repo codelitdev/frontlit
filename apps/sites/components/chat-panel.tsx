@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { ChatMessageList } from "@/components/chat-message-list";
 import { PaperclipIcon, SpinnerIcon } from "@/components/chat-icons";
 import { useVisitorChat } from "@/lib/use-visitor-chat";
+import { isChimeMuted, setChimeMuted } from "@/lib/chime";
 import {
   resolveChatAccent,
   resolveSiteTheme,
@@ -11,8 +12,8 @@ import {
 } from "@/lib/site-theme";
 import { SiteThemeProvider } from "@/lib/site-theme-context";
 
-/** Asks the embed loader (apps/sites/embed/chat.ts) to close the panel; it
- * removes the iframe, which also stops polling. */
+/** Asks the embed loader (apps/sites/embed/chat.ts) to close the panel. It
+ * hides the iframe, which keeps polling so a reply can mark the launcher. */
 function requestClose() {
   window.parent?.postMessage({ type: "frontlit:close" }, "*");
 }
@@ -28,6 +29,43 @@ function CloseIcon({ path }: { path: string }) {
     >
       <path d={path} strokeLinecap="round" />
     </svg>
+  );
+}
+
+/** Turns the new-reply chime on or off (remembered in this browser). */
+function SoundToggle() {
+  const [muted, setMuted] = useState(false);
+  useEffect(() => setMuted(isChimeMuted()), []);
+  return (
+    <button
+      type="button"
+      aria-label={muted ? "Turn on reply sound" : "Turn off reply sound"}
+      aria-pressed={!muted}
+      title={muted ? "Reply sound off" : "Reply sound on"}
+      className="rounded-md p-1 opacity-90 hover:bg-black/10"
+      onClick={() => {
+        setChimeMuted(!muted);
+        setMuted(!muted);
+      }}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="h-4 w-4"
+        aria-hidden
+      >
+        <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z" />
+        {muted ? (
+          <path d="M22 9l-6 6M16 9l6 6" />
+        ) : (
+          <path d="M16 9a5 5 0 0 1 0 6M19.364 18.364a9 9 0 0 0 0-12.728" />
+        )}
+      </svg>
+    </button>
   );
 }
 
@@ -292,14 +330,17 @@ export function ChatPanel({
                     {isSending ? "Typing…" : isHydrating ? "Loading…" : "Online"}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  aria-label="Close chat"
-                  className="rounded-md p-1 opacity-90 hover:bg-black/10"
-                  onClick={requestClose}
-                >
-                  <CloseIcon path="M6 12h12" />
-                </button>
+                <div className="flex shrink-0 items-center gap-1">
+                  <SoundToggle />
+                  <button
+                    type="button"
+                    aria-label="Close chat"
+                    className="rounded-md p-1 opacity-90 hover:bg-black/10"
+                    onClick={requestClose}
+                  >
+                    <CloseIcon path="M6 12h12" />
+                  </button>
+                </div>
               </header>
               <ChatMessageList
                 messages={messages}
@@ -421,14 +462,17 @@ export function ChatPanel({
               {isSending ? "Typing…" : isHydrating ? "Loading conversation…" : "Online"}
             </p>
           </div>
-          <button
-            type="button"
-            aria-label="Close chat"
-            className="rounded-md p-1 opacity-90 hover:bg-black/10"
-            onClick={requestClose}
-          >
-            <CloseIcon path="M6 6l12 12M18 6L6 18" />
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            <SoundToggle />
+            <button
+              type="button"
+              aria-label="Close chat"
+              className="rounded-md p-1 opacity-90 hover:bg-black/10"
+              onClick={requestClose}
+            >
+              <CloseIcon path="M6 6l12 12M18 6L6 18" />
+            </button>
+          </div>
         </header>
 
         <ChatMessageList

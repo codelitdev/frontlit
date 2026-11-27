@@ -10,9 +10,13 @@ function inboxSocketUrl(apiPublicUrl: string, teamId: string): string {
   return `${wsBase}/inbox/stream?teamId=${encodeURIComponent(teamId)}`;
 }
 
-/** Keeps the inbox list/thread in sync with ticket writes on this team. */
+export type RequesterMessage = { from: string; preview: string };
+
+/** Keeps the inbox list/thread in sync with ticket writes on this team.
+ * `requesterMessage` is set when the update is a new message from the
+ * requester. */
 export function useInboxLive(
-  onUpdate: (ticketId: string) => void,
+  onUpdate: (ticketId: string, requesterMessage?: RequesterMessage) => void,
   teamId?: string | null,
 ) {
   const apiPublicUrl = useApiPublicUrl();
@@ -41,12 +45,13 @@ export function useInboxLive(
           const payload = JSON.parse(String(event.data)) as {
             type?: string;
             ticketId?: string;
+            requesterMessage?: RequesterMessage;
           };
           if (
             payload.type === "inbox.updated" &&
             typeof payload.ticketId === "string"
           ) {
-            onUpdateRef.current(payload.ticketId);
+            onUpdateRef.current(payload.ticketId, payload.requesterMessage);
           }
         } catch {
           // Ignore malformed frames.

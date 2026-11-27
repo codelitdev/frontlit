@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { playChime } from "./chime";
 import { uploadChatFile, type ChatAttachment } from "./upload-chat-file";
 
 export type { ChatAttachment };
@@ -66,6 +67,15 @@ const SESSION_EXPIRED =
 
 function newId(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** A reply arrived: chime, and tell the loader on the host page so it can
+ * mark the launcher and the tab when the chat isn't in view. */
+function announceIncoming() {
+  playChime();
+  if (window.parent !== window) {
+    window.parent.postMessage({ type: "frontlit:incoming" }, "*");
+  }
 }
 
 function awaitingReplyNotice(): ChatMessage {
@@ -152,6 +162,9 @@ export function useVisitorChat({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isSendingRef = useRef(false);
   const stickToBottomRef = useRef(true);
+  /** Replies (bot or teammate) already shown for a conversation, so a
+   * reload that brings a new one can chime. */
+  const repliesSeenRef = useRef<{ id: string; count: number } | null>(null);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     const el = listRef.current;
@@ -222,6 +235,11 @@ export function useVisitorChat({
         sources: message.sources ?? [],
         feedback: message.feedback ?? null,
       }));
+
+      const replies = next.filter((message) => message.role === "assistant").length;
+      const seen = repliesSeenRef.current;
+      if (seen?.id === current.id && replies > seen.count) announceIncoming();
+      repliesSeenRef.current = { id: current.id, count: replies };
 
       if (next.length === 0 && greeting) {
         setMessages([
@@ -383,6 +401,10 @@ export function useVisitorChat({
         token: body.conversationToken,
       };
       latest = nextConversation;
+      if (repliesSeenRef.current?.id !== nextConversation.id) {
+        // A new chat: its first reply should chime when the thread reloads.
+        repliesSeenRef.current = { id: nextConversation.id, count: 0 };
+      }
       rememberConversation(nextConversation);
       setPendingFiles([]);
       if (body.answer) {
