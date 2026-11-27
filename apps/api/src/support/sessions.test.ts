@@ -236,6 +236,21 @@ describe("in-app support sessions (docs/embedded-support.md §6.2)", () => {
     });
   });
 
+  it("gives the Chatbot page what the embed snippet needs", async () => {
+    process.env.EMBED_ORIGIN = "https://embed.example.test";
+    await withApp(async (origin) => {
+      const response = await fetch(`${origin}/chatbot`, {
+        headers: { "x-frontlit-apikey": fullKey },
+      });
+      expect(response.status).toBe(200);
+      expect(((await response.json()) as { embed: unknown }).embed).toEqual({
+        teamId: team.teamId,
+        origin: "https://embed.example.test",
+      });
+    });
+    delete process.env.EMBED_ORIGIN;
+  });
+
   it("rejects oversized context and requires an API key", async () => {
     await withApp(async (origin) => {
       const big = await fetch(

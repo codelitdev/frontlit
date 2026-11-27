@@ -6,6 +6,8 @@ import { requireTeam } from "../auth/require-team";
 import { authorizeHandlers } from "../auth/authorize";
 import { getChatbotSettings, updateChatbotSettings } from "./queries";
 import { omitInternal, serializeDates } from "../utils/public";
+import { getEmbedOrigin } from "../domains/queries";
+import { findTeamById } from "../team/queries";
 
 const router = Router();
 router.use("/chatbot", requireAuth, requireTeam);
@@ -21,8 +23,21 @@ const impl = s.router(
   authorizeHandlers(
     {
       get: async ({ req }) => {
-        const settings = await getChatbotSettings((req as any).teamId);
-        return { status: 200, body: toPublicSettings(settings) };
+        const teamId = (req as any).teamId;
+        const [settings, team] = await Promise.all([
+          getChatbotSettings(teamId),
+          findTeamById(teamId),
+        ]);
+        return {
+          status: 200,
+          body: {
+            ...toPublicSettings(settings),
+            // For the copy-ready embed snippet on the Chatbot page.
+            ...(team
+              ? { embed: { teamId: team.teamId, origin: getEmbedOrigin() } }
+              : {}),
+          },
+        };
       },
       update: async ({ body, req }) => {
         const settings = await updateChatbotSettings((req as any).teamId, body);

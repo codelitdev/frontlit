@@ -567,6 +567,8 @@ the whole of #41 is released.
       ticket ID, write `tickets.contactId` back.
 - [ ] Docs: "Add in-app support to your product" (backend session route,
       snippet with `launcher: false`, Contact support button).
+- [ ] Copy-ready embed snippet on the Chatbot settings page (team ID and
+      this environment's embed host filled in; bubble or own button).
 
 **Phase 3: who answers**
 
@@ -641,7 +643,6 @@ CourseLit integrates only once #41 has shipped:
 
 ## 11. Later
 
-- Copy-ready embed snippet and live preview on the Chatbot settings page.
 - Allowed domains (`frame-ancestors`) for the anonymous embed, to protect AI
   usage.
 - Opt-in telemetry: automatic capture of client errors and usage events, with

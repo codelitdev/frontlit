@@ -1296,6 +1296,8 @@ export interface ChatbotSettings {
   escalationEnabled: boolean;
   variant: ChatbotWidgetVariant;
   widgetStyle: ChatbotWidgetStyle;
+  /** For the embed snippet: public team ID and the widget host. */
+  embed?: { teamId: string; origin: string };
   createdAt: string | null;
   updatedAt: string | null;
 }

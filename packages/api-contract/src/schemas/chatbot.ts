@@ -43,6 +43,9 @@ export const chatbotSettingsSchema = z.object({
   variant: chatbotWidgetVariantSchema,
   /** Style knobs for the selected variant. */
   widgetStyle: chatbotWidgetStyleSchema,
+  /** What the embed snippet needs (docs/embedded-support.md §6.3): the
+   * team's public ID and this environment's widget host. Read-only. */
+  embed: z.object({ teamId: z.string(), origin: z.string() }).optional(),
   createdAt: z.string().nullable(),
   updatedAt: z.string().nullable(),
 });
