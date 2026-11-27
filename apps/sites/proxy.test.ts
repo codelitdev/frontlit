@@ -28,6 +28,72 @@ describe("proxy middleware", () => {
     expect(response.status).toBe(404);
   });
 
+  describe("embed host", () => {
+    const embed = (path: string) =>
+      proxy(
+        new NextRequest(`http://embed.localhost:3002${path}`, {
+          headers: { host: "embed.localhost:3002" },
+        }),
+      );
+
+    it("serves the loader, settings and chat iframe without resolving a team", async () => {
+      const loader = await embed("/chat.js");
+      expect(new URL(loader.headers.get("x-middleware-rewrite")!).pathname).toBe(
+        "/embed/chat.js",
+      );
+      const config = await embed("/tm_abc123/config");
+      expect(new URL(config.headers.get("x-middleware-rewrite")!).pathname).toBe(
+        "/embed/tm_abc123/config",
+      );
+      const chat = await embed("/tm_abc123/chat");
+      expect(new URL(chat.headers.get("x-middleware-rewrite")!).pathname).toBe(
+        "/embed/tm_abc123/chat",
+      );
+      expect(chat.headers.get("cache-control")).toBe("private, no-store");
+      expect(api.resolveHost).not.toHaveBeenCalled();
+    });
+
+    it("serves nothing else", async () => {
+      for (const path of [
+        "/",
+        "/docs",
+        "/tm_abc123",
+        "/tm_abc123/chat/x",
+        "/embed/tm_abc123/chat",
+      ]) {
+        expect((await embed(path)).status).toBe(404);
+      }
+    });
+
+    it("leaves the chat iframe off team hosts", async () => {
+      (api.resolveHost as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        teamId: "tm_abc123",
+        canonicalHost: "embedtest.localhost",
+        redirect: false,
+        hideFromSearch: false,
+      });
+      const response = await proxy(
+        new NextRequest("http://embedtest.localhost:3002/embed/tm_abc123/chat", {
+          headers: { host: "embedtest.localhost:3002" },
+        }),
+      );
+      // Rewritten into the team's own site, where no such page exists.
+      expect(new URL(response.headers.get("x-middleware-rewrite")!).pathname).toBe(
+        "/sites/tm_abc123/embed/tm_abc123/chat",
+      );
+    });
+
+    it("serves the static loader on every host", async () => {
+      const response = await proxy(
+        new NextRequest("http://any.localhost:3002/embed/chat.js", {
+          headers: { host: "any.localhost:3002" },
+        }),
+      );
+      expect(response.headers.get("x-middleware-next")).toBe("1");
+      expect(api.resolveHost).not.toHaveBeenCalled();
+    });
+  });
+
   it("returns 404 when host is unknown", async () => {
     const mockResolveHost = api.resolveHost as unknown as {
       mockResolvedValueOnce: (val: unknown) => void;

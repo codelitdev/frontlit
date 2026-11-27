@@ -43,7 +43,12 @@ import {
   verifyTicketAccess,
 } from "../tickets/queries";
 import { notifyTeamOfRequesterMessage } from "../tickets/notify";
-import { getDomainSettings, resolveHost } from "../domains/queries";
+import {
+  getDomainSettings,
+  getEmbedHost,
+  normalizeHost,
+  resolveHost,
+} from "../domains/queries";
 import { getTeamSettings } from "../settings/queries";
 import { getPublishedPageBySlug, listPublishedPages } from "../pages/queries";
 import { getActiveRelease, getReleaseByReleaseId } from "../pages/releases";
@@ -1103,6 +1108,11 @@ router.get(
  * an HTTPS 301 needs one. */
 router.get("/public/tls-ask", publicReadLimiter, async (req, res) => {
   const domain = String(req.query.domain ?? req.query.host ?? "");
+  // The widget host belongs to no team but still needs a certificate.
+  if (domain && normalizeHost(domain) === getEmbedHost()) {
+    res.status(200).end();
+    return;
+  }
   const resolved = await resolveHost(domain);
   if (!resolved) {
     res.status(404).end();

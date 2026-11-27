@@ -41,7 +41,13 @@ const nextConfig = {
     })),
   },
   async headers() {
+    // The embed loader (docs/embedded-support.md §6.8): one file for every
+    // team. Browsers recheck it every 5 minutes; a CDN in front may keep it
+    // longer and is purged on deploy.
+    const loader = [{ key: "Cache-Control", value: "public, max-age=300" }];
     return [
+      { source: "/embed/chat.js", headers: loader },
+      { source: "/chat.js", headers: loader },
       {
         // Theme fonts are referenced by stable URLs (see lib/fonts.ts).
         source: "/fonts/:path*",

@@ -29,3 +29,6 @@ next-env.d.ts
 .eslintcache
 
 research_notes/
+
+# Built embed loader (bun run build:embed)
+apps/sites/public/embed/

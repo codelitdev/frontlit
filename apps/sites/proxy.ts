@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveHost } from "./lib/api";
 import { decideHost, lookupHost, normalizeHost } from "./lib/host";
 import { edgeCacheHeaders } from "./lib/edge-cache";
+import { EMBED_HOST } from "./lib/config";
 import {
   isNegotiablePath,
   markdownSourcePath,
@@ -32,10 +33,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // The embed loader is our own static code that runs in the host page, so
+  // every host serves it (docs/embedded-support.md §6.8).
+  if (request.nextUrl.pathname === "/embed/chat.js") return NextResponse.next();
+
   const requestHost = request.headers.get("host");
   if (!requestHost) return new NextResponse(null, { status: 404 });
   const host = normalizeHost(requestHost);
   if (!host) return new NextResponse(null, { status: 404 });
+
+  if (host === EMBED_HOST) return embedHost(request);
 
   let resolved;
   try {
@@ -149,6 +156,29 @@ export async function proxy(request: NextRequest) {
   );
   for (const [name, value] of Object.entries(edge ?? {}))
     response.headers.set(name, value);
+  return response;
+}
+
+/**
+ * The dedicated widget host (docs/embedded-support.md §6.3). It serves the
+ * loader, each team's widget settings and the chat iframe, and nothing
+ * else. No other host serves the settings or the iframe, so team-written
+ * page scripts never share an origin with the chat.
+ */
+function embedHost(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const url = request.nextUrl.clone();
+  if (pathname === "/chat.js") {
+    url.pathname = "/embed/chat.js";
+    return NextResponse.rewrite(url);
+  }
+  const match = /^\/([A-Za-z0-9_-]{1,64})\/(config|chat)\/?$/.exec(pathname);
+  if (!match) return new NextResponse(null, { status: 404 });
+  const [, teamId, route] = match;
+  url.pathname = `/embed/${teamId}/${route}`;
+  const response = NextResponse.rewrite(url);
+  // The chat page is per visitor (a session token rides in its fragment).
+  if (route === "chat") response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
 

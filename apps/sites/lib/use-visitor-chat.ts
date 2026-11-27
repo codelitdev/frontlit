@@ -207,10 +207,19 @@ export function useVisitorChat({
       await loadConversation(conversation);
       if (!cancelled) setIsHydrating(false);
     })();
-    const poll = window.setInterval(() => void loadConversation(conversation), 2_000);
+    // The iframe only exists while the panel is open; a hidden tab pauses
+    // polling and catches up as soon as it is visible again.
+    const poll = window.setInterval(() => {
+      if (!document.hidden) void loadConversation(conversation);
+    }, 2_000);
+    const onVisible = () => {
+      if (!document.hidden) void loadConversation(conversation);
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
       window.clearInterval(poll);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [conversation, loadConversation]);
 

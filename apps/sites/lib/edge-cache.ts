@@ -17,7 +17,7 @@ export function edgeCacheMode(value = process.env.EDGE_CACHE_MODE): EdgeCacheMod
 }
 
 /** Per-visitor or per-request responses: never stored by a shared cache. */
-const PRIVATE_PATHS = [/^\/help\/tickets\//, /^\/_preview\//, /^\/embed\/chat\/?$/];
+const PRIVATE_PATHS = [/^\/help\/tickets\//, /^\/_preview\//];
 
 export function isPrivatePath(pathname: string): boolean {
   return PRIVATE_PATHS.some((pattern) => pattern.test(pathname));
@@ -44,9 +44,7 @@ export function edgeTags(teamId: string, pathname: string): string[] {
   } else if (path === "/llms.txt") {
     // Lists everything in the sitemap, plus the API reference.
     tags.push(`sitemap:${teamId}`, `docs:${teamId}`);
-  } else if (
-    !["robots.txt", "favicon.ico", "opengraph-image", "embed"].includes(first)
-  ) {
+  } else if (!["robots.txt", "favicon.ico", "opengraph-image"].includes(first)) {
     tags.push(`page:${teamId}:${path.slice(1)}`);
   }
   return tags;

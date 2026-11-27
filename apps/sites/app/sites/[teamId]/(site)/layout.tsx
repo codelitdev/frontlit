@@ -1,13 +1,13 @@
-import { getChatbotSettings, getSettings } from "@/lib/api";
+import { getSettings } from "@/lib/api";
 import { API_PUBLIC_URL } from "@/lib/config";
-import { loadSiteTheme } from "@/lib/load-site-theme";
+import { getWidgetConfig } from "@/lib/embed-config";
 import { CodeInjector } from "@/components/code-injector";
-import { ChatWidget } from "@/components/chat-widget";
+import { ChatLoader } from "@/components/chat-loader";
 import { WebVitalsBeacon } from "@/components/web-vitals-beacon";
 
-/** The public site: the team's code injection and floating chat widget.
- * `/embed` lives outside this group so the chat iframe gets neither
- * (architecture.md §12.5/§7.3). */
+/** The public site: the team's code injection and the chat widget loader.
+ * The chat iframe lives on the embed host (app/embed), outside every team
+ * site (docs/embedded-support.md §6.3). */
 export default async function SiteLayout({
   children,
   params,
@@ -16,10 +16,9 @@ export default async function SiteLayout({
   params: Promise<{ teamId: string }>;
 }) {
   const { teamId } = await params;
-  const [settings, chatbot, siteTheme] = await Promise.all([
+  const [settings, chatConfig] = await Promise.all([
     getSettings(teamId),
-    getChatbotSettings(teamId),
-    loadSiteTheme(teamId),
+    getWidgetConfig(teamId),
   ]);
 
   return (
@@ -32,19 +31,7 @@ export default async function SiteLayout({
       {process.env.SITE_RUM !== "off" && (
         <WebVitalsBeacon endpoint={`${API_PUBLIC_URL}/rum`} />
       )}
-      {chatbot?.enabled && (
-        <ChatWidget
-          apiBaseUrl={API_PUBLIC_URL}
-          teamId={teamId}
-          name={chatbot.name}
-          greeting={chatbot.greeting ?? null}
-          accentColor={chatbot.accentColor}
-          variant={chatbot.variant ?? "bubble"}
-          widgetStyle={chatbot.widgetStyle}
-          themeId={siteTheme.themeId}
-          themeStyle={siteTheme.themeStyle}
-        />
-      )}
+      {chatConfig?.enabled && <ChatLoader teamId={teamId} config={chatConfig} />}
     </>
   );
 }

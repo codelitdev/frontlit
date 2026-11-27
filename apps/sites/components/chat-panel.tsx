@@ -11,6 +11,26 @@ import {
 } from "@/lib/site-theme";
 import { SiteThemeProvider } from "@/lib/site-theme-context";
 
+/** Asks the embed loader (apps/sites/embed/chat.ts) to close the panel; it
+ * removes the iframe, which also stops polling. */
+function requestClose() {
+  window.parent?.postMessage({ type: "frontlit:close" }, "*");
+}
+
+function CloseIcon({ path }: { path: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      className="h-4 w-4"
+    >
+      <path d={path} strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function AttachControl({
   attaching,
   disabled,
@@ -109,9 +129,9 @@ function PendingFileChips({
 }
 
 /**
- * The chat widget's actual UI, hosted at `/embed/chat` and iframed by both
- * the FrontLit-hosted floating bubble and the external `<script>` loader
- * (architecture.md §7.3).
+ * The chat widget's actual UI, served at `embed.<domain>/<teamId>/chat` and
+ * iframed by the embed loader (apps/sites/embed/chat.ts) on hosted and
+ * external sites alike (docs/embedded-support.md §6.3).
  *
  * - `layout="panel"` — classic full chat chrome (header + messages + composer).
  * - `layout="docked"` — bottom text field is the composer; a floating message
@@ -184,11 +204,11 @@ export function ChatPanel({
     scrollToBottom(messages.length <= 2 ? "auto" : "smooth");
   }, [messages, isSending, scrollToBottom, stickToBottomRef]);
 
+  // The iframe is created when the visitor opens the chat, so the composer
+  // takes focus straight away in both layouts.
   useEffect(() => {
-    if (layout === "panel") {
-      inputRef.current?.focus();
-    }
-  }, [layout, inputRef]);
+    inputRef.current?.focus();
+  }, [inputRef]);
 
   useEffect(() => {
     if (hasThread) setSheetPinned(true);
@@ -198,25 +218,22 @@ export function ChatPanel({
     layout === "docked" &&
     (focused || sheetPinned || isSending || input.trim().length > 0);
 
-  // Tell parent embed loaders to grow/shrink the iframe for docked mode.
+  // Tell the embed loader to grow/shrink the docked iframe. This frame is
+  // only as tall as the iframe, so the loader caps the height against the
+  // host page's viewport.
   useEffect(() => {
     if (layout !== "docked") return;
-    const height = showSheet ? Math.min(560, Math.round(window.innerHeight * 0.7)) : 72;
+    const height = showSheet ? 560 : 72;
     window.parent?.postMessage({ type: "chat-resize", height }, "*");
   }, [layout, showSheet]);
 
   useEffect(() => {
-    if (layout !== "docked") return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setSheetPinned(false);
-        setFocused(false);
-        inputRef.current?.blur();
-      }
+      if (e.key === "Escape") requestClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [layout, inputRef]);
+  }, []);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -249,7 +266,7 @@ export function ChatPanel({
       <SiteThemeProvider theme={theme}>
         <div
           data-chat-panel
-          className="pb-theme fl-chat flex max-h-[min(560px,70vh)] min-h-0 w-full flex-col items-center justify-end gap-3 bg-transparent p-0 text-foreground [&>form]:mx-auto"
+          className="pb-theme fl-chat flex h-full max-h-[min(560px,100vh)] min-h-0 w-full flex-col items-center justify-end gap-3 bg-transparent p-0 text-foreground [&>form]:mx-auto"
         >
           {}
           <style dangerouslySetInnerHTML={{ __html: themeCss }} />
@@ -261,8 +278,8 @@ export function ChatPanel({
                 borderColor: palette.border,
                 backgroundColor: palette.card,
                 minHeight: "12rem",
-                maxHeight: "min(480px, calc(70vh - 5rem))",
-                height: "min(420px, calc(70vh - 5rem))",
+                maxHeight: "min(480px, calc(100vh - 5rem))",
+                height: "min(420px, calc(100vh - 5rem))",
               }}
             >
               <header
@@ -277,23 +294,11 @@ export function ChatPanel({
                 </div>
                 <button
                   type="button"
-                  aria-label="Minimize chat"
+                  aria-label="Close chat"
                   className="rounded-md p-1 opacity-90 hover:bg-black/10"
-                  onClick={() => {
-                    setSheetPinned(false);
-                    setFocused(false);
-                    inputRef.current?.blur();
-                  }}
+                  onClick={requestClose}
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    className="h-4 w-4"
-                  >
-                    <path d="M6 12h12" strokeLinecap="round" />
-                  </svg>
+                  <CloseIcon path="M6 12h12" />
                 </button>
               </header>
               <ChatMessageList
@@ -416,6 +421,14 @@ export function ChatPanel({
               {isSending ? "Typing…" : isHydrating ? "Loading conversation…" : "Online"}
             </p>
           </div>
+          <button
+            type="button"
+            aria-label="Close chat"
+            className="rounded-md p-1 opacity-90 hover:bg-black/10"
+            onClick={requestClose}
+          >
+            <CloseIcon path="M6 6l12 12M18 6L6 18" />
+          </button>
         </header>
 
         <ChatMessageList

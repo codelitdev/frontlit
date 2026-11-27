@@ -58,20 +58,12 @@ describe("edgeCacheHeaders", () => {
 
   it("keeps per-visitor routes out of every shared cache, in every mode", () => {
     for (const mode of ["none", "ttl", "purge"] as const) {
-      for (const path of [
-        "/help/tickets/tkt_1",
-        "/_preview/rel_1/pricing",
-        "/embed/chat",
-      ]) {
+      for (const path of ["/help/tickets/tkt_1", "/_preview/rel_1/pricing"]) {
         expect(edgeCacheHeaders("team_a", path, mode)).toEqual({
           "Cache-Control": "private, no-store",
         });
       }
     }
-    expect(edgeCacheHeaders("team_a", "/embed/chat.js", "purge")).not.toBeNull();
-    expect(
-      edgeCacheHeaders("team_a", "/embed/chat.js", "purge")!["Cache-Control"],
-    ).toContain("public");
   });
 
   it("never stores a response whose rsc header and _rsc parameter disagree", () => {

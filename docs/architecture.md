@@ -735,8 +735,17 @@ questions their content answers badly.
 
 ### 7.3 Embedding on sites
 
-- **FrontLit-hosted pages**: when `chatbotSettings.enabled`, the public site
-  layout renders the floating chat launcher automatically on every page.
+- **One loader everywhere** (details in
+  [embedded-support.md](embedded-support.md) §6.3 and §6.8): a static,
+  dependency-free script (`apps/sites/embed/chat.ts`, built to
+  `public/embed/chat.js`, about 2 KB gzipped) with a GA-style API on
+  `window.FrontLit` (`init`, `open`, `close`). It draws only the launcher;
+  the chat iframe is created on open and removed on close.
+- **FrontLit-hosted pages**: when `chatbotSettings.enabled`, the site layout
+  inlines `FrontLit.push("init", { teamId, config })` and loads
+  `/embed/chat.js` from the site's own origin after the page has loaded and
+  the browser is idle. Nothing goes to the embed host until the visitor
+  opens the chat.
 - **Site theme**: one team-level FrontLit theme is used by every public page,
   built-in content route, shared header/footer, launcher, and chat panel. Its
   `themeId` resolves either a system theme or a team-owned custom theme, so
@@ -750,12 +759,13 @@ questions their content answers badly.
       Accent color is shared. Stored as `variant` + `widget_style` jsonb on
       `chatbot_settings`; exposed on the public settings payload for the site
       and the external embed loader.
-- **External sites**: `<script src="https://<team-host>/embed/chat.js">`
-  — a tiny loader served by `apps/sites` (§12.2; the snippet uses the team's
-  canonical host, so the team is implied by the host — no `data-team`
-  attribute needed) that mounts the same launcher variants and opens an
-  iframe (`/embed/chat`, same host) for the React chat UI. It never touches
-  `apps/web`, which stays fully behind auth (§12.4).
+- **External sites**: the snippet from embedded-support.md §6.3, loading
+  `https://embed.<platform domain>/chat.js`. The embed host
+  (`EMBED_ORIGIN`, routed in `apps/sites/proxy.ts`) serves only the loader,
+  `/<teamId>/config` (public widget settings) and `/<teamId>/chat` (the
+  React chat UI the loader iframes), so team-written page scripts never
+  share an origin with the chat. It never touches `apps/web`, which stays
+  fully behind auth (§12.4).
 
 ---
 
@@ -1373,7 +1383,7 @@ rewritten request for SEO.
 | `/changelog`                          | changelog feed                                                      |
 | `/sitemap.xml`, `/robots.txt`         | per-tenant crawler plumbing (§12.3)                                 |
 | `/blog/rss.xml`, `/changelog/rss.xml` | RSS feeds (§12.3)                                                   |
-| `/embed/chat`, `/embed/chat.js`       | chatbot iframe + loader                                             |
+| `/embed/chat.js`                      | static chat loader (§7.3); the chat iframe lives on the embed host  |
 
 All public pages, docs included, are cached inside FrontLit (Next.js
 Cache Components, with separate shell and content tags per team, shared

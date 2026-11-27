@@ -52,6 +52,8 @@ export const RESERVED_SUBDOMAIN_LABELS = new Set([
   "console",
   "webhook",
   "webhooks",
+  // The chat widget host (docs/embedded-support.md §6.3).
+  "embed",
 ]);
 
 /** The API is the sole authority for classifying public-site hosts. The
@@ -62,6 +64,12 @@ export function getPlatformSiteDomain(): string {
     .trim()
     .toLowerCase()
     .replace(/\.$/, "");
+}
+
+/** The dedicated chat widget host, `embed.<platform domain>`
+ * (docs/embedded-support.md §6.3). Served by apps/sites, not by any team. */
+export function getEmbedHost(): string {
+  return `embed.${getPlatformSiteDomain()}`;
 }
 
 /** FrontLit's own team, so it can dogfood the platform: it may claim
