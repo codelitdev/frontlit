@@ -232,7 +232,7 @@ tool (cheap, since it's the same function).
 Replace the host-based loader with the conventional pattern used by Google
 Analytics, Intercom and Crisp: **one static loader at a fixed address, and the
 team ID passed in an `init` call.** The fixed address is
-`https://frontlit.app/widget.js`.
+`https://embed.frontlit.app/chat.js`.
 
 ```html
 <script>
@@ -244,28 +244,37 @@ team ID passed in an `init` call.** The fixed address is
   };
   FrontLit.push("init", { teamId: "tm_abc123" });
 </script>
-<script async src="https://frontlit.app/widget.js"></script>
+<script async src="https://embed.frontlit.app/chat.js"></script>
 ```
 
-- **Platform paths, not a new host.** `frontlit.app` is served by a FrontLit
-  workspace through the sites app, so the widget can't be a page in that
-  workspace. Instead, `apps/sites/proxy.ts` serves a few platform paths the
-  same way on every host, before resolving the team, exactly like it already
-  does for `/schema/page.v1.json` ("frontlit.app serves the canonical
-  `$schema` URLs"):
-  - `/widget.js`: the static loader, identical for every team, cached for a
+- **Dedicated host: `embed.frontlit.app`.** The sites app serves the widget
+  on this one host only, and serves nothing else there:
+  - `/chat.js`: the static loader, identical for every team, cached for a
     long time;
-  - `/widget/<teamId>/config`: public, cacheable widget settings (enabled,
-    layout, bubble style, name, theme colours);
-  - `/widget/<teamId>/chat`: the chat UI iframe (the existing `/embed/chat`
-    page, with the team taken from the path).
+  - `/<teamId>/config`: public, cacheable widget settings (enabled, layout,
+    bubble style, name, theme colours);
+  - `/<teamId>/chat`: the chat UI iframe (the existing `/embed/chat` page,
+    with the team taken from the path).
 
-  These run as routes outside `app/sites/[teamId]`, so no workspace owns
-  them. Add `widget` to `RESERVED_PAGE_SLUGS`
-  (`packages/api-contract/src/schemas/pages.ts`) so no team can publish a
-  page that clashes. Only `https://frontlit.app/widget.js` is documented;
-  the paths happen to work on other hosts too, which is harmless.
-- **No new DNS, TLS or reserved subdomain.**
+  In `apps/sites/proxy.ts`: if the host is `EMBED_HOST`, serve these routes
+  (outside `app/sites/[teamId]`) and skip team resolution; no other host
+  serves them.
+- **Why a dedicated host (security).** Sites render team-written HTML and
+  scripts on the site's own origin (the Embed block uses
+  `dangerouslySetInnerHTML`, `packages/page-builder/src/components/inline-embed.tsx`).
+  If widget paths worked on every host, one team's page scripts could load
+  and drive another team's chat on their own origin, and `frontlit.app`
+  would share its origin with marketing scripts. A dedicated origin runs only
+  FrontLit's widget code, the same pattern Intercom (`widget.intercom.io`)
+  and Crisp (`client.crisp.chat`) use.
+- **Setup:**
+  - add `embed` to `RESERVED_SUBDOMAIN_LABELS`
+    (`apps/api/src/domains/queries.ts`) so no team can claim it;
+  - `/public/tls-ask` approves `EMBED_HOST`, so Caddy's on-demand TLS issues
+    its certificate (today it only approves hosts `resolveHost` knows);
+  - DNS: covered by the `*.frontlit.app` wildcard that team subdomains
+    already use (confirm before rollout);
+  - locally, e.g. `embed.localhost:3002`.
 - **Why this pattern:** the address never changes when a team renames its subdomain or
   switches custom domains, the loader is one cacheable file, and the iframe
   always loads from a known origin (the old relative-URL problem can't
@@ -435,10 +444,10 @@ phase 2.
 
 **Phase 1: widget and loader**
 
-- [ ] Platform paths in `apps/sites/proxy.ts` (before team resolution):
-      static `/widget.js`, public `/widget/<teamId>/config`, and the chat
-      iframe at `/widget/<teamId>/chat`. Add `widget` to
-      `RESERVED_PAGE_SLUGS`.
+- [ ] `embed.frontlit.app` (`EMBED_HOST`) in `apps/sites/proxy.ts`, served
+      only on that host: static `/chat.js`, public `/<teamId>/config`, and
+      the chat iframe at `/<teamId>/chat`. Reserve the `embed` subdomain
+      label; approve the host in `/public/tls-ask`.
 - [ ] Static loader: `init` (`teamId`, `launcher`), `window.FrontLit`
       (`open`, `close`), replay queued calls, iframe created on first open.
 - [ ] Widget: poll only while the panel is open and the tab is visible.
@@ -506,12 +515,13 @@ phase 2.
       widget and no email is sent.
 - [ ] With the widget closed, the user gets one email with the reply(ies)
       and can continue the conversation from it.
-- [ ] The same snippet (`https://frontlit.app/widget.js` plus team ID)
+- [ ] The same snippet (`https://embed.frontlit.app/chat.js` plus team ID)
       works on app.courselit.app and on a FrontLit-hosted site, and
       `FrontLit.open()` works when called before the loader has finished.
 - [ ] With `launcher: false` no bubble appears, and the chat opens only from
       the host's own button.
-- [ ] A team can't publish a page at `/widget`.
+- [ ] Widget routes respond only on `embed.frontlit.app` (not on team
+      hosts), and no team can claim the `embed` subdomain.
 - [ ] Changing the team's subdomain or custom domain doesn't break an
       existing embed.
 - [ ] No iframe is loaded and no polling happens until the user opens the
