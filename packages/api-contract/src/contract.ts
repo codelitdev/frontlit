@@ -155,6 +155,7 @@ import {
   listTicketsQuerySchema,
   publicCreateTicketBodySchema,
   publicCreateTicketResponseSchema,
+  publicMarkTicketReadBodySchema,
   publicReplyToTicketBodySchema,
   publicTicketThreadQuerySchema,
   completeTicketAttachmentBodySchema,
@@ -1324,6 +1325,20 @@ const publicContract = c.router(
         429: errorSchema,
       },
       summary: "Read a ticket thread via its magic-link token",
+    },
+    markTicketRead: {
+      method: "POST",
+      path: "/public/:teamId/tickets/:ticketId/read",
+      body: publicMarkTicketReadBodySchema,
+      responses: {
+        204: z.null(),
+        401: errorSchema,
+        404: errorSchema,
+        429: errorSchema,
+      },
+      summary: "Mark a ticket thread read by the requester",
+      description:
+        "The chat calls this while the conversation is on screen. Replies after this time count as unread.",
     },
     replyToTicketThread: {
       method: "POST",

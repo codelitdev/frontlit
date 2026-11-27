@@ -36,6 +36,7 @@ interface Conversation {
 
 interface ThreadMessage {
   messageId: string;
+  createdAt: string;
   author: "requester" | "agent" | "bot";
   content: unknown;
   attachments?: ChatAttachment[];
@@ -69,13 +70,26 @@ function newId(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/** A reply arrived: chime, and tell the loader on the host page so it can
- * mark the launcher and the tab when the chat isn't in view. */
-function announceIncoming() {
-  playChime();
-  if (window.parent !== window) {
-    window.parent.postMessage({ type: "frontlit:incoming" }, "*");
+/** Tells the loader on the host page how many replies are unread and what
+ * the latest says, for the launcher badge, preview and tab title. */
+function postUnread(count: number, preview: { text: string; author: string } | null) {
+  if (window.parent === window) return;
+  window.parent.postMessage({ type: "frontlit:unread", count, preview }, "*");
+}
+
+/** Replies (bot or teammate) the requester has not had on screen. The
+ * server keeps when they last read the thread. */
+function unreadReplies(messages: ThreadMessage[], lastReadAt: string | null) {
+  let since = lastReadAt ? Date.parse(lastReadAt) : null;
+  if (since === null) {
+    // Never read (older chats): count what came after their last message.
+    const lastOwn = messages.findLast((message) => message.author === "requester");
+    since = lastOwn ? Date.parse(lastOwn.createdAt) : 0;
   }
+  return messages.filter(
+    (message) =>
+      message.author !== "requester" && Date.parse(message.createdAt) > since,
+  );
 }
 
 function awaitingReplyNotice(): ChatMessage {
@@ -162,35 +176,55 @@ export function useVisitorChat({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isSendingRef = useRef(false);
   const stickToBottomRef = useRef(true);
-  /** Replies (bot or teammate) already announced for a conversation, so a
-   * reload that brings a new one can chime. */
-  const repliesSeenRef = useRef<{ id: string; count: number } | null>(null);
   /** The panel is showing. The loader starts it hidden (`?preload=1`) for an
    * ongoing chat and tells it when it is opened or closed. */
   const panelOpenRef = useRef(true);
-  const seenKey = `${storageKey}:seen`;
+  /** Unread replies last reported, to chime only when a new one arrives
+   * (-1 until the first load: replies already waiting don't chime). */
+  const unreadRef = useRef(-1);
 
-  /** Replies the visitor has had in front of them, kept across page loads
-   * so a reply that came in while they were away still counts as new. */
-  const readSeen = useCallback((): { id: string; count: number } | null => {
-    if (sessionToken) return null;
-    try {
-      return JSON.parse(localStorage.getItem(seenKey) || "null");
-    } catch {
-      return null;
-    }
-  }, [seenKey, sessionToken]);
-  const writeSeen = useCallback(
-    (seen: { id: string; count: number }) => {
-      if (sessionToken) return;
-      try {
-        localStorage.setItem(seenKey, JSON.stringify(seen));
-      } catch {
-        // Storage blocked: unseen replies are only marked on this page load.
-      }
+  /** The thread is on screen: mark it read on the server. */
+  const markRead = useCallback(
+    (current: Conversation) => {
+      void fetch(`${apiBaseUrl}/public/${teamId}/tickets/${current.id}/read`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token: current.token }),
+      }).catch(() => undefined);
     },
-    [seenKey, sessionToken],
+    [apiBaseUrl, teamId],
   );
+
+  /** Applies the server's unread replies: read them if the chat is in
+   * view; otherwise chime for new ones and tell the loader. */
+  const settleUnread = useCallback(
+    (current: Conversation, unread: ThreadMessage[]) => {
+      let count = unread.length;
+      if (count > 0 && panelOpenRef.current && !document.hidden) {
+        markRead(current);
+        count = 0;
+      }
+      if (unreadRef.current >= 0 && count > unreadRef.current) playChime();
+      if (count !== unreadRef.current || count > 0) {
+        const latest = unread.at(-1);
+        postUnread(
+          count,
+          count && latest
+            ? {
+                text: extractText(latest.content).slice(0, 140),
+                author: latest.author === "agent" ? "Support" : "Assistant",
+              }
+            : null,
+        );
+      }
+      unreadRef.current = count;
+    },
+    [markRead],
+  );
+  const lastUnreadRef = useRef<{
+    current: Conversation;
+    unread: ThreadMessage[];
+  } | null>(null);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     const el = listRef.current;
@@ -249,6 +283,7 @@ export function useVisitorChat({
 
       const thread = (await response.json()) as {
         messages: ThreadMessage[];
+        requesterLastReadAt?: string | null;
       };
       const next: ChatMessage[] = thread.messages.map((message) => ({
         id: message.messageId,
@@ -262,18 +297,9 @@ export function useVisitorChat({
         feedback: message.feedback ?? null,
       }));
 
-      const replies = next.filter((message) => message.role === "assistant").length;
-      const announced = repliesSeenRef.current;
-      const stored = readSeen();
-      const known =
-        announced?.id === current.id
-          ? announced.count
-          : stored?.id === current.id
-            ? stored.count
-            : null;
-      if (known !== null && replies > known) announceIncoming();
-      repliesSeenRef.current = { id: current.id, count: replies };
-      if (panelOpenRef.current) writeSeen(repliesSeenRef.current);
+      const unread = unreadReplies(thread.messages, thread.requesterLastReadAt ?? null);
+      lastUnreadRef.current = { current, unread };
+      settleUnread(current, unread);
 
       if (next.length === 0 && greeting) {
         setMessages([
@@ -293,7 +319,7 @@ export function useVisitorChat({
       }
       setMessages(next);
     },
-    [apiBaseUrl, greeting, readSeen, rememberConversation, teamId, writeSeen],
+    [apiBaseUrl, greeting, rememberConversation, settleUnread, teamId],
   );
 
   // Hidden on load when the loader preloads it; then follow open/close.
@@ -306,11 +332,12 @@ export function useVisitorChat({
       const data = event.data as { type?: string; open?: boolean } | null;
       if (data?.type !== "frontlit:panel") return;
       panelOpenRef.current = Boolean(data.open);
-      if (data.open && repliesSeenRef.current) writeSeen(repliesSeenRef.current);
+      const last = lastUnreadRef.current;
+      if (data.open && last) settleUnread(last.current, last.unread);
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [writeSeen]);
+  }, [settleUnread]);
 
   // Session chat: resume the requester's open ticket, or start blank with
   // the host app's prefilled message. Nothing is created until they send.
@@ -385,24 +412,42 @@ export function useVisitorChat({
       await loadConversation(conversation);
       if (!cancelled) setIsHydrating(false);
     })();
-    // Every 2s while the tab is visible; every 15s while it is hidden, so a
-    // reply still chimes and marks the tab in the background.
-    let lastPoll = Date.now();
-    const poll = window.setInterval(() => {
-      if (document.hidden && Date.now() - lastPoll < 15_000) return;
-      lastPoll = Date.now();
-      void loadConversation(conversation);
-    }, 2_000);
+    // Replies arrive over a WebSocket, which keeps working in background
+    // tabs. A slow poll covers a dropped connection.
+    const streamUrl = new URL(`${apiBaseUrl.replace(/^http/, "ws")}/public/stream`);
+    streamUrl.searchParams.set("teamId", teamId);
+    streamUrl.searchParams.set("ticketId", conversation.id);
+    streamUrl.searchParams.set("token", conversation.token);
+    let socket: WebSocket | null = null;
+    let retryMs = 1_000;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const connect = () => {
+      if (cancelled) return;
+      socket = new WebSocket(streamUrl);
+      socket.onopen = () => {
+        retryMs = 1_000;
+      };
+      socket.onmessage = () => void loadConversation(conversation);
+      socket.onclose = () => {
+        if (cancelled) return;
+        retry = setTimeout(connect, retryMs);
+        retryMs = Math.min(retryMs * 2, 30_000);
+      };
+    };
+    connect();
+    const poll = window.setInterval(() => void loadConversation(conversation), 30_000);
     const onVisible = () => {
       if (!document.hidden) void loadConversation(conversation);
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
+      if (retry) clearTimeout(retry);
+      socket?.close();
       window.clearInterval(poll);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [conversation, loadConversation]);
+  }, [apiBaseUrl, conversation, loadConversation, teamId]);
 
   const sendMessage = async () => {
     const question = input.trim();
@@ -465,10 +510,6 @@ export function useVisitorChat({
         token: body.conversationToken,
       };
       latest = nextConversation;
-      if (repliesSeenRef.current?.id !== nextConversation.id) {
-        // A new chat: its first reply should chime when the thread reloads.
-        repliesSeenRef.current = { id: nextConversation.id, count: 0 };
-      }
       rememberConversation(nextConversation);
       setPendingFiles([]);
       if (body.answer) {

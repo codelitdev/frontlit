@@ -21,7 +21,7 @@ import {
 import { getChatbotSettings } from "../chatbot/queries";
 import { rateBotAnswer } from "../chatbot/feedback";
 import { findTeamById, findTeamByPublicId } from "../team/queries";
-import { runInboxAi } from "../inbox-ai/generate";
+import { needsHuman, runInboxAi } from "../inbox-ai/generate";
 import { MAX_MESSAGE_CHARS } from "../inbox-ai/config";
 import {
   attachFilesToMessage,
@@ -48,6 +48,8 @@ import {
   getTicketByTicketId,
   getTicketMessages,
   getTicketNotificationRecipient,
+  markRequesterRead,
+  notifyUnanswered,
   textTicketMessage,
   verifyTicketAccess,
 } from "../tickets/queries";
@@ -942,6 +944,9 @@ const impl = s.router(contract.public, {
         channel: "chatbot",
         mode: "sync",
       });
+      if (needsHuman(result)) {
+        await notifyUnanswered(team.id, ticket.id, triggerMessageId);
+      }
 
       return {
         status: 200,
@@ -1083,6 +1088,24 @@ const impl = s.router(contract.public, {
         status: 200,
         body: toPublicTicketThread(ticket, messages, byMessage),
       };
+    },
+  },
+  markTicketRead: {
+    middleware: [ticketThreadLimiter],
+    handler: async ({ params, body }) => {
+      const team = await findTeamByPublicId(params.teamId);
+      if (!team) return { status: 404, body: { error: "Team not found" } };
+
+      const ticket = await getTicketByTicketId(team.id, params.ticketId);
+      if (!ticket) return { status: 404, body: { error: "Not found" } };
+      if (!(await verifyTicketAccess(ticket, body.token)))
+        return {
+          status: 401,
+          body: { error: "Invalid or expired token" },
+        };
+
+      await markRequesterRead(team.id, ticket);
+      return { status: 204, body: null };
     },
   },
   replyToTicketThread: {

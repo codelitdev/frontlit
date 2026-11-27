@@ -8,8 +8,11 @@
  *   window.FrontLit = window.FrontLit || { q: [], push(...a) { this.q.push(a); } };
  *   FrontLit.push("init", { teamId: "tm_abc123" });
  *
- * It draws only the launcher. The chat iframe is created on the first
- * `open` and removed on close, so nothing polls while the panel is closed.
+ * It draws the launcher, its unread badge and a preview of the latest
+ * unread reply. The chat iframe is created on the first `open` (or, for an
+ * ongoing chat, hidden once the page is idle) and hidden on close, so it can
+ * keep receiving replies. Hosts with their own button can follow the unread
+ * count: `FrontLit.push("onUnreadCountChange", (count) => ...)`.
  */
 
 import type { WidgetConfig } from "./types";
@@ -68,10 +71,14 @@ function css(el: HTMLElement, styles: Record<string, string>) {
   /** The panel is showing. Closing hides the iframe rather than removing it,
    * so the chat keeps watching for replies. */
   let isOpen = false;
-  /** Replies that arrived while the panel was closed or the tab hidden. */
+  /** Unread replies, as the chat reports them (it reads them when in view). */
   let unread = 0;
+  let preview: { text: string; author: string } | null = null;
+  /** The preview the visitor dismissed, so it stays hidden. */
+  let dismissed = "";
+  let previewCard: HTMLDivElement | null = null;
   let baseTitle = "";
-  let dot: HTMLSpanElement | null = null;
+  const unreadHandlers: Array<(count: number) => void> = [];
   let chatOrigin = "";
   let token: string | undefined;
   /** `open` called before the settings arrived. */
@@ -116,20 +123,109 @@ function css(el: HTMLElement, styles: Record<string, string>) {
     launcher.setAttribute("aria-label", open ? `Close ${name}` : `Open ${name}`);
     launcher.innerHTML = svg(open ? "close" : config.style?.bubbleIcon || "chat");
     if (unread && !open) {
-      dot ??= document.createElement("span");
-      css(dot, {
+      const badge = document.createElement("span");
+      badge.textContent = unread > 9 ? "9+" : String(unread);
+      css(badge, {
         position: "absolute",
-        top: "2px",
-        right: "2px",
-        width: "12px",
-        height: "12px",
+        top: "-4px",
+        right: "-4px",
+        minWidth: "20px",
+        height: "20px",
+        padding: "0 5px",
+        boxSizing: "border-box",
         borderRadius: "9999px",
         background: "#ef4444",
-        border: "2px solid #fff",
+        color: "#fff",
+        font: "600 12px/20px system-ui,sans-serif",
+        textAlign: "center",
       });
-      launcher.appendChild(dot);
-      launcher.setAttribute("aria-label", `Open ${name}, new reply`);
+      launcher.appendChild(badge);
+      launcher.setAttribute(
+        "aria-label",
+        `Open ${name}, ${unread} unread ${unread === 1 ? "reply" : "replies"}`,
+      );
     }
+  }
+
+  /** A card above the launcher with the latest unread reply, like other
+   * chat widgets. Clicking it opens the chat. */
+  function paintPreview() {
+    const show =
+      !!launcher &&
+      !docked() &&
+      !isOpen &&
+      unread > 0 &&
+      !!preview?.text &&
+      preview.text !== dismissed;
+    if (!show) {
+      previewCard?.remove();
+      previewCard = null;
+      return;
+    }
+    if (!previewCard) {
+      previewCard = document.createElement("div");
+      previewCard.setAttribute("role", "status");
+      css(previewCard, {
+        position: "fixed",
+        zIndex: Z,
+        right: "16px",
+        bottom: `${bubbleSize() + 28}px`,
+        width: "min(300px, calc(100vw - 32px))",
+        boxSizing: "border-box",
+        padding: "12px 36px 12px 14px",
+        borderRadius: "14px",
+        background: config?.colors?.card ?? "#fff",
+        color: "#18181b",
+        boxShadow: "0 10px 30px rgba(0,0,0,.18)",
+        font: "14px/1.4 system-ui,sans-serif",
+        cursor: "pointer",
+      });
+      previewCard.addEventListener("click", () => open());
+      document.body.appendChild(previewCard);
+    }
+    previewCard.textContent = "";
+    const author = document.createElement("div");
+    author.textContent = preview!.author;
+    css(author, { fontWeight: "600", marginBottom: "2px" });
+    const text = document.createElement("div");
+    text.textContent = preview!.text;
+    css(text, {
+      display: "-webkit-box",
+      webkitLineClamp: "3",
+      webkitBoxOrient: "vertical",
+      overflow: "hidden",
+    });
+    const dismiss = document.createElement("button");
+    dismiss.type = "button";
+    dismiss.setAttribute("aria-label", "Dismiss");
+    dismiss.innerHTML = svg("close");
+    css(dismiss, {
+      position: "absolute",
+      top: "8px",
+      right: "8px",
+      width: "20px",
+      height: "20px",
+      padding: "0",
+      border: "0",
+      background: "transparent",
+      color: "inherit",
+      opacity: ".6",
+      cursor: "pointer",
+    });
+    dismiss.firstElementChild?.setAttribute("width", "16");
+    dismiss.firstElementChild?.setAttribute("height", "16");
+    dismiss.addEventListener("click", (event) => {
+      event.stopPropagation();
+      dismissed = preview?.text ?? "";
+      paintPreview();
+    });
+    previewCard.append(author, text, dismiss);
+  }
+
+  function paintUnread() {
+    paintLauncher();
+    paintPreview();
+    paintTitle();
   }
 
   /** Mirrors unread replies in the tab title while the tab is hidden. */
@@ -146,13 +242,6 @@ function css(el: HTMLElement, styles: Record<string, string>) {
   /** Lets the chat know whether the visitor can see it. */
   function tellPanel(open: boolean) {
     frame?.contentWindow?.postMessage({ type: "frontlit:panel", open }, chatOrigin);
-  }
-
-  function markRead() {
-    if (!isOpen || document.hidden) return;
-    unread = 0;
-    paintTitle();
-    paintLauncher();
   }
 
   function renderLauncher() {
@@ -234,10 +323,15 @@ function css(el: HTMLElement, styles: Record<string, string>) {
         // Storage blocked: replies are noticed only after the chat is opened.
       }
     }
-    if (data?.type === "frontlit:incoming" && (!isOpen || document.hidden)) {
-      unread += 1;
-      paintTitle();
-      paintLauncher();
+    if (data?.type === "frontlit:unread") {
+      const next = data as { count?: number; preview?: typeof preview };
+      const count = Math.max(0, Number(next.count) || 0);
+      preview = next.preview ?? null;
+      if (count !== unread) {
+        unread = count;
+        for (const handler of unreadHandlers) handler(count);
+      }
+      paintUnread();
     }
     if (data?.type === "chat-resize" && docked() && typeof data.height === "number") {
       const cap = Math.round(window.innerHeight * 0.7);
@@ -262,8 +356,7 @@ function css(el: HTMLElement, styles: Record<string, string>) {
       frame.style.display = "";
       isOpen = true;
       tellPanel(true);
-      markRead();
-      paintLauncher();
+      paintUnread();
       return;
     }
     const iframe = document.createElement("iframe");
@@ -311,8 +404,7 @@ function css(el: HTMLElement, styles: Record<string, string>) {
     document.body.appendChild(iframe);
     frame = iframe;
     isOpen = visible;
-    if (visible) markRead();
-    else paintLauncher();
+    paintUnread();
   }
 
   function close() {
@@ -321,7 +413,7 @@ function css(el: HTMLElement, styles: Record<string, string>) {
     frame.style.display = "none";
     isOpen = false;
     tellPanel(false);
-    paintLauncher();
+    paintUnread();
     launcher?.focus();
   }
 
@@ -330,10 +422,7 @@ function css(el: HTMLElement, styles: Record<string, string>) {
     if (!config.enabled) return;
     if (config.chatUrl) chatOrigin = new URL(config.chatUrl).origin;
     window.addEventListener("message", onMessage);
-    document.addEventListener("visibilitychange", () => {
-      paintTitle();
-      markRead();
-    });
+    document.addEventListener("visibilitychange", paintTitle);
     if (showLauncher) renderLauncher();
     if (pendingOpen) {
       const options = pendingOpen;
@@ -366,12 +455,22 @@ function css(el: HTMLElement, styles: Record<string, string>) {
       .then(start, () => start({ enabled: false }));
   }
 
-  const commands: Record<string, (arg?: never) => void> = { init, open, close };
+  /** Calls `handler` whenever the unread count changes (Intercom-style). */
+  function onUnreadCountChange(handler: (count: number) => void) {
+    if (typeof handler === "function") unreadHandlers.push(handler);
+  }
+
+  const commands: Record<string, (arg?: never) => void> = {
+    init,
+    open,
+    close,
+    onUnreadCountChange,
+  };
 
   function push(name: string, arg?: unknown) {
     commands[name]?.(arg as never);
   }
 
-  w.FrontLit = { loaded: true, q: [], push, init, open, close };
+  w.FrontLit = { loaded: true, q: [], push, init, open, close, onUnreadCountChange };
   for (const [name, arg] of queue) push(name, arg);
 })();

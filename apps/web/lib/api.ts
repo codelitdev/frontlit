@@ -1369,6 +1369,8 @@ export interface Ticket {
   contactId?: string | null;
   /** Incident context from the customer's app. Untrusted: text only. */
   context?: Record<string, unknown> | null;
+  /** When the requester last had the thread on screen ("Seen"). */
+  requesterLastReadAt?: string | null;
   assigneeAccountId?: string | null;
   aiState?: "idle" | "generating" | "waiting" | "escalated" | "taken_over";
   lastMessageAt: string | null;

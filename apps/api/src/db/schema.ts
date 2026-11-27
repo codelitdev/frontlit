@@ -966,6 +966,9 @@ export const tickets = pgTable(
     /** Incident context from the host app (page, error, request ID, ...).
      * Untrusted data: shown to agents and the AI, never as HTML (§6.5). */
     context: jsonb("context").$type<Record<string, unknown>>(),
+    /** When the requester last had the conversation on screen. Agent and
+     * bot replies after it are unread for them. */
+    requesterLastReadAt: timestamp("requester_last_read_at"),
     lastMessageAt: timestamp("last_message_at").notNull().defaultNow(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

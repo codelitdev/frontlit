@@ -320,6 +320,23 @@ async function notifyIfTicketChannel(
   });
 }
 
+/** Skips where another run (or a newer message) decides instead. */
+const DEFERRED_SKIPS = new Set([
+  "missing_ticket",
+  "already_done",
+  "lease_held",
+  "lease_wait",
+  "stale",
+  "stale_trigger",
+  "claim_failed",
+]);
+
+/** The run is final and the AI did not answer: a human has to. */
+export function needsHuman(result: InboxAiResult): boolean {
+  if (result.outcome === "answered") return false;
+  return !result.skipReason || !DEFERRED_SKIPS.has(result.skipReason);
+}
+
 export async function runInboxAi(input: {
   teamId: string;
   ticketDbId: string;

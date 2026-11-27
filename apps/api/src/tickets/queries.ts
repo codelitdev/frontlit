@@ -13,7 +13,7 @@ import {
 } from "../db/schema";
 import { generateTicketToken, hashTicketToken } from "./token";
 import { enqueueOutboxJob } from "../email/outbox";
-import { publishInboxUpdate } from "./live";
+import { publishInboxUpdate, publishNeedsReply } from "./live";
 import { withDbTransaction } from "../db/transaction";
 import {
   mintAccessGrant,
@@ -138,10 +138,7 @@ export async function createTicket(input: {
     }
   }
 
-  publishInboxUpdate(input.teamId, ticket.ticketId, {
-    from: input.requesterName || input.requesterEmail || "Visitor",
-    text: input.message,
-  });
+  publishInboxUpdate(input.teamId, ticket.ticketId);
   return { ticket, token, firstMessage };
 }
 
@@ -299,18 +296,54 @@ export async function addTicketMessage(input: {
   }
 
   if (existing) {
-    publishInboxUpdate(
-      input.teamId,
-      existing.ticketId,
-      input.author === "requester"
-        ? {
-            from: existing.requesterName || existing.requesterEmail || "Visitor",
-            text: ticketMessageText(input.content),
-          }
-        : undefined,
-    );
+    publishInboxUpdate(input.teamId, existing.ticketId);
+    // A human already owns the conversation and no AI run follows: alert
+    // agents now. Chat messages always go through the AI run, which alerts
+    // when it does not answer (notifyUnanswered).
+    if (
+      input.author === "requester" &&
+      existing.source !== "chatbot" &&
+      (existing.aiState === "escalated" || existing.aiState === "taken_over")
+    ) {
+      await notifyUnanswered(input.teamId, existing.id, message.id);
+    }
   }
   return message;
+}
+
+/** The requester has the conversation on screen: earlier replies are read,
+ * and agents see "Seen". */
+export async function markRequesterRead(
+  teamId: string,
+  ticket: { id: string; ticketId: string },
+) {
+  await db
+    .update(tickets)
+    .set({ requesterLastReadAt: new Date() })
+    .where(eq(tickets.id, ticket.id));
+  publishInboxUpdate(teamId, ticket.ticketId);
+}
+
+/**
+ * Alerts agents that a requester message is waiting for a human. Called when
+ * the AI did not answer it (no AI, auto-reply off, handed off) or a human
+ * already owns the conversation. Answered messages never alert, like
+ * AI-first help desks.
+ */
+export async function notifyUnanswered(
+  teamId: string,
+  ticketDbId: string,
+  messageDbId: string,
+) {
+  const [ticket, message] = await Promise.all([
+    db.query.tickets.findFirst({ where: eq(tickets.id, ticketDbId) }),
+    db.query.ticketMessages.findFirst({ where: eq(ticketMessages.id, messageDbId) }),
+  ]);
+  if (!ticket || !message || message.author !== "requester") return;
+  publishNeedsReply(teamId, ticket.ticketId, {
+    from: ticket.requesterName || ticket.requesterEmail || "Website visitor",
+    text: ticketMessageText(message.content),
+  });
 }
 
 export async function updateTicket(

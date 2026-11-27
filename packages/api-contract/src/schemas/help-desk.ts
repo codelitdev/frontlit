@@ -44,6 +44,9 @@ export const ticketSchema = z.object({
     .object({ id: z.string(), name: z.string().optional(), url: z.string().optional() })
     .nullable()
     .optional(),
+  /** When the requester last had the conversation in front of them, so
+   * replies after it are unread (and earlier ones show "Seen"). */
+  requesterLastReadAt: z.string().nullable().optional(),
   /** SendLit contact ID, once the contact sync has run. */
   contactId: z.string().nullable().optional(),
   /** Incident context from the host app (page, error, request ID...).
@@ -152,6 +155,10 @@ export const publicCreateTicketResponseSchema = z.object({
 });
 
 export const publicTicketThreadQuerySchema = z.object({
+  token: z.string().min(1),
+});
+
+export const publicMarkTicketReadBodySchema = z.object({
   token: z.string().min(1),
 });
 

@@ -883,7 +883,18 @@ export default function InboxPage() {
                 </p>
                 {selectedTicket.ai && <TicketAiPanel ai={selectedTicket.ai} />}
                 <div className="space-y-5">
-                  {selectedTicket.messages.map((message) => {
+                  {selectedTicket.messages.map((message, index, all) => {
+                    // "Seen" under our latest reply once the requester has
+                    // had it on screen.
+                    const seen =
+                      message.author !== "requester" &&
+                      !all
+                        .slice(index + 1)
+                        .some((later) => later.author !== "requester") &&
+                      !!selectedTicket.requesterLastReadAt &&
+                      !!message.createdAt &&
+                      Date.parse(selectedTicket.requesterLastReadAt) >=
+                        Date.parse(message.createdAt);
                     const isRequester = message.author === "requester";
                     return (
                       <div
@@ -978,6 +989,7 @@ export default function InboxPage() {
                             {message.createdAt
                               ? ` · ${new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
                               : ""}
+                            {seen ? " · Seen" : ""}
                           </p>
                         </div>
                       </div>

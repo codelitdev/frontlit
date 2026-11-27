@@ -1,0 +1,1 @@
+ALTER TABLE "tickets" ADD COLUMN "requester_last_read_at" timestamp;

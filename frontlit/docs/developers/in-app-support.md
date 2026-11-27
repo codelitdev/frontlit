@@ -111,20 +111,30 @@ loading are queued and run in order.
 
 ## Reply alerts
 
-When a teammate or the assistant replies, the chat plays a short sound. If
-the chat is closed, the bubble gets a red dot. If your page's tab is in the
-background, its title starts with the number of new replies, e.g.
-`(1) Dashboard`. The user can turn the sound off from the speaker button in
-the chat header.
+Replies reach the chat instantly, even while it's closed.
 
-With `launcher: false` there is no bubble to mark, so the sound and the tab
-title are the only alerts.
+- **Unread badge:** the bubble shows how many replies the user hasn't seen.
+  A card above it previews the latest one; clicking the card opens the chat.
+- **Sound:** a short chime plays when a reply arrives while the chat is closed
+  or the tab is in the background. The user can turn it off from the speaker
+  button in the chat header.
+- **Tab title:** while the tab is in the background, the title starts with
+  the unread count, e.g. `(1) Dashboard`.
 
-On your team's side, the inbox plays a sound for every new customer message,
-and agents can turn on desktop notifications from the bell in the header.
+What the user has read is kept on our side, so a reply that arrives while
+they're away still shows as unread when they come back.
 
-A runnable version of all three pieces is in the FrontLit repository at
-`examples/in-app-support`.
+With `launcher: false`, put the count on your own button:
+
+```ts
+FrontLit.push("onUnreadCountChange", (count) => {
+  helpButton.dataset.unread = count > 0 ? String(count) : "";
+});
+```
+
+Your team gets a sound, a desktop notification (turned on from the bell in
+the header) and an unread count in the tab title when a customer message
+needs a person. Messages the assistant answers don't alert anyone.
 
 ## What your team sees
 
