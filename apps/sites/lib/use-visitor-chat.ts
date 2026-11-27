@@ -68,6 +68,16 @@ function newId(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function awaitingReplyNotice(): ChatMessage {
+  return {
+    id: newId("notice"),
+    role: "assistant",
+    author: "bot",
+    notice: true,
+    content: "Message sent — a teammate will reply here",
+  };
+}
+
 /**
  * Visitor chat conversation state for the public widget / embed panel.
  * Persists as a chatbot ticket so agents can reply from the shared inbox.
@@ -201,7 +211,7 @@ export function useVisitorChat({
       const thread = (await response.json()) as {
         messages: ThreadMessage[];
       };
-      const next = thread.messages.map((message) => ({
+      const next: ChatMessage[] = thread.messages.map((message) => ({
         id: message.messageId,
         role: (message.author === "requester" ? "user" : "assistant") as
           | "user"
@@ -223,6 +233,11 @@ export function useVisitorChat({
           },
         ]);
         return;
+      }
+      // Nothing has answered the latest message yet (no AI, or it handed
+      // off): keep saying so, or the reload would drop the "sent" notice.
+      if (next.at(-1)?.role === "user") {
+        next.push({ ...awaitingReplyNotice(), id: "awaiting-reply" });
       }
       setMessages(next);
     },
@@ -383,16 +398,7 @@ export function useVisitorChat({
           },
         ]);
       } else {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: newId("notice"),
-            role: "assistant",
-            author: "bot",
-            notice: true,
-            content: "Message sent — a teammate will reply here",
-          },
-        ]);
+        setMessages((prev) => [...prev, awaitingReplyNotice()]);
       }
     } catch {
       setMessages((prev) => [
