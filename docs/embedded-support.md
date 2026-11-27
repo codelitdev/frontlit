@@ -91,14 +91,19 @@ error.
 - **Anonymous chats:** the only link to a visitor is a token in
   localStorage. No identity, account or context, and no way to reach them
   after they close the tab.
+- **Eager loading and polling:** the loader creates the iframe on page load,
+  and the widget polls every 2s whenever a conversation exists, even with the
+  panel closed. Fine on a marketing site; wasteful in a dashboard every user
+  keeps open.
 
 ## 5. User experience
 
 **End user (CourseLit example)**
 
 1. An upload fails. The error message has a **Contact support** button.
-2. Clicking it opens the FrontLit chat over the dashboard. The first message
-   ("My image upload failed") and the context are already attached.
+2. Clicking it opens the FrontLit chat over the dashboard, with "My image
+   upload failed" prefilled. If they already have an open conversation, they
+   see it instead. The ticket is created when they send.
 3. The AI replies. If the docs explain the error (e.g. a file size limit),
    it says so. If not, it says the team has been notified.
 4. **Talk to a human** is visible from the first message.
@@ -131,18 +136,25 @@ browser never claims an identity.
 
 ```
 Host frontend ──click──▶ Host backend ──API key──▶ FrontLit POST /support-sessions
-      │                                                   │ creates ticket (+context)
-      │◀──────────── { token, url } ◀─────────────────────┤ queues contact_sync
-      │                                                   ▼
-      └─ FrontLit.open({ token }) ─▶ widget iframe     SendLit upserts contact
-                                     (loads ticket)     (customFields: externalId, account)
+      │                                                   │ saves a support_sessions row
+      │◀──────────── { token, url } ◀─────────────────────┘ (no ticket yet)
+      │
+      └─ FrontLit.open({ token }) ─▶ widget iframe (created on first open)
+                                       │ shows the user's open ticket, or a blank chat
+                                       │ first message ──▶ ticket created
+                                       │                   (requester snapshot + context)
+                                       │                   queues contact_sync
+                                       ▼                          │
+                         widget switches to a ticket access grant  ▼
+                                                    SendLit upserts contact
+                                                    (customFields: externalId, account)
                                                           │
                                      tickets.contactId ◀──┘ written back by the worker
 ```
 
 ### 6.2 Support sessions
 
-Server to server, API key auth:
+Server to server, API key with the `support:sessions` scope (§8):
 
 ```
 POST /support-sessions
@@ -150,36 +162,52 @@ POST /support-sessions
   contact: { email, name?, externalId? },   // externalId = host app's user ID
   account?: { id, name?, url? },            // e.g. the CourseLit school
   context?: { page?, error?, requestId?, appVersion?, ... },  // free-form JSON, size-capped
-  message?: "My image upload failed"        // optional first requester message
+  message?: "My image upload failed"        // optional prefilled first message
 }
-→ { token, url, ticketId }
+→ { token, url, expiresAt }
 ```
 
-- Reuses the requester's open `chatbot` ticket for this contact if there is
-  one; otherwise creates a ticket (`source = "chatbot"`) with
-  `requesterEmail` / `requesterName` from `contact` and `context` attached.
-  A new session on a reused ticket replaces `context` with the latest one.
-- If `message` is set, it's added as the first requester message, which
-  triggers the AI as usual.
-- Queues `contact_sync` with the external ID and account (§6.4).
-- Returns a short-lived token scoped to that one ticket, plus a `url` for use
-  without the widget (popup or new tab).
+- **Minting a session doesn't create a ticket.** It saves a short-lived
+  `support_sessions` row: hashed token, team, requester (email, name,
+  external ID, account), context, optional prefilled message, and
+  `expiresAt` (about 1 hour). Opening Help and closing it again leaves
+  nothing in the inbox.
+- **Opening the widget with a session token:**
+  - If the requester (matched by external ID, otherwise email) has an open
+    `chatbot` ticket, the widget shows that conversation, so someone who
+    comes back after an email reply sees the ongoing thread. The new
+    session's context replaces the ticket's context.
+  - Otherwise the widget shows a blank chat, with `message` prefilled in the
+    composer if it was given.
+- **First message:** the public message endpoint accepts the session token,
+  creates the ticket (`source = "chatbot"`, requester snapshot and context
+  from the session, §6.4–6.5), adds the message (which triggers the AI as
+  usual), and queues `contact_sync`.
+- **After that the session token's job is done.** The widget gets a normal
+  ticket access grant (`ticket_access_grants`, `apps/api/src/inbox-ai/grants.ts`)
+  for that ticket, the same kind the magic links in emails use. No second
+  token type to maintain.
+- `url` opens the same chat as a standalone page on the team's site (popup or
+  new tab) for hosts that don't want the widget.
 
 This works like Stripe Checkout sessions: no crypto in customer code, and
 the identity and context can't be faked from the browser. The API key is the
 trust boundary, so identified chats don't need an allowed-domains list.
 
 Per the parity rule (architecture.md §2), the endpoint lives in
-`packages/api-contract` and a `tickets`/`support` queries function, with a
-matching MCP tool.
+`packages/api-contract` and a `support` queries function, with a matching MCP
+tool (cheap, since it's the same function).
 
 ### 6.3 Loader and JS API
 
 - **Fix:** build iframe URLs from the loader's own origin
   (`new URL(document.currentScript.src).origin`).
+- **Create the iframe on first open.** Today the loader creates and loads the
+  iframe on page load, even if nobody opens it. In a dashboard that every
+  user keeps open all day, that's a wasted page load for each of them.
 - Expose a single global, **`window.FrontLit`** (no aliases like `fl` or
   `frontlit`):
-  - `FrontLit.open({ token })`: open the widget on the session's ticket.
+  - `FrontLit.open({ token })`: open the widget for a support session.
   - `FrontLit.open()`: open the anonymous chat (current behaviour).
   - `FrontLit.close()`.
 - The loader is async, so the snippet includes a queue stub that the loader
@@ -200,17 +228,31 @@ matching MCP tool.
   <script async src="https://<team-host>/embed/chat.js"></script>
   ```
 
-- The loader passes the token to the iframe (in the iframe URL fragment or
-  by `postMessage`, not a query string, so it stays out of server logs). With
-  a token, the widget loads that ticket instead of the one in localStorage.
-- The anonymous embed keeps working as it does today.
+- The loader passes the token to the iframe in the URL fragment or by
+  `postMessage`, not a query string, so it stays out of server logs.
+- **Session chats are never written to localStorage.** The anonymous widget
+  stores its conversation under `chat:<api>:<team>`
+  (`apps/sites/lib/use-visitor-chat.ts`). A session chat stays in memory
+  only, so it can't leak to the next person on a shared computer, survive the
+  host app's logout, or show up in the anonymous widget on the marketing
+  site. The host mints a fresh session on every Help click.
+- **Poll only while the panel is open and the tab is visible.** Today the
+  widget polls every 2s whenever a conversation exists, even with the panel
+  closed. The same open-and-visible condition drives `seenAt` (§6.7).
+- The anonymous embed keeps working as it does today, apart from the lazy
+  iframe and the polling change.
 
-### 6.4 Contact in SendLit, linked from the ticket
+### 6.4 Requester on the ticket, contact in SendLit
 
-- **The person lives on the SendLit contact.** SendLit contacts already
-  support `customFields` (set on create, merged on update).
-  `contact_sync` passes `{ externalId, accountId, accountName, accountUrl }`
-  as custom fields, and tags the contact `source:in-app`. `upsertContact` in
+- **Snapshot on the ticket.** Like `requesterEmail` / `requesterName` today,
+  the ticket stores `requesterExternalId` and a small `requesterAccount` JSON
+  (`{ id, name, url }`) from the session. The inbox header and search read
+  only the ticket, so support keeps working when SendLit is down or not set
+  up.
+- **SendLit stays the CRM.** SendLit contacts already support `customFields`
+  (set on create, merged on update). `contact_sync` passes
+  `{ externalId, accountId, accountName, accountUrl }` as custom fields and
+  tags the contact `source:in-app`. `upsertContact` in
   `apps/api/src/email/sendlit-client.ts` currently sends only email, name and
   tags, so it needs extending.
 - **`tickets.contactId`** (nullable text) holds the SendLit contact ID. The
@@ -218,24 +260,22 @@ matching MCP tool.
   `contact.contactId` back after the upsert. This applies to every ticket
   source with an email (form, email, API, chatbot). It stays null for
   anonymous chats and for teams without SendLit, and gets filled if an
-  anonymous chat later gets an email.
-- `requesterEmail` / `requesterName` stay on the ticket as a snapshot, so
-  the ticket still shows correctly when SendLit is unavailable or not set up.
+  anonymous chat later gets an email. Nothing in support depends on it
+  being set.
 - **Matching in both directions:**
   - Ticket → host system: the ticket view shows the external ID, account
     and request ID.
-  - Host user → tickets: inbox search by external ID. FrontLit queries the
-    SendLit contact list with an inline `customField` equals filter on
-    `externalId`, then lists tickets by `contactId`.
+  - Host user → tickets: inbox search by external ID, a local query on
+    `tickets.requesterExternalId`.
 
 ### 6.5 Incident context on the ticket
 
 - A `context` JSONB column on `tickets`, for incident data only (page, error,
-  request ID, app version). Identity and account live in SendLit.
+  request ID, app version).
 - Size-capped (e.g. 8 KB) and stored as given. It's shown to agents and
   passed to the AI, never rendered as HTML.
-- The inbox ticket view shows the SendLit contact (name, email, external ID,
-  account) and the context fields.
+- The inbox ticket view shows the requester snapshot (name, email, external
+  ID, account) and the context fields.
 
 ### 6.6 Who answers: AI first, human one click away
 
@@ -248,52 +288,67 @@ The AI's reply is a head start, not a gate the user has to get past.
   `HANDOFF:visitor_request`), without going through the AI.
 - The AI hands off when retrieval finds nothing, when the user asks for a
   person, or when the context shows a product bug.
-- The ticket is in the inbox from the start, so an agent can step in at any
-  point.
-- **Session has `context.error`:** treat it as a likely bug. The AI
-  acknowledges it, checks the docs for a known limit (size, format, etc.) and
-  asks for any missing details. If the docs don't explain it, it escalates
-  straight away with a short summary for the agent. It must not reply with
-  generic tips.
+- The ticket is in the inbox from the first message, so an agent can step in
+  at any point.
+- **Session has `context.error`:** treat it as a likely bug.
+  - **In code:** if `context.error` is set and retrieval finds no relevant
+    docs, escalate. This builds on the existing "no grounding → escalate"
+    rule, so the common case doesn't depend on the prompt.
+  - **In the prompt:** when docs do match, the AI acknowledges the error,
+    checks for a known limit (size, format, etc.) and asks for any missing
+    details. If the docs don't explain it, it escalates with a short summary
+    for the agent. It must not reply with generic tips.
 - **No error (a "how do I…" question):** normal AI-first answering.
 - After a handoff, the user sees: "Handed to the team, we'll reply here or
   by email."
 
 ### 6.7 Reply delivery: widget if they're there, email if they're away
 
-- When an agent (or the AI, after the user has gone quiet) replies on a
-  ticket with a `requesterEmail`, schedule a check about 2 minutes later.
 - `ticket_messages.seenAt` (nullable). The widget marks agent and bot
   messages seen only when the chat panel is open **and**
   `document.visibilityState === "visible"`.
-- When the check runs: all seen → do nothing. Any unseen → send one `reply`
-  email (via `ticket_mail_outbox`) with all unseen replies and a magic link
-  back to the conversation.
-- This avoids the race of a presence check, sends nothing when someone
-  briefly switches tabs, and groups a burst of replies into one email.
+- When an agent replies (or the AI replies on a ticket with a
+  `requesterEmail`), queue a `reply` mail in `ticket_mail_outbox` with
+  `nextAttemptAt = now + 2 minutes`. No new scheduler: the existing mail
+  worker already picks up rows by `nextAttemptAt`.
+- When the worker picks it up: all replies seen → mark the row done without
+  sending. Any unseen → send one email with all unseen replies and a magic
+  link back to the conversation. If a pending row already exists for the
+  ticket, don't queue another, so a burst of replies becomes one email.
+- Agent replies send no email today (only AI replies on the `tickets`
+  channel do), so this adds that for chatbot tickets.
 - Anonymous chats have no email address, so their replies only show up in
   the widget.
 
 ## 7. Data model changes
 
-| Table             | Change                                      |
-| ----------------- | ------------------------------------------- |
-| `tickets`         | `contact_id text null` (SendLit contact ID) |
-| `tickets`         | `context jsonb null` (incident context)     |
-| `ticket_messages` | `seen_at timestamp null`                    |
+| Table              | Change                                                        |
+| ------------------ | ------------------------------------------------------------- |
+| `support_sessions` | new: hashed token, team, requester, context, message, expiry  |
+| `tickets`          | `requester_external_id text null`, `requester_account jsonb null` |
+| `tickets`          | `contact_id text null` (SendLit contact ID)                   |
+| `tickets`          | `context jsonb null` (incident context)                       |
+| `ticket_messages`  | `seen_at timestamp null`                                      |
 
 Plus: the `contact_sync` payload gains `ticketId`, `externalId` and
-`account`; `upsertContact` accepts `customFields`.
+`account`; `upsertContact` accepts `customFields`. Expired
+`support_sessions` rows can be deleted by any existing cleanup job, or left
+alone; they're small.
 
 ## 8. Security and privacy
 
-- `POST /support-sessions` requires a team API key with ticket write scope.
-  It must only be called from the host's server, never from the browser. The
-  docs say so explicitly.
-- Session tokens are random, stored hashed (like ticket access grants),
-  scoped to one ticket, and expire (e.g. 1 hour). An expired token can't
-  read the conversation; the user starts a new session from the host app.
-- The token is passed to the iframe outside the query string.
+- `POST /support-sessions` needs a new, narrow **`support:sessions`** API
+  key scope. Creating tickets today needs `helpdesk:write`
+  (`apps/api/src/auth/operation-policy.ts`), which can also read, reply to
+  and change any ticket. With the narrow scope, a leaked CourseLit server key
+  can start chats under any name but can't read or change the inbox.
+- The endpoint must only be called from the host's server, never from the
+  browser. The docs say so explicitly.
+- Session tokens are random, stored hashed, expire after about 1 hour, and
+  can only start or resume that requester's chat. After the first message
+  the widget uses a normal ticket access grant.
+- Session chats are kept in memory only, never in localStorage (§6.3).
+- Tokens are passed to the iframe outside the query string.
 - `context` is untrusted text from the customer's app. It's size-capped,
   escaped when shown, and treated as data (not instructions) in the AI
   prompt.
@@ -303,22 +358,31 @@ Plus: the `contact_sync` payload gains `ticketId`, `externalId` and
 ## 9. Tasks
 
 - [ ] **Must fix:** loader builds iframe URLs from its own origin.
-- [ ] Loader: expose `window.FrontLit` (`open`, `close`) wired to the
-      existing open state and `paint()`, and replay queued calls.
-- [ ] `POST /support-sessions` (contract, queries, route, MCP tool): ticket
-      create/reuse, `context`, short-lived ticket token.
-- [ ] Widget: `FrontLit.open({ token })` loads the session's ticket.
+- [ ] Loader: create the iframe on first open; expose `window.FrontLit`
+      (`open`, `close`) and replay queued calls.
+- [ ] Widget: poll only while the panel is open and the tab is visible.
+- [ ] `support:sessions` API key scope.
+- [ ] `POST /support-sessions` (contract, queries, route, MCP tool) and the
+      `support_sessions` table.
+- [ ] Widget with a session token: show the requester's open ticket or a
+      blank chat; keep it in memory only (no localStorage).
+- [ ] Public message endpoint: accept a session token, create the ticket on
+      the first message (requester snapshot, context), and hand back a ticket
+      access grant.
+- [ ] `tickets.requesterExternalId`, `requesterAccount`, `context`; inbox
+      ticket view shows them; inbox search by external ID.
 - [ ] `contact_sync`: `customFields` (external ID, account), carry the
       ticket ID, write `tickets.contactId` back.
-- [ ] `tickets.context`; inbox ticket view shows the SendLit contact and the
-      context.
-- [ ] Inbox search by external ID.
-- [ ] Pass ticket context to the AI prompt; error rules from §6.6.
+- [ ] Pass ticket context to the AI prompt; escalate in code when
+      `context.error` is set and retrieval finds nothing; prompt rules from
+      §6.6.
 - [ ] Widget: always-visible **Talk to a human**, and the post-handoff
       message.
 - [ ] `ticket_messages.seenAt`, set by the widget only when the panel is
       open and the tab is visible.
-- [ ] Delayed unseen-reply email with a link back to the chat.
+- [ ] Delayed `reply` mail through `ticket_mail_outbox` (`nextAttemptAt`
+      +2 min, skip if all seen, one pending row per ticket), including agent
+      replies.
 - [ ] Docs: "Add in-app support to your product" (backend session route,
       snippet, Contact support button).
 - [ ] First integration: CourseLit dashboard (session route, snippet,
@@ -327,11 +391,17 @@ Plus: the `contact_sync` payload gains `ticketId`, `externalId` and
 ## 10. Acceptance criteria
 
 - [ ] In CourseLit, a failed upload shows **Contact support**. Clicking it
-      opens the widget, and the FrontLit ticket shows the user, the school
-      (name and URL), the page and the error, without anyone asking.
+      opens the widget, and after the first message the FrontLit ticket
+      shows the user, the school (name and URL), the page and the error,
+      without anyone asking.
+- [ ] Opening Help and closing it without sending a message creates no
+      ticket.
+- [ ] A user with an open ticket who clicks Help again sees the same
+      conversation.
+- [ ] The ticket shows the CourseLit user ID and school, and searching the
+      inbox by that user ID finds it, even with SendLit unavailable.
 - [ ] The SendLit contact has the CourseLit user ID and school in custom
-      fields, the ticket's `contactId` points to it, and searching the inbox
-      by that user ID finds the ticket.
+      fields, and the ticket's `contactId` points to it.
 - [ ] The AI answers from docs when it can, and handing off keeps all the
       context.
 - [ ] For the CourseLit upload bug, the AI doesn't reply with generic tips.
@@ -346,8 +416,12 @@ Plus: the `contact_sync` payload gains `ticketId`, `externalId` and
 - [ ] The widget loads from FrontLit's origin when embedded on
       app.courselit.app, and `FrontLit.open()` works when called before the
       loader has finished.
-- [ ] Session tokens are scoped to one ticket and expire; a bad or expired
-      token can't read the conversation.
+- [ ] No iframe is loaded and no polling happens until the user opens the
+      widget; polling stops when the panel is closed or the tab is hidden.
+- [ ] After logging out of CourseLit (or on a shared browser), the previous
+      user's support chat isn't visible in the widget.
+- [ ] A `support:sessions` key can't list or read tickets; an expired or
+      bad session token can't start or read a chat.
 - [ ] Full e2e browser smoke, locally and on QA.
 
 ## 11. Later
