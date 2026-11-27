@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeTestDb, seedTeam, type TestDb } from "../test/db";
-import { getSubdomainHost } from "../domains/queries";
+import { getEmbedHost, getSubdomainHost } from "../domains/queries";
 
 vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 vi.mock("../tickets/notify", () => ({
@@ -128,6 +128,12 @@ describe("public critical paths", () => {
 
       const empty = await fetch(`${origin}/public/tls-ask`);
       expect(empty.status).toBe(404);
+
+      // The chat widget host has no team but gets a certificate.
+      const embed = await fetch(
+        `${origin}/public/tls-ask?domain=${encodeURIComponent(getEmbedHost())}`,
+      );
+      expect(embed.status).toBe(200);
     });
   });
 

@@ -485,7 +485,7 @@ describe("team website domains", () => {
   });
 
   it("rejects reserved subdomain labels", async () => {
-    for (const slug of ["www", "api", "app", "sites", "localhost", "cdn"]) {
+    for (const slug of ["www", "api", "app", "sites", "localhost", "cdn", "embed"]) {
       expect(await setTeamSubdomain(teamId, slug)).toEqual({
         ok: false,
         reason: "reserved",

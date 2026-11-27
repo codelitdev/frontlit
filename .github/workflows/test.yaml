@@ -23,6 +23,8 @@ jobs:
                   bun run --filter @frontlit/media-uploader build
                   bun run --filter @frontlit/page-builder build
                   bun run --filter @frontlit/site-seo build
+            - name: Embed loader size budget
+              run: bun run --filter @frontlit/sites check:embed-size
             - name: Running tests
               run: |
                   bun run test

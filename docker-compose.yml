@@ -205,6 +205,8 @@ services:
             EDGE_CACHE_TTL: ${EDGE_CACHE_TTL:-60}
             # "off" disables the Web Vitals beacon (deploy/monitoring).
             SITE_RUM: ${SITE_RUM:-}
+            # Chat widget origin, embed.<PLATFORM_SITE_DOMAIN> (docs/embedded-support.md §6.3).
+            EMBED_ORIGIN: ${EMBED_ORIGIN:-http://embed.localhost:3002}
         depends_on:
             frontlit-api:
                 condition: service_healthy

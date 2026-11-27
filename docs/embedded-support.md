@@ -260,7 +260,7 @@ team ID passed in an `init` call.** The fixed address is
   - `/<teamId>/chat`: the chat UI iframe (the existing `/embed/chat` page,
     with the team taken from the path).
 
-  In `apps/sites/proxy.ts`: if the host is `EMBED_HOST`, serve these routes
+  In `apps/sites/proxy.ts`: if the host is the `EMBED_ORIGIN` host, serve these routes
   (outside `app/sites/[teamId]`) and skip team resolution. No other host
   serves the settings or the chat iframe. The one exception is the static
   loader file, also served as `/embed/chat.js` on every host for hosted
@@ -276,7 +276,7 @@ team ID passed in an `init` call.** The fixed address is
 - **Setup:**
   - add `embed` to `RESERVED_SUBDOMAIN_LABELS`
     (`apps/api/src/domains/queries.ts`) so no team can claim it;
-  - `/public/tls-ask` approves `EMBED_HOST`, so Caddy's on-demand TLS issues
+  - `/public/tls-ask` approves `embed.<PLATFORM_SITE_DOMAIN>`, so Caddy's on-demand TLS issues
     its certificate (today it only approves hosts `resolveHost` knows);
   - DNS: covered by the `*.frontlit.app` wildcard that team subdomains
     already use (confirm before rollout);
@@ -298,8 +298,11 @@ team ID passed in an `init` call.** The fixed address is
   ```js
   FrontLit.push("init", { teamId: "tm_abc123", launcher: false });
   ```
-- **Lazy iframe.** The loader shows only the bubble (or nothing with
-  `launcher: false`). The iframe is created on the first `open`.
+- **Lazy iframe.** The loader shows only the launcher (or nothing with
+  `launcher: false`). The iframe is created on the first `open`. For the
+  `text_input` variant the launcher is a composer look-alike; clicking it
+  opens the docked chat, which the loader grows from 72px to at most 70%
+  of the page height.
 - **JS API**, a single global **`window.FrontLit`** (no aliases like `fl` or
   `frontlit`):
   - `FrontLit.push("init", { teamId, launcher? })`, or
@@ -523,7 +526,7 @@ phase 2.
 
 **Phase 1: widget and loader**
 
-- [ ] `embed.frontlit.app` (`EMBED_HOST`) in `apps/sites/proxy.ts`, served
+- [ ] `embed.frontlit.app` (`EMBED_ORIGIN`) in `apps/sites/proxy.ts`, served
       only on that host: static `/chat.js`, public `/<teamId>/config`, and
       the chat iframe at `/<teamId>/chat`. Reserve the `embed` subdomain
       label; approve the host in `/public/tls-ask`.

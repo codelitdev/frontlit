@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { notFound } from "next/navigation";
 import { getChatbotSettings } from "@/lib/api";
 import { API_PUBLIC_URL } from "@/lib/config";
 import { loadSiteTheme } from "@/lib/load-site-theme";
@@ -9,7 +10,9 @@ interface Props {
   searchParams: Promise<{ layout?: string }>;
 }
 
-/** `?layout=` is read per request; the settings behind it are cached. */
+/** The chat UI the embed loader iframes, at `embed.<domain>/<teamId>/chat`
+ * (proxy.ts). `?layout=` is read per request; the settings behind it are
+ * cached. */
 export default function EmbedChatPage(props: Props) {
   return (
     <Suspense fallback={null}>
@@ -27,6 +30,7 @@ async function EmbedChat({ params, searchParams }: Props) {
     getChatbotSettings(teamId),
     loadSiteTheme(teamId),
   ]);
+  if (!settings?.enabled) notFound();
   const layout = layoutParam === "docked" ? "docked" : "panel";
   const style = settings?.widgetStyle;
 

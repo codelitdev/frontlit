@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3002",
-    "build": "next build",
+    "dev": "bun run build:embed && (bun run build:embed --watch & next dev -p 3002)",
+    "build": "bun run build:embed && next build",
+    "build:embed": "bun build embed/chat.ts --minify --target=browser --format=iife --outfile=public/embed/chat.js",
+    "check:embed-size": "bun run build:embed && bun embed/check-size.ts",
     "start": "next start -p 3002",
     "lint": "eslint .",
     "check-types": "tsc --noEmit",
