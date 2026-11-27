@@ -34,9 +34,9 @@ describe("in-app support sessions (docs/embedded-support.md §6.2)", () => {
     await truncateAll(db);
     ({ team } = await seedTeam(db));
     await updateChatbotSettings(team.id, { enabled: true });
-    sessionsKey = (await createApiKey(team.id, "CourseLit", db, "support:sessions"))
+    sessionsKey = (await createApiKey(team.id, "CourseLit", testDb, "support:sessions"))
       .secret;
-    fullKey = (await createApiKey(team.id, "Full", db)).secret;
+    fullKey = (await createApiKey(team.id, "Full", testDb)).secret;
   });
 
   async function withApp(run: (origin: string) => Promise<void>) {
