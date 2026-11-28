@@ -73,6 +73,8 @@ function baseAttributes(profile: Profile): Record<string, Record<string, AttrSpe
     link: {
       href: spec((v) => isSafeUrl(v) || "Link URL is unsafe.", { url: "link" }),
       title: spec(nullableString),
+      // New content stores null. Tiptap's old defaults stay valid so stored
+      // content still saves; the renderer ignores both (`linkAttributes`).
       target: spec((v) => v === null || v === "_blank"),
       rel: spec((v) => v === null || v === "noopener noreferrer nofollow"),
       class: spec((v) => v === null),

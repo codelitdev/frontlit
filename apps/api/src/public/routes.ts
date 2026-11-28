@@ -48,6 +48,7 @@ import {
   getTicketByTicketId,
   getTicketMessages,
   getTicketNotificationRecipient,
+  escalateByRequester,
   markRequesterRead,
   notifyUnanswered,
   textTicketMessage,
@@ -307,6 +308,7 @@ function toPublicTicketThread(
         "context",
       ),
     ),
+    humanHandling: ticket.aiState === "escalated" || ticket.aiState === "taken_over",
     messages: messages.map((m) => ({
       ...serializeDates(omitInternal(m, "teamId", "ticketId")),
       attachments: m.id
@@ -1105,6 +1107,24 @@ const impl = s.router(contract.public, {
         };
 
       await markRequesterRead(team.id, ticket);
+      return { status: 204, body: null };
+    },
+  },
+  escalateTicket: {
+    middleware: [ticketThreadLimiter],
+    handler: async ({ params, body }) => {
+      const team = await findTeamByPublicId(params.teamId);
+      if (!team) return { status: 404, body: { error: "Team not found" } };
+
+      const ticket = await getTicketByTicketId(team.id, params.ticketId);
+      if (!ticket) return { status: 404, body: { error: "Not found" } };
+      if (!(await verifyTicketAccess(ticket, body.token)))
+        return {
+          status: 401,
+          body: { error: "Invalid or expired token" },
+        };
+
+      await escalateByRequester(team.id, ticket);
       return { status: 204, body: null };
     },
   },

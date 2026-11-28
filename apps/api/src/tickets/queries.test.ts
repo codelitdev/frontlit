@@ -5,7 +5,8 @@ import { makeTestDb, seedTeam, type TestDb } from "../test/db";
 vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 
 import { db as testDb } from "../db/client";
-import { outboxJobs } from "../db/schema";
+import { accounts, outboxJobs } from "../db/schema";
+import { authUser } from "../db/auth-schema";
 import {
   addTicketMessage,
   createTicket,
@@ -14,6 +15,7 @@ import {
   getTicketNotificationRecipient,
   listTickets,
   reissueTicketAccessToken,
+  takeOverTicket,
   textTicketMessage,
   ticketMessageText,
   updateTicket,
@@ -280,5 +282,107 @@ describe("help-desk ticket lifecycle", () => {
     expect(await getTicketNotificationRecipient(teamId, "acct_does_not_exist")).toBe(
       ownerEmail,
     );
+  });
+});
+
+describe("a teammate taking over from the AI", () => {
+  const db = testDb as unknown as TestDb;
+  let teamId: string;
+  let accountId: string;
+
+  beforeEach(async () => {
+    const seeded = await seedTeam(db);
+    teamId = seeded.team.id;
+    accountId = seeded.account.id;
+    const userId = crypto.randomUUID();
+    const now = new Date();
+    await db.insert(authUser).values({
+      id: userId,
+      name: "Priya",
+      email: `${userId}@example.com`,
+      emailVerified: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db
+      .update(accounts)
+      .set({ authUserId: userId })
+      .where(eq(accounts.id, accountId));
+  });
+
+  async function aiChat() {
+    const { ticket } = await createTicket({
+      teamId,
+      subject: "Hi",
+      message: "Hi",
+      requesterEmail: null,
+      source: "chatbot",
+    });
+    return (await getTicketByTicketId(teamId, ticket.ticketId))!;
+  }
+
+  it("stops the AI and records who joined, once", async () => {
+    const ticket = await aiChat();
+    await takeOverTicket(teamId, ticket, accountId);
+
+    const after = (await getTicketByTicketId(teamId, ticket.ticketId))!;
+    expect(after.aiState).toBe("taken_over");
+    expect(after.aiStopReason).toBe("agent_takeover");
+    expect(after.aiGeneration).toBe(ticket.aiGeneration + 1);
+    expect(after.status).toBe("open");
+
+    await takeOverTicket(teamId, after, accountId);
+    const messages = await getTicketMessages(ticket.id);
+    expect(
+      messages.map((message) => [message.author, ticketMessageText(message.content)]),
+    ).toEqual([
+      ["requester", "Hi"],
+      ["system", "Priya has joined"],
+    ]);
+  });
+
+  it("records the join before a teammate's first reply only", async () => {
+    const ticket = await aiChat();
+    for (const text of ["Hello, I'm here", "Anything else?"]) {
+      await addTicketMessage({
+        teamId,
+        ticketDbId: ticket.id,
+        author: "agent",
+        authorAccountId: accountId,
+        content: textTicketMessage(text),
+      });
+    }
+    const messages = await getTicketMessages(ticket.id);
+    expect(messages.map((message) => message.author)).toEqual([
+      "requester",
+      "system",
+      "agent",
+      "agent",
+    ]);
+    expect(ticketMessageText(messages[1].content)).toBe("Priya has joined");
+  });
+
+  it("adds no join line to email threads", async () => {
+    const { ticket } = await createTicket({
+      teamId,
+      subject: "Invoice",
+      message: "Where is my invoice?",
+      requesterEmail: "a@example.com",
+      source: "form",
+    });
+    const row = (await getTicketByTicketId(teamId, ticket.ticketId))!;
+    await takeOverTicket(teamId, row, accountId);
+    expect((await getTicketByTicketId(teamId, ticket.ticketId))?.aiState).toBe(
+      "taken_over",
+    );
+    const messages = await getTicketMessages(ticket.id);
+    expect(messages.map((message) => message.author)).toEqual(["requester"]);
+  });
+
+  it("names an unknown teammate generically", async () => {
+    const ticket = await aiChat();
+    await takeOverTicket(teamId, ticket);
+    const messages = await getTicketMessages(ticket.id);
+    expect(ticketMessageText(messages.at(-1)!.content)).toBe("A teammate has joined");
   });
 });

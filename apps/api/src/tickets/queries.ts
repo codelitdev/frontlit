@@ -1,5 +1,6 @@
 import { and, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { db } from "../db/client";
+import { authUser } from "../db/auth-schema";
 import {
   accounts,
   teams,
@@ -23,6 +24,7 @@ import {
 import { enqueueInboxAiRun, ticketsChannelForSource } from "../inbox-ai/schedule";
 import { enqueueTicketMail } from "../inbox-ai/mail";
 import { enqueueNeedsReplyPush } from "../push/send";
+import { HANDOFF_COPY } from "../inbox-ai/config";
 
 function ticketContactSourcePath(source: TicketSource): string {
   if (source === "chatbot") return "/chat";
@@ -262,11 +264,21 @@ export async function getTicketMessages(ticketDbId: string) {
 export async function addTicketMessage(input: {
   teamId: string;
   ticketDbId: string;
-  author: "requester" | "agent" | "bot";
+  author: "requester" | "agent" | "bot" | "system";
   authorAccountId?: string;
   content: TextEditorContentRow;
   sources?: TicketMessageSource[];
 }) {
+  // A teammate's first reply takes the conversation over: say so first.
+  if (input.author === "agent") {
+    const current = await db.query.tickets.findFirst({
+      where: eq(tickets.id, input.ticketDbId),
+    });
+    if (current && current.status !== "closed" && current.aiState !== "taken_over") {
+      await addJoinedMessage(input.teamId, current, input.authorAccountId);
+    }
+  }
+
   const [message] = await db
     .insert(ticketMessages)
     .values({
@@ -335,6 +347,58 @@ export async function addTicketMessage(input: {
   return message;
 }
 
+async function teammateName(accountId?: string) {
+  if (!accountId) return null;
+  const [row] = await db
+    .select({ name: authUser.name })
+    .from(accounts)
+    .innerJoin(authUser, eq(accounts.authUserId, authUser.id))
+    .where(eq(accounts.id, accountId));
+  return row?.name.trim() || null;
+}
+
+/** Records "<name> has joined" in a chat, seen by agents and the visitor.
+ * Email threads have no such moment, so they get no line. */
+async function addJoinedMessage(
+  teamId: string,
+  ticket: { id: string; source: TicketSource },
+  accountId?: string,
+) {
+  if (ticket.source !== "chatbot") return;
+  const name = (await teammateName(accountId)) ?? "A teammate";
+  await addTicketMessage({
+    teamId,
+    ticketDbId: ticket.id,
+    author: "system",
+    authorAccountId: accountId,
+    content: textTicketMessage(`${name} has joined`),
+  });
+}
+
+/**
+ * A teammate takes the conversation from the AI on purpose (the inbox's
+ * Take over button). The AI stops, including an answer it is writing, and
+ * the thread records who joined. No-op once a person owns it or it's closed.
+ */
+export async function takeOverTicket(
+  teamId: string,
+  ticket: typeof tickets.$inferSelect,
+  accountId?: string,
+) {
+  if (ticket.status === "closed" || ticket.aiState === "taken_over") return;
+  await db
+    .update(tickets)
+    .set({
+      aiState: "taken_over",
+      aiStopReason: "agent_takeover",
+      aiStoppedAt: new Date(),
+      aiGeneration: ticket.aiGeneration + 1,
+      updatedAt: new Date(),
+    })
+    .where(eq(tickets.id, ticket.id));
+  await addJoinedMessage(teamId, ticket, accountId);
+}
+
 /** The requester has the conversation on screen: earlier replies are read,
  * and agents see "Seen". */
 export async function markRequesterRead(
@@ -346,6 +410,44 @@ export async function markRequesterRead(
     .set({ requesterLastReadAt: new Date() })
     .where(eq(tickets.id, ticket.id));
   publishInboxUpdate(teamId, ticket.ticketId);
+}
+
+/**
+ * "Talk to a human" (docs/embedded-support.md §6.6): stops the assistant
+ * and alerts the team, the same outcome as an AI handoff for a visitor
+ * request, without asking the AI. Bumping `aiGeneration` discards any answer
+ * still being generated. Does nothing once a person has the conversation.
+ */
+export async function escalateByRequester(
+  teamId: string,
+  ticket: typeof tickets.$inferSelect,
+) {
+  if (ticket.aiState === "escalated" || ticket.aiState === "taken_over") return;
+  await db
+    .update(tickets)
+    .set({
+      status: "open",
+      aiState: "escalated",
+      aiStopReason: "visitor_request",
+      aiStoppedAt: new Date(),
+      aiGeneration: ticket.aiGeneration + 1,
+      updatedAt: new Date(),
+    })
+    .where(eq(tickets.id, ticket.id));
+  await addTicketMessage({
+    teamId,
+    ticketDbId: ticket.id,
+    author: "bot",
+    content: textTicketMessage(HANDOFF_COPY),
+  });
+  const latest = await db.query.ticketMessages.findFirst({
+    where: and(
+      eq(ticketMessages.ticketId, ticket.id),
+      eq(ticketMessages.author, "requester"),
+    ),
+    orderBy: desc(ticketMessages.createdAt),
+  });
+  if (latest) await notifyUnanswered(teamId, ticket.id, latest.id);
 }
 
 /**

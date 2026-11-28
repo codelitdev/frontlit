@@ -9,7 +9,15 @@ import {
 import { getTeamThemeStyle } from "@/lib/team-theme";
 import { CitationList } from "@/components/citation-list";
 import { TicketReplyForm } from "@/components/ticket-reply-form";
-import type { TicketMessage } from "@/lib/api";
+import { getSiteHosts, type TicketMessage } from "@/lib/api";
+
+/** Text of a one-line thread event such as "Sam has joined". */
+function plainText(node: unknown): string {
+  if (!node || typeof node !== "object") return "";
+  const value = node as { text?: unknown; content?: unknown };
+  if (typeof value.text === "string") return value.text;
+  return Array.isArray(value.content) ? value.content.map(plainText).join("") : "";
+}
 
 export async function ThemedTicketThread({
   subject,
@@ -28,7 +36,10 @@ export async function ThemedTicketThread({
   ticketId: string;
   token: string;
 }) {
-  const theme = await getTeamThemeStyle(teamId);
+  const [theme, siteHosts] = await Promise.all([
+    getTeamThemeStyle(teamId),
+    getSiteHosts(teamId),
+  ]);
   return (
     <Section theme={theme}>
       <div className="flex flex-col gap-8">
@@ -37,21 +48,31 @@ export async function ThemedTicketThread({
           <Caption theme={theme}>{status}</Caption>
         </header>
         <ol className="flex flex-col gap-6">
-          {messages.map((message) => (
-            <li key={message.messageId}>
-              <PageCard theme={theme}>
-                <PageCardContent theme={theme} className="flex flex-col gap-2">
-                  <Caption theme={theme}>
-                    {message.author === "requester" ? "You" : "Support"}
-                  </Caption>
-                  <TextRenderer json={message.content} theme={theme} />
-                  {message.author === "bot" && (
-                    <CitationList sources={message.sources} />
-                  )}
-                </PageCardContent>
-              </PageCard>
-            </li>
-          ))}
+          {messages.map((message) =>
+            message.author === "system" ? (
+              <li key={message.messageId} className="flex justify-center">
+                <Caption theme={theme}>{plainText(message.content)}</Caption>
+              </li>
+            ) : (
+              <li key={message.messageId}>
+                <PageCard theme={theme}>
+                  <PageCardContent theme={theme} className="flex flex-col gap-2">
+                    <Caption theme={theme}>
+                      {message.author === "requester" ? "You" : "Support"}
+                    </Caption>
+                    <TextRenderer
+                      json={message.content}
+                      theme={theme}
+                      siteHosts={siteHosts}
+                    />
+                    {message.author === "bot" && (
+                      <CitationList sources={message.sources} />
+                    )}
+                  </PageCardContent>
+                </PageCard>
+              </li>
+            ),
+          )}
         </ol>
         {status !== "closed" && (
           <TicketReplyForm

@@ -27,8 +27,21 @@ import {
 import { findTeamById } from "../../team/queries";
 import { ContextTooLargeError, createSupportSession } from "../../support/sessions";
 
+/** Same projection as the REST twin: the declared output schema rejects
+ * internal columns, and strict MCP clients fail the whole call on them. */
 function toPublicTicket(ticket: Record<string, unknown>) {
-  return serializeDates(omitInternal(ticket, "teamId", "accessTokenHash"));
+  return serializeDates(
+    omitInternal(
+      ticket,
+      "teamId",
+      "accessTokenHash",
+      "id",
+      "aiGeneration",
+      "aiTriggerMessageId",
+      "aiStopReason",
+      "aiStoppedAt",
+    ),
+  );
 }
 
 function toPublicMessage(message: Record<string, unknown>) {

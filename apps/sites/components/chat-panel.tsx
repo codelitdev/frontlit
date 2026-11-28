@@ -10,7 +10,8 @@ import {
   resolveSiteTheme,
   siteThemeStyleTag,
 } from "@/lib/site-theme";
-import { SiteThemeProvider } from "@/lib/site-theme-context";
+import { SiteThemeProvider, useSiteThemeStyle } from "@/lib/site-theme-context";
+import { Button } from "@frontlit/page-builder/primitives/server";
 
 /** Asks the embed loader (apps/sites/embed/chat.ts) to close the panel. It
  * hides the iframe, which keeps polling so a reply can mark the launcher. */
@@ -29,6 +30,25 @@ function CloseIcon({ path }: { path: string }) {
     >
       <path d={path} strokeLinecap="round" />
     </svg>
+  );
+}
+
+/** Hands the conversation to the team without going through the AI
+ * (docs/embedded-support.md §6.6). Shown once there is a conversation. */
+function TalkToHumanButton({ busy, onClick }: { busy: boolean; onClick: () => void }) {
+  const theme = useSiteThemeStyle();
+  return (
+    <Button
+      theme={theme}
+      type="button"
+      variant="ghost"
+      size="sm"
+      disabled={busy}
+      onClick={onClick}
+      className="h-7 shrink-0 rounded-full border border-current/30 px-2.5 text-xs font-medium text-inherit hover:bg-black/10 hover:text-inherit"
+    >
+      {busy ? "Connecting…" : "Talk to a human"}
+    </Button>
   );
 }
 
@@ -331,6 +351,12 @@ export function ChatPanel({
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
+                  {chat.canTalkToHuman && (
+                    <TalkToHumanButton
+                      busy={chat.escalating}
+                      onClick={() => void chat.talkToHuman()}
+                    />
+                  )}
                   <SoundToggle />
                   <button
                     type="button"
@@ -463,6 +489,12 @@ export function ChatPanel({
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
+            {chat.canTalkToHuman && (
+              <TalkToHumanButton
+                busy={chat.escalating}
+                onClick={() => void chat.talkToHuman()}
+              />
+            )}
             <SoundToggle />
             <button
               type="button"
@@ -546,7 +578,8 @@ export function ChatPanel({
               )}
             </button>
           </div>
-          <p className="mt-1.5 px-0.5 text-[11px] text-muted-foreground">
+          {/* Keyboard shortcuts mean nothing on a touch keyboard. */}
+          <p className="mt-1.5 px-0.5 text-[11px] text-muted-foreground pointer-coarse:hidden">
             <kbd className="rounded border border-border bg-muted px-1">Enter</kbd> to
             send ·{" "}
             <kbd className="rounded border border-border bg-muted px-1">Shift</kbd>+

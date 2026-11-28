@@ -28,7 +28,9 @@ vi.mock("./completion", async () => {
   };
 });
 
+import { eq } from "drizzle-orm";
 import { db as testDb } from "../db/client";
+import { tickets } from "../db/schema";
 import { createTicket, getTicketMessages } from "../tickets/queries";
 import { upsertInboxAiPolicy } from "./policy";
 import { runInboxAi } from "./generate";
@@ -88,6 +90,7 @@ describe("runInboxAi", () => {
       usedTokens: 8,
       chunks: [],
       documentationGap: false,
+      grounded: true,
       handoff: { reason: "visitor_request" },
     });
     await upsertInboxAiPolicy(teamId, "chatbot", { autoReply: true });
@@ -132,6 +135,7 @@ describe("runInboxAi", () => {
       usedTokens: 12,
       chunks: [],
       documentationGap: false,
+      grounded: false,
       handoff: null,
     });
     await upsertInboxAiPolicy(teamId, "chatbot", {
@@ -174,6 +178,7 @@ describe("runInboxAi", () => {
       usedTokens: 12,
       chunks: [],
       documentationGap: false,
+      grounded: false,
       handoff: null,
     });
     await upsertInboxAiPolicy(teamId, "chatbot", { autoReply: true });
@@ -210,6 +215,7 @@ describe("runInboxAi", () => {
       usedTokens: 10,
       chunks: [],
       documentationGap: false,
+      grounded: true,
       handoff: { reason: "topic", topic: "refund" },
     });
     await upsertInboxAiPolicy(teamId, "chatbot", {
@@ -276,6 +282,7 @@ describe("runInboxAi", () => {
       },
       usedTokens: 40,
       documentationGap: false,
+      grounded: true,
       handoff: null,
       chunks: [
         {
@@ -330,5 +337,101 @@ describe("runInboxAi", () => {
       (message) => message.author === "bot",
     );
     expect(bot?.sources).toEqual(result.sources);
+  });
+
+  describe("with an app error in the ticket context", () => {
+    const configureAi = () => {
+      vi.mocked(getLanguageModel).mockResolvedValue({} as never);
+      vi.mocked(getResolvedAiConfig).mockResolvedValue({
+        provider: "openai",
+        models: { chatbot: "gpt-4o-mini", grammar: null, builder: null },
+        region: null,
+        endpoint: null,
+        apiKey: "sk-test",
+      });
+    };
+    const uploadFailure = async () => {
+      await upsertInboxAiPolicy(teamId, "chatbot", { autoReply: true });
+      return createTicket({
+        teamId,
+        subject: "My image upload failed",
+        message: "My image upload failed",
+        requesterEmail: "jane@example.com",
+        source: "chatbot",
+        scheduleAi: false,
+        context: { page: "/dashboard/media", error: "Image upload failed: 413" },
+      });
+    };
+
+    it("hands off when the docs don't explain the error", async () => {
+      configureAi();
+      vi.mocked(generateInboxAnswer).mockResolvedValue({
+        result: { answer: "Try clearing your browser cache.", citations: [] },
+        usedTokens: 10,
+        chunks: [],
+        documentationGap: true,
+        grounded: false,
+        handoff: null,
+      });
+      const created = await uploadFailure();
+      const result = await runInboxAi({
+        teamId,
+        ticketDbId: created.ticket.id,
+        triggerMessageId: created.firstMessage.id,
+        channel: "chatbot",
+        mode: "sync",
+      });
+
+      expect(vi.mocked(generateInboxAnswer).mock.calls[0][0].context).toEqual({
+        page: "/dashboard/media",
+        error: "Image upload failed: 413",
+      });
+      expect(result.outcome).toBe("escalated");
+      expect(result.answer).toBe(HANDOFF_COPY);
+      const ticket = await db.query.tickets.findFirst({
+        where: eq(tickets.id, created.ticket.id),
+      });
+      expect(ticket?.aiState).toBe("escalated");
+      expect(ticket?.aiStopReason).toBe("app_error");
+      const texts = (await getTicketMessages(created.ticket.id)).map((m) =>
+        JSON.stringify(m.content),
+      );
+      expect(texts.some((text) => text.includes("clearing your browser cache"))).toBe(
+        false,
+      );
+    });
+
+    it("answers when the docs explain the error", async () => {
+      configureAi();
+      vi.mocked(generateInboxAnswer).mockResolvedValue({
+        result: { answer: "Images can be at most 5 MB [1].", citations: [1] },
+        usedTokens: 10,
+        documentationGap: false,
+        grounded: true,
+        handoff: null,
+        chunks: [
+          {
+            documentId: "d1",
+            slug: "media-limits",
+            title: "Media limits",
+            heading: null,
+            anchor: null,
+            content: "Images can be at most 5 MB.",
+            similarity: 0.9,
+            kind: "doc",
+          },
+        ],
+      });
+      const created = await uploadFailure();
+      const result = await runInboxAi({
+        teamId,
+        ticketDbId: created.ticket.id,
+        triggerMessageId: created.firstMessage.id,
+        channel: "chatbot",
+        mode: "sync",
+      });
+      expect(result.outcome).toBe("answered");
+      expect(result.answer).toBe("Images can be at most 5 MB [1].");
+    });
   });
 });

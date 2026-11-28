@@ -38,6 +38,7 @@ import { chargeReservation, releaseReservation, reserveTokens } from "./usage";
 import {
   InboxAiProviderError,
   citationsFromModel,
+  contextHasError,
   generateInboxAnswer,
 } from "./completion";
 import { enqueueTicketMail } from "./mail";
@@ -231,7 +232,7 @@ function historyFromMessages(
   triggerId: string,
 ) {
   return messages
-    .filter((message) => message.id !== triggerId)
+    .filter((message) => message.id !== triggerId && message.author !== "system")
     .slice(-MAX_HISTORY_MESSAGES)
     .map((message) => ({
       role: message.author === "requester" ? ("user" as const) : ("assistant" as const),
@@ -493,6 +494,7 @@ export async function runInboxAi(input: {
       offerHuman: policy.escalateWhenUnsure,
       allowVisitorHandoff: policy.escalateOnVisitorRequest,
       escalateTopics: policy.escalateTopics,
+      context: ticket.context,
       timeoutMs:
         input.mode === "sync" ? CHAT_PROVIDER_TIMEOUT_MS : TICKET_PROVIDER_TIMEOUT_MS,
     });
@@ -509,6 +511,12 @@ export async function runInboxAi(input: {
 
     if (generated.handoff) {
       return escalateDeterministic(generated.handoff.reason, retrieval);
+    }
+    // The host app reported an error and the docs don't explain it: a
+    // likely bug, so a person takes it rather than a "couldn't verify"
+    // reply (docs/embedded-support.md §6.6).
+    if (!generated.grounded && contextHasError(ticket.context)) {
+      return escalateDeterministic("app_error", retrieval);
     }
 
     const stillValid = await canCommit(ticket, claim, trigger.id, policy);
