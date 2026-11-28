@@ -272,6 +272,30 @@ describe("blocks Markdown can't express", () => {
     expectExactRoundTrip(defaultProfile, doc(code, resizedImage));
   });
 
+  it("refuses a tiptap block whose closing fence was removed", () => {
+    const text = toEditableMarkdown(
+      defaultProfile,
+      doc(resizedImage, paragraph("After.")),
+    );
+    const broken = text.replace("}\n```\n", "}\n");
+    try {
+      fromEditableMarkdown(defaultProfile, broken);
+      expect.unreachable();
+    } catch (error) {
+      expect(error).toBeInstanceOf(ContentError);
+      expect((error as ContentError).diagnostics[0]).toMatchObject({ line: 1 });
+    }
+  });
+
+  it("applies the byte limit to the whole text, not each part", () => {
+    const half = "a".repeat(Math.ceil(defaultProfile.limits.bytes / 2));
+    const text = toEditableMarkdown(
+      defaultProfile,
+      doc(paragraph(half), resizedImage, paragraph(half)),
+    );
+    expect(() => fromEditableMarkdown(defaultProfile, text)).toThrow(ContentError);
+  });
+
   it("an empty document is empty text", () => {
     expect(toEditableMarkdown(defaultProfile, doc())).toBe("");
   });

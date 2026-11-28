@@ -171,7 +171,7 @@ interface Segment {
 const FENCE = /^(`{3,}|~{3,})(.*)$/;
 
 /** Splits editable Markdown at top-level `tiptap` fences, skipping other fenced code. */
-function splitRawBlocks(text: string): Segment[] {
+function splitRawBlocks(text: string, unclosed: (line: number) => never): Segment[] {
   const lines = text.split("\n");
   const segments: Segment[] = [];
   let start = 0;
@@ -194,7 +194,8 @@ function splitRawBlocks(text: string): Segment[] {
       continue;
     }
     const end = lines.findIndex((line, j) => j > i && line === "```");
-    if (end === -1) continue; // Unclosed: left to the Markdown parser to report.
+    // Unclosed, Markdown would read the rest of the document as code.
+    if (end === -1) unclosed(i + 1);
     segments.push({
       kind: "markdown",
       text: lines.slice(start, i).join("\n"),
@@ -242,7 +243,20 @@ function readRawBlock(profile: Profile, segment: Segment): JSONContent {
 /** Editable Markdown (see `toEditableMarkdown`) back to validated content. */
 export function fromEditableMarkdown(profile: Profile, markdown: string): JSONContent {
   const text = markdown.replace(/\r\n?/g, "\n");
-  const segments = splitRawBlocks(text);
+  // Checked on the whole text: each segment alone could pass.
+  if (new TextEncoder().encode(text).length > profile.limits.bytes)
+    throw new ContentError([
+      diagnostic(codeFor(profile, CODES.tooLarge), "Markdown exceeds size limit."),
+    ]);
+  const segments = splitRawBlocks(text, (line) => {
+    throw new ContentError([
+      diagnostic(
+        codeFor(profile, CODES.unsupportedSyntax),
+        "A tiptap block is missing its closing ``` line.",
+        { line },
+      ),
+    ]);
+  });
   if (segments.length === 1) return parseMarkdown(profile, text);
   const content: JSONContent[] = [];
   for (const segment of segments) {
