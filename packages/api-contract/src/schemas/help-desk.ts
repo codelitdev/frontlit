@@ -4,7 +4,13 @@ import { textEditorContentSchema } from "./documents";
 
 export const ticketStatusSchema = z.enum(["open", "pending", "resolved", "closed"]);
 export const ticketSourceSchema = z.enum(["form", "chatbot", "api", "email"]);
-export const ticketMessageAuthorSchema = z.enum(["requester", "agent", "bot"]);
+/** `system` lines record events in the thread, e.g. "Sam has joined". */
+export const ticketMessageAuthorSchema = z.enum([
+  "requester",
+  "agent",
+  "bot",
+  "system",
+]);
 
 export const ticketAttachmentSchema = z.object({
   attachmentId: z.string(),

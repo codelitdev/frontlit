@@ -13,6 +13,7 @@ import {
   getTicketMessages,
   listTickets,
   reissueTicketAccessToken,
+  takeOverTicket,
   ticketMessageText,
   updateTicket,
 } from "./queries";
@@ -190,6 +191,14 @@ const impl = s.router(
           body: await toTicketWithMessages(updated ?? ticket),
         };
       },
+      takeOver: async ({ params, req }) => {
+        const teamId = (req as any).teamId;
+        const ticket = await getTicketByTicketId(teamId, params.ticketId);
+        if (!ticket) return { status: 404, body: { error: "Not found" } };
+        await takeOverTicket(teamId, ticket, (req as any).accountId);
+        const updated = await getTicketByTicketId(teamId, params.ticketId);
+        return { status: 200, body: await toTicketWithMessages(updated ?? ticket) };
+      },
       update: async ({ params, body, req }) => {
         const ticket = await updateTicket((req as any).teamId, params.ticketId, body);
         if (!ticket) return { status: 404, body: { error: "Not found" } };
@@ -247,6 +256,7 @@ const impl = s.router(
       create: "tickets.create",
       get: "tickets.get",
       reply: "tickets.reply",
+      takeOver: "tickets.takeOver",
       update: "tickets.update",
       presignAttachment: "tickets.presignAttachment",
       completeAttachment: "tickets.completeAttachment",

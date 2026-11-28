@@ -231,7 +231,7 @@ function historyFromMessages(
   triggerId: string,
 ) {
   return messages
-    .filter((message) => message.id !== triggerId)
+    .filter((message) => message.id !== triggerId && message.author !== "system")
     .slice(-MAX_HISTORY_MESSAGES)
     .map((message) => ({
       role: message.author === "requester" ? ("user" as const) : ("assistant" as const),

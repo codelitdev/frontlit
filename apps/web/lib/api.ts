@@ -1346,7 +1346,7 @@ export interface TicketMessageSource {
 
 export interface TicketMessage {
   messageId: string;
-  author: "requester" | "agent" | "bot";
+  author: "requester" | "agent" | "bot" | "system";
   authorAccountId?: string | null;
   content: TextEditorContent;
   attachments?: TicketAttachment[];
@@ -1440,6 +1440,10 @@ export function replyToTicket(
       },
     }),
   );
+}
+
+export function takeOverTicket(ticketId: string) {
+  return unwrap<TicketWithMessages>(client.tickets.takeOver({ params: { ticketId } }));
 }
 
 export function presignTicketAttachment(ticketId: string) {
