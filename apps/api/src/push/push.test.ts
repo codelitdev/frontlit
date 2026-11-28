@@ -361,6 +361,17 @@ describe("pushes for customer messages that need a person", () => {
     ]);
   });
 
+  it("drops subscriptions the push service rejects for our key (after a key change)", async () => {
+    await subscribe(owner.id, "https://push.example.com/owner");
+    await subscribe(owner.id, "https://push.example.com/owner-old-key");
+    failures.set("https://push.example.com/owner-old-key", 403);
+
+    await processWebPush(team.id, { title: "t", body: "b", url: "/", tag: "x" });
+
+    const left = await db.query.pushSubscriptions.findMany();
+    expect(left.map((row) => row.endpoint)).toEqual(["https://push.example.com/owner"]);
+  });
+
   it("throws so the outbox retries when a push service is unavailable", async () => {
     await subscribe(owner.id, "https://push.example.com/owner");
     failures.set("https://push.example.com/owner", 503);

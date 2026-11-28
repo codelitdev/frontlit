@@ -70,6 +70,36 @@ function toBody(subscription: PushSubscription) {
   };
 }
 
+/** Whether a subscription was made with this VAPID public key. Push
+ * services reject sends signed with any other key, so a subscription from
+ * before a key change is dead. Unknown (no key exposed) counts as a match. */
+function madeWithKey(subscription: PushSubscription, publicKey: string): boolean {
+  const current = subscription.options?.applicationServerKey;
+  if (!current) return true;
+  const expected = urlBase64ToUint8Array(publicKey);
+  const actual = new Uint8Array(current);
+  return (
+    actual.length === expected.length && actual.every((byte, i) => byte === expected[i])
+  );
+}
+
+/** This browser's subscription for `publicKey`: the existing one, or a new
+ * one replacing a subscription made with an older key. */
+async function subscriptionFor(publicKey: string): Promise<PushSubscription> {
+  await registerServiceWorker();
+  const registration = await navigator.serviceWorker.ready;
+  const existing = await registration.pushManager.getSubscription();
+  if (existing && madeWithKey(existing, publicKey)) return existing;
+  if (existing) {
+    await deletePushSubscription(existing.endpoint).catch(() => undefined);
+    await existing.unsubscribe();
+  }
+  return registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(publicKey),
+  });
+}
+
 /** Asks for permission, subscribes this browser and saves it for the signed
  * in account. Returns false when permission was not granted. */
 export async function turnOnPush(publicKey: string): Promise<boolean> {
@@ -78,15 +108,7 @@ export async function turnOnPush(publicKey: string): Promise<boolean> {
       ? await Notification.requestPermission()
       : Notification.permission;
   if (permission !== "granted") return false;
-  await registerServiceWorker();
-  const registration = await navigator.serviceWorker.ready;
-  const subscription =
-    (await registration.pushManager.getSubscription()) ??
-    (await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey),
-    }));
-  await savePushSubscription(toBody(subscription));
+  await savePushSubscription(toBody(await subscriptionFor(publicKey)));
   return true;
 }
 
@@ -98,11 +120,13 @@ export async function turnOffPush(): Promise<void> {
   await subscription.unsubscribe();
 }
 
-/** Re-saves an existing subscription, so the server knows this browser now
- * belongs to whoever is signed in. */
-export async function syncPushSubscription(): Promise<boolean> {
+/** Re-saves this browser's subscription on page load, so the server knows
+ * it now belongs to whoever is signed in. If the server's key changed since
+ * it subscribed, it subscribes again with the new key, so a key rotation
+ * needs nothing from the user. */
+export async function syncPushSubscription(publicKey: string): Promise<boolean> {
   const subscription = await currentPushSubscription();
   if (!subscription || Notification.permission !== "granted") return false;
-  await savePushSubscription(toBody(subscription));
+  await savePushSubscription(toBody(await subscriptionFor(publicKey)));
   return true;
 }

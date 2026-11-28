@@ -2,17 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { BellIcon, BellOffIcon } from "lucide-react";
 import { toast } from "sonner";
-import { IconButton } from "@/components/ui/codelit/icon-button";
 import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/codelit/dropdown-menu";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/codelit/dialog";
+import { Label } from "@/components/ui/codelit/label";
+import { Switch } from "@/components/ui/codelit/switch";
 import { useWorkspaceAccess } from "@/components/workspace/workspace-access";
 import { isChimeMuted, playChime, setChimeMuted } from "@/lib/chime";
 import { useInboxLive, type RequesterMessage } from "@/lib/use-inbox-live";
@@ -126,7 +125,7 @@ export function InboxAlerts() {
       const publicKey = await pushPublicKey();
       let active = false;
       if (publicKey && pushSupported()) {
-        active = await syncPushSubscription().catch(() => false);
+        active = await syncPushSubscription(publicKey).catch(() => false);
       }
       if (cancelled) return;
       push.publicKey = publicKey;
@@ -197,8 +196,47 @@ export function InboxAlerts() {
   return null;
 }
 
-/** Header menu for the alert sound and device notifications. */
-export function InboxAlertsMenu() {
+/** One switch in the notification settings. */
+function SettingRow({
+  id,
+  label,
+  description,
+  checked,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  description: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (on: boolean) => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <Label htmlFor={id}>{label}</Label>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </div>
+      <Switch
+        id={id}
+        checked={checked}
+        disabled={disabled}
+        onCheckedChange={onChange}
+      />
+    </div>
+  );
+}
+
+/** This person's alerts for new customer messages, on this device: the
+ * sound and notifications. Opened from the account menu. */
+export function NotificationSettingsDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const prefs = usePrefs();
   const [busy, setBusy] = useState(false);
 
@@ -240,69 +278,63 @@ export function InboxAlertsMenu() {
     notifyChange();
   };
 
-  const silent = !prefs.sound && !prefs.desktop;
+  const blocked =
+    "Blocked. Allow notifications for this site in your browser settings.";
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <IconButton size="sm" aria-label="Message alerts" title="Message alerts">
-          {silent ? <BellOffIcon /> : <BellIcon />}
-        </IconButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-72">
-        <DropdownMenuLabel>Alerts for new customer messages</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuCheckboxItem
-          checked={prefs.sound}
-          onCheckedChange={(on) => {
-            setChimeMuted(!on);
-            notifyChange();
-            if (on) playChime();
-          }}
-          onSelect={(event) => event.preventDefault()}
-        >
-          Play a sound
-        </DropdownMenuCheckboxItem>
-        {prefs.mode === "push" && (
-          <DropdownMenuCheckboxItem
-            checked={prefs.desktop}
-            disabled={prefs.blocked || busy}
-            onCheckedChange={(on) => void togglePush(on === true)}
-            onSelect={(event) => event.preventDefault()}
-          >
-            <span className="flex flex-col">
-              <span>Notify me on this device</span>
-              <span className="text-xs text-muted-foreground">
-                {prefs.blocked
-                  ? "Blocked. Allow notifications for this site in your browser settings."
-                  : "Shown even when FrontLit isn't open."}
-              </span>
-            </span>
-          </DropdownMenuCheckboxItem>
-        )}
-        {prefs.mode === "install" && (
-          <p className="px-2 py-1.5 text-xs text-muted-foreground">
-            Add FrontLit to your Home Screen to get notifications.
-          </p>
-        )}
-        {prefs.mode === "page" && (
-          <DropdownMenuCheckboxItem
-            checked={prefs.desktop}
-            disabled={prefs.blocked}
-            onCheckedChange={(on) => void toggleDesktop(on === true)}
-            onSelect={(event) => event.preventDefault()}
-          >
-            <span className="flex flex-col">
-              <span>Desktop notifications</span>
-              <span className="text-xs text-muted-foreground">
-                {prefs.blocked
-                  ? "Blocked. Allow notifications for this site in your browser settings."
-                  : "Shown when this tab is in the background."}
-              </span>
-            </span>
-          </DropdownMenuCheckboxItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Notifications</DialogTitle>
+          <DialogDescription>
+            How this device tells you about new customer messages. Set it on each device
+            you use.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <SettingRow
+            id="alert-sound"
+            label="Play a sound"
+            description="A short chime when a customer message needs a reply."
+            checked={prefs.sound}
+            onChange={(on) => {
+              setChimeMuted(!on);
+              notifyChange();
+              if (on) playChime();
+            }}
+          />
+          {prefs.mode === "push" && (
+            <SettingRow
+              id="alert-push"
+              label="Notify me on this device"
+              description={
+                prefs.blocked ? blocked : "Shown even when FrontLit isn't open."
+              }
+              checked={prefs.desktop}
+              disabled={prefs.blocked || busy}
+              onChange={(on) => void togglePush(on)}
+            />
+          )}
+          {prefs.mode === "install" && (
+            <p className="text-sm text-muted-foreground">
+              To get notifications on this iPhone or iPad, open FrontLit in Safari, tap
+              Share, then Add to Home Screen, and turn them on from the Home Screen app.
+            </p>
+          )}
+          {prefs.mode === "page" && (
+            <SettingRow
+              id="alert-desktop"
+              label="Desktop notifications"
+              description={
+                prefs.blocked ? blocked : "Shown when this tab is in the background."
+              }
+              checked={prefs.desktop}
+              disabled={prefs.blocked}
+              onChange={(on) => void toggleDesktop(on)}
+            />
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
