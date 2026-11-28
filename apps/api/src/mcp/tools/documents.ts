@@ -29,6 +29,7 @@ import {
   AUTH_ERROR,
   INTERNAL_ERROR,
   NOT_FOUND,
+  editableTextResult,
   errorResult,
   jsonResult,
 } from "./responses";
@@ -36,7 +37,19 @@ import { InvalidSlugError, SlugConflictError } from "../../utils/slug";
 import { StaleDraftError, staleDraftBody } from "../../utils/draft-version";
 import { getTeamId } from "./auth";
 import { listPaging, listPagingInput } from "./paging";
-import { DocsContentError, describeContentFormat } from "@frontlit/text-editor/docs";
+import {
+  DocsContentError,
+  describeContentFormat,
+  docsProfile,
+} from "@frontlit/text-editor/docs";
+import {
+  ContentError,
+  TextEditError,
+  editContent,
+  toEditableMarkdown,
+  type Profile,
+} from "@frontlit/text-editor/blocks";
+import { defaultProfile } from "@frontlit/text-editor/profiles";
 import { documentationErrorBody } from "../../documentation/content-validation";
 import { omitInternal, serializeDates } from "../../utils/public";
 import { attachOneDocumentIndex } from "../../documentation/index-status";
@@ -64,6 +77,62 @@ function toPublicDocument<T extends Record<string, unknown>>(doc: T) {
     ),
   );
 }
+
+/** The `edits` input of every edit_* tool. */
+export const textEditsField = z
+  .array(
+    z.object({
+      old_str: z
+        .string()
+        .min(1)
+        .describe(
+          "Exact text to replace, copied from the text get_* returned. Must occur exactly once.",
+        ),
+      new_str: z.string().describe("Replacement text. Empty deletes old_str."),
+    }),
+  )
+  .min(1)
+  .max(50)
+  .describe(
+    "Exact-match replacements, applied in order (each to the result of the previous one), all or nothing. Include enough surrounding text for old_str to match exactly once; to insert, repeat nearby text in old_str and new_str.",
+  );
+
+/** An edit that doesn't apply, as a tool error the agent can act on. */
+export function textEditErrorResult(error: TextEditError) {
+  return {
+    ...jsonResult({
+      error: error.message,
+      code: error.code,
+      index: error.index,
+      ...(error.matches !== undefined ? { matches: error.matches } : {}),
+    }),
+    isError: true,
+  };
+}
+
+/**
+ * `editContent`, with content failures reported as `DocsContentError` like
+ * every other body write. (`@frontlit/text-editor/blocks` and `/docs` are
+ * separate bundles with their own `ContentError`, so `asDocsError` from
+ * `/docs` doesn't recognize this one.)
+ */
+export function editBody(profile: Profile, content: unknown, edits: TextEditInput) {
+  try {
+    return editContent(profile, content, edits);
+  } catch (error) {
+    if (error instanceof ContentError) throw new DocsContentError(error.diagnostics);
+    throw error;
+  }
+}
+type TextEditInput = Parameters<typeof editContent>[2];
+
+/** Articles and product updates are edited in the default editor; docs in the docs profile. */
+function bodyProfile(kind: DocumentKind): Profile {
+  return kind === "doc" ? docsProfile : defaultProfile;
+}
+
+const EDITABLE_MARKDOWN_NOTE =
+  "draftMarkdown is the draft body as editable Markdown, also returned verbatim as its own text block: copy old_str values for edit_* from it. A block Markdown can't express (a resized image, a merged-cell table) appears as a fenced ```tiptap block holding its JSON; edit text inside it the same way.";
 
 /**
  * One implementation behind every typed Content tool set (`create_article`,
@@ -116,7 +185,25 @@ export function registerDocumentTools(
       .optional()
       .describe("What blocks publishing, e.g. a Button without its link."),
   });
-  const itemSchema = kind === "doc" ? documentationSchema : documentSchema;
+  const baseItemSchema: z.AnyZodObject =
+    kind === "doc" ? documentationSchema : documentSchema;
+  const itemSchema = baseItemSchema
+    .omit({ content: true, draftContent: true, draftMarkdown: true })
+    .extend({
+      draftMarkdown: z
+        .string()
+        .describe(
+          "The draft body as editable Markdown; edit_* changes exactly this text.",
+        ),
+    });
+  const editResultSchema = z.object({
+    documentId: z.string(),
+    status: documentStatusSchema,
+    draftVersion: z.number().int(),
+    updatedAt: z.string().nullable(),
+    publishable: z.boolean().optional(),
+    diagnostics: z.array(z.any()).optional(),
+  });
   const outputSchema =
     kind === "doc"
       ? z.union([documentationSchema, documentationValidationErrorSchema])
@@ -237,7 +324,7 @@ export function registerDocumentTools(
   server.registerTool(
     `get_${label}`,
     {
-      description: `Fetches a single ${humanLabel} by id, including its full draft and published content.`,
+      description: `Fetches a single ${humanLabel} by id: its draft metadata, draftVersion and status (published_with_changes when the draft differs from the live version). ${EDITABLE_MARKDOWN_NOTE} To change part of the body, use edit_${label}; update_${label} replaces it whole.`,
       inputSchema: { documentId: z.string() },
       outputSchema: itemSchema,
       annotations: {
@@ -251,8 +338,60 @@ export function registerDocumentTools(
       try {
         const doc = await getDocumentByDocumentId(kind, args.documentId, teamId);
         if (!doc || doc.teamId !== teamId) return NOT_FOUND;
-        return jsonResult(toPublicDocument(await attachOneDocumentIndex(kind, doc)));
+        const {
+          content: _published,
+          draftContent: _draft,
+          draftMarkdown: _docsMarkdown,
+          ...rest
+        } = toPublicDocument(await attachOneDocumentIndex(kind, doc)) as Record<
+          string,
+          unknown
+        >;
+        return editableTextResult(
+          rest,
+          "draftMarkdown",
+          toEditableMarkdown(bodyProfile(kind), doc.draftContent),
+        );
       } catch (error) {
+        return handleError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    `edit_${label}`,
+    {
+      description: `Changes part of a ${humanLabel}'s draft body with exact-match replacements on the draftMarkdown get_${label} returns, without resending the body. Each old_str must match exactly once; all edits apply or none do. A failed match returns EDIT_NOT_FOUND or EDIT_AMBIGUOUS with the edit's index (re-read with get_${label}); content that doesn't validate returns diagnostics with line numbers in the edited text. If someone saved the draft at the same moment, ${kind === "doc" ? "STALE_DOCS_DRAFT" : "STALE_DRAFT"} is returned: call again. Writes only the draft; call publish_${label} to make it live. Replies without the body.`,
+      inputSchema: { documentId: z.string(), edits: textEditsField },
+      outputSchema: editResultSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+      },
+    },
+    async (args: any, extra: any) => {
+      const teamId = getTeamId(extra);
+      if (!teamId) return AUTH_ERROR;
+      try {
+        const current = await getDocumentByDocumentId(kind, args.documentId, teamId);
+        if (!current || current.teamId !== teamId) return NOT_FOUND;
+        const content = editBody(bodyProfile(kind), current.draftContent, args.edits);
+        const doc = await updateDocument(kind, teamId, args.documentId, {
+          content: content as never,
+          expectedDraftVersion: current.draftVersion,
+        });
+        if (!doc) return NOT_FOUND;
+        const view = toPublicDocument(doc) as Record<string, unknown>;
+        return jsonResult({
+          documentId: view.documentId,
+          status: view.status,
+          draftVersion: view.draftVersion,
+          updatedAt: view.updatedAt,
+          ...(view.publishable !== undefined ? { publishable: view.publishable } : {}),
+          ...(view.diagnostics !== undefined ? { diagnostics: view.diagnostics } : {}),
+        });
+      } catch (error) {
+        if (error instanceof TextEditError) return textEditErrorResult(error);
         return handleError(error);
       }
     },
