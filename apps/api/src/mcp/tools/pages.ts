@@ -7,7 +7,10 @@ import {
   createPage,
   deletePage,
   discardPageDraft,
+  draftPageFile,
+  editPageDraft,
   getPageByPageId,
+  InvalidStoredDraftError,
   listPages,
   sharedWidgetsHaveChanges,
   publishPage,
@@ -18,13 +21,20 @@ import {
   AUTH_ERROR,
   INTERNAL_ERROR,
   NOT_FOUND,
+  editableTextResult,
   errorResult,
   jsonResult,
 } from "./responses";
+import { textEditErrorResult, textEditsField } from "./documents";
+import { TextEditError } from "@frontlit/text-editor/blocks";
 import { getTeamId } from "./auth";
 import { listPaging, listPagingInput } from "./paging";
 import { omitInternal, serializeDates } from "../../utils/public";
-import { PAGE_TEXT_FORMAT } from "@frontlit/page-builder/schema";
+import {
+  PAGE_SCHEMA_URL,
+  PAGE_TEXT_FORMAT,
+  SchemaValidationError,
+} from "@frontlit/page-builder/schema";
 import { InvalidPageLayoutError } from "../../pages/shared-widgets";
 import { PageOwnedByGitError } from "../../pages/git-pr";
 
@@ -45,6 +55,53 @@ const pageSummarySchema = pageSchema
         "Whether search engines may index the page once its draft is published.",
       ),
   });
+
+/** A stored draft that no longer matches the block schemas (saved before a
+ * schema change) has no page file. Report why, with the stored draft, so an
+ * agent can repair it with update_page. */
+function invalidDraftResult(error: SchemaValidationError, page?: PageView) {
+  return {
+    ...jsonResult({
+      error:
+        "This page's draft no longer matches the page schema, so it has no page file to edit. Fix the listed blocks with update_page (layout), then use edit_page.",
+      code: "INVALID_STORED_DRAFT",
+      diagnostics: error.diagnostics,
+      ...(page
+        ? {
+            draftLayout: page.draftLayout,
+            draftTitle: page.draftTitle,
+            draftDescription: page.draftDescription,
+          }
+        : {}),
+    }),
+    isError: true,
+  };
+}
+
+/** get_page: the page with its draft as page file text instead of layouts. */
+const pageFileViewSchema = pageSchema
+  .omit({
+    layout: true,
+    draftLayout: true,
+    draftTitle: true,
+    draftDescription: true,
+    draftSocialImage: true,
+    draftRobotsAllowed: true,
+  })
+  .extend({
+    draftFile: z
+      .string()
+      .describe(
+        "The draft (layout and SEO) as its page file; edit_page changes exactly this text.",
+      ),
+  });
+
+const pageEditResultSchema = z.object({
+  pageId: z.string(),
+  status: pageSchema.shape.status,
+  draftVersion: z.number().int(),
+  updatedAt: z.string().nullable(),
+});
 
 /** List items carry no layouts: those make a list too large for MCP
  * clients, which truncate the result before the status fields. */
@@ -140,9 +197,9 @@ export function registerPageTools(server: McpToolRegistrar): void {
   server.registerTool(
     "get_page",
     {
-      description: "Fetches a single page by id, including its full block layout.",
+      description: `Fetches a single page by id: name, slug, status, draftVersion and the published SEO fields, plus draftFile, the draft as its page file (${PAGE_SCHEMA_URL}: layout and SEO, rich text as Markdown, defaults omitted), also returned verbatim as its own text block. Copy old_str values for edit_page from it; inside JSON strings, line breaks are \\n and quotes are \\". To change part of the page, use edit_page; update_page replaces whole fields. The shared header/footer are not part of the page file.`,
       inputSchema: { pageId: z.string() },
-      outputSchema: pageSchema,
+      outputSchema: pageFileViewSchema,
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
@@ -154,8 +211,66 @@ export function registerPageTools(server: McpToolRegistrar): void {
       try {
         const page = await getPageByPageId(args.pageId);
         if (!page || page.teamId !== teamId) return NOT_FOUND;
-        return jsonResult(toPublicPage(page));
+        const {
+          layout: _layout,
+          draftLayout: _draftLayout,
+          draftTitle: _title,
+          draftDescription: _description,
+          draftSocialImage: _socialImage,
+          draftRobotsAllowed: _robots,
+          ...rest
+        } = toPublicPage(page) as Record<string, unknown>;
+        let file: string;
+        try {
+          file = draftPageFile(page);
+        } catch (error) {
+          if (error instanceof SchemaValidationError)
+            return invalidDraftResult(error, page);
+          throw error;
+        }
+        return editableTextResult(rest, "draftFile", file);
       } catch {
+        return INTERNAL_ERROR;
+      }
+    },
+  );
+
+  server.registerTool(
+    "edit_page",
+    {
+      description: `Changes part of a page's draft (layout and SEO) with exact-match replacements on the draftFile get_page returns, without resending the layout. Each old_str must match exactly once (JSON escaping included); all edits apply or none do. Blocks can be changed, added, removed or reordered. A failed match returns EDIT_NOT_FOUND or EDIT_AMBIGUOUS with the edit's index (re-read with get_page); an invalid page returns the schema errors. If someone saved the draft at the same moment, STALE_DRAFT is returned: call again. Writes only the draft; call publish_page to make it live. Replies without the page. ${PAGE_TEXT_FORMAT}`,
+      inputSchema: { pageId: z.string(), edits: textEditsField },
+      outputSchema: pageEditResultSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+      },
+    },
+    async (args: any, extra: any) => {
+      const teamId = getTeamId(extra);
+      if (!teamId) return AUTH_ERROR;
+      try {
+        const page = await editPageDraft(teamId, args.pageId, args.edits);
+        if (!page) return NOT_FOUND;
+        const view = toPublicPage(page) as Record<string, unknown>;
+        return jsonResult({
+          pageId: view.pageId,
+          status: view.status,
+          draftVersion: view.draftVersion,
+          updatedAt: view.updatedAt,
+        });
+      } catch (error) {
+        if (error instanceof TextEditError) return textEditErrorResult(error);
+        if (error instanceof InvalidStoredDraftError)
+          return invalidDraftResult(error.cause);
+        if (error instanceof SchemaValidationError)
+          return {
+            ...jsonResult({ error: error.message, diagnostics: error.diagnostics }),
+            isError: true,
+          };
+        if (error instanceof StaleDraftError)
+          return { ...jsonResult(staleDraftBody(error)), isError: true };
+        if (error instanceof InvalidPageLayoutError) return errorResult(error.message);
         return INTERNAL_ERROR;
       }
     },

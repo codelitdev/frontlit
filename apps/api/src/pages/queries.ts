@@ -19,8 +19,16 @@ import {
   canonicalPageLayout,
   createRequiredSharedWidgetPlaceholders,
   hydrateSharedWidgets,
+  repairStoredLayout,
   splitSubmittedLayout,
 } from "./shared-widgets";
+import {
+  parsePageFile,
+  SchemaValidationError,
+  serializePageFile,
+  type PageDocument,
+} from "@frontlit/page-builder/schema";
+import { applyTextEdits, type TextEdit } from "@frontlit/text-editor/blocks";
 import { normalizeSocialImage } from "./social-image";
 import { getPagesGitBinding, pageGitInfo, PageOwnedByGitError } from "./git-pr";
 import {
@@ -344,6 +352,68 @@ export async function updatePage(
       throw new SlugConflictError("That slug is already in use.");
     }
     throw error;
+  }
+  return getPageByPageId(pageId);
+}
+
+/** The stored draft no longer matches the block schemas (saved before a
+ * schema change), so it has no page file to edit. */
+export class InvalidStoredDraftError extends Error {
+  constructor(readonly cause: SchemaValidationError) {
+    super(cause.message);
+    this.name = "InvalidStoredDraftError";
+  }
+}
+
+/** The page's draft as its canonical page file: what `editPageDraft` edits. */
+export function draftPageFile(page: Parameters<typeof draftDocument>[0]): string {
+  return serializePageFile(draftDocument(page));
+}
+
+/**
+ * Applies exact-match `edits` to the page's draft through its page file
+ * (layout and SEO). Block bookkeeping is rebuilt as Git sync and rollback do:
+ * positional widget ids and the required header/footer and data slot. The
+ * shared header/footer are not part of the file and stay untouched. Saves
+ * only if nobody wrote the draft since it was read (`StaleDraftError`).
+ */
+export async function editPageDraft(
+  teamId: string,
+  pageId: string,
+  edits: readonly TextEdit[],
+) {
+  const existing = await getRawPageByPageId(pageId);
+  if (!existing || existing.teamId !== teamId) return null;
+  let file: string;
+  try {
+    file = draftPageFile(existing);
+  } catch (error) {
+    if (error instanceof SchemaValidationError)
+      throw new InvalidStoredDraftError(error);
+    throw error;
+  }
+  const edited: PageDocument = parsePageFile(applyTextEdits(file, edits));
+  const [row] = await db
+    .update(pages)
+    .set({
+      draftLayout: repairStoredLayout(
+        revisionDraftLayout(edited as never, existing.slug),
+        existing.slug,
+      ),
+      draftTitle: edited.title ?? null,
+      draftDescription: edited.description ?? null,
+      draftSocialImage: (edited.socialImage as Record<string, unknown>) ?? null,
+      draftRobotsAllowed: edited.robotsAllowed ?? null,
+      draftVersion: nextDraftVersion(pages.draftVersion),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(eq(pages.id, existing.id), eq(pages.draftVersion, existing.draftVersion)),
+    )
+    .returning({ id: pages.id });
+  if (!row) {
+    const current = await getRawPageByPageId(pageId);
+    throw new StaleDraftError(current?.draftVersion ?? existing.draftVersion);
   }
   return getPageByPageId(pageId);
 }

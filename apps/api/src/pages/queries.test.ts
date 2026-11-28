@@ -18,6 +18,8 @@ import {
   deletePage,
   derivePageStatus,
   discardPageDraft,
+  draftPageFile,
+  editPageDraft,
   getPageByPageId,
   getPublishedPageBySlug,
   publishPage,
@@ -414,6 +416,83 @@ describe("pages draft/publish", () => {
         layout: [pageLayout()[0], pageLayout()[0], pageLayout()[1]],
       }),
     ).rejects.toBeInstanceOf(InvalidPageLayoutError);
+  });
+
+  it("edits the draft through its page file, leaving the shared header/footer alone", async () => {
+    const created = await createPage({ teamId, name: "Pricing" });
+    await updatePage(teamId, created.pageId, {
+      layout: pageLayout([
+        {
+          widgetId: "w1",
+          name: "hero",
+          deletable: true,
+          moveable: true,
+          shared: false,
+        },
+        {
+          widgetId: "w2",
+          name: "faq",
+          deletable: true,
+          moveable: true,
+          shared: false,
+        },
+      ]),
+      title: "Pricing",
+    });
+    const before = (await getPageByPageId(created.pageId))!;
+    const file = draftPageFile(before);
+    expect(file).toContain('"name": "hero"');
+    expect(file).not.toContain("header");
+
+    const edited = await editPageDraft(teamId, created.pageId, [
+      { old_str: '"title": "Pricing"', new_str: '"title": "Plans"' },
+      { old_str: '      "name": "faq"', new_str: '      "name": "banner"' },
+    ]);
+    expect(edited?.draftTitle).toBe("Plans");
+    expect(edited?.draftVersion).toBe(before.draftVersion + 1);
+    expect(edited?.draftLayout.map((widget) => widget.name)).toEqual([
+      "header",
+      "hero",
+      "banner",
+      "footer",
+    ]);
+    expect(edited?.draftLayout[0].settings).toEqual(before.draftLayout[0].settings);
+    expect(draftPageFile(edited!)).toBe(
+      file
+        .replace('"title": "Pricing"', '"title": "Plans"')
+        .replace('"name": "faq"', '"name": "banner"'),
+    );
+  });
+
+  it("keeps a dynamic standard page's content feed when its page file is edited", async () => {
+    const created = await createPage({ teamId, name: "Docs" });
+    await db
+      .update(pages)
+      .set({ slug: "docs", deletable: false })
+      .where(eq(pages.id, created.id));
+    const before = (await getPageByPageId(created.pageId))!;
+    const slot = before.draftLayout.find((widget) => widget.name === "data-slot")!;
+    const edited = await editPageDraft(teamId, created.pageId, [
+      { old_str: '"layout": [', new_str: '"title": "Docs home",\n  "layout": [' },
+    ]);
+    const after = edited!.draftLayout.find((widget) => widget.name === "data-slot");
+    expect(after).toMatchObject({ settings: slot.settings, deletable: false });
+  });
+
+  it("refuses a page edit when the draft changed since it was read", async () => {
+    const created = await createPage({ teamId, name: "Race" });
+    const results = await Promise.allSettled([
+      editPageDraft(teamId, created.pageId, [
+        { old_str: '"layout": []', new_str: '"title": "A",\n  "layout": []' },
+      ]),
+      editPageDraft(teamId, created.pageId, [
+        { old_str: '"layout": []', new_str: '"title": "B",\n  "layout": []' },
+      ]),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(
+      (results.find((r) => r.status === "rejected") as PromiseRejectedResult).reason,
+    ).toBeInstanceOf(StaleDraftError);
   });
 
   it("requires one moveable, non-deletable FrontLit data slot on dynamic standard pages", async () => {
