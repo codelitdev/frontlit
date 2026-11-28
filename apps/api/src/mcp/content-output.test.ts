@@ -71,6 +71,39 @@ describe("typed content tools through the MCP SDK", () => {
     },
   );
 
+  it.each(["article", "product_update"])(
+    "changes a %s slug independently of its title and rejects a taken slug",
+    async (label) => {
+      const client = await connect();
+      const first = await client.callTool({
+        name: `create_${label}`,
+        arguments: { title: "A very long original title" },
+      });
+      const second = await client.callTool({
+        name: `create_${label}`,
+        arguments: { title: "Other" },
+      });
+      const documentId = (first.structuredContent as any).documentId;
+
+      const updated = await client.callTool({
+        name: `update_${label}`,
+        arguments: { documentId, title: "Short", slug: "Short Slug" },
+      });
+      expect(updated.isError, JSON.stringify(updated.content)).not.toBe(true);
+      expect(updated.structuredContent).toMatchObject({
+        draftTitle: "Short",
+        slug: "short-slug",
+      });
+
+      const conflict = await client.callTool({
+        name: `update_${label}`,
+        arguments: { documentId, slug: (second.structuredContent as any).slug },
+      });
+      expect(conflict.isError).toBe(true);
+      expect(JSON.stringify(conflict.content)).toContain("already in use");
+    },
+  );
+
   async function call(
     client: Client,
     name: string,
