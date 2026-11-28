@@ -16,15 +16,9 @@ async function showPush(event) {
   } catch {
     data = { body: event.data ? event.data.text() : "" };
   }
-  // An open, focused FrontLit tab already chimes and shows a toast.
-  // (Browsers that require a notification for every push accept skipping
-  // one while the app is in the foreground.)
-  const windows = await self.clients.matchAll({
-    type: "window",
-    includeUncontrolled: true,
-  });
-  if (windows.some((client) => client.focused)) return;
-
+  // Always show it. Safari cancels the subscription of a worker that gets
+  // pushes without showing them, and an iPhone Home Screen app can report
+  // itself focused while it is in the background.
   await self.registration.showNotification(data.title || "New message", {
     body: data.body || "",
     tag: data.tag || undefined,
