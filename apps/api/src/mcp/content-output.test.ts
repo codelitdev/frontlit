@@ -272,3 +272,47 @@ describe("typed content tools through the MCP SDK", () => {
     expect(invalid).toEqual([]);
   }, 60_000);
 });
+
+describe("help desk tools through the MCP SDK", () => {
+  it("creates, lists and reads a ticket with schema-valid output", async () => {
+    const { team } = await seedTeam(db);
+    const authInfo: AuthInfo = {
+      token: "key-test",
+      clientId: "api-key:key-test",
+      scopes: [],
+      extra: { authKind: "api_key", teamId: team.id, account: null },
+    };
+    const handler = createMcpHandler(() => buildMcpServer(), { legacy: "stateless" });
+    const client = new Client({ name: "helpdesk-output", version: "1" });
+    closeables.push(client, handler);
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL("http://frontlit.test/mcp"), {
+        fetch: (input, init) =>
+          handler.fetch(new Request(input as any, init), { authInfo }),
+      }),
+    );
+
+    const created = await client.callTool({
+      name: "create_ticket",
+      arguments: {
+        subject: "Help",
+        message: "It broke",
+        requesterEmail: "a@example.com",
+      },
+    });
+    expect(created.isError).not.toBe(true);
+    const ticketId = (created.structuredContent as any).ticketId;
+    expect(created.structuredContent).not.toHaveProperty("aiStopReason");
+
+    const listed = await client.callTool({ name: "list_tickets", arguments: {} });
+    expect(listed.isError).not.toBe(true);
+    expect(listed.structuredContent).toMatchObject({
+      total: 1,
+      items: [{ ticketId, lastMessagePreview: "It broke" }],
+    });
+
+    const read = await client.callTool({ name: "get_ticket", arguments: { ticketId } });
+    expect(read.isError).not.toBe(true);
+    expect((read.structuredContent as any).messages).toHaveLength(1);
+  });
+});
