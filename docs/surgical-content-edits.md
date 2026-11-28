@@ -1,6 +1,6 @@
 # Surgical Content Edits — PRD
 
-Status: Implemented on `main`, 2026-11-28 (#262, #263, #267, #269; skills in codelitdev/frontlit-skills#23). Not yet deployed or smoke-tested on QA. See §11 for where the build differs from this plan.
+Status: Code merged to `main` (#262, #263, #267, #269, #271; skills in codelitdev/frontlit-skills#23, held until the production deploy). **Not done:** waiting for a QA deploy and QA smoke test. Local end-to-end smoke tests passed, 2026-11-28. See §11 for where the build differs from this plan.
 Scope: Small, targeted edits to rich-text content (articles, product updates, documentation pages) and page-builder pages, for coding agents over MCP. Also stale-save protection, so an open dashboard editor or builder can't overwrite those edits. The edit engine lives in `@frontlit/text-editor` and `@frontlit/page-builder`, so CourseLit and any other host can reuse it.
 
 ## 1. Problem
