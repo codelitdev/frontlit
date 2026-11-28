@@ -138,6 +138,7 @@ The server build is separate from the main bundle (`tsup.server.config.ts`): its
 | `@frontlit/page-builder/server`     | `ServerPageRenderer`, `setImageAttributesResolver` — server-component page rendering (see above)                            |
 | `@frontlit/page-builder/theme`      | `resolveTheme`, `themes`, `generateThemeStyles` — server-callable and light enough for client components                    |
 | `@frontlit/page-builder/primitives/server` | The hook-free primitives, callable from server components                                                            |
+| `@frontlit/page-builder/schema`    | Server-safe page and site files: `parsePageFile`, `serializePageFile`, `canonicalizeLayout`, and `editPageDocument` for `str_replace`-style edits through the page file |
 | `@frontlit/page-builder/islands/*`  | Small client islands (`nav-link`, `theme-mode-switcher`) hosts can import without the full client bundle                    |
 
 `createDefaultLayout()` / `getDefaultTheme()` (exported from the root) build a ready-to-render starter landing page.
