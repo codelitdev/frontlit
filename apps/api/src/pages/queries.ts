@@ -19,8 +19,15 @@ import {
   canonicalPageLayout,
   createRequiredSharedWidgetPlaceholders,
   hydrateSharedWidgets,
+  repairStoredLayout,
   splitSubmittedLayout,
 } from "./shared-widgets";
+import {
+  editPageDocument,
+  serializePageFile,
+  type PageDocument,
+} from "@frontlit/page-builder/schema";
+import type { TextEdit } from "@frontlit/text-editor/blocks";
 import {
   normalizeFeaturedImage,
   syncFeaturedImageToMediaLibrary,
@@ -351,6 +358,51 @@ export async function updatePage(
       throw new SlugConflictError("That slug is already in use.");
     }
     throw error;
+  }
+  return getPageByPageId(pageId);
+}
+
+/** The page's draft as its canonical page file: what `editPageDraft` edits. */
+export function draftPageFile(page: Parameters<typeof draftDocument>[0]): string {
+  return serializePageFile(draftDocument(page));
+}
+
+/**
+ * Applies exact-match `edits` to the page's draft through its page file
+ * (layout and SEO). Block bookkeeping is rebuilt as Git sync and rollback do:
+ * positional widget ids and the required header/footer and data slot. The
+ * shared header/footer are not part of the file and stay untouched. Saves
+ * only if nobody wrote the draft since it was read (`StaleDraftError`).
+ */
+export async function editPageDraft(
+  teamId: string,
+  pageId: string,
+  edits: readonly TextEdit[],
+) {
+  const existing = await getRawPageByPageId(pageId);
+  if (!existing || existing.teamId !== teamId) return null;
+  const edited: PageDocument = editPageDocument(draftDocument(existing), edits);
+  const [row] = await db
+    .update(pages)
+    .set({
+      draftLayout: repairStoredLayout(
+        revisionDraftLayout(edited as never, existing.slug),
+        existing.slug,
+      ),
+      draftTitle: edited.title ?? null,
+      draftDescription: edited.description ?? null,
+      draftSocialImage: (edited.socialImage as Record<string, unknown>) ?? null,
+      draftRobotsAllowed: edited.robotsAllowed ?? null,
+      draftVersion: nextDraftVersion(pages.draftVersion),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(eq(pages.id, existing.id), eq(pages.draftVersion, existing.draftVersion)),
+    )
+    .returning({ id: pages.id });
+  if (!row) {
+    const current = await getRawPageByPageId(pageId);
+    throw new StaleDraftError(current?.draftVersion ?? existing.draftVersion);
   }
   return getPageByPageId(pageId);
 }

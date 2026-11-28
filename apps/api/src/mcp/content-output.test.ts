@@ -367,6 +367,69 @@ describe("typed content tools through the MCP SDK", () => {
     );
   });
 
+  it("reads a page as its page file and edits it with schema-valid output", async () => {
+    const client = await connect();
+    const { data } = await call(client, "create_page", { name: "Pricing" });
+    await call(client, "update_page", {
+      pageId: data.pageId,
+      title: "Pricing",
+      layout: [
+        ...data.draftLayout.filter((block: any) => block.name === "header"),
+        {
+          widgetId: "hero-1",
+          name: "hero",
+          deletable: true,
+          moveable: true,
+          shared: false,
+          settings: { title: "Pricing that scales" },
+        },
+        ...data.draftLayout.filter((block: any) => block.name === "footer"),
+      ],
+    });
+    const read = await client.callTool({
+      name: "get_page",
+      arguments: { pageId: data.pageId },
+    });
+    expect(read.isError, JSON.stringify(read.content)).not.toBe(true);
+    const [meta, file] = read.content as Array<{ type: string; text: string }>;
+    expect(file.text).toContain('"title": "Pricing that scales"');
+    expect(JSON.parse(meta.text)).not.toHaveProperty("draftLayout");
+    expect(read.structuredContent).toMatchObject({ draftFile: file.text });
+
+    const edited = await call(client, "edit_page", {
+      pageId: data.pageId,
+      edits: [{ old_str: "Pricing that scales", new_str: "Plans that scale" }],
+    });
+    expect(edited.text.length).toBeLessThan(500);
+    expect(edited.data).toMatchObject({
+      pageId: data.pageId,
+      draftVersion: expect.any(Number),
+    });
+    const after = await call(client, "get_page", { pageId: data.pageId });
+    expect(after.data.draftFile).toBe(
+      file.text.replace("Pricing that scales", "Plans that scale"),
+    );
+
+    const invalid = await client.callTool({
+      name: "edit_page",
+      arguments: {
+        pageId: data.pageId,
+        edits: [{ old_str: '"name": "hero"', new_str: '"name": "nonsense"' }],
+      },
+    });
+    expect(invalid.isError).toBe(true);
+    expect(invalid.structuredContent).toMatchObject({
+      diagnostics: [
+        expect.objectContaining({ path: expect.stringContaining("/layout/0") }),
+      ],
+    });
+    const missing = await client.callTool({
+      name: "edit_page",
+      arguments: { pageId: data.pageId, edits: [{ old_str: "Nope", new_str: "x" }] },
+    });
+    expect(missing.structuredContent).toMatchObject({ code: "EDIT_NOT_FOUND" });
+  });
+
   it("publishes a documentation page with schema-valid output", async () => {
     const client = await connect();
     const created = await client.callTool({
