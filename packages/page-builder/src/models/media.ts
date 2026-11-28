@@ -33,3 +33,28 @@ export function getMediaAlt(media: unknown): string {
   const alt = obj.alt ?? obj.caption ?? obj.title;
   return typeof alt === "string" ? alt : "";
 }
+
+/**
+ * The stored reference for an image picked in the upload dialog. `mediaId`
+ * is the FrontLit library id (`med_…`), set only when the image came from
+ * the library; the MediaLit id is never stored.
+ */
+export function mediaFromSelection(selected: {
+  src: string;
+  alt?: string;
+  media?: unknown;
+}): Media {
+  const media = (selected.media ?? {}) as Record<string, unknown>;
+  const mediaId =
+    typeof media.mediaId === "string" && media.mediaId.startsWith("med_")
+      ? media.mediaId
+      : undefined;
+  const thumbnailUrl =
+    typeof media.thumbnailUrl === "string" ? media.thumbnailUrl : undefined;
+  return {
+    ...(mediaId ? { mediaId } : {}),
+    url: selected.src,
+    ...(thumbnailUrl ? { thumbnailUrl } : {}),
+    ...(selected.alt ? { alt: selected.alt } : {}),
+  };
+}
