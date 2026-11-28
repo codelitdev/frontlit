@@ -18,6 +18,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { turnOffPush } from "@/lib/web-push";
 
 interface CurrentAccount {
   email: string;
@@ -89,6 +90,8 @@ export function NavUser({ account }: { account: CurrentAccount | null }) {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={async () => {
+                // Stop this browser's push alerts for the account signing out.
+                await turnOffPush().catch(() => undefined);
                 await fetch("/api/auth/sign-out", {
                   method: "POST",
                 });

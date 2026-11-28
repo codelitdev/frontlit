@@ -25,4 +25,5 @@ export * from "./schemas/domains";
 export * from "./schemas/settings";
 export * from "./schemas/ai";
 export * from "./schemas/inbox-ai";
+export * from "./schemas/push";
 export * from "./site-branding";

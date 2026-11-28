@@ -12,6 +12,7 @@ import sessionReverifyRoutes from "./auth/session-reverify";
 import mcpRoutes from "./mcp/routes";
 import provisioningRoutes from "./provisioning/routes";
 import teamRoutes from "./team/routes";
+import pushRoutes from "./push/routes";
 import pagesRoutes from "./pages/routes";
 import themesRoutes from "./themes/routes";
 import mediaRoutes from "./media/routes";
@@ -131,6 +132,7 @@ export function createApp() {
   app.use(sessionReverifyRoutes);
 
   app.use(teamRoutes);
+  app.use(pushRoutes);
   app.use(pagesRoutes);
   app.use(themesRoutes);
   app.use(mediaRoutes);

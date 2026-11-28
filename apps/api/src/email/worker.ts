@@ -17,6 +17,7 @@ import {
 } from "./sendlit-client";
 import { getSendlitApiKey } from "../integrations/queries";
 import { retryProvisionSendlitForTeam } from "./provisioning";
+import { processWebPush } from "../push/send";
 
 /** Upserts the lead as a SendLit contact and tags it `frontlit` plus the
  * capturing page's slug, so email can be segmented by source page
@@ -110,6 +111,8 @@ async function processOneJob(): Promise<boolean> {
       await processContactSync(job.teamId, job.payload);
     } else if (job.type === "provision_sendlit") {
       await processProvisionSendlit(job.teamId, job.payload);
+    } else if (job.type === "web_push") {
+      await processWebPush(job.teamId, job.payload);
     }
     await markOutboxJobDone(job.id);
   } catch (err) {

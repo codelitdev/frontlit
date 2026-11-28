@@ -127,6 +127,19 @@ If there is more than one hop, or you want to name the proxies, set
 such as `loopback, 10.0.0.0/8`. When it is set, it takes precedence over
 `ENABLE_TRUST_PROXY`.
 
+To send support agents push notifications for new customer messages, add a
+Web Push key pair. Generate one with `npx web-push generate-vapid-keys` and
+set:
+
+```bash
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:admin@example.com
+```
+
+Push needs the web app served over HTTPS. Without these keys, agents get
+notifications only while a FrontLit tab is open.
+
 Better Auth rejects HTTP login URLs in production mode. Keep the root `.env`
 out of version control and use unique, high-entropy secrets for every
 deployment.
