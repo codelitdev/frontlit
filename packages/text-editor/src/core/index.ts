@@ -19,6 +19,16 @@ export {
   type ParseMarkdownOptions,
 } from "./markdown";
 export {
+  applyTextEdits,
+  editContent,
+  fromEditableMarkdown,
+  toEditableMarkdown,
+  MAX_TEXT_EDITS,
+  TextEditError,
+  type TextEdit,
+  type TextEditErrorCode,
+} from "./edit";
+export {
   validateContent,
   incompleteBlocks,
   requireContent,

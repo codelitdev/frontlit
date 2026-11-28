@@ -25,6 +25,11 @@ import {
   SlugConflictError,
   uniqueSlug,
 } from "../utils/slug";
+import {
+  assertDraftVersion,
+  nextDraftVersion,
+  StaleDraftError,
+} from "../utils/draft-version";
 import { teamIndexesKind } from "../documentation/index-policy";
 import { requestSearchIndex } from "../search/requests";
 
@@ -262,6 +267,8 @@ export async function updateDocument(
   if (kind === "doc") return saveDocumentation(teamId, documentId, patch);
   const existing = await getDocumentByDocumentId(kind, documentId);
   if (!existing || existing.teamId !== teamId) return null;
+  const { expectedDraftVersion } = patch;
+  assertDraftVersion(existing.draftVersion, expectedDraftVersion);
 
   const { title, slug: requestedSlug, excerpt, featuredImage, meta } = patch;
   const normalizedContent = documentBody(patch);
@@ -289,10 +296,20 @@ export async function updateDocument(
       ? await resolveFeaturedImage(teamId, featuredImage)
       : undefined;
 
+  const changesDraft =
+    title !== undefined ||
+    normalizedContent !== undefined ||
+    excerpt !== undefined ||
+    featuredImage !== undefined ||
+    meta !== undefined;
+
   try {
     const [doc] = await db
       .update(documents)
       .set({
+        ...(changesDraft
+          ? { draftVersion: nextDraftVersion(documents.draftVersion) }
+          : {}),
         ...(title !== undefined ? { draftTitle: title } : {}),
         ...(slug !== undefined ? { slug } : {}),
         ...(normalizedContent !== undefined ? { draftContent: normalizedContent } : {}),
@@ -311,8 +328,20 @@ export async function updateDocument(
           : {}),
         updatedAt: new Date(),
       })
-      .where(eq(documents.id, existing.id))
+      .where(
+        and(
+          eq(documents.id, existing.id),
+          expectedDraftVersion !== undefined
+            ? eq(documents.draftVersion, expectedDraftVersion)
+            : undefined,
+        ),
+      )
       .returning();
+    if (!doc) {
+      const current = await getDocumentByDocumentId(kind, documentId);
+      if (!current) return null;
+      throw new StaleDraftError(current.draftVersion);
+    }
 
     const slugMoved = slug !== undefined && slug !== existing.slug;
     if (doc?.publishedAt && (indexableToggled || slugMoved))
@@ -389,6 +418,7 @@ export async function discardDocumentDraft(
       draftExcerpt: existing.excerpt,
       draftFeaturedImage: existing.featuredImage,
       draftMeta: existing.meta,
+      draftVersion: nextDraftVersion(documents.draftVersion),
       updatedAt: new Date(),
     })
     .where(eq(documents.id, existing.id))

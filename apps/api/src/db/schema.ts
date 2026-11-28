@@ -1404,6 +1404,8 @@ export const pages = pgTable(
     // Draft side — written by every builder/editor save. Publishing
     // snapshots it into a `page_revisions` row inside a new site release;
     // what's live is whatever the team's active release says.
+    // `draftVersion` increments on every draft write; saves compare it.
+    draftVersion: integer("draft_version").notNull().default(1),
     draftLayout: jsonb("draft_layout")
       .$type<WidgetInstanceRow[]>()
       .notNull()

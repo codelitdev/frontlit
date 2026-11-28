@@ -325,6 +325,8 @@ export type PageStatus = "draft" | "published" | "published_with_changes";
 
 export interface Page {
   pageId: string;
+  /** Increments on every draft write; send back as `expectedDraftVersion`. */
+  draftVersion: number;
   name: string;
   slug: string;
   deletable: boolean;
@@ -388,8 +390,14 @@ export function updatePage(
     socialImage: Record<string, unknown>;
     robotsAllowed: boolean;
   }>,
+  expectedDraftVersion: number,
 ) {
-  return unwrap<Page>(client.pages.update({ params: { pageId }, body: patch }));
+  return unwrap<Page>(
+    client.pages.update({
+      params: { pageId },
+      body: { ...patch, expectedDraftVersion },
+    }),
+  );
 }
 
 export function deletePage(pageId: string) {
@@ -521,6 +529,8 @@ export interface ArticleMeta {
 
 export interface Article {
   documentId: string;
+  /** Increments on every draft write; send back as `expectedDraftVersion`. */
+  draftVersion: number;
   slug: string;
   status: DocumentStatus;
   index?: DocumentationIndex | null;
@@ -566,9 +576,13 @@ export function updateArticle(
     featuredImage: Record<string, unknown> | null;
     meta: Partial<ArticleMeta>;
   }>,
+  expectedDraftVersion: number,
 ) {
   return unwrap<Article>(
-    client.content.articles.update({ params: { documentId }, body: patch }),
+    client.content.articles.update({
+      params: { documentId },
+      body: { ...patch, expectedDraftVersion },
+    }),
   );
 }
 
@@ -835,6 +849,8 @@ export interface ProductUpdateMeta {
 
 export interface ProductUpdate {
   documentId: string;
+  /** Increments on every draft write; send back as `expectedDraftVersion`. */
+  draftVersion: number;
   slug: string;
   status: DocumentStatus;
   index?: DocumentationIndex | null;
@@ -885,11 +901,12 @@ export function updateProductUpdate(
     featuredImage: Record<string, unknown> | null;
     meta: Partial<ProductUpdateMeta>;
   }>,
+  expectedDraftVersion: number,
 ) {
   return unwrap<ProductUpdate>(
     client.content.productUpdates.update({
       params: { documentId },
-      body: patch,
+      body: { ...patch, expectedDraftVersion },
     }),
   );
 }

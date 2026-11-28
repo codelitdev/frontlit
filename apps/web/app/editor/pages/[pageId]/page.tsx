@@ -29,6 +29,10 @@ import { SlugEditor } from "@/components/workspace/slug-editor";
 import { useEditorAccess } from "@/components/workspace/editor-access-gate";
 import { ApiError } from "@/lib/api-client";
 import { toSiteBranding, type SiteBranding } from "@frontlit/api-contract";
+import { DraftSaveBanner } from "@/components/workspace/draft-save-banner";
+import { useDraftAutosave } from "@/hooks/use-draft-autosave";
+
+type PagePatch = Parameters<typeof updatePage>[1];
 
 export default function PageEditorPage({
   params,
@@ -43,16 +47,32 @@ export default function PageEditorPage({
   const [branding, setBranding] = useState<SiteBranding>(toSiteBranding(null));
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [publishing, setPublishing] = useState(false);
-  // Bumped only when the draft is reset from outside the builder (discard),
-  // forcing a remount so the (otherwise uncontrolled) builder re-reads the
-  // fresh draft fields instead of showing stale, already-discarded edits.
-  const [resetKey, setResetKey] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const themeAliasesRef = useRef(new Map<string, string>());
   const knownThemeIdsRef = useRef(new Set<string>());
   const themeSnapshotsRef = useRef(new Map<string, string>());
   const appliedSiteThemeIdRef = useRef<string | null>(null);
   const appliedSiteThemeSnapshotRef = useRef<string | null>(null);
+  const pageRef = useRef<Page | null>(null);
+
+  function showPage(next: Page) {
+    pageRef.current = next;
+    setPage(next);
+  }
+
+  // The builder is uncontrolled: a reset (discard, reload, keep my version)
+  // remounts it through `resetKey` so it re-reads the draft.
+  const autosave = useDraftAutosave<Page, PagePatch>({
+    save: (patch, expectedDraftVersion) =>
+      updatePage(pageId, patch, expectedDraftVersion),
+    load: () => getPage(pageId),
+    onSaved: showPage,
+    onReset: (loaded) => {
+      showPage(loaded);
+      setSaveState("saved");
+    },
+  });
+  const { adopt, reset, isCurrent, resetKey } = autosave;
   const canReadSettings = useMemo(
     () =>
       currentTeam.isOwner || currentTeam.effectivePermissions.includes("settings:read"),
@@ -122,7 +142,8 @@ export default function PageEditorPage({
         setInitialTheme(resolvedTheme);
         setCustomThemes(mappedThemes);
         setBranding(toSiteBranding(siteSettings));
-        setPage(loaded);
+        adopt(loaded);
+        showPage(loaded);
       })
       .catch((error) => {
         if (!cancelled) {
@@ -136,6 +157,7 @@ export default function PageEditorPage({
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once per page
   }, [canReadSettings, canReadThemes, pageId]);
 
   async function handleChange(state: PageBuilderState) {
@@ -150,7 +172,7 @@ export default function PageEditorPage({
           update: updateTheme,
         });
       }
-      const updated = await updatePage(pageId, {
+      const saved = await autosave.save({
         layout: state.layout,
         title: state.seo.title,
         description: state.seo.description,
@@ -160,6 +182,10 @@ export default function PageEditorPage({
           null,
         robotsAllowed: state.seo.robotsAllowed,
       });
+      if (!saved) {
+        setSaveState("error");
+        return;
+      }
       const siteThemeId = themeAliasesRef.current.get(state.theme.id) ?? state.theme.id;
       const selectedThemeSnapshot = themeSnapshot(state.theme);
       if (
@@ -171,7 +197,6 @@ export default function PageEditorPage({
         appliedSiteThemeIdRef.current = siteThemeId;
         appliedSiteThemeSnapshotRef.current = selectedThemeSnapshot;
       }
-      setPage(updated);
       setSaveState("saved");
     } catch {
       setSaveState("error");
@@ -201,17 +226,16 @@ export default function PageEditorPage({
   async function handleDiscardDraft() {
     setPublishing(true);
     try {
-      setPage(await discardPageDraft(pageId));
-      setResetKey((key) => key + 1);
+      reset(await discardPageDraft(pageId));
     } finally {
       setPublishing(false);
     }
   }
 
   async function handleSlugSave(slug: string) {
-    const updated = await updatePage(pageId, { slug });
-    setPage(updated);
-    return updated.slug;
+    if (!(await autosave.save({ slug })))
+      throw new Error("The URL could not be saved. Resolve the save error first.");
+    return pageRef.current?.slug ?? slug;
   }
 
   if (!page || customThemes === null) {
@@ -254,6 +278,9 @@ export default function PageEditorPage({
           />
         }
         onPublish={handlePublish}
+        publishBlockedReason={
+          autosave.conflict ? "Resolve the save conflict before publishing." : undefined
+        }
         publishLabel={page.git ? "Create pull request" : "Publish"}
         publishingLabel={page.git ? "Opening pull request…" : "Publishing…"}
         extra={page.git ? <GitPageLinks git={page.git} /> : undefined}
@@ -264,6 +291,7 @@ export default function PageEditorPage({
             : "Discard all unpublished changes on this page? This cannot be undone."
         }
       />
+      <DraftSaveBanner autosave={autosave} className="shrink-0 border-b px-4 py-2" />
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <PageBuilder
           key={resetKey}
@@ -278,7 +306,9 @@ export default function PageEditorPage({
             robotsAllowed: page.draftRobotsAllowed ?? undefined,
             socialImage: (page.draftSocialImage as any) ?? undefined,
           }}
-          onChange={handleChange}
+          onChange={(state) => {
+            if (isCurrent(resetKey)) void handleChange(state);
+          }}
         />
       </div>
     </div>

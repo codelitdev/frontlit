@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { expectedDraftVersionSchema } from "./common";
 import { featuredImageInputSchema, featuredImageSchema } from "./featured-image";
 
 /** Blog posts, help docs and changelog entries share one engine
@@ -44,6 +45,8 @@ export function makeDocumentSchema<M extends z.ZodTypeAny>(metaSchema: M) {
     draftExcerpt: z.string().nullable().optional(),
     draftFeaturedImage: featuredImageSchema.nullable().optional(),
     draftMeta: metaSchema,
+    /** Increments on every draft write; send it back as `expectedDraftVersion`. */
+    draftVersion: z.number().int(),
     createdAt: z.string().nullable(),
     updatedAt: z.string().nullable(),
     // Whether the draft can be published, and what blocks it.
@@ -94,6 +97,7 @@ export function makeUpdateDocumentBodySchema<M extends z.ZodTypeAny>(metaSchema:
     excerpt: excerptSchema.optional(),
     featuredImage: featuredImageInputSchema.nullable().optional(),
     meta: metaSchema.optional(),
+    expectedDraftVersion: expectedDraftVersionSchema,
   });
 }
 

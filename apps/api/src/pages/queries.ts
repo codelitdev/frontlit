@@ -24,6 +24,11 @@ import {
 import { normalizeSocialImage } from "./social-image";
 import { getPagesGitBinding, pageGitInfo, PageOwnedByGitError } from "./git-pr";
 import {
+  assertDraftVersion,
+  nextDraftVersion,
+  StaleDraftError,
+} from "../utils/draft-version";
+import {
   draftDocument,
   draftReleasePage,
   getActiveRelease,
@@ -202,10 +207,14 @@ export async function updatePage(
     description: string;
     socialImage: string | Record<string, unknown> | null;
     robotsAllowed: boolean;
+    expectedDraftVersion: number;
   }>,
 ) {
   const existing = await getRawPageByPageId(pageId);
   if (!existing || existing.teamId !== teamId) return null;
+  const { expectedDraftVersion } = patch;
+  // Checked before the slug move below, which commits on its own.
+  assertDraftVersion(existing.draftVersion, expectedDraftVersion);
 
   const {
     name,
@@ -288,9 +297,18 @@ export async function updatePage(
           })
           .where(eq(teamSettings.id, settings.id));
       }
-      await tx
+      const changesDraft =
+        splitLayout !== null ||
+        title !== undefined ||
+        description !== undefined ||
+        normalizedSocialImage !== undefined ||
+        robotsAllowed !== undefined;
+      const [row] = await tx
         .update(pages)
         .set({
+          ...(changesDraft
+            ? { draftVersion: nextDraftVersion(pages.draftVersion) }
+            : {}),
           ...(name !== undefined ? { name } : {}),
           ...(slug !== undefined && !moved ? { slug } : {}),
           ...(splitLayout ? { draftLayout: splitLayout.storedLayout } : {}),
@@ -302,7 +320,24 @@ export async function updatePage(
           ...(robotsAllowed !== undefined ? { draftRobotsAllowed: robotsAllowed } : {}),
           updatedAt: new Date(),
         })
-        .where(eq(pages.id, existing.id));
+        .where(
+          and(
+            eq(pages.id, existing.id),
+            // Only a draft change is compared here: a slug-only save already
+            // passed the check above, and a slug move has committed by now.
+            changesDraft && expectedDraftVersion !== undefined
+              ? eq(pages.draftVersion, expectedDraftVersion)
+              : undefined,
+          ),
+        )
+        .returning({ draftVersion: pages.draftVersion });
+      // Someone wrote the draft between the check above and this update.
+      if (!row) {
+        const current = await tx.query.pages.findFirst({
+          where: eq(pages.id, existing.id),
+        });
+        throw new StaleDraftError(current?.draftVersion ?? existing.draftVersion);
+      }
     });
   } catch (error) {
     if (slug !== undefined && isUniqueConstraintViolation(error)) {
@@ -370,6 +405,7 @@ export async function discardPageDraft(teamId: string, pageId: string) {
           draftDescription: content.description ?? null,
           draftSocialImage: (content.socialImage as Record<string, unknown>) ?? null,
           draftRobotsAllowed: content.robotsAllowed ?? null,
+          draftVersion: nextDraftVersion(pages.draftVersion),
           updatedAt: new Date(),
         })
         .where(eq(pages.id, existing.id));

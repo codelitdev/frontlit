@@ -34,6 +34,7 @@ export function EditorToolbar({
   leading,
   extra,
   onPublish,
+  publishBlockedReason,
   onDiscardDraft,
   discardDescription = "Discard all unpublished changes? This cannot be undone.",
 }: {
@@ -54,6 +55,8 @@ export function EditorToolbar({
   leading?: React.ReactNode;
   extra?: React.ReactNode;
   onPublish: () => void;
+  /** Disables Publish and says why, e.g. while a save conflict is open. */
+  publishBlockedReason?: string;
   onDiscardDraft: () => void;
   discardDescription?: string;
 }) {
@@ -115,7 +118,12 @@ export function EditorToolbar({
         <Button
           size="sm"
           onClick={onPublish}
-          disabled={publishing || (status === "published" && !pendingSharedChanges)}
+          title={publishBlockedReason}
+          disabled={
+            publishing ||
+            Boolean(publishBlockedReason) ||
+            (status === "published" && !pendingSharedChanges)
+          }
           data-testid="publish-button"
         >
           {publishing ? publishingLabel : publishLabel}

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { expectedDraftVersionSchema } from "./common";
 
 /** Matches `@frontlit/page-builder`'s `WidgetInstance` shape (kept loose —
  * `Record<string, any>` — since block settings are intentionally free-form
@@ -49,6 +50,8 @@ export const pageSchema = z.object({
     .optional(),
   robotsAllowed: z.boolean().nullable().optional(),
   // Draft fields — what the builder/editor reads and writes.
+  /** Increments on every draft write; send it back as `expectedDraftVersion`. */
+  draftVersion: z.number().int(),
   draftLayout: z.array(widgetInstanceSchema),
   draftTitle: z.string().nullable().optional(),
   draftDescription: z.string().nullable().optional(),
@@ -98,6 +101,7 @@ export const updatePageBodySchema = z.object({
     .nullable()
     .optional(),
   robotsAllowed: z.boolean().optional(),
+  expectedDraftVersion: expectedDraftVersionSchema,
 });
 
 export const listPagesQuerySchema = z.object({

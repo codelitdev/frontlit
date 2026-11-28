@@ -133,9 +133,18 @@ Replies reach the chat instantly, even while it's closed.
   button in the chat header.
 - **Tab title:** while the tab is in the background, the title starts with
   the unread count, e.g. `(1) Dashboard`.
+- **Email:** if the user hasn't read a reply about 2 minutes after it
+  arrives, because the chat is closed, the tab is in the background or they
+  left, they get one email with every unread reply and a link back to the
+  conversation. Several replies in a row become one email, and replies they
+  read in the chat are never emailed. They can answer by replying to the
+  email.
 
 What the user has read is kept on our side, so a reply that arrives while
 they're away still shows as unread when they come back.
+
+Emails need the user's address, so they work for every in-app support chat
+(`contact.email` is required) but not for anonymous chats on your website.
 
 With `launcher: false`, put the count on your own button:
 

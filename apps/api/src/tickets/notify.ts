@@ -164,6 +164,52 @@ export async function notifyRequesterOfReply(input: {
   );
 }
 
+/** One email with every reply the requester hasn't read in the chat, in
+ * order, each under who wrote it (docs/embedded-support.md §6.7). */
+export async function notifyRequesterOfReplies(input: {
+  teamId: string;
+  ticketId: string;
+  token: string;
+  requesterEmail: string;
+  subject: string;
+  replies: { from: string; text: string; sources?: TicketMailSource[] }[];
+}) {
+  const url = await threadUrl(input.teamId, input.ticketId, input.token);
+  const origin = await siteOriginForTeam(input.teamId);
+  const replies = input.replies.map((reply) => ({
+    ...reply,
+    text: reply.text.trim(),
+    sources: uniqueMailSources(reply.sources ?? []),
+  }));
+  const intro =
+    replies.length === 1
+      ? "You have a new reply to your support conversation."
+      : `You have ${replies.length} new replies to your support conversation.`;
+  await notify(
+    input.teamId,
+    input.ticketId,
+    input.requesterEmail,
+    `Re: ${input.subject}`,
+    [
+      intro,
+      ...replies.map(
+        (reply) =>
+          `${reply.from}:\n${replyWithSourceUrls(reply.text, reply.sources, origin)}`,
+      ),
+      `Reply to this email, or continue the conversation: ${url}`,
+    ].join("\n\n"),
+    `<p>${escapeHtml(intro)}</p>
+${replies
+  .map(
+    (reply) =>
+      `<p><strong>${escapeHtml(reply.from)}</strong></p>\n${replyHtml(reply.text, reply.sources, origin)}`,
+  )
+  .join("\n<hr>\n")}
+<p>Reply to this email, or <a href="${url}">continue the conversation</a>.</p>`,
+    true,
+  );
+}
+
 export async function notifyTeamOfRequesterMessage(input: {
   teamId: string;
   ticketId: string;

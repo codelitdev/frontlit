@@ -1,5 +1,5 @@
 {
-  "id": "8cdfc160-0474-4234-80f3-a9fcbfe225bf",
+  "id": "6432a3cd-d9aa-4d41-8b25-e4c97c593d59",
   "prevId": "d401c9aa-89dc-4b91-b609-44da6ebbd3dc",
   "version": "7",
   "dialect": "postgresql",
@@ -7602,6 +7602,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": true
+        },
+        "draft_version": {
+          "name": "draft_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
         },
         "draft_layout": {
           "name": "draft_layout",

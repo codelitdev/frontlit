@@ -138,8 +138,10 @@ describe("API input validation schemas", () => {
         slug: "",
       }).success,
     ).toBe(false);
+    expect(updatePageBodySchema.safeParse({ slug: "about-us" }).success).toBe(false);
     expect(
       updatePageBodySchema.safeParse({
+        expectedDraftVersion: 1,
         slug: "about-us",
         title: "About us",
         layout: [
@@ -197,10 +199,8 @@ describe("API input validation schemas", () => {
       updateDocumentationBodySchema,
       updateProductUpdateBodySchema,
     ]) {
-      const version =
-        updateSchema === updateDocumentationBodySchema
-          ? { expectedDraftVersion: 1 }
-          : {};
+      const version = { expectedDraftVersion: 1 };
+      expect(updateSchema.safeParse({ title: "No version" }).success).toBe(false);
       expect(
         updateSchema.parse({
           ...version,
