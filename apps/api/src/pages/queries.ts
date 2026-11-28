@@ -23,11 +23,12 @@ import {
   splitSubmittedLayout,
 } from "./shared-widgets";
 import {
-  editPageDocument,
+  parsePageFile,
+  SchemaValidationError,
   serializePageFile,
   type PageDocument,
 } from "@frontlit/page-builder/schema";
-import type { TextEdit } from "@frontlit/text-editor/blocks";
+import { applyTextEdits, type TextEdit } from "@frontlit/text-editor/blocks";
 import {
   normalizeFeaturedImage,
   syncFeaturedImageToMediaLibrary,
@@ -362,6 +363,15 @@ export async function updatePage(
   return getPageByPageId(pageId);
 }
 
+/** The stored draft no longer matches the block schemas (saved before a
+ * schema change), so it has no page file to edit. */
+export class InvalidStoredDraftError extends Error {
+  constructor(readonly cause: SchemaValidationError) {
+    super(cause.message);
+    this.name = "InvalidStoredDraftError";
+  }
+}
+
 /** The page's draft as its canonical page file: what `editPageDraft` edits. */
 export function draftPageFile(page: Parameters<typeof draftDocument>[0]): string {
   return serializePageFile(draftDocument(page));
@@ -381,7 +391,15 @@ export async function editPageDraft(
 ) {
   const existing = await getRawPageByPageId(pageId);
   if (!existing || existing.teamId !== teamId) return null;
-  const edited: PageDocument = editPageDocument(draftDocument(existing), edits);
+  let file: string;
+  try {
+    file = draftPageFile(existing);
+  } catch (error) {
+    if (error instanceof SchemaValidationError)
+      throw new InvalidStoredDraftError(error);
+    throw error;
+  }
+  const edited: PageDocument = parsePageFile(applyTextEdits(file, edits));
   const [row] = await db
     .update(pages)
     .set({

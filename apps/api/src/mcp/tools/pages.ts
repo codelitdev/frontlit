@@ -10,6 +10,7 @@ import {
   draftPageFile,
   editPageDraft,
   getPageByPageId,
+  InvalidStoredDraftError,
   listPages,
   sharedWidgetsHaveChanges,
   publishPage,
@@ -54,6 +55,28 @@ const pageSummarySchema = pageSchema
         "Whether search engines may index the page once its draft is published.",
       ),
   });
+
+/** A stored draft that no longer matches the block schemas (saved before a
+ * schema change) has no page file. Report why, with the stored draft, so an
+ * agent can repair it with update_page. */
+function invalidDraftResult(error: SchemaValidationError, page?: PageView) {
+  return {
+    ...jsonResult({
+      error:
+        "This page's draft no longer matches the page schema, so it has no page file to edit. Fix the listed blocks with update_page (layout), then use edit_page.",
+      code: "INVALID_STORED_DRAFT",
+      diagnostics: error.diagnostics,
+      ...(page
+        ? {
+            draftLayout: page.draftLayout,
+            draftTitle: page.draftTitle,
+            draftDescription: page.draftDescription,
+          }
+        : {}),
+    }),
+    isError: true,
+  };
+}
 
 /** get_page: the page with its draft as page file text instead of layouts. */
 const pageFileViewSchema = pageSchema
@@ -197,7 +220,15 @@ export function registerPageTools(server: McpToolRegistrar): void {
           draftRobotsAllowed: _robots,
           ...rest
         } = toPublicPage(page) as Record<string, unknown>;
-        return editableTextResult(rest, "draftFile", draftPageFile(page));
+        let file: string;
+        try {
+          file = draftPageFile(page);
+        } catch (error) {
+          if (error instanceof SchemaValidationError)
+            return invalidDraftResult(error, page);
+          throw error;
+        }
+        return editableTextResult(rest, "draftFile", file);
       } catch {
         return INTERNAL_ERROR;
       }
@@ -230,6 +261,8 @@ export function registerPageTools(server: McpToolRegistrar): void {
         });
       } catch (error) {
         if (error instanceof TextEditError) return textEditErrorResult(error);
+        if (error instanceof InvalidStoredDraftError)
+          return invalidDraftResult(error.cause);
         if (error instanceof SchemaValidationError)
           return {
             ...jsonResult({ error: error.message, diagnostics: error.diagnostics }),
