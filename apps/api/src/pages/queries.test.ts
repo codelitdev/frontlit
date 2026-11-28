@@ -20,6 +20,7 @@ import {
   discardPageDraft,
   draftPageFile,
   editPageDraft,
+  replacePageDraftLayout,
   getPageByPageId,
   getPublishedPageBySlug,
   publishPage,
@@ -479,20 +480,65 @@ describe("pages draft/publish", () => {
     expect(after).toMatchObject({ settings: slot.settings, deletable: false });
   });
 
-  it("refuses a page edit when the draft changed since it was read", async () => {
+  it("re-applies a page edit to a draft another save changed first", async () => {
     const created = await createPage({ teamId, name: "Race" });
-    const results = await Promise.allSettled([
+    await editPageDraft(teamId, created.pageId, [
+      {
+        old_str: '"layout": []',
+        new_str: '"title": "T",\n  "description": "D",\n  "layout": []',
+      },
+    ]);
+    const [a, b] = await Promise.all([
+      editPageDraft(teamId, created.pageId, [{ old_str: '"T"', new_str: '"Title"' }]),
       editPageDraft(teamId, created.pageId, [
-        { old_str: '"layout": []', new_str: '"title": "A",\n  "layout": []' },
-      ]),
-      editPageDraft(teamId, created.pageId, [
-        { old_str: '"layout": []', new_str: '"title": "B",\n  "layout": []' },
+        { old_str: '"D"', new_str: '"Description"' },
       ]),
     ]);
-    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
-    expect(
-      (results.find((r) => r.status === "rejected") as PromiseRejectedResult).reason,
-    ).toBeInstanceOf(StaleDraftError);
+    expect([a?.draftVersion, b?.draftVersion].sort()).toEqual([3, 4]);
+    const after = (await getPageByPageId(created.pageId))!;
+    expect(after).toMatchObject({
+      draftTitle: "Title",
+      draftDescription: "Description",
+    });
+    // An edit whose text the other save changed fails instead of guessing.
+    await expect(
+      editPageDraft(teamId, created.pageId, [{ old_str: '"T"', new_str: '"X"' }]),
+    ).rejects.toMatchObject({ code: "EDIT_NOT_FOUND" });
+  });
+
+  it("replaces a draft layout from page file form, keeping the shared header and footer", async () => {
+    const created = await createPage({ teamId, name: "Replace" });
+    const before = (await getPageByPageId(created.pageId))!;
+    const settingsBefore = await getTeamSettings(teamId);
+    const replaced = await replacePageDraftLayout(teamId, created.pageId, {
+      layout: [
+        { name: "hero", settings: { title: "New", description: "Some *text*." } },
+      ],
+      title: "SEO title",
+    });
+    expect(replaced?.draftLayout.map((widget) => widget.name)).toEqual([
+      "header",
+      "hero",
+      "footer",
+    ]);
+    expect(replaced).toMatchObject({
+      draftTitle: "SEO title",
+      draftVersion: before.draftVersion + 1,
+    });
+    expect((await getTeamSettings(teamId))?.draftSharedWidgets).toEqual(
+      settingsBefore?.draftSharedWidgets,
+    );
+    // A second replace keeps SEO fields it doesn't set.
+    const again = await replacePageDraftLayout(teamId, created.pageId, { layout: [] });
+    expect(again).toMatchObject({ draftTitle: "SEO title" });
+    await expect(
+      replacePageDraftLayout(
+        teamId,
+        created.pageId,
+        { layout: [] },
+        before.draftVersion,
+      ),
+    ).rejects.toBeInstanceOf(StaleDraftError);
   });
 
   it("requires one moveable, non-deletable FrontLit data slot on dynamic standard pages", async () => {

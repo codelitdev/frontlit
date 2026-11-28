@@ -122,13 +122,6 @@ describe("typed content tools through the MCP SDK", () => {
   it("lists pages as small summaries with status, in pages of results", async () => {
     const client = await connect();
     const big = "x".repeat(200_000);
-    const shared = (name: string) => ({
-      widgetId: `${name}-1`,
-      name,
-      deletable: false,
-      moveable: false,
-      shared: true,
-    });
     const ids: string[] = [];
     for (const name of ["Live", "Edited", "Unpublished"]) {
       const { data } = await call(client, "create_page", { name });
@@ -137,16 +130,10 @@ describe("typed content tools through the MCP SDK", () => {
         pageId: data.pageId,
         robotsAllowed: name !== "Unpublished",
         layout: [
-          shared("header"),
           {
-            widgetId: `embed-${name}`,
             name: "embed",
-            deletable: true,
-            moveable: true,
-            shared: false,
             settings: { contentType: "script", content: `<div>${big}</div>` },
           },
-          shared("footer"),
         ],
       });
     }
@@ -372,21 +359,26 @@ describe("typed content tools through the MCP SDK", () => {
   it("reads a page as its page file and edits it with schema-valid output", async () => {
     const client = await connect();
     const { data } = await call(client, "create_page", { name: "Pricing" });
-    await call(client, "update_page", {
+    // update_page takes the layout in page file form, rich text as Markdown.
+    const updated = await call(client, "update_page", {
       pageId: data.pageId,
+      name: "Pricing page",
       title: "Pricing",
       layout: [
-        ...data.draftLayout.filter((block: any) => block.name === "header"),
         {
-          widgetId: "hero-1",
           name: "hero",
-          deletable: true,
-          moveable: true,
-          shared: false,
-          settings: { title: "Pricing that scales" },
+          settings: { title: "Pricing that scales", description: "Pay **less**." },
         },
-        ...data.draftLayout.filter((block: any) => block.name === "footer"),
       ],
+    });
+    expect(updated.data).toMatchObject({ name: "Pricing page", draftTitle: "Pricing" });
+    expect(updated.data.draftLayout.map((block: any) => block.name)).toEqual([
+      "header",
+      "hero",
+      "footer",
+    ]);
+    expect(updated.data.draftLayout[1].settings.description).toMatchObject({
+      type: "doc",
     });
     const read = await client.callTool({
       name: "get_page",
@@ -471,6 +463,51 @@ describe("typed content tools through the MCP SDK", () => {
       arguments: { pageId: data.pageId, edits: [{ old_str: "a", new_str: "b" }] },
     });
     expect(edit.structuredContent).toMatchObject({ code: "INVALID_STORED_DRAFT" });
+
+    // update_page replaces the layout without reading it, so it repairs the draft.
+    await call(client, "update_page", {
+      pageId: data.pageId,
+      layout: [{ name: "hero", settings: { title: "Fixed" } }],
+    });
+    const repaired = await call(client, "get_page", { pageId: data.pageId });
+    expect(repaired.data.draftFile).toContain('"title": "Fixed"');
+  });
+
+  it("lists the API key's own team", async () => {
+    const client = await connect();
+    const teams = await call(client, "list_teams");
+    expect(teams.data.items).toEqual([
+      expect.objectContaining({ teamId: expect.any(String), isOwner: false }),
+    ]);
+    const created = await client.callTool({
+      name: "create_team",
+      arguments: { name: "Another" },
+    });
+    expect(created.isError).toBe(true);
+  });
+
+  it("lands parallel edits to one draft without asking the agent to retry", async () => {
+    const client = await connect();
+    const { data } = await call(client, "create_article", {
+      title: "Busy",
+      markdown: ["one", "two", "three", "four", "five"].join("\n\n"),
+    });
+    const words = ["one", "two", "three", "four", "five"];
+    const results = await Promise.all(
+      words.map((word) =>
+        client.callTool({
+          name: "edit_article",
+          arguments: {
+            documentId: data.documentId,
+            edits: [{ old_str: word, new_str: word.toUpperCase() }],
+          },
+        }),
+      ),
+    );
+    expect(results.filter((result) => result.isError)).toEqual([]);
+    const after = await call(client, "get_article", { documentId: data.documentId });
+    expect(after.data.draftMarkdown).toBe("ONE\n\nTWO\n\nTHREE\n\nFOUR\n\nFIVE\n");
+    expect(after.data.draftVersion).toBe(data.draftVersion + words.length);
   });
 
   it("publishes a documentation page with schema-valid output", async () => {

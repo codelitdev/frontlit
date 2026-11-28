@@ -160,7 +160,9 @@ describe("FrontLit MCP server", () => {
       http: { authInfo: apiKeyAuth },
     } as unknown as ServerContext;
     expect(authorizeMcpTool("send_broadcast", apiKeyContext)).toBeNull();
-    expect(authorizeMcpTool("list_teams", apiKeyContext)).toMatchObject({
+    // An API key lists its own team, but can't create one.
+    expect(authorizeMcpTool("list_teams", apiKeyContext)).toBeNull();
+    expect(authorizeMcpTool("create_team", apiKeyContext)).toMatchObject({
       isError: true,
     });
 

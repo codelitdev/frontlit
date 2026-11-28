@@ -14,6 +14,7 @@ import {
   listPages,
   sharedWidgetsHaveChanges,
   publishPage,
+  replacePageDraftLayout,
   updatePage,
   type PageView,
 } from "../../pages/queries";
@@ -238,7 +239,7 @@ export function registerPageTools(server: McpToolRegistrar): void {
   server.registerTool(
     "edit_page",
     {
-      description: `Changes part of a page's draft (layout and SEO) with exact-match replacements on the draftFile get_page returns, without resending the layout. Each old_str must match exactly once (JSON escaping included); all edits apply or none do. Blocks can be changed, added, removed or reordered. A failed match returns EDIT_NOT_FOUND or EDIT_AMBIGUOUS with the edit's index (re-read with get_page); an invalid page returns the schema errors. If someone saved the draft at the same moment, STALE_DRAFT is returned: call again. Writes only the draft; call publish_page to make it live. Replies without the page. ${PAGE_TEXT_FORMAT}`,
+      description: `Changes part of a page's draft (layout and SEO) with exact-match replacements on the draftFile get_page returns, without resending the layout. Each old_str must match exactly once (JSON escaping included); all edits apply or none do. Blocks can be changed, added, removed or reordered. A failed match returns EDIT_NOT_FOUND or EDIT_AMBIGUOUS with the edit's index (re-read with get_page); an invalid page returns the schema errors. Edits made at the same moment as another save are re-applied to the newer draft. Writes only the draft; call publish_page to make it live. Replies without the page. ${PAGE_TEXT_FORMAT}`,
       inputSchema: { pageId: z.string(), edits: textEditsField },
       outputSchema: pageEditResultSchema,
       annotations: {
@@ -279,11 +280,16 @@ export function registerPageTools(server: McpToolRegistrar): void {
   server.registerTool(
     "update_page",
     {
-      description: `Updates a page's metadata (name, SEO) and/or its block layout. Writes only the page's draft state — call publish_page to make changes live. A layout sent here replaces the whole draft layout: to change part of the page (blocks, text or SEO), use edit_page instead. Block settings are validated against the block schemas (https://frontlit.app/schema/page.v1.json describes them; rich text there is Markdown, here TipTap JSON) and stored in canonical form, with settings equal to a block default omitted. Rich text holds only basic formatting; anything else is rejected. ${PAGE_TEXT_FORMAT}`,
+      description: `Updates a page's name, SEO fields and/or its whole block layout. Writes only the page's draft state — call publish_page to make changes live. \`layout\` is the layout array of the page file (the same form as draftFile from get_page: https://frontlit.app/schema/page.v1.json, rich text as Markdown, no header or footer) and replaces the whole draft layout; it also repairs a draft get_page reports as INVALID_STORED_DRAFT. To change part of the page (blocks, text or SEO), use edit_page instead. ${PAGE_TEXT_FORMAT}`,
       inputSchema: {
         pageId: z.string(),
         name: z.string().optional(),
-        layout: z.array(z.record(z.any())).optional(),
+        layout: z
+          .array(z.record(z.any()))
+          .optional()
+          .describe(
+            'The page file\'s layout: blocks as { "name", "settings" }, as in draftFile.',
+          ),
         title: z.string().optional(),
         description: z.string().optional(),
         robotsAllowed: z.boolean().optional(),
@@ -306,11 +312,30 @@ export function registerPageTools(server: McpToolRegistrar): void {
       const teamId = getTeamId(extra);
       if (!teamId) return AUTH_ERROR;
       try {
-        const { pageId, ...patch } = args;
-        const page = await updatePage(teamId, pageId, patch);
+        const { pageId, layout, name, ...patch } = args;
+        let page: Awaited<ReturnType<typeof updatePage>> | undefined;
+        if (layout === undefined) {
+          page = await updatePage(teamId, pageId, { name, ...patch });
+        } else {
+          // The page file holds layout and SEO; the name is not part of it.
+          const { title, description, robotsAllowed, expectedDraftVersion } = patch;
+          page = await replacePageDraftLayout(
+            teamId,
+            pageId,
+            { layout, title, description, robotsAllowed },
+            expectedDraftVersion,
+          );
+          if (page && name !== undefined)
+            page = await updatePage(teamId, pageId, { name });
+        }
         if (!page) return NOT_FOUND;
         return jsonResult(toPublicPage(page));
       } catch (error) {
+        if (error instanceof SchemaValidationError)
+          return {
+            ...jsonResult({ error: error.message, diagnostics: error.diagnostics }),
+            isError: true,
+          };
         if (
           error instanceof InvalidPageLayoutError ||
           error instanceof PageOwnedByGitError
