@@ -1456,6 +1456,14 @@ const ticketsContract = c.router(
       },
       summary: "Reply to a ticket as an agent",
     },
+    takeOver: {
+      method: "POST",
+      path: "/tickets/:ticketId/take-over",
+      body: c.noBody(),
+      responses: { 200: ticketWithMessagesSchema, 404: errorSchema },
+      summary:
+        "Take the conversation from the AI: it stops answering and the thread records who joined",
+    },
     presignAttachment: {
       method: "POST",
       path: "/tickets/:ticketId/attachments/presign",

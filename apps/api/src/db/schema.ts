@@ -1033,7 +1033,8 @@ export const supportSessions = pgTable(
   (table) => [index("support_sessions_team_idx").on(table.teamId)],
 );
 
-export const ticketMessageAuthors = ["requester", "agent", "bot"] as const;
+/** `system` lines record events in the thread, e.g. "Sam has joined". */
+export const ticketMessageAuthors = ["requester", "agent", "bot", "system"] as const;
 export type TicketMessageAuthor = (typeof ticketMessageAuthors)[number];
 
 export type TicketMessageSource = {

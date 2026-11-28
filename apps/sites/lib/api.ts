@@ -430,7 +430,7 @@ export interface TicketMessageSource {
 
 export interface TicketMessage {
   messageId: string;
-  author: "requester" | "agent" | "bot";
+  author: "requester" | "agent" | "bot" | "system";
   content: TextEditorContent;
   sources?: TicketMessageSource[];
   createdAt: string | null;

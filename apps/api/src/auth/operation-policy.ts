@@ -486,6 +486,7 @@ export const REST_OPERATION_POLICIES = {
   "tickets.create": teamPermission("helpdesk:write", MCP_SCOPES.helpdeskWrite),
   "tickets.get": teamPermission("helpdesk:read", MCP_SCOPES.helpdeskRead),
   "tickets.reply": teamPermission("helpdesk:write", MCP_SCOPES.helpdeskWrite),
+  "tickets.takeOver": teamPermission("helpdesk:write", MCP_SCOPES.helpdeskWrite),
   "tickets.presignAttachment": teamPermission(
     "helpdesk:write",
     MCP_SCOPES.helpdeskWrite,

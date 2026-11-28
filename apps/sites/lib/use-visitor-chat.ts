@@ -18,7 +18,7 @@ export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
-  author?: "requester" | "agent" | "bot";
+  author?: "requester" | "agent" | "bot" | "system";
   sources?: ChatSource[];
   /** Visitor's rating of a persisted bot answer. */
   feedback?: "up" | "down" | null;
@@ -37,7 +37,7 @@ interface Conversation {
 interface ThreadMessage {
   messageId: string;
   createdAt: string;
-  author: "requester" | "agent" | "bot";
+  author: "requester" | "agent" | "bot" | "system";
   content: unknown;
   attachments?: ChatAttachment[];
   sources?: ChatSource[];
@@ -88,7 +88,8 @@ function unreadReplies(messages: ThreadMessage[], lastReadAt: string | null) {
   }
   return messages.filter(
     (message) =>
-      message.author !== "requester" && Date.parse(message.createdAt) > since,
+      (message.author === "agent" || message.author === "bot") &&
+      Date.parse(message.createdAt) > since,
   );
 }
 

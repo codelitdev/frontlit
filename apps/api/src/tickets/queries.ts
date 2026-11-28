@@ -1,5 +1,6 @@
 import { and, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { db } from "../db/client";
+import { authUser } from "../db/auth-schema";
 import {
   accounts,
   teams,
@@ -263,11 +264,21 @@ export async function getTicketMessages(ticketDbId: string) {
 export async function addTicketMessage(input: {
   teamId: string;
   ticketDbId: string;
-  author: "requester" | "agent" | "bot";
+  author: "requester" | "agent" | "bot" | "system";
   authorAccountId?: string;
   content: TextEditorContentRow;
   sources?: TicketMessageSource[];
 }) {
+  // A teammate's first reply takes the conversation over: say so first.
+  if (input.author === "agent") {
+    const current = await db.query.tickets.findFirst({
+      where: eq(tickets.id, input.ticketDbId),
+    });
+    if (current && current.status !== "closed" && current.aiState !== "taken_over") {
+      await addJoinedMessage(input.teamId, current, input.authorAccountId);
+    }
+  }
+
   const [message] = await db
     .insert(ticketMessages)
     .values({
@@ -334,6 +345,58 @@ export async function addTicketMessage(input: {
     }
   }
   return message;
+}
+
+async function teammateName(accountId?: string) {
+  if (!accountId) return null;
+  const [row] = await db
+    .select({ name: authUser.name })
+    .from(accounts)
+    .innerJoin(authUser, eq(accounts.authUserId, authUser.id))
+    .where(eq(accounts.id, accountId));
+  return row?.name.trim() || null;
+}
+
+/** Records "<name> has joined" in a chat, seen by agents and the visitor.
+ * Email threads have no such moment, so they get no line. */
+async function addJoinedMessage(
+  teamId: string,
+  ticket: { id: string; source: TicketSource },
+  accountId?: string,
+) {
+  if (ticket.source !== "chatbot") return;
+  const name = (await teammateName(accountId)) ?? "A teammate";
+  await addTicketMessage({
+    teamId,
+    ticketDbId: ticket.id,
+    author: "system",
+    authorAccountId: accountId,
+    content: textTicketMessage(`${name} has joined`),
+  });
+}
+
+/**
+ * A teammate takes the conversation from the AI on purpose (the inbox's
+ * Take over button). The AI stops, including an answer it is writing, and
+ * the thread records who joined. No-op once a person owns it or it's closed.
+ */
+export async function takeOverTicket(
+  teamId: string,
+  ticket: typeof tickets.$inferSelect,
+  accountId?: string,
+) {
+  if (ticket.status === "closed" || ticket.aiState === "taken_over") return;
+  await db
+    .update(tickets)
+    .set({
+      aiState: "taken_over",
+      aiStopReason: "agent_takeover",
+      aiStoppedAt: new Date(),
+      aiGeneration: ticket.aiGeneration + 1,
+      updatedAt: new Date(),
+    })
+    .where(eq(tickets.id, ticket.id));
+  await addJoinedMessage(teamId, ticket, accountId);
 }
 
 /** The requester has the conversation on screen: earlier replies are read,

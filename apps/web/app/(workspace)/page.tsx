@@ -36,6 +36,7 @@ import {
   getTicket,
   listTickets,
   replyToTicket,
+  takeOverTicket,
   recordTicketDocumentationFeedback,
   updateTicket,
   type Ticket,
@@ -74,6 +75,14 @@ function ticketQueue(ticket: Ticket, splitAiQueues: boolean): InboxFilter {
   if (ticket.aiState === "escalated" || ticket.aiState === "taken_over")
     return "people";
   return "ai";
+}
+
+/** Text of a one-line message such as "Sam has joined". */
+function plainText(node: unknown): string {
+  if (!node || typeof node !== "object") return "";
+  const value = node as { text?: unknown; content?: unknown };
+  if (typeof value.text === "string") return value.text;
+  return Array.isArray(value.content) ? value.content.map(plainText).join("") : "";
 }
 
 function requesterLabel(ticket: Ticket) {
@@ -302,6 +311,7 @@ export default function InboxPage() {
   const [loading, setLoading] = useState(true);
   const [loadingThread, setLoadingThread] = useState(false);
   const [sending, setSending] = useState(false);
+  const [takingOver, setTakingOver] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [assistantName, setAssistantName] = useState("Assistant");
   const threadRef = useRef<HTMLDivElement>(null);
@@ -346,11 +356,8 @@ export default function InboxPage() {
     getTicket(ticketId)
       .then((ticket) => {
         if (cancelled) return;
-        setFilter(
-          ticket.status === "closed" || ticket.status === "resolved"
-            ? "closed"
-            : "open",
-        );
+        // The queue it sits in: a chat the AI is handling opens in the AI tab.
+        setFilter(ticketQueue(ticket, aiQueues));
         setQuery("");
         setTickets((previous) =>
           previous.some((row) => row.ticketId === ticketId)
@@ -363,7 +370,7 @@ export default function InboxPage() {
     return () => {
       cancelled = true;
     };
-  }, [currentTeamId, linkedTicketId]);
+  }, [aiQueues, currentTeamId, linkedTicketId]);
 
   useEffect(() => {
     setPendingFiles([]);
@@ -561,6 +568,34 @@ export default function InboxPage() {
     } finally {
       setAttaching(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  // The AI owns this conversation: the reply box waits for Take over.
+  const aiHandling =
+    !!selectedTicket && aiQueues && ticketQueue(selectedTicket, aiQueues) === "ai";
+
+  async function takeOver() {
+    if (!selectedTicket || takingOver) return;
+    setTakingOver(true);
+    try {
+      const updated = await takeOverTicket(selectedTicket.ticketId);
+      setSelectedTicket(updated);
+      setTickets((current) =>
+        current.map((ticket) =>
+          ticket.ticketId === updated.ticketId ? { ...ticket, ...updated } : ticket,
+        ),
+      );
+      // It now belongs to the team: keep it in view.
+      setFilter("people");
+    } catch (error) {
+      toast.error(
+        error instanceof ApiError
+          ? error.message
+          : "Couldn't take over the conversation.",
+      );
+    } finally {
+      setTakingOver(false);
     }
   }
 
@@ -909,16 +944,29 @@ export default function InboxPage() {
                   {selectedTicket.messages.map((message, index, all) => {
                     // "Seen" under our latest reply once the requester has
                     // had it on screen.
+                    const isReply = (author: string) =>
+                      author === "agent" || author === "bot";
                     const seen =
-                      message.author !== "requester" &&
-                      !all
-                        .slice(index + 1)
-                        .some((later) => later.author !== "requester") &&
+                      isReply(message.author) &&
+                      !all.slice(index + 1).some((later) => isReply(later.author)) &&
                       !!selectedTicket.requesterLastReadAt &&
                       !!message.createdAt &&
                       Date.parse(selectedTicket.requesterLastReadAt) >=
                         Date.parse(message.createdAt);
                     const isRequester = message.author === "requester";
+                    if (message.author === "system") {
+                      return (
+                        <p
+                          key={message.messageId}
+                          className="text-center text-xs text-muted-foreground"
+                        >
+                          {plainText(message.content)}
+                          {message.createdAt
+                            ? ` · ${new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                            : ""}
+                        </p>
+                      );
+                    }
                     return (
                       <div
                         key={message.messageId}
@@ -1022,89 +1070,110 @@ export default function InboxPage() {
               </div>
             </div>
 
-            <div className="shrink-0 border-t bg-background p-4">
-              {pendingFiles.length > 0 && (
-                <div className="mx-auto mb-2 flex max-w-4xl flex-wrap gap-2">
-                  {pendingFiles.map((file) => (
-                    <span
-                      key={file.attachmentId}
-                      className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-1 text-xs"
-                    >
-                      <Paperclip className="size-3" />
-                      <span className="max-w-40 truncate">{file.fileName}</span>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${file.fileName}`}
-                        onClick={() =>
-                          setPendingFiles((current) =>
-                            current.filter(
-                              (item) => item.attachmentId !== file.attachmentId,
-                            ),
-                          )
-                        }
-                      >
-                        <X className="size-3" />
-                      </button>
-                    </span>
-                  ))}
+            {aiHandling ? (
+              <div className="shrink-0 border-t bg-background p-4">
+                <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3">
+                  <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Bot className="size-4 shrink-0" aria-hidden />
+                    {assistantName} is answering this conversation.
+                  </p>
+                  <Button
+                    size="md"
+                    disabled={takingOver}
+                    onClick={() => void takeOver()}
+                  >
+                    {takingOver && <Loader2 className="size-4 animate-spin" />}
+                    Take over
+                  </Button>
                 </div>
-              )}
-              <div className="mx-auto flex max-w-4xl items-end gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={(event) => void attachInboxFiles(event.target.files)}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="md"
-                  className="size-11 rounded-xl"
-                  disabled={sending || attaching}
-                  onClick={() => fileInputRef.current?.click()}
-                  aria-label="Attach a file"
-                >
-                  {attaching ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Paperclip className="size-4" />
-                  )}
-                </Button>
-                <textarea
-                  value={reply}
-                  onChange={(event) => setReply(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault();
-                      void sendReply();
-                    }
-                  }}
-                  rows={1}
-                  placeholder={`Reply to ${requesterLabel(selectedTicket)}…`}
-                  className="max-h-32 min-h-11 flex-1 resize-none rounded-xl border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
-                />
-                <Button
-                  size="md"
-                  className="size-11 rounded-xl"
-                  disabled={
-                    sending || attaching || (!reply.trim() && pendingFiles.length === 0)
-                  }
-                  onClick={() => void sendReply()}
-                  aria-label="Send reply"
-                >
-                  {sending ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Send className="size-4" />
-                  )}
-                </Button>
               </div>
-              <p className="mx-auto mt-2 max-w-4xl text-xs text-muted-foreground">
-                Press Enter to send · Shift+Enter for a new line
-              </p>
-            </div>
+            ) : (
+              <div className="shrink-0 border-t bg-background p-4">
+                {pendingFiles.length > 0 && (
+                  <div className="mx-auto mb-2 flex max-w-4xl flex-wrap gap-2">
+                    {pendingFiles.map((file) => (
+                      <span
+                        key={file.attachmentId}
+                        className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-1 text-xs"
+                      >
+                        <Paperclip className="size-3" />
+                        <span className="max-w-40 truncate">{file.fileName}</span>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${file.fileName}`}
+                          onClick={() =>
+                            setPendingFiles((current) =>
+                              current.filter(
+                                (item) => item.attachmentId !== file.attachmentId,
+                              ),
+                            )
+                          }
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="mx-auto flex max-w-4xl items-end gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(event) => void attachInboxFiles(event.target.files)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="md"
+                    className="size-11 rounded-xl"
+                    disabled={sending || attaching}
+                    onClick={() => fileInputRef.current?.click()}
+                    aria-label="Attach a file"
+                  >
+                    {attaching ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Paperclip className="size-4" />
+                    )}
+                  </Button>
+                  <textarea
+                    value={reply}
+                    onChange={(event) => setReply(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        void sendReply();
+                      }
+                    }}
+                    rows={1}
+                    placeholder={`Reply to ${requesterLabel(selectedTicket)}…`}
+                    className="max-h-32 min-h-11 flex-1 resize-none rounded-xl border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+                  />
+                  <Button
+                    size="md"
+                    className="size-11 rounded-xl"
+                    disabled={
+                      sending ||
+                      attaching ||
+                      (!reply.trim() && pendingFiles.length === 0)
+                    }
+                    onClick={() => void sendReply()}
+                    aria-label="Send reply"
+                  >
+                    {sending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Send className="size-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="mx-auto mt-2 max-w-4xl text-xs text-muted-foreground">
+                  Press Enter to send · Shift+Enter for a new line
+                </p>
+              </div>
+            )}
           </>
         ) : null}
       </section>
