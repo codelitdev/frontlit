@@ -1,6 +1,7 @@
 /** React-free schemas and canonical serializers for page and site files.
  * Safe to import from servers (`@frontlit/page-builder/schema`). */
 export * from "./files";
+export { editPageDocument } from "./edit";
 export {
   blockDefaults,
   blockSettingsSchemas,

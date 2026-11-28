@@ -507,6 +507,32 @@ published at `https://frontlit.app/schema/content.v1.json`. Regenerate it with
 For your own profile, `formatReference(profile)` (from `@frontlit/text-editor/blocks`)
 gives the same data.
 
+### Small edits instead of whole documents
+
+An agent fixing one word shouldn't have to send the whole document. `editContent`
+applies `str_replace`-style edits to the content's Markdown and gives back validated
+JSON:
+
+```ts
+import { editContent, toEditableMarkdown, TextEditError } from "@frontlit/text-editor/blocks";
+
+const text = toEditableMarkdown(lessonProfile, json); // what the agent reads
+const next = editContent(lessonProfile, json, [
+  { old_str: "teh setup", new_str: "the setup" }, // must match exactly once
+]);
+```
+
+Edits apply in order, all or nothing. An `old_str` that is missing or matches more
+than once throws `TextEditError` (`EDIT_NOT_FOUND`, `EDIT_AMBIGUOUS`, `EDIT_INVALID`,
+with the edit's `index`); an edit that leaves invalid content throws `ContentError`.
+Everything outside the edits stays exactly as it was.
+
+The editable Markdown round-trips any content exactly. A top-level block Markdown
+can't express (a resized image, a table with merged cells, underlined text) is
+written as a fenced `tiptap` block holding its JSON, which can be edited too. Content
+Markdown can fully express prints the same as `serializeMarkdown`.
+`fromEditableMarkdown` reads it back.
+
 ## Styling
 
 `styles.css` includes everything: the editor's own styles, default colors, and the
@@ -527,7 +553,7 @@ If you run Tailwind CSS v4 yourself, skip `styles.css` and import the parts inst
 | --- | --- | --- |
 | `@frontlit/text-editor` | Browser | `Editor`, `TextRenderer`, `defaultTextEditorLabels`, type `TextEditorLabels`, `MediaPickerContextProvider`, `ImagePickerContextProvider`, `BlockFrame`, `ItemFrame`, `TextField`, `SettingsField`, `emptyDoc`, types `BlockUi`, `BlockRendererProps`, `TextEditorContent` |
 | `@frontlit/text-editor/renderer` | Server components | `TextRenderer`, `ContentRenderer`, `defaultTextEditorLabels`, types `BlockRendererProps`, `TextEditorLabels` |
-| `@frontlit/text-editor/blocks` | Browser and server | `defineProfile`, the block library (`image()`, `callout()`, …), `attr`, `validateContent`, `incompleteBlocks`, `parseMarkdown`, `serializeMarkdown`, `formatReference`, `ContentError`, type `BlockSchema` |
+| `@frontlit/text-editor/blocks` | Browser and server | `defineProfile`, the block library (`image()`, `callout()`, …), `attr`, `validateContent`, `incompleteBlocks`, `parseMarkdown`, `serializeMarkdown`, `editContent`, `toEditableMarkdown`, `fromEditableMarkdown`, `applyTextEdits`, `formatReference`, `ContentError`, type `BlockSchema` |
 | `@frontlit/text-editor/docs` | Server | The documentation profile: `parseDocsMarkdown`, `serializeDocsMarkdown`, `validateDocsContent`, `contentFormat`, `describeContentFormat` |
 | `@frontlit/text-editor/styles.css` | Browser | All styles |
 
