@@ -1,4 +1,4 @@
-import { and, count, desc, eq, ilike, or } from "drizzle-orm";
+import { and, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { db } from "../db/client";
 import {
   accounts,
@@ -195,12 +195,35 @@ export async function listTickets(input: {
   const offset = ((input.offset ?? 1) - 1) * (input.itemsPerPage ?? 20);
   const limit = input.itemsPerPage ?? 20;
 
-  return db.query.tickets.findMany({
+  const rows = await db.query.tickets.findMany({
     where: and(...conditions),
     limit,
     offset,
     orderBy: desc(tickets.lastMessageAt),
   });
+  if (rows.length === 0) return [];
+
+  // The newest message of each listed ticket, for the inbox row preview.
+  const latest = await db
+    .selectDistinctOn([ticketMessages.ticketId], {
+      ticketId: ticketMessages.ticketId,
+      content: ticketMessages.content,
+    })
+    .from(ticketMessages)
+    .where(
+      inArray(
+        ticketMessages.ticketId,
+        rows.map((row) => row.id),
+      ),
+    )
+    .orderBy(ticketMessages.ticketId, desc(ticketMessages.createdAt));
+  const previews = new Map(
+    latest.map((row) => [row.ticketId, ticketMessageText(row.content).slice(0, 200)]),
+  );
+  return rows.map((row) => ({
+    ...row,
+    lastMessagePreview: previews.get(row.id) ?? null,
+  }));
 }
 
 export async function countTickets(input: {

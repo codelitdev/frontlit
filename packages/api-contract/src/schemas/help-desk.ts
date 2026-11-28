@@ -58,6 +58,8 @@ export const ticketSchema = z.object({
     .enum(["idle", "generating", "waiting", "escalated", "taken_over"])
     .optional(),
   lastMessageAt: z.string().nullable(),
+  /** Plain text of the newest message, on list reads. */
+  lastMessagePreview: z.string().nullable().optional(),
   createdAt: z.string().nullable(),
   updatedAt: z.string().nullable(),
 });

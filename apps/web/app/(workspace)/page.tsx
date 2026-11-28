@@ -754,8 +754,20 @@ export default function InboxPage() {
                       </span>
                     )}
                   </div>
-                  <p className="mt-2 truncate text-sm text-foreground/80">
-                    {ticket.subject}
+                  {ticket.source !== "chatbot" && ticket.lastMessagePreview && (
+                    <p className="mt-2 truncate text-sm font-medium">
+                      {ticket.subject}
+                    </p>
+                  )}
+                  <p
+                    className={cn(
+                      "truncate text-sm text-foreground/80",
+                      ticket.source !== "chatbot" && ticket.lastMessagePreview
+                        ? "mt-0.5"
+                        : "mt-2",
+                    )}
+                  >
+                    {ticket.lastMessagePreview || ticket.subject}
                   </p>
                 </button>
               );
