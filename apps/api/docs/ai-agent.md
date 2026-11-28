@@ -501,9 +501,9 @@ The widget appends an assistant message only when `answer` is non-null. For
 here” state and continues polling the same thread.
 
 Public chat request validation requires a 1–4,000-character `message` and
-either both `conversationId` and `conversationToken` or neither. The legacy
-client `history` field may be accepted during rollout but is ignored; persisted
-ticket messages are the only history supplied to the model.
+either both `conversationId` and `conversationToken` or neither. Clients don't
+send history; persisted ticket messages are the only history supplied to the
+model.
 
 Permissions are field-level:
 
