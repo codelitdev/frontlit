@@ -1374,6 +1374,8 @@ export interface Ticket {
   assigneeAccountId?: string | null;
   aiState?: "idle" | "generating" | "waiting" | "escalated" | "taken_over";
   lastMessageAt: string | null;
+  /** Plain text of the newest message, on list reads. */
+  lastMessagePreview?: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 }

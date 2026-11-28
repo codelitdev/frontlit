@@ -61,6 +61,8 @@ describe("persisted chatbot conversations", () => {
     const inbox = await listTickets({ teamId });
     expect(inbox).toHaveLength(1);
     expect(inbox[0].ticketId).toBe(ticket.ticketId);
+    // The inbox row previews the newest message, not the first one.
+    expect(inbox[0].lastMessagePreview).toBe("It includes six seats.");
 
     const otherTeam = await seedTeam(db, { name: "Other team" });
     expect(
