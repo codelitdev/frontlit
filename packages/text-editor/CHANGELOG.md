@@ -1,5 +1,12 @@
 # @frontlit/text-editor
 
+## 0.3.0
+
+### Minor Changes
+
+- 3ab4bd3: Add the server-safe `@frontlit/text-editor/profiles` entry, exporting `defaultProfile`, `docsProfile` and `resolveProfile` without React, so servers can parse, validate and edit content in the default editor's profile.
+- 0c857a6: Add surgical edits: `applyTextEdits` (exact-match `str_replace` edits), `toEditableMarkdown` / `fromEditableMarkdown` (Markdown that round-trips any content exactly, with blocks Markdown can't express kept as fenced `tiptap` JSON) and `editContent` in `@frontlit/text-editor/blocks`, and `editPageDocument` (edits through the canonical page file) in `@frontlit/page-builder/schema`.
+
 ## 0.2.0
 
 ### Minor Changes
