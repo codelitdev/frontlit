@@ -20,7 +20,7 @@ import {
   Paperclip,
   Search,
   Send,
-  Siren,
+  UsersRound,
   ThumbsDown,
   ThumbsUp,
   X,
@@ -60,7 +60,9 @@ import { cn } from "@/lib/utils";
 import { RequesterDetails } from "@/components/workspace/requester-details";
 import { workspaceContentPath } from "@frontlit/api-contract";
 
-type InboxFilter = "open" | "escalated" | "agent" | "closed";
+/** With AI on, "people" holds what a person owns: chats the AI handed off
+ * and chats a teammate took over. "ai" holds what the AI is handling. */
+type InboxFilter = "open" | "people" | "ai" | "closed";
 
 function isClosed(status: TicketStatus) {
   return status === "resolved" || status === "closed";
@@ -69,8 +71,9 @@ function isClosed(status: TicketStatus) {
 function ticketQueue(ticket: Ticket, splitAiQueues: boolean): InboxFilter {
   if (isClosed(ticket.status)) return "closed";
   if (!splitAiQueues) return "open";
-  if (ticket.aiState === "escalated") return "escalated";
-  return "agent";
+  if (ticket.aiState === "escalated" || ticket.aiState === "taken_over")
+    return "people";
+  return "ai";
 }
 
 function requesterLabel(ticket: Ticket) {
@@ -403,11 +406,11 @@ export default function InboxPage() {
   }, [currentTeamId]);
 
   useEffect(() => {
-    if (!aiQueues && (filter === "agent" || filter === "escalated")) {
+    if (!aiQueues && (filter === "ai" || filter === "people")) {
       setFilter("open");
     }
     if (aiQueues && filter === "open") {
-      setFilter("escalated");
+      setFilter("people");
     }
   }, [aiQueues, filter]);
 
@@ -591,9 +594,9 @@ export default function InboxPage() {
 
   const queueCounts = {
     open: tickets.filter((ticket) => ticketQueue(ticket, aiQueues) === "open").length,
-    escalated: tickets.filter((ticket) => ticketQueue(ticket, aiQueues) === "escalated")
+    people: tickets.filter((ticket) => ticketQueue(ticket, aiQueues) === "people")
       .length,
-    agent: tickets.filter((ticket) => ticketQueue(ticket, aiQueues) === "agent").length,
+    ai: tickets.filter((ticket) => ticketQueue(ticket, aiQueues) === "ai").length,
     closed: tickets.filter((ticket) => ticketQueue(ticket, aiQueues) === "closed")
       .length,
   };
@@ -606,8 +609,8 @@ export default function InboxPage() {
   }[] = (
     aiQueues
       ? ([
-          ["escalated", "Escalated", Siren],
-          ["agent", "Agent", Bot],
+          ["people", "Handled by your team", UsersRound],
+          ["ai", "Handled by AI", Bot],
           ["closed", "Closed", CircleCheck],
         ] as const)
       : ([
@@ -621,7 +624,13 @@ export default function InboxPage() {
     count: queueCounts[value],
   }));
 
-  const inboxBadge = aiQueues ? queueCounts.escalated : queueCounts.open;
+  // Conversations waiting on your team's reply.
+  const inboxBadge = aiQueues
+    ? tickets.filter(
+        (ticket) =>
+          ticket.status === "open" && ticketQueue(ticket, aiQueues) === "people",
+      ).length
+    : queueCounts.open;
 
   return (
     <div
@@ -699,10 +708,10 @@ export default function InboxPage() {
             <div className="flex h-full min-h-56 flex-col items-center justify-center px-8 text-center">
               <Inbox className="mb-3 size-8 text-muted-foreground/60" />
               <p className="font-medium">
-                {filter === "escalated"
-                  ? "No escalated conversations"
-                  : filter === "agent"
-                    ? "No agent conversations"
+                {filter === "people"
+                  ? "Nothing for your team"
+                  : filter === "ai"
+                    ? "Nothing with the AI"
                     : filter === "open"
                       ? "No open conversations"
                       : "No closed conversations"}
@@ -710,10 +719,10 @@ export default function InboxPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 {query
                   ? "Try a different search."
-                  : filter === "escalated"
-                    ? "When the bot hands a chat or ticket to a human, it shows up here."
-                    : filter === "agent"
-                      ? "Tickets you take over and other human-owned threads live here."
+                  : filter === "people"
+                    ? "Chats the AI hands to a person, and chats you reply to, show up here."
+                    : filter === "ai"
+                      ? "Chats the AI is answering show up here."
                       : filter === "open"
                         ? "New chats and tickets show up here."
                         : "Completed conversations will appear here."}
