@@ -25,7 +25,14 @@ import {
   updateDocument,
   withPublishReport,
 } from "../../documents/queries";
-import { AUTH_ERROR, INTERNAL_ERROR, NOT_FOUND, jsonResult } from "./responses";
+import {
+  AUTH_ERROR,
+  INTERNAL_ERROR,
+  NOT_FOUND,
+  errorResult,
+  jsonResult,
+} from "./responses";
+import { InvalidSlugError, SlugConflictError } from "../../utils/slug";
 import { getTeamId } from "./auth";
 import { listPaging, listPagingInput } from "./paging";
 import { DocsContentError, describeContentFormat } from "@frontlit/text-editor/docs";
@@ -119,10 +126,13 @@ export function registerDocumentTools(
       .describe("Body as TipTap JSON. Send content or markdown, never both."),
     markdown: markdownField,
   };
-  const handleError = (error: unknown) =>
-    error instanceof DocsContentError
-      ? { ...jsonResult(documentationErrorBody(error)), isError: true }
-      : INTERNAL_ERROR;
+  const handleError = (error: unknown) => {
+    if (error instanceof DocsContentError)
+      return { ...jsonResult(documentationErrorBody(error)), isError: true };
+    if (error instanceof InvalidSlugError || error instanceof SlugConflictError)
+      return errorResult(error.message);
+    return INTERNAL_ERROR;
+  };
 
   server.registerTool(
     `create_${label}`,
@@ -240,7 +250,10 @@ export function registerDocumentTools(
   server.registerTool(
     `update_${label}`,
     {
-      description: `Updates a ${humanLabel}'s draft title, body (Markdown via \`markdown\`, or TipTap JSON via \`content\`, never both), excerpt, featured image, and/or type-specific metadata. Writes only the draft state — call publish_${label} to make changes live.`,
+      description:
+        kind === "doc"
+          ? `Updates a ${humanLabel}'s draft title, slug, body (Markdown via \`markdown\`, or TipTap JSON via \`content\`, never both), excerpt, featured image, and/or type-specific metadata. Writes only the draft state — call publish_${label} to make changes live.`
+          : `Updates a ${humanLabel}'s draft title, body (Markdown via \`markdown\`, or TipTap JSON via \`content\`, never both), excerpt, featured image, type-specific metadata, and/or slug. Content fields write only the draft state — call publish_${label} to make them live. \`slug\` is the exception: it changes the public URL immediately, and changing \`title\` never changes the slug.`,
       inputSchema:
         kind === "doc"
           ? {
@@ -250,6 +263,14 @@ export function registerDocumentTools(
             }
           : {
               documentId: z.string(),
+              slug: z
+                .string()
+                .min(1)
+                .max(200)
+                .optional()
+                .describe(
+                  "New URL slug. Normalized to lowercase-hyphenated form; must be unique within this content type. Takes effect on the public URL immediately.",
+                ),
               title: z.string().optional(),
               ...bodyFields,
               excerpt: z.string().optional(),
