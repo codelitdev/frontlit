@@ -27,7 +27,7 @@
     "directory": "packages/preview"
   },
   "scripts": {
-    "test": "node --test *.test.mjs",
+    "test": "node --test --test-force-exit *.test.mjs",
     "check-types": "node --check cli.mjs && node --check server.mjs && node --check site.mjs"
   },
   "dependencies": {

@@ -3,9 +3,22 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createServer } from "node:net";
 import { startPreview } from "./server.mjs";
 
-test("serves pages and assets, blocks other files and recovers after invalid edits", async () => {
+// Vite reads port 0 as "unset" and falls back to 5173, so pick a free port.
+const freePort = () =>
+  new Promise((resolve, reject) => {
+    const probe = createServer().once("error", reject);
+    probe.listen(0, "127.0.0.1", () => {
+      const { port } = probe.address();
+      probe.close(() => resolve(port));
+    });
+  });
+
+test("serves pages and assets, blocks other files and recovers after invalid edits", {
+  timeout: 60_000,
+}, async () => {
   const root = mkdtempSync(join(tmpdir(), "preview-http-"));
   let server;
   try {
@@ -31,7 +44,7 @@ test("serves pages and assets, blocks other files and recovers after invalid edi
         }),
       );
     save("Before");
-    server = await startPreview(folder, { port: 0 });
+    server = await startPreview(folder, { port: await freePort() });
     const base = "http://127.0.0.1:" + server.httpServer.address().port;
     const get = () => fetch(base + "/__frontlit/data?path=/");
     assert.equal((await (await get()).json()).title, "Before");
