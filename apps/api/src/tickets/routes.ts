@@ -173,7 +173,8 @@ const impl = s.router(
         // Rotate the access token and email the fresh link to the requester
         // (architecture.md §13.4 — "every requester email re-sends a fresh
         // link"). Best-effort: notification failure never blocks the reply.
-        if (ticket.requesterEmail) {
+        // Chat replies are emailed later, only if unread (addTicketMessage).
+        if (ticket.requesterEmail && ticket.source !== "chatbot") {
           const token = await reissueTicketAccessToken(teamId, ticket.id);
           notifyRequesterOfReply({
             teamId,

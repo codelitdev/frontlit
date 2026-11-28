@@ -22,7 +22,7 @@ import {
   verifyTicketAccessToken,
 } from "../inbox-ai/grants";
 import { enqueueInboxAiRun, ticketsChannelForSource } from "../inbox-ai/schedule";
-import { enqueueTicketMail } from "../inbox-ai/mail";
+import { enqueueTicketMail, scheduleReplyEmail } from "../inbox-ai/mail";
 import { enqueueNeedsReplyPush } from "../push/send";
 import { HANDOFF_COPY } from "../inbox-ai/config";
 
@@ -329,6 +329,19 @@ export async function addTicketMessage(input: {
       triggerMessageId: message.id,
       channel: "tickets",
     });
+  }
+
+  // A chat reply reaches the requester in the widget if they're there, or
+  // by email a little later if not (docs/embedded-support.md §6.7). Email
+  // tickets are answered by email straight away instead.
+  if (
+    existing &&
+    existing.source === "chatbot" &&
+    existing.requesterEmail &&
+    existing.status !== "closed" &&
+    (input.author === "agent" || input.author === "bot")
+  ) {
+    await scheduleReplyEmail(input.teamId, existing.id);
   }
 
   if (existing) {
