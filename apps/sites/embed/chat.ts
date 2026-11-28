@@ -110,6 +110,36 @@ function css(el: HTMLElement, styles: Record<string, string>) {
     document.head.appendChild(link);
   }
 
+  /** Phones get a full-screen panel, like other chat widgets. */
+  const phone = () => matchMedia("(max-width: 480px)").matches;
+
+  /** Sizes the bubble panel for the current screen. */
+  function placeFrame() {
+    if (!frame || !config || docked()) return;
+    if (phone()) {
+      css(frame, {
+        top: "0",
+        right: "0",
+        bottom: "0",
+        width: "100%",
+        height: "100%",
+        border: "0",
+        borderRadius: "0",
+      });
+      return;
+    }
+    const offset = showLauncher ? bubbleSize() + 24 : 16;
+    css(frame, {
+      top: "auto",
+      right: "16px",
+      bottom: `${offset}px`,
+      width: "min(380px, calc(100vw - 32px))",
+      height: `min(560px, calc(100vh - ${offset + 16}px))`,
+      border: `1px solid ${config.colors?.border ?? "#e4e4e7"}`,
+      borderRadius: "16px",
+    });
+  }
+
   function paintLauncher() {
     if (!launcher || !config) return;
     const open = isOpen;
@@ -120,6 +150,8 @@ function css(el: HTMLElement, styles: Record<string, string>) {
       launcher.style.display = open ? "none" : "flex";
       return;
     }
+    // The full-screen panel has its own close button.
+    launcher.style.display = open && phone() ? "none" : "flex";
     launcher.setAttribute("aria-label", open ? `Close ${name}` : `Open ${name}`);
     launcher.innerHTML = svg(open ? "close" : config.style?.bubbleIcon || "chat");
     if (unread && !open) {
@@ -384,16 +416,9 @@ function css(el: HTMLElement, styles: Record<string, string>) {
         colorScheme: "normal",
       });
     } else {
-      const offset = showLauncher ? bubbleSize() + 24 : 16;
       css(iframe, {
         position: "fixed",
         zIndex: Z,
-        right: "16px",
-        bottom: `${offset}px`,
-        width: "min(380px, calc(100vw - 32px))",
-        height: `min(560px, calc(100vh - ${offset + 16}px))`,
-        border: `1px solid ${config.colors?.border ?? "#e4e4e7"}`,
-        borderRadius: "16px",
         boxShadow: "0 25px 50px -12px rgba(0,0,0,.25)",
         background: config.colors?.card ?? "#fff",
         colorScheme: "normal",
@@ -403,6 +428,7 @@ function css(el: HTMLElement, styles: Record<string, string>) {
     if (!visible) iframe.style.display = "none";
     document.body.appendChild(iframe);
     frame = iframe;
+    placeFrame();
     isOpen = visible;
     paintUnread();
   }
@@ -422,6 +448,10 @@ function css(el: HTMLElement, styles: Record<string, string>) {
     if (!config.enabled) return;
     if (config.chatUrl) chatOrigin = new URL(config.chatUrl).origin;
     window.addEventListener("message", onMessage);
+    window.addEventListener("resize", () => {
+      placeFrame();
+      paintLauncher();
+    });
     document.addEventListener("visibilitychange", paintTitle);
     if (showLauncher) renderLauncher();
     if (pendingOpen) {
