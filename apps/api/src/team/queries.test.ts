@@ -6,7 +6,7 @@ vi.mock("../db/client", async () => ({ db: await makeTestDb() }));
 
 import { db as testDb } from "../db/client";
 import { listPages } from "../pages/queries";
-import { accounts, authUser, pages } from "../db/schema";
+import { accounts, authUser, pages, teams } from "../db/schema";
 import {
   createAccountWithDefaultTeam,
   ensureFrontLitAccountForUser,
@@ -14,6 +14,7 @@ import {
 } from "../account/queries";
 import {
   createTeam,
+  deleteTeam,
   findOrCreateTeamByExternalId,
   listTeamsForAccount,
 } from "./queries";
@@ -32,6 +33,24 @@ describe("createTeam", () => {
       .returning();
     return account;
   }
+
+  it("deletes a team with a published site release", async () => {
+    const owner = await makeOwner();
+    const team = await createTeam({ ownerAccountId: owner.id, name: "Doomed" });
+    // Provisioning publishes the standard pages: release rows point at
+    // page revisions, both of which go with the team.
+    const released = await db.query.siteReleasePages.findMany();
+    expect(released.length).toBeGreaterThan(0);
+
+    await deleteTeam(team.id);
+
+    expect(
+      await db.query.teams.findFirst({ where: eq(teams.id, team.id) }),
+    ).toBeUndefined();
+    expect(await db.query.pages.findMany({ where: eq(pages.teamId, team.id) })).toEqual(
+      [],
+    );
+  });
 
   it("leaves the team's public website inactive until it claims a subdomain", async () => {
     const owner = await makeOwner();
