@@ -25,6 +25,10 @@ import { Textarea } from "@/components/ui/codelit/textarea";
 import { parseTags } from "@/lib/writing-editor";
 import { ContentIndexSettings } from "@/components/workspace/content-index-settings";
 import { FeaturedImageSetting } from "@/components/workspace/featured-image-setting";
+import { DraftSaveBanner } from "@/components/workspace/draft-save-banner";
+import { useDraftAutosave } from "@/hooks/use-draft-autosave";
+
+type ArticlePatch = Parameters<typeof updateArticle>[1];
 
 export default function ArticleEditor({
   params,
@@ -36,19 +40,48 @@ export default function ArticleEditor({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState("");
-  const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [resetKey, setResetKey] = useState(0);
   const [teamIndexesArticles, setTeamIndexesArticles] = useState(false);
   const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const descriptionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tagsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const postRef = useRef<Article | null>(null);
+
+  function clearDebounces() {
+    if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
+    if (descriptionDebounceRef.current) clearTimeout(descriptionDebounceRef.current);
+    if (tagsDebounceRef.current) clearTimeout(tagsDebounceRef.current);
+  }
+
+  function showPost(next: Article) {
+    postRef.current = next;
+    setPost(next);
+  }
+
+  /** Replaces the editor's state with `loaded` and remounts the body editor. */
+  function resetTo(loaded: Article) {
+    clearDebounces();
+    showPost(loaded);
+    setTitle(loaded.draftTitle);
+    setDescription(loaded.draftExcerpt ?? "");
+    setTags(loaded.draftMeta.tags.join(", "));
+  }
+
+  const autosave = useDraftAutosave<Article, ArticlePatch>({
+    save: (patch, expectedDraftVersion) =>
+      updateArticle(documentId, patch, expectedDraftVersion),
+    load: () => getArticle(documentId),
+    onSaved: showPost,
+    onReset: resetTo,
+  });
+  const { save, adopt, reset, isCurrent, resetKey, saving } = autosave;
 
   useEffect(() => {
     setSettingsOpen(window.matchMedia("(min-width: 768px)").matches);
     getArticle(documentId).then((loaded) => {
-      setPost(loaded);
+      adopt(loaded);
+      showPost(loaded);
       setTitle(loaded.draftTitle);
       setDescription(loaded.draftExcerpt ?? "");
       setTags(loaded.draftMeta.tags.join(", "));
@@ -56,101 +89,59 @@ export default function ArticleEditor({
     getAiConfig()
       .then((config) => setTeamIndexesArticles(Boolean(config?.indexContent?.articles)))
       .catch(() => setTeamIndexesArticles(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once per document
   }, [documentId]);
 
-  useEffect(
-    () => () => {
-      if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
-      if (descriptionDebounceRef.current) clearTimeout(descriptionDebounceRef.current);
-      if (tagsDebounceRef.current) clearTimeout(tagsDebounceRef.current);
-    },
-    [],
-  );
+  useEffect(() => clearDebounces, []);
 
   useEffect(() => {
     if (!teamIndexesArticles || post?.index?.state !== "pending") return;
     const timer = window.setInterval(() => {
       getArticle(documentId)
-        .then(setPost)
+        .then((loaded) =>
+          setPost((current) =>
+            current ? { ...current, index: loaded.index } : current,
+          ),
+        )
         .catch(() => {});
     }, 2000);
     return () => window.clearInterval(timer);
   }, [documentId, teamIndexesArticles, post?.index?.state]);
 
-  async function saveTitle(value: string) {
-    setSaving(true);
-    try {
-      setPost(await updateArticle(documentId, { title: value }));
-    } finally {
-      setSaving(false);
-    }
-  }
-
   function handleTitleChange(value: string) {
     setTitle(value);
     if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
-    titleDebounceRef.current = setTimeout(() => saveTitle(value), 600);
+    titleDebounceRef.current = setTimeout(() => void save({ title: value }), 600);
   }
 
   function handleDescriptionChange(value: string) {
     setDescription(value);
     if (descriptionDebounceRef.current) clearTimeout(descriptionDebounceRef.current);
-    descriptionDebounceRef.current = setTimeout(async () => {
-      setSaving(true);
-      try {
-        setPost(await updateArticle(documentId, { excerpt: value }));
-      } finally {
-        setSaving(false);
-      }
-    }, 600);
+    descriptionDebounceRef.current = setTimeout(
+      () => void save({ excerpt: value }),
+      600,
+    );
   }
 
   function handleTagsChange(value: string) {
     setTags(value);
     if (tagsDebounceRef.current) clearTimeout(tagsDebounceRef.current);
-    tagsDebounceRef.current = setTimeout(async () => {
-      setSaving(true);
-      try {
-        setPost(
-          await updateArticle(documentId, {
-            meta: { tags: parseTags(value) },
-          }),
-        );
-      } finally {
-        setSaving(false);
-      }
-    }, 600);
+    tagsDebounceRef.current = setTimeout(
+      () => void save({ meta: { tags: parseTags(value) } }),
+      600,
+    );
   }
 
   async function handleIndexableChange(indexable: boolean) {
-    setSaving(true);
-    try {
-      setPost(
-        await updateArticle(documentId, {
-          meta: { tags: parseTags(tags), indexable },
-        }),
-      );
-    } finally {
-      setSaving(false);
-    }
+    await save({ meta: { tags: parseTags(tags), indexable } });
   }
 
   async function handleContentChange(json: TextEditorContent) {
-    setSaving(true);
-    try {
-      setPost(await updateArticle(documentId, { content: json }));
-    } finally {
-      setSaving(false);
-    }
+    await save({ content: json });
   }
 
   async function handleFeaturedImageChange(image: Record<string, unknown> | null) {
-    setSaving(true);
-    try {
-      setPost(await updateArticle(documentId, { featuredImage: image }));
-    } finally {
-      setSaving(false);
-    }
+    await save({ featuredImage: image });
   }
 
   async function handlePublish() {
@@ -163,26 +154,19 @@ export default function ArticleEditor({
   }
 
   async function handleDiscardDraft() {
-    if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
-    if (descriptionDebounceRef.current) clearTimeout(descriptionDebounceRef.current);
-    if (tagsDebounceRef.current) clearTimeout(tagsDebounceRef.current);
     setPublishing(true);
     try {
       const reverted = await discardArticleDraft(documentId);
-      setPost(reverted);
-      setTitle(reverted.draftTitle);
-      setDescription(reverted.draftExcerpt ?? "");
-      setTags(reverted.draftMeta.tags.join(", "));
-      setResetKey((key) => key + 1);
+      reset(reverted);
     } finally {
       setPublishing(false);
     }
   }
 
   async function handleSlugSave(slug: string) {
-    const updated = await updateArticle(documentId, { slug });
-    setPost(updated);
-    return updated.slug;
+    if (!(await save({ slug })))
+      throw new Error("The URL could not be saved. Resolve the save error first.");
+    return postRef.current?.slug ?? slug;
   }
 
   if (!post) {
@@ -200,12 +184,17 @@ export default function ArticleEditor({
       index={teamIndexesArticles ? post.index : null}
       updatedAt={post.updatedAt}
       saving={saving}
+      saveError={Boolean(autosave.saveError)}
       publishing={publishing}
       settingsOpen={settingsOpen}
       onSettingsOpenChange={setSettingsOpen}
       onPublish={handlePublish}
       publishBlockedReason={
-        post.publishable === false ? PUBLISH_BLOCKED_REASON : undefined
+        autosave.conflict || autosave.saveError
+          ? "Save your changes before publishing."
+          : post.publishable === false
+            ? PUBLISH_BLOCKED_REASON
+            : undefined
       }
       onDiscardDraft={handleDiscardDraft}
       discardDescription="Discard all unpublished changes on this article? This cannot be undone."
@@ -272,32 +261,40 @@ export default function ArticleEditor({
         </div>
       }
     >
-      <Editor
-        key={resetKey}
-        initialContent={post.draftContent}
-        onChange={handleContentChange}
-        placeholder="Start writing…"
-        className="h-full min-h-0 gap-0 overflow-x-hidden overflow-y-auto border-0"
-        contentClassName="max-w-[46rem]"
-        editorClassName="writing-editor-content min-h-[420px]"
-        beforeContent={
-          <>
-            <WritingEditorDocumentHeader
-              title={title}
-              titlePlaceholder="Article title"
-              description={description}
-              descriptionPlaceholder="Add a short description…"
-              onTitleChange={handleTitleChange}
-              onDescriptionChange={handleDescriptionChange}
-              titleTestId="blog-title-input"
-            />
-            <PublishBlockers
-              publishable={post.publishable}
-              diagnostics={post.diagnostics}
-            />
-          </>
-        }
-      />
+      <div className="flex h-full min-h-0 flex-col">
+        <DraftSaveBanner autosave={autosave} className="mx-6 mt-4 shrink-0" />
+        <div className="min-h-0 flex-1">
+          <Editor
+            key={resetKey}
+            initialContent={post.draftContent}
+            onChange={(json) => {
+              if (isCurrent(resetKey))
+                void handleContentChange(json as TextEditorContent);
+            }}
+            placeholder="Start writing…"
+            className="h-full min-h-0 gap-0 overflow-x-hidden overflow-y-auto border-0"
+            contentClassName="max-w-[46rem]"
+            editorClassName="writing-editor-content min-h-[420px]"
+            beforeContent={
+              <>
+                <WritingEditorDocumentHeader
+                  title={title}
+                  titlePlaceholder="Article title"
+                  description={description}
+                  descriptionPlaceholder="Add a short description…"
+                  onTitleChange={handleTitleChange}
+                  onDescriptionChange={handleDescriptionChange}
+                  titleTestId="blog-title-input"
+                />
+                <PublishBlockers
+                  publishable={post.publishable}
+                  diagnostics={post.diagnostics}
+                />
+              </>
+            }
+          />
+        </div>
+      </div>
     </WritingEditorShell>
   );
 }

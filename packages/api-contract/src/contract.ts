@@ -1,6 +1,11 @@
 import { initContract } from "@ts-rest/core";
 import { z } from "zod";
-import { errorSchema, itemsList, paginated } from "./schemas/common";
+import {
+  errorSchema,
+  itemsList,
+  paginated,
+  staleDraftErrorSchema,
+} from "./schemas/common";
 import {
   publicApiOperationSchema,
   publicApiReferenceSchema,
@@ -483,7 +488,7 @@ const pagesContract = c.router(
         200: pageSchema,
         400: errorSchema,
         404: errorSchema,
-        409: errorSchema,
+        409: z.union([staleDraftErrorSchema, errorSchema]),
       },
       summary: "Update a page",
       description:
@@ -708,7 +713,7 @@ function makeDocumentContract(
           200: schema,
           400: z.union([errorSchema, documentationValidationErrorSchema]),
           404: errorSchema,
-          409: errorSchema,
+          409: z.union([staleDraftErrorSchema, errorSchema]),
           422: documentationValidationErrorSchema,
         },
         summary: `Update a ${label}`,

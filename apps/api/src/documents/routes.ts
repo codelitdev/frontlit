@@ -23,6 +23,7 @@ import {
   attachOneDocumentIndex,
 } from "../documentation/index-status";
 import { InvalidSlugError, SlugConflictError } from "../utils/slug";
+import { StaleDraftError, staleDraftBody } from "../utils/draft-version";
 import { DocsContentError } from "@frontlit/text-editor/docs";
 import {
   documentationRequestError,
@@ -143,6 +144,8 @@ export function createDocumentsRouter<T extends Record<string, unknown>>(
           if (error instanceof SlugConflictError) {
             return { status: 409, body: { error: error.message } };
           }
+          if (error instanceof StaleDraftError)
+            return { status: 409, body: staleDraftBody(error) };
           throw error;
         }
       },

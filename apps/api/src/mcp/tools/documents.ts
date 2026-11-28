@@ -33,6 +33,7 @@ import {
   jsonResult,
 } from "./responses";
 import { InvalidSlugError, SlugConflictError } from "../../utils/slug";
+import { StaleDraftError, staleDraftBody } from "../../utils/draft-version";
 import { getTeamId } from "./auth";
 import { listPaging, listPagingInput } from "./paging";
 import { DocsContentError, describeContentFormat } from "@frontlit/text-editor/docs";
@@ -43,7 +44,6 @@ import { attachOneDocumentIndex } from "../../documentation/index-status";
 /** Documentation-only columns on the shared documents table; other content
  * kinds do not declare them in their output schema. */
 const DOCUMENTATION_ONLY_KEYS = [
-  "draftVersion",
   "draftSlug",
   "draftMarkdown",
   "draftHash",
@@ -103,6 +103,7 @@ export function registerDocumentTools(
     draftExcerpt: z.string().nullable().optional(),
     draftFeaturedImage: z.record(z.any()).nullable().optional(),
     draftMeta: metaSchema,
+    draftVersion: z.number().int(),
     createdAt: z.string().nullable(),
     updatedAt: z.string().nullable(),
     index: documentationIndexSchema.nullable().optional(),
@@ -131,6 +132,8 @@ export function registerDocumentTools(
       return { ...jsonResult(documentationErrorBody(error)), isError: true };
     if (error instanceof InvalidSlugError || error instanceof SlugConflictError)
       return errorResult(error.message);
+    if (error instanceof StaleDraftError)
+      return { ...jsonResult(staleDraftBody(error)), isError: true };
     return INTERNAL_ERROR;
   };
 
@@ -149,6 +152,14 @@ export function registerDocumentTools(
               ...bodyFields,
               featuredImage: z.union([z.string(), z.record(z.any())]).optional(),
               meta: metaSchema.optional(),
+              expectedDraftVersion: z
+                .number()
+                .int()
+                .positive()
+                .optional()
+                .describe(
+                  "The draftVersion you read. If the draft changed since, nothing is saved and STALE_DRAFT is returned. Omit to overwrite unconditionally.",
+                ),
             },
       outputSchema,
       annotations: {
@@ -279,6 +290,14 @@ export function registerDocumentTools(
                 .nullable()
                 .optional(),
               meta: metaSchema.optional(),
+              expectedDraftVersion: z
+                .number()
+                .int()
+                .positive()
+                .optional()
+                .describe(
+                  "The draftVersion you read. If the draft changed since, nothing is saved and STALE_DRAFT is returned. Omit to overwrite unconditionally.",
+                ),
             },
       outputSchema,
       annotations: {

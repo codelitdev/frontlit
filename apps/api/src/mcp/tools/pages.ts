@@ -1,3 +1,4 @@
+import { StaleDraftError, staleDraftBody } from "../../utils/draft-version";
 import type { McpToolRegistrar } from "../tool-registry";
 import { z } from "zod";
 import { pageSchema, successMessageSchema } from "@frontlit/api-contract";
@@ -171,6 +172,14 @@ export function registerPageTools(server: McpToolRegistrar): void {
         title: z.string().optional(),
         description: z.string().optional(),
         robotsAllowed: z.boolean().optional(),
+        expectedDraftVersion: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe(
+            "The draftVersion you read. If the draft changed since, nothing is saved and STALE_DRAFT is returned. Omit to overwrite unconditionally.",
+          ),
       },
       outputSchema: pageSchema,
       annotations: {
@@ -193,6 +202,8 @@ export function registerPageTools(server: McpToolRegistrar): void {
         ) {
           return errorResult(error.message);
         }
+        if (error instanceof StaleDraftError)
+          return { ...jsonResult(staleDraftBody(error)), isError: true };
         return INTERNAL_ERROR;
       }
     },

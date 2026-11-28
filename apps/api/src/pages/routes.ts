@@ -1,3 +1,4 @@
+import { StaleDraftError, staleDraftBody } from "../utils/draft-version";
 import { Router } from "express";
 import { createExpressEndpoints, initServer } from "@ts-rest/express";
 import { contract } from "@frontlit/api-contract";
@@ -89,6 +90,8 @@ const impl = s.router(
           ) {
             return { status: 400, body: { error: error.message } };
           }
+          if (error instanceof StaleDraftError)
+            return { status: 409, body: staleDraftBody(error) };
           if (
             error instanceof SlugConflictError ||
             error instanceof PageOwnedByGitError
