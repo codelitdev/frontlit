@@ -45,6 +45,19 @@ describe("documents engine (blog kind)", () => {
     expect(deriveDocumentStatus(doc)).toBe("draft");
   });
 
+  it("stores an excerpt given at creation for every document kind", async () => {
+    for (const kind of ["blog", "changelog", "doc"] as const) {
+      const doc = await createDocument(kind, {
+        teamId,
+        title: `With excerpt ${kind}`,
+        excerpt: "Meta description",
+      });
+      expect(doc.draftExcerpt).toBe("Meta description");
+    }
+    const plain = await createDocument("blog", { teamId, title: "No excerpt" });
+    expect(plain.draftExcerpt).toBeNull();
+  });
+
   it("uniquifies slugs within a team and kind", async () => {
     const first = await createDocument("blog", { teamId, title: "Launch" });
     const second = await createDocument("blog", {

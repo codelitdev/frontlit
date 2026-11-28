@@ -11,6 +11,7 @@ import {
   createDocumentationBodySchema,
   updateDocumentationBodySchema,
   documentationValidationErrorSchema,
+  EXCERPT_DESCRIPTION,
   featuredImageInputSchema,
   featuredImageSchema,
 } from "@frontlit/api-contract";
@@ -144,13 +145,14 @@ export function registerDocumentTools(
       description:
         kind === "doc"
           ? `Creates a new ${humanLabel} (draft only) for the current team.${featuredImageHelp}`
-          : `Creates a new ${humanLabel} (draft only) for the current team. Pass the body as Markdown (\`markdown\`) or TipTap JSON (\`content\`), or omit both for an empty draft. Invalid Markdown returns structured diagnostics with line numbers.${featuredImageHelp}`,
+          : `Creates a new ${humanLabel} (draft only) for the current team. Pass the body as Markdown (\`markdown\`) or TipTap JSON (\`content\`), or omit both for an empty draft. Set \`excerpt\` here too: it is the published page's meta description and social card text. Invalid Markdown returns structured diagnostics with line numbers.${featuredImageHelp}`,
       inputSchema:
         kind === "doc"
           ? { ...createDocumentationBodySchema.shape, markdown: markdownField }
           : {
               title: z.string().min(1),
               ...bodyFields,
+              excerpt: z.string().optional().describe(EXCERPT_DESCRIPTION),
               featuredImage: featuredImageInputSchema.optional(),
               meta: metaSchema.optional(),
             },
@@ -277,7 +279,7 @@ export function registerDocumentTools(
                 ),
               title: z.string().optional(),
               ...bodyFields,
-              excerpt: z.string().optional(),
+              excerpt: z.string().optional().describe(EXCERPT_DESCRIPTION),
               featuredImage: featuredImageInputSchema.nullable().optional(),
               meta: metaSchema.optional(),
             },

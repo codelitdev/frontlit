@@ -124,6 +124,7 @@ export async function createDocument(
     markdown?: string;
     gitSourcePath?: string;
     authorAccountId?: string;
+    excerpt?: string | null;
     featuredImage?: unknown;
     meta?: Record<string, unknown>;
   },
@@ -148,6 +149,7 @@ export async function createDocument(
       slug,
       draftTitle: input.title,
       draftContent: content,
+      draftExcerpt: input.excerpt ?? null,
       draftFeaturedImage: featuredImage,
       draftMeta: input.meta ?? {},
     })

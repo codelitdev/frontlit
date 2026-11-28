@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  EXCERPT_DESCRIPTION,
   makeCreateDocumentBodySchema,
   makeDocumentSchema,
   makeUpdateDocumentBodySchema,
@@ -77,6 +78,7 @@ export const createDocumentationBodySchema = makeCreateDocumentBodySchema(
   .extend({
     title: z.string().trim().min(1),
     slug: z.string().max(512).optional(),
+    excerpt: z.string().nullable().optional().describe(EXCERPT_DESCRIPTION),
     content: documentationContentInputSchema.optional(),
     markdown: z
       .string()
@@ -94,7 +96,7 @@ export const updateDocumentationBodySchema = makeUpdateDocumentBodySchema(
     slug: z.string().max(512).optional(),
     expectedDraftVersion: z.number().int().positive(),
     title: z.string().optional(),
-    excerpt: z.string().nullable().optional(),
+    excerpt: z.string().nullable().optional().describe(EXCERPT_DESCRIPTION),
     content: documentationContentInputSchema.optional(),
     markdown: z
       .string()

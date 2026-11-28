@@ -61,11 +61,18 @@ const markdownBodySchema = z
     "Body as Markdown (CommonMark/GFM plus rich blocks such as <Callout>, <Tabs>, <Button> and <H5P>), converted to TipTap JSON. Send markdown or content, never both. Every block, prop and limit: https://frontlit.app/schema/content.v1.json",
   );
 
+/** Short summary: the published page's meta description and social card
+ * text, and the listing blurb. */
+export const EXCERPT_DESCRIPTION =
+  "Short summary used as the published page's meta description, social card text and listing blurb.";
+const excerptSchema = z.string().describe(EXCERPT_DESCRIPTION);
+
 export function makeCreateDocumentBodySchema<M extends z.ZodTypeAny>(metaSchema: M) {
   return z.object({
     title: z.string().min(1),
     content: textEditorContentSchema.optional(),
     markdown: markdownBodySchema,
+    excerpt: excerptSchema.optional(),
     featuredImage: featuredImageInputSchema.nullable().optional(),
     // `.default({})` (not `.optional()`): when the caller omits `meta`
     // entirely, this still runs `{}` through `metaSchema` so its own
@@ -84,7 +91,7 @@ export function makeUpdateDocumentBodySchema<M extends z.ZodTypeAny>(metaSchema:
     title: z.string().optional(),
     content: textEditorContentSchema.optional(),
     markdown: markdownBodySchema,
-    excerpt: z.string().optional(),
+    excerpt: excerptSchema.optional(),
     featuredImage: featuredImageInputSchema.nullable().optional(),
     meta: metaSchema.optional(),
   });

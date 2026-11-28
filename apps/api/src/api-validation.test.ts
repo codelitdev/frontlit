@@ -6,6 +6,7 @@ import {
   createApiKeyBodySchema,
   createArticleBodySchema,
   createDocumentationBodySchema,
+  createProductUpdateBodySchema,
   createDocumentationSectionBodySchema,
   createMediaBodySchema,
   createPageBodySchema,
@@ -177,6 +178,19 @@ describe("API input validation schemas", () => {
         meta: { order: 1 },
       }).success,
     ).toBe(true);
+
+    for (const createSchema of [
+      createArticleBodySchema,
+      createDocumentationBodySchema,
+      createProductUpdateBodySchema,
+    ]) {
+      expect(createSchema.parse({ title: "Hello", excerpt: "Summary" })).toMatchObject({
+        excerpt: "Summary",
+      });
+      expect(createSchema.safeParse({ title: "Hello", excerpt: 42 }).success).toBe(
+        false,
+      );
+    }
 
     for (const updateSchema of [
       updateArticleBodySchema,
