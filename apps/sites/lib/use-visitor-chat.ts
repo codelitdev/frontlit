@@ -456,10 +456,6 @@ export function useVisitorChat({
     if ((!question && pendingFiles.length === 0) || isSending || attaching) return;
     if (sessionExpired) return;
 
-    const history = messages
-      .filter((m) => !m.error)
-      .map((m) => ({ role: m.role, content: m.content }));
-
     const userMessage: ChatMessage = {
       id: newId("local"),
       role: "user",
@@ -482,7 +478,6 @@ export function useVisitorChat({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           message: question,
-          history,
           attachmentIds: pendingFiles.map((file) => file.attachmentId),
           ...(conversation
             ? {

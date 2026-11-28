@@ -98,16 +98,6 @@ export const chatRequestBodySchema = z
      * ticket from the session, or continues their open one. */
     sessionToken: z.string().optional(),
     attachmentIds: z.array(z.string().min(1)).max(5).optional(),
-    /** Ignored. Persisted ticket messages are the only model history. */
-    history: z
-      .array(
-        z.object({
-          role: z.enum(["user", "assistant"]),
-          content: z.string(),
-        }),
-      )
-      .max(20)
-      .optional(),
   })
   .refine(
     (value) => Boolean(value.conversationId) === Boolean(value.conversationToken),
