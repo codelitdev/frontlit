@@ -16,7 +16,7 @@ import { db as testDb } from "../db/client";
 import { customDomains, outboxJobs, teams, ticketMailOutbox } from "../db/schema";
 import { updateChatbotSettings } from "../chatbot/queries";
 import { createDocument, publishDocument, updateDocument } from "../documents/queries";
-import { createPage, publishPage } from "../pages/queries";
+import { createPage, publishPage, updatePage } from "../pages/queries";
 import { updateTeamSettings } from "../settings/queries";
 import { createTheme } from "../themes/queries";
 import publicRoutes from "./routes";
@@ -218,6 +218,48 @@ describe("public critical paths", () => {
         `${origin}/public/${teamPublicId}/content/documentation/${encodeURIComponent(draftDoc.slug)}`,
       );
       expect(unpublishedDoc.status).toBe(404);
+    });
+  });
+
+  it("keeps pages and feed indexes with robots disallowed out of the sitemap", async () => {
+    const about = await createPage({ teamId: teamInternalId, name: "About" });
+    const blog = await createPage({ teamId: teamInternalId, name: "Blog" });
+    const changelog = await createPage({ teamId: teamInternalId, name: "Changelog" });
+    expect([blog.slug, changelog.slug]).toEqual(["blog", "changelog"]);
+    await updatePage(teamInternalId, blog.pageId, { robotsAllowed: false });
+    await updatePage(teamInternalId, changelog.pageId, { robotsAllowed: false });
+    for (const page of [about, blog, changelog])
+      await publishPage(teamInternalId, page.pageId);
+    const post = await createDocument("blog", {
+      teamId: teamInternalId,
+      title: "Hello",
+    });
+    await publishDocument("blog", teamInternalId, post.documentId);
+    const entry = await createDocument("changelog", {
+      teamId: teamInternalId,
+      title: "v1",
+    });
+    await publishDocument("changelog", teamInternalId, entry.documentId);
+
+    const paths = async (origin: string) =>
+      (
+        (await (await fetch(`${origin}/public/${teamPublicId}/sitemap`)).json()) as {
+          items: { path: string }[];
+        }
+      ).items.map((item) => item.path);
+
+    await withServer(async (origin) => {
+      const hidden = await paths(origin);
+      expect(hidden).toContain("/about");
+      // noindex on /blog hides the listing only, not its articles.
+      expect(hidden).toContain("/blog/hello");
+      expect(hidden).not.toContain("/blog");
+      expect(hidden).not.toContain("/changelog");
+
+      await updatePage(teamInternalId, changelog.pageId, { robotsAllowed: true });
+      await publishPage(teamInternalId, changelog.pageId);
+      const shown = await paths(origin);
+      expect(shown.filter((path) => path === "/changelog")).toHaveLength(1);
     });
   });
 

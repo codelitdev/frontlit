@@ -59,8 +59,8 @@ export function titleTemplate(site: PublicSettings | null, siteName: string): st
 /**
  * Metadata for a route backed by a page record: a builder/Git page, or a
  * standard feed index (/blog, /docs, /changelog), whose page record carries
- * the listing's SEO. `robotsAllowed: false` on the page, or a site hidden from
- * search, renders noindex. `page` is null when the feed index has no
+ * the listing's SEO. `robotsAllowed: false` on the page renders
+ * `noindex, follow`; a site hidden from search renders `noindex, nofollow`. `page` is null when the feed index has no
  * published page; `fallbackName` names it then.
  */
 export function pageMetadata({
@@ -92,7 +92,8 @@ export function pageMetadata({
     settings,
     siteName,
   );
-  const index = seo.robotsIndex && !settings?.hideFromSearch;
+  const hidden = Boolean(settings?.hideFromSearch);
+  const index = seo.robotsIndex && !hidden;
   return {
     // The layout's template appends the site title; the homepage is the
     // site itself, so its title stands alone.
@@ -106,6 +107,9 @@ export function pageMetadata({
       description: seo.description ?? undefined,
       images: seo.imageUrl ? [{ url: seo.imageUrl }] : undefined,
     },
-    robots: { index, follow: index },
+    // A page that opts out stays out of results but its links are still
+    // followed, so a noindex /blog doesn't hide the articles it lists. A
+    // site hidden from search is nofollow too.
+    robots: { index, follow: !hidden },
   };
 }

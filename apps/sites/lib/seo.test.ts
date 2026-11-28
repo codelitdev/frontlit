@@ -87,7 +87,8 @@ describe("pageMetadata", () => {
       siteName: "Acme",
       url,
     });
-    expect(metadata.robots).toEqual({ index: false, follow: false });
+    // Links stay followed so the listed articles are still discovered.
+    expect(metadata.robots).toEqual({ index: false, follow: true });
     expect(metadata.title).toBe("Engineering blog");
     expect(metadata.description).toBe("What we ship");
     expect(metadata.alternates).toEqual({ canonical: url });
