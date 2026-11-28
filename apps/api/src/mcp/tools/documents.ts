@@ -37,7 +37,11 @@ import {
   jsonResult,
 } from "./responses";
 import { InvalidSlugError, SlugConflictError } from "../../utils/slug";
-import { StaleDraftError, staleDraftBody } from "../../utils/draft-version";
+import {
+  retryOnStaleDraft,
+  StaleDraftError,
+  staleDraftBody,
+} from "../../utils/draft-version";
 import { getTeamId } from "./auth";
 import { listPaging, listPagingInput } from "./paging";
 import {
@@ -367,7 +371,7 @@ export function registerDocumentTools(
   server.registerTool(
     `edit_${label}`,
     {
-      description: `Changes part of a ${humanLabel}'s draft body with exact-match replacements on the draftMarkdown get_${label} returns, without resending the body. Each old_str must match exactly once; all edits apply or none do. A failed match returns EDIT_NOT_FOUND or EDIT_AMBIGUOUS with the edit's index (re-read with get_${label}); content that doesn't validate returns diagnostics with line numbers in the edited text. If someone saved the draft at the same moment, ${kind === "doc" ? "STALE_DOCS_DRAFT" : "STALE_DRAFT"} is returned: call again. Writes only the draft; call publish_${label} to make it live. Replies without the body.`,
+      description: `Changes part of a ${humanLabel}'s draft body with exact-match replacements on the draftMarkdown get_${label} returns, without resending the body. Each old_str must match exactly once; all edits apply or none do. A failed match returns EDIT_NOT_FOUND or EDIT_AMBIGUOUS with the edit's index (re-read with get_${label}); content that doesn't validate returns diagnostics with line numbers in the edited text. Edits made at the same moment as another save are re-applied to the newer draft. Writes only the draft; call publish_${label} to make it live. Replies without the body.`,
       inputSchema: { documentId: z.string(), edits: textEditsField },
       outputSchema: editResultSchema,
       annotations: {
@@ -379,12 +383,15 @@ export function registerDocumentTools(
       const teamId = getTeamId(extra);
       if (!teamId) return AUTH_ERROR;
       try {
-        const current = await getDocumentByDocumentId(kind, args.documentId, teamId);
-        if (!current || current.teamId !== teamId) return NOT_FOUND;
-        const content = editBody(bodyProfile(kind), current.draftContent, args.edits);
-        const doc = await updateDocument(kind, teamId, args.documentId, {
-          content: content as never,
-          expectedDraftVersion: current.draftVersion,
+        // Re-applied to the current draft when another save lands first.
+        const doc = await retryOnStaleDraft(async () => {
+          const current = await getDocumentByDocumentId(kind, args.documentId, teamId);
+          if (!current || current.teamId !== teamId) return null;
+          const content = editBody(bodyProfile(kind), current.draftContent, args.edits);
+          return updateDocument(kind, teamId, args.documentId, {
+            content: content as never,
+            expectedDraftVersion: current.draftVersion,
+          });
         });
         if (!doc) return NOT_FOUND;
         const view = toPublicDocument(doc) as Record<string, unknown>;

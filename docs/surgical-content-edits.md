@@ -339,6 +339,10 @@ What shipped, where it differs from the decisions above:
 - **Raw-block safety.** A `tiptap` fence missing its closing line is refused rather than read as code. The byte limit applies to the whole editable text. A code block labelled `tiptap` is written raw, so it reads back as code.
 - **`edit_page` writes the draft directly** (`editPageDraft`). It doesn't go through `updatePage`, because the page file excludes the shared header/footer and `updatePage` would re-split them. Bookkeeping is rebuilt with `revisionDraftLayout` and then `repairStoredLayout`, which keeps a dynamic page's content feed.
 - **`INVALID_STORED_DRAFT`.** A stored page draft that no longer matches the block schemas has no page file. `get_page` and `edit_page` report it with the diagnostics; `get_page` also returns the stored layout, so it can be repaired with `update_page`.
+- **Follow-ups from the MCP stress test (#272).**
+  - `edit_*` re-applies its edits to the current draft when another save lands first (`retryOnStaleDraft`, up to 10 attempts), so agents don't spend calls or the per-team rate limit on `STALE_DRAFT`. An edit whose text the other save changed fails with `EDIT_NOT_FOUND`.
+  - MCP `update_page` takes `layout` in page file form, the same as `get_page` returns, and writes it the way `edit_page` does, so the shared header/footer stay untouched. It doesn't read the current layout, so it also repairs an `INVALID_STORED_DRAFT`. REST saves from the builder still send the stored layout.
+  - `list_teams` with an API key returns the key's own team instead of refusing.
 - **Focus check timing.** On returning to the tab, the editor waits 1.5 s before checking for a newer draft, so typing still in a debounce reaches the save queue first.
 - **Slug-only page saves** are version-checked once, before a slug move commits, and skip the final compare-and-swap.
 - **Not verified:** which content block MCP clients show the model (D7). Both the JSON and the raw text block are present.

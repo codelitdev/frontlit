@@ -24,3 +24,23 @@ export function assertDraftVersion(current: number, expected: number | undefined
   if (expected !== undefined && current !== expected)
     throw new StaleDraftError(current);
 }
+
+/** How often a write that re-reads the draft is tried before giving up. */
+const STALE_DRAFT_ATTEMPTS = 10;
+
+/**
+ * Runs `attempt` again while it loses the compare-and-swap to another draft
+ * write. Only for writes that re-read the draft and recompute the change on
+ * each attempt (exact-match edits), never for a save based on a version the
+ * caller read: that conflict is the caller's to resolve.
+ */
+export async function retryOnStaleDraft<T>(attempt: () => Promise<T>): Promise<T> {
+  for (let tries = 1; ; tries++) {
+    try {
+      return await attempt();
+    } catch (error) {
+      if (!(error instanceof StaleDraftError) || tries >= STALE_DRAFT_ATTEMPTS)
+        throw error;
+    }
+  }
+}

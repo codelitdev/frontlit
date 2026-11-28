@@ -34,6 +34,7 @@ import { getPagesGitBinding, pageGitInfo, PageOwnedByGitError } from "./git-pr";
 import {
   assertDraftVersion,
   nextDraftVersion,
+  retryOnStaleDraft,
   StaleDraftError,
 } from "../utils/draft-version";
 import {
@@ -370,29 +371,26 @@ export function draftPageFile(page: Parameters<typeof draftDocument>[0]): string
   return serializePageFile(draftDocument(page));
 }
 
+type RawPage = NonNullable<Awaited<ReturnType<typeof getRawPageByPageId>>>;
+
 /**
- * Applies exact-match `edits` to the page's draft through its page file
- * (layout and SEO). Block bookkeeping is rebuilt as Git sync and rollback do:
- * positional widget ids and the required header/footer and data slot. The
- * shared header/footer are not part of the file and stay untouched. Saves
- * only if nobody wrote the draft since it was read (`StaleDraftError`).
+ * Writes the page's draft (layout and SEO) from page file text that
+ * `toFile` builds from the stored page. Block bookkeeping is rebuilt as Git
+ * sync and rollback do: positional widget ids and the required header/footer
+ * and data slot. The shared header/footer are not part of the file and stay
+ * untouched. Saves only if nobody wrote the draft since it was read
+ * (`StaleDraftError`).
  */
-export async function editPageDraft(
+async function writeDraftPageFile(
   teamId: string,
   pageId: string,
-  edits: readonly TextEdit[],
+  toFile: (existing: RawPage) => string,
+  expectedDraftVersion?: number,
 ) {
   const existing = await getRawPageByPageId(pageId);
   if (!existing || existing.teamId !== teamId) return null;
-  let file: string;
-  try {
-    file = draftPageFile(existing);
-  } catch (error) {
-    if (error instanceof SchemaValidationError)
-      throw new InvalidStoredDraftError(error);
-    throw error;
-  }
-  const edited: PageDocument = parsePageFile(applyTextEdits(file, edits));
+  assertDraftVersion(existing.draftVersion, expectedDraftVersion);
+  const edited: PageDocument = parsePageFile(toFile(existing));
   const [row] = await db
     .update(pages)
     .set({
@@ -416,6 +414,70 @@ export async function editPageDraft(
     throw new StaleDraftError(current?.draftVersion ?? existing.draftVersion);
   }
   return getPageByPageId(pageId);
+}
+
+/**
+ * Applies exact-match `edits` to the page's draft through its page file
+ * (`draftPageFile`). The edits are re-applied to the current draft when
+ * another write lands first, so `StaleDraftError` means the draft kept
+ * changing.
+ */
+export function editPageDraft(
+  teamId: string,
+  pageId: string,
+  edits: readonly TextEdit[],
+) {
+  return retryOnStaleDraft(() =>
+    writeDraftPageFile(teamId, pageId, (existing) => {
+      let file: string;
+      try {
+        file = draftPageFile(existing);
+      } catch (error) {
+        if (error instanceof SchemaValidationError)
+          throw new InvalidStoredDraftError(error);
+        throw error;
+      }
+      return applyTextEdits(file, edits);
+    }),
+  );
+}
+
+/** Page file fields `replacePageDraftLayout` sets whole; the layout is in
+ * page file form (rich text as Markdown, no header or footer). */
+export interface PageFileFields {
+  layout: unknown[];
+  title?: string;
+  description?: string;
+  robotsAllowed?: boolean;
+}
+
+/**
+ * Replaces the draft layout, and any SEO fields given, from page file form:
+ * what MCP update_page writes. The current layout is not read, so this also
+ * repairs a stored draft that no longer matches the block schemas. Without
+ * `expectedDraftVersion` it overwrites whatever draft is current.
+ */
+export function replacePageDraftLayout(
+  teamId: string,
+  pageId: string,
+  fields: PageFileFields,
+  expectedDraftVersion?: number,
+) {
+  const given = Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value !== undefined),
+  );
+  const write = () =>
+    writeDraftPageFile(
+      teamId,
+      pageId,
+      (existing) =>
+        JSON.stringify({
+          ...JSON.parse(serializePageFile({ ...draftDocument(existing), layout: [] })),
+          ...given,
+        }),
+      expectedDraftVersion,
+    );
+  return expectedDraftVersion === undefined ? retryOnStaleDraft(write) : write();
 }
 
 /** Publishes the page's draft (and the draft header/footer) as a new

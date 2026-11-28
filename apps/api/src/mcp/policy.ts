@@ -334,7 +334,6 @@ const apiKeyDeniedTools = new Set<McpToolName>([
   "preflight_documentation_purge",
   "get_documentation_purge",
   "purge_documentation",
-  "list_teams",
   "create_team",
   "delete_team",
   "list_api_keys",

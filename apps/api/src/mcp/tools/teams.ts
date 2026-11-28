@@ -4,6 +4,7 @@ import {
   apiKeySchema,
   createdApiKeySchema,
   successMessageSchema,
+  TEAM_PERMISSIONS,
   teamPermissionSchema,
   teamSchema,
 } from "@frontlit/api-contract";
@@ -33,7 +34,7 @@ export function registerTeamTools(server: McpToolRegistrar): void {
     "list_teams",
     {
       description:
-        "Returns every team the authenticated account belongs to, with the user's role and permissions in each. Pass a team's teamId to team-scoped tools.",
+        "Returns every team the authenticated account belongs to, with the user's role and permissions in each. Pass a team's teamId to team-scoped tools. Connected with an API key, returns only the key's team.",
       outputSchema: z.object({
         items: z.array(
           z.object({
@@ -51,9 +52,25 @@ export function registerTeamTools(server: McpToolRegistrar): void {
     },
     async (extra: any) => {
       const account = getAuthAccount(extra);
-      if (!account) return AUTH_ERROR;
+      const apiKeyTeamId = account ? null : getTeamId(extra);
+      if (!account && !apiKeyTeamId) return AUTH_ERROR;
       try {
-        const teams = await listTeamsForAccount(account.id);
+        if (apiKeyTeamId) {
+          // A key acts in its one team, with every tool open to API keys.
+          const team = await findTeamById(apiKeyTeamId);
+          if (!team) return AUTH_ERROR;
+          return jsonResult({
+            items: [
+              {
+                teamId: team.teamId,
+                name: team.name,
+                isOwner: false,
+                permissions: [...TEAM_PERMISSIONS],
+              },
+            ],
+          });
+        }
+        const teams = await listTeamsForAccount(account!.id);
         return jsonResult({
           items: teams.map((t) => ({
             teamId: t.teamId,
