@@ -47,6 +47,9 @@ export const ticketSchema = z.object({
   /** When the requester last had the conversation in front of them, so
    * replies after it are unread (and earlier ones show "Seen"). */
   requesterLastReadAt: z.string().nullable().optional(),
+  /** On public thread reads: a person has the conversation (handed off or
+   * taken over), so the chat stops offering "Talk to a human". */
+  humanHandling: z.boolean().optional(),
   /** SendLit contact ID, once the contact sync has run. */
   contactId: z.string().nullable().optional(),
   /** Incident context from the host app (page, error, request ID...).
@@ -161,6 +164,10 @@ export const publicTicketThreadQuerySchema = z.object({
 });
 
 export const publicMarkTicketReadBodySchema = z.object({
+  token: z.string().min(1),
+});
+
+export const publicEscalateTicketBodySchema = z.object({
   token: z.string().min(1),
 });
 

@@ -935,6 +935,8 @@ export const ticketAiStopReasons = [
   "topic",
   "turn_cap",
   "agent_takeover",
+  /** The host app reported an error the published docs don't explain. */
+  "app_error",
 ] as const;
 export type TicketAiStopReason = (typeof ticketAiStopReasons)[number];
 

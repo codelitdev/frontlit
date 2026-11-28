@@ -135,6 +135,8 @@ function aiStopLabel(reason: string | null | undefined, retrievalCount = 0) {
       return "Reached the bot turn limit";
     case "agent_takeover":
       return "A teammate took over";
+    case "app_error":
+      return "The app reported an error the docs don't explain";
     default:
       return reason || "AI activity";
   }

@@ -109,6 +109,19 @@ they see it again instead of a new one.
 `FrontLit.close()` closes the chat. Calls made before the loader has finished
 loading are queued and run in order.
 
+## Who answers
+
+Your assistant replies first, using your published docs. The user can skip
+it at any time: **Talk to a human** sits in the chat header from their first
+message and hands the conversation straight to your team.
+
+When `context` includes an `error`, the assistant treats the chat as a likely
+bug. If your docs explain the error, for example a file size limit, it says
+so and asks for anything that's missing. If they don't, it hands the
+conversation to your team instead of guessing, and the ticket shows **The app
+reported an error the docs don't explain**. Either way, the assistant uses
+the page, error and request ID you sent, so it doesn't ask the user for them.
+
 ## Reply alerts
 
 Replies reach the chat instantly, even while it's closed.
