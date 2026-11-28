@@ -1,4 +1,5 @@
 import { readDocumentation } from "../documentation/publications";
+import { servedFeaturedImage } from "../documents/featured-image";
 import { searchContent } from "../search/search";
 import { DocsContentError } from "@frontlit/text-editor/docs";
 import { documentationErrorBody } from "../documentation/content-validation";
@@ -226,7 +227,7 @@ function toPublicDocumentProjection<T extends Record<PublicDocumentFields, unkno
     title,
     content,
     excerpt,
-    featuredImage,
+    featuredImage: servedFeaturedImage(featuredImage),
     meta,
     createdAt,
     publishedAt,
@@ -452,8 +453,9 @@ const impl = s.router(contract.public, {
         title: string | null;
         lastmod: string | null;
       }[] = [
+        // /changelog is listed below, dated by its newest entry.
         ...pagesList
-          .filter((p) => p.robotsAllowed !== false)
+          .filter((p) => p.robotsAllowed !== false && p.slug !== "changelog")
           .map((p) => ({
             kind: "page" as const,
             path: `/${p.slug}`,
@@ -491,7 +493,9 @@ const impl = s.router(contract.public, {
             })),
           ),
         );
-      if (changelogs.length > 0) {
+      // A feed index page with robots disallowed stays out, like any page.
+      const changelogPage = pagesList.find((p) => p.slug === "changelog");
+      if (changelogs.length > 0 && changelogPage?.robotsAllowed !== false) {
         const lastmod = changelogs.reduce<Date | null>(
           (latest, d) =>
             d.publishedAt && (!latest || d.publishedAt > latest)

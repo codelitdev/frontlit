@@ -1,3 +1,4 @@
+import { servedFeaturedImage } from "../documents/featured-image";
 import { getTeamSettings } from "../settings/queries";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../db/client";
@@ -174,7 +175,7 @@ export async function getRetainedRevision(
     title: revision.snapshot.draftTitle ?? "",
     slug: revision.snapshot.draftSlug ?? "",
     excerpt: revision.snapshot.draftExcerpt ?? null,
-    featuredImage: revision.snapshot.draftFeaturedImage ?? null,
+    featuredImage: servedFeaturedImage(revision.snapshot.draftFeaturedImage),
     meta: revision.snapshot.draftMeta,
     content: revision.snapshot.draftContent,
     markdown: revision.markdown,

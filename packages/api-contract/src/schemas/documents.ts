@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { featuredImageInputSchema, featuredImageSchema } from "./featured-image";
 
 /** Blog posts, help docs and changelog entries share one engine
  * (architecture.md §5) and differ only in kind-specific `meta`. */
@@ -35,13 +36,13 @@ export function makeDocumentSchema<M extends z.ZodTypeAny>(metaSchema: M) {
     title: z.string().nullable().optional(),
     content: textEditorContentSchema.nullable().optional(),
     excerpt: z.string().nullable().optional(),
-    featuredImage: z.record(z.any()).nullable().optional(),
+    featuredImage: featuredImageSchema.nullable().optional(),
     meta: metaSchema,
     // Draft fields — what the dashboard editor reads and writes.
     draftTitle: z.string(),
     draftContent: textEditorContentSchema,
     draftExcerpt: z.string().nullable().optional(),
-    draftFeaturedImage: z.record(z.any()).nullable().optional(),
+    draftFeaturedImage: featuredImageSchema.nullable().optional(),
     draftMeta: metaSchema,
     createdAt: z.string().nullable(),
     updatedAt: z.string().nullable(),
@@ -65,10 +66,7 @@ export function makeCreateDocumentBodySchema<M extends z.ZodTypeAny>(metaSchema:
     title: z.string().min(1),
     content: textEditorContentSchema.optional(),
     markdown: markdownBodySchema,
-    featuredImage: z
-      .union([z.string(), z.record(z.any())])
-      .nullable()
-      .optional(),
+    featuredImage: featuredImageInputSchema.nullable().optional(),
     // `.default({})` (not `.optional()`): when the caller omits `meta`
     // entirely, this still runs `{}` through `metaSchema` so its own
     // per-field defaults (e.g. `labels: []`, `tags: []`, `order: 0`)
@@ -87,10 +85,7 @@ export function makeUpdateDocumentBodySchema<M extends z.ZodTypeAny>(metaSchema:
     content: textEditorContentSchema.optional(),
     markdown: markdownBodySchema,
     excerpt: z.string().optional(),
-    featuredImage: z
-      .union([z.string(), z.record(z.any())])
-      .nullable()
-      .optional(),
+    featuredImage: featuredImageInputSchema.nullable().optional(),
     meta: metaSchema.optional(),
   });
 }

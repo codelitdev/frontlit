@@ -203,6 +203,22 @@ describe("API input validation schemas", () => {
           alt: "Cover",
         },
       });
+      expect(
+        updateSchema.parse({ ...version, featuredImage: "med_abc123" }),
+      ).toMatchObject({ featuredImage: "med_abc123" });
+      for (const featuredImage of [
+        {
+          mediaId: "med_1",
+          url: "https://example.com/img.png",
+          thumbnail: "x",
+        },
+        { mediaId: "_VLxGal6abc" },
+        { alt: "Cover" },
+        "cover.png",
+      ])
+        expect(updateSchema.safeParse({ ...version, featuredImage }).success).toBe(
+          false,
+        );
       expect(updateSchema.parse({ ...version, featuredImage: null })).toMatchObject({
         featuredImage: null,
       });

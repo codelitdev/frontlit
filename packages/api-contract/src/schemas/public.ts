@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { textEditorContentSchema } from "./documents";
+import { featuredImageSchema } from "./featured-image";
 import { widgetInstanceSchema } from "./pages";
 
 /** Published-only projection of a document, served by the unauthenticated
@@ -12,7 +13,7 @@ export function makePublicDocumentSchema<M extends z.ZodTypeAny>(metaSchema: M) 
     title: z.string().nullable(),
     content: textEditorContentSchema.nullable(),
     excerpt: z.string().nullable(),
-    featuredImage: z.record(z.any()).nullable(),
+    featuredImage: featuredImageSchema.nullable(),
     meta: metaSchema,
     createdAt: z.string().nullable(),
     publishedAt: z.string().nullable(),

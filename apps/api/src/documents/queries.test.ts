@@ -18,7 +18,8 @@ import {
   updateDocument,
 } from "./queries";
 import { listMedia } from "../media/queries";
-import { documents } from "../db/schema";
+import { documents, media } from "../db/schema";
+import { DocsContentError } from "@frontlit/text-editor/docs";
 import { eq } from "drizzle-orm";
 
 describe("documents engine (blog kind)", () => {
@@ -279,36 +280,114 @@ describe("documents engine (blog kind)", () => {
       expect(mediaItems).toHaveLength(0);
     });
 
-    it("updates featured image with MediaLit backing and promotes it upon publish", async () => {
+    async function seedMedia() {
+      const [row] = await db
+        .insert(media)
+        .values({
+          teamId,
+          mediaLitId: `_VLxGal6${crypto.randomUUID()}`,
+          url: "https://cdn.example.com/_VLxGal6abc.png",
+          thumbnailUrl: "https://cdn.example.com/_VLxGal6abc_thumb.png",
+          alt: "Library alt",
+        })
+        .returning();
+      return row;
+    }
+
+    it("resolves a plain med_ id string from the team's media library", async () => {
+      const item = await seedMedia();
+      const doc = await createDocument("blog", {
+        teamId,
+        title: "Shorthand",
+        featuredImage: item.mediaId,
+      });
+
+      expect(doc.draftFeaturedImage).toEqual({
+        mediaId: item.mediaId,
+        url: "https://cdn.example.com/_VLxGal6abc.png",
+        thumbnailUrl: "https://cdn.example.com/_VLxGal6abc_thumb.png",
+        alt: "Library alt",
+      });
+    });
+
+    it("resolves an object with mediaId, takes url from the library, never derives mediaLitId", async () => {
+      const item = await seedMedia();
       const created = await createDocument("blog", {
         teamId,
         title: "Draft Post",
       });
-      expect(created.draftFeaturedImage).toBeNull();
 
       const updated = await updateDocument("blog", teamId, created.documentId, {
         featuredImage: {
-          url: "https://cdn.example.com/updated.png",
-          mediaLitId: "ml_updated_123",
+          mediaId: item.mediaId,
+          url: "https://elsewhere.example.com/stale.png",
           alt: "Updated cover",
         },
       });
 
-      expect(updated?.draftFeaturedImage).toMatchObject({
-        url: "https://cdn.example.com/updated.png",
-        mediaLitId: "ml_updated_123",
+      expect(updated?.draftFeaturedImage).toEqual({
+        mediaId: item.mediaId,
+        url: "https://cdn.example.com/_VLxGal6abc.png",
+        thumbnailUrl: "https://cdn.example.com/_VLxGal6abc_thumb.png",
         alt: "Updated cover",
       });
-
-      const mediaItems = await listMedia({ teamId });
-      expect(mediaItems.some((m) => m.mediaLitId === "ml_updated_123")).toBe(false);
+      expect(updated?.draftFeaturedImage).not.toHaveProperty("mediaLitId");
 
       const published = await publishDocument("blog", teamId, created.documentId);
-      expect(published?.featuredImage).toMatchObject({
-        url: "https://cdn.example.com/updated.png",
-        mediaLitId: "ml_updated_123",
-        alt: "Updated cover",
-      });
+      expect(published?.featuredImage).toEqual(updated?.draftFeaturedImage);
+    });
+
+    it("rejects a med_ id that is not in the team's media library", async () => {
+      const otherTeam = await seedTeam(db);
+      const foreign = await db
+        .insert(media)
+        .values({
+          teamId: otherTeam.team.id,
+          mediaLitId: `_foreign${crypto.randomUUID()}`,
+          url: "https://cdn.example.com/foreign.png",
+        })
+        .returning();
+
+      for (const featuredImage of [
+        "med_doesnotexist",
+        { mediaId: "med_doesnotexist" },
+        foreign[0].mediaId,
+      ]) {
+        const error = await createDocument("blog", {
+          teamId,
+          title: "Bad id",
+          featuredImage,
+        }).catch((e) => e);
+        expect(error).toBeInstanceOf(DocsContentError);
+        expect(error.diagnostics[0]).toMatchObject({
+          code: "MEDIA_NOT_FOUND",
+          fieldPath: "featuredImage.mediaId",
+        });
+      }
+    });
+
+    it("rejects unknown featured image shapes instead of storing them", async () => {
+      const created = await createDocument("blog", { teamId, title: "Shapes" });
+      for (const featuredImage of [
+        {
+          mediaId: "med_x",
+          url: "https://cdn.example.com/a.png",
+          thumbnail: "x",
+        },
+        { mediaLitId: "_VLxGal6abc", url: "https://cdn.example.com/a.png" },
+        { alt: "no image" },
+        { mediaId: "_VLxGal6abc" },
+        "not a url",
+        42,
+      ]) {
+        const error = await updateDocument("blog", teamId, created.documentId, {
+          featuredImage,
+        }).catch((e) => e);
+        expect(error).toBeInstanceOf(DocsContentError);
+        expect(error.diagnostics[0].code).toBe("INVALID_FEATURED_IMAGE");
+      }
+      const unchanged = await getDocumentByDocumentId("blog", created.documentId);
+      expect(unchanged?.draftFeaturedImage).toBeNull();
     });
   });
 });
