@@ -9,6 +9,7 @@ vi.mock("./notify", () => ({
   notifyRequesterOfTicketCreated: vi.fn().mockResolvedValue(undefined),
 }));
 
+import { eq } from "drizzle-orm";
 import { db as testDb } from "../db/client";
 import { tickets } from "../db/schema";
 import { updateChatbotSettings } from "../chatbot/queries";
@@ -129,5 +130,63 @@ describe("agent alerts and requester read state", () => {
       const forged = await fetch(`${thread}/read`, post({ token: "nope" }));
       expect(forged.status).toBe(401);
     });
+  });
+
+  it("hands the chat to the team on Talk to a human", async () => {
+    const events: Array<Record<string, unknown>> = [];
+    const stop = subscribeInbox(team.id, {
+      readyState: 1,
+      send: (data) => events.push(JSON.parse(data)),
+    });
+    await withApp(async (origin) => {
+      const started = (await (
+        await fetch(
+          `${origin}/public/${team.teamId}/chat`,
+          post({ message: "Refund?" }),
+        )
+      ).json()) as { conversationId: string; conversationToken: string };
+      const thread = `${origin}/public/${team.teamId}/tickets/${started.conversationId}`;
+      const read = async () =>
+        (await (
+          await fetch(`${thread}/messages?token=${started.conversationToken}`)
+        ).json()) as {
+          humanHandling: boolean;
+          messages: Array<{ author: string }>;
+        };
+      expect((await read()).humanHandling).toBe(false);
+      events.length = 0;
+
+      const escalated = await fetch(
+        `${thread}/escalate`,
+        post({ token: started.conversationToken }),
+      );
+      expect(escalated.status).toBe(204);
+
+      const after = await read();
+      expect(after.humanHandling).toBe(true);
+      expect(after.messages.map((m) => m.author)).toEqual(["requester", "bot"]);
+      const ticket = await db.query.tickets.findFirst({
+        where: eq(tickets.ticketId, started.conversationId),
+      });
+      expect(ticket?.aiState).toBe("escalated");
+      expect(ticket?.aiStopReason).toBe("visitor_request");
+      expect(events.filter((event) => event.requesterMessage)).toEqual([
+        {
+          type: "inbox.updated",
+          ticketId: started.conversationId,
+          requesterMessage: { from: "Website visitor", preview: "Refund?" },
+        },
+      ]);
+
+      // Again: nothing changes, nobody is alerted twice.
+      events.length = 0;
+      await fetch(`${thread}/escalate`, post({ token: started.conversationToken }));
+      expect((await read()).messages).toHaveLength(2);
+      expect(events.filter((event) => event.requesterMessage)).toEqual([]);
+
+      const forged = await fetch(`${thread}/escalate`, post({ token: "nope" }));
+      expect(forged.status).toBe(401);
+    });
+    stop();
   });
 });

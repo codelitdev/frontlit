@@ -4,7 +4,7 @@ import {
   H5P_MAX_HEIGHT,
   H5P_MIN_HEIGHT,
 } from "../core/library/links";
-import { isExternalUrl } from "../core/urls";
+import { linkAttributes } from "../core/urls";
 import { defaultTextEditorLabels, type TextEditorLabels } from "../labels";
 
 /**
@@ -13,19 +13,19 @@ import { defaultTextEditorLabels, type TextEditorLabels } from "../labels";
  * click edits the block instead of leaving the page.
  */
 
-const linkProps = (href: string) =>
-  isExternalUrl(href) ? { target: "_blank", rel: "noopener noreferrer" } : {};
-
 export function LinkButton({
   href,
   label,
   variant,
   inert,
+  siteHosts,
 }: {
   href?: string | null;
   label?: string | null;
   variant?: string | null;
   inert?: boolean;
+  /** The site's own hosts: links to them stay in the same tab. */
+  siteHosts?: readonly string[];
 }) {
   if (!label || (!href && !inert)) return null;
   const className = "te-button";
@@ -37,7 +37,12 @@ export function LinkButton({
           {label}
         </span>
       ) : (
-        <a className={className} href={href} {...data} {...linkProps(href)}>
+        <a
+          className={className}
+          href={href}
+          {...data}
+          {...linkAttributes(href, siteHosts)}
+        >
           {label}
         </a>
       )}
@@ -59,12 +64,14 @@ export function WebPreviewCard({
   description,
   image,
   inert,
+  siteHosts,
 }: {
   url?: string | null;
   title?: string | null;
   description?: string | null;
   image?: string | null;
   inert?: boolean;
+  siteHosts?: readonly string[];
 }) {
   if (!url) return null;
   const host = hostOf(url);
@@ -86,7 +93,7 @@ export function WebPreviewCard({
   return inert ? (
     <span className="te-web-preview">{body}</span>
   ) : (
-    <a className="te-web-preview" href={url} {...linkProps(url)}>
+    <a className="te-web-preview" href={url} {...linkAttributes(url, siteHosts)}>
       {body}
     </a>
   );

@@ -161,6 +161,7 @@ import {
   publicCreateTicketBodySchema,
   publicCreateTicketResponseSchema,
   publicMarkTicketReadBodySchema,
+  publicEscalateTicketBodySchema,
   publicReplyToTicketBodySchema,
   publicTicketThreadQuerySchema,
   completeTicketAttachmentBodySchema,
@@ -1374,6 +1375,20 @@ const publicContract = c.router(
       description:
         "The chat calls this while the conversation is on screen. Replies after this time count as unread.",
     },
+    escalateTicket: {
+      method: "POST",
+      path: "/public/:teamId/tickets/:ticketId/escalate",
+      body: publicEscalateTicketBodySchema,
+      responses: {
+        204: z.null(),
+        401: errorSchema,
+        404: errorSchema,
+        429: errorSchema,
+      },
+      summary: "Hand a chat to the team (Talk to a human)",
+      description:
+        "Stops the assistant and alerts the team, the same outcome as the assistant handing off. Does nothing if a person already has the conversation.",
+    },
     replyToTicketThread: {
       method: "POST",
       path: "/public/:teamId/tickets/:ticketId/messages",
@@ -1440,6 +1455,14 @@ const ticketsContract = c.router(
         404: errorSchema,
       },
       summary: "Reply to a ticket as an agent",
+    },
+    takeOver: {
+      method: "POST",
+      path: "/tickets/:ticketId/take-over",
+      body: c.noBody(),
+      responses: { 200: ticketWithMessagesSchema, 404: errorSchema },
+      summary:
+        "Take the conversation from the AI: it stops answering and the thread records who joined",
     },
     presignAttachment: {
       method: "POST",

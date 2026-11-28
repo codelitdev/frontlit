@@ -20,7 +20,7 @@ import {
   Paperclip,
   Search,
   Send,
-  Siren,
+  UsersRound,
   ThumbsDown,
   ThumbsUp,
   X,
@@ -36,6 +36,7 @@ import {
   getTicket,
   listTickets,
   replyToTicket,
+  takeOverTicket,
   recordTicketDocumentationFeedback,
   updateTicket,
   type Ticket,
@@ -60,7 +61,9 @@ import { cn } from "@/lib/utils";
 import { RequesterDetails } from "@/components/workspace/requester-details";
 import { workspaceContentPath } from "@frontlit/api-contract";
 
-type InboxFilter = "open" | "escalated" | "agent" | "closed";
+/** With AI on, "people" holds what a person owns: chats the AI handed off
+ * and chats a teammate took over. "ai" holds what the AI is handling. */
+type InboxFilter = "open" | "people" | "ai" | "closed";
 
 function isClosed(status: TicketStatus) {
   return status === "resolved" || status === "closed";
@@ -69,8 +72,17 @@ function isClosed(status: TicketStatus) {
 function ticketQueue(ticket: Ticket, splitAiQueues: boolean): InboxFilter {
   if (isClosed(ticket.status)) return "closed";
   if (!splitAiQueues) return "open";
-  if (ticket.aiState === "escalated") return "escalated";
-  return "agent";
+  if (ticket.aiState === "escalated" || ticket.aiState === "taken_over")
+    return "people";
+  return "ai";
+}
+
+/** Text of a one-line message such as "Sam has joined". */
+function plainText(node: unknown): string {
+  if (!node || typeof node !== "object") return "";
+  const value = node as { text?: unknown; content?: unknown };
+  if (typeof value.text === "string") return value.text;
+  return Array.isArray(value.content) ? value.content.map(plainText).join("") : "";
 }
 
 function requesterLabel(ticket: Ticket) {
@@ -135,6 +147,8 @@ function aiStopLabel(reason: string | null | undefined, retrievalCount = 0) {
       return "Reached the bot turn limit";
     case "agent_takeover":
       return "A teammate took over";
+    case "app_error":
+      return "The app reported an error the docs don't explain";
     default:
       return reason || "AI activity";
   }
@@ -297,6 +311,7 @@ export default function InboxPage() {
   const [loading, setLoading] = useState(true);
   const [loadingThread, setLoadingThread] = useState(false);
   const [sending, setSending] = useState(false);
+  const [takingOver, setTakingOver] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [assistantName, setAssistantName] = useState("Assistant");
   const threadRef = useRef<HTMLDivElement>(null);
@@ -341,11 +356,8 @@ export default function InboxPage() {
     getTicket(ticketId)
       .then((ticket) => {
         if (cancelled) return;
-        setFilter(
-          ticket.status === "closed" || ticket.status === "resolved"
-            ? "closed"
-            : "open",
-        );
+        // The queue it sits in: a chat the AI is handling opens in the AI tab.
+        setFilter(ticketQueue(ticket, aiQueues));
         setQuery("");
         setTickets((previous) =>
           previous.some((row) => row.ticketId === ticketId)
@@ -358,7 +370,7 @@ export default function InboxPage() {
     return () => {
       cancelled = true;
     };
-  }, [currentTeamId, linkedTicketId]);
+  }, [aiQueues, currentTeamId, linkedTicketId]);
 
   useEffect(() => {
     setPendingFiles([]);
@@ -401,11 +413,11 @@ export default function InboxPage() {
   }, [currentTeamId]);
 
   useEffect(() => {
-    if (!aiQueues && (filter === "agent" || filter === "escalated")) {
+    if (!aiQueues && (filter === "ai" || filter === "people")) {
       setFilter("open");
     }
     if (aiQueues && filter === "open") {
-      setFilter("escalated");
+      setFilter("people");
     }
   }, [aiQueues, filter]);
 
@@ -559,6 +571,34 @@ export default function InboxPage() {
     }
   }
 
+  // The AI owns this conversation: the reply box waits for Take over.
+  const aiHandling =
+    !!selectedTicket && aiQueues && ticketQueue(selectedTicket, aiQueues) === "ai";
+
+  async function takeOver() {
+    if (!selectedTicket || takingOver) return;
+    setTakingOver(true);
+    try {
+      const updated = await takeOverTicket(selectedTicket.ticketId);
+      setSelectedTicket(updated);
+      setTickets((current) =>
+        current.map((ticket) =>
+          ticket.ticketId === updated.ticketId ? { ...ticket, ...updated } : ticket,
+        ),
+      );
+      // It now belongs to the team: keep it in view.
+      setFilter("people");
+    } catch (error) {
+      toast.error(
+        error instanceof ApiError
+          ? error.message
+          : "Couldn't take over the conversation.",
+      );
+    } finally {
+      setTakingOver(false);
+    }
+  }
+
   async function sendReply() {
     const message = reply.trim();
     if (!selectedTicket || sending || (!message && pendingFiles.length === 0)) return;
@@ -589,9 +629,9 @@ export default function InboxPage() {
 
   const queueCounts = {
     open: tickets.filter((ticket) => ticketQueue(ticket, aiQueues) === "open").length,
-    escalated: tickets.filter((ticket) => ticketQueue(ticket, aiQueues) === "escalated")
+    people: tickets.filter((ticket) => ticketQueue(ticket, aiQueues) === "people")
       .length,
-    agent: tickets.filter((ticket) => ticketQueue(ticket, aiQueues) === "agent").length,
+    ai: tickets.filter((ticket) => ticketQueue(ticket, aiQueues) === "ai").length,
     closed: tickets.filter((ticket) => ticketQueue(ticket, aiQueues) === "closed")
       .length,
   };
@@ -604,8 +644,8 @@ export default function InboxPage() {
   }[] = (
     aiQueues
       ? ([
-          ["escalated", "Escalated", Siren],
-          ["agent", "Agent", Bot],
+          ["people", "Handled by your team", UsersRound],
+          ["ai", "Handled by AI", Bot],
           ["closed", "Closed", CircleCheck],
         ] as const)
       : ([
@@ -619,7 +659,13 @@ export default function InboxPage() {
     count: queueCounts[value],
   }));
 
-  const inboxBadge = aiQueues ? queueCounts.escalated : queueCounts.open;
+  // Conversations waiting on your team's reply.
+  const inboxBadge = aiQueues
+    ? tickets.filter(
+        (ticket) =>
+          ticket.status === "open" && ticketQueue(ticket, aiQueues) === "people",
+      ).length
+    : queueCounts.open;
 
   return (
     <div
@@ -697,10 +743,10 @@ export default function InboxPage() {
             <div className="flex h-full min-h-56 flex-col items-center justify-center px-8 text-center">
               <Inbox className="mb-3 size-8 text-muted-foreground/60" />
               <p className="font-medium">
-                {filter === "escalated"
-                  ? "No escalated conversations"
-                  : filter === "agent"
-                    ? "No agent conversations"
+                {filter === "people"
+                  ? "Nothing for your team"
+                  : filter === "ai"
+                    ? "Nothing with the AI"
                     : filter === "open"
                       ? "No open conversations"
                       : "No closed conversations"}
@@ -708,10 +754,10 @@ export default function InboxPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 {query
                   ? "Try a different search."
-                  : filter === "escalated"
-                    ? "When the bot hands a chat or ticket to a human, it shows up here."
-                    : filter === "agent"
-                      ? "Tickets you take over and other human-owned threads live here."
+                  : filter === "people"
+                    ? "Chats the AI hands to a person, and chats you reply to, show up here."
+                    : filter === "ai"
+                      ? "Chats the AI is answering show up here."
                       : filter === "open"
                         ? "New chats and tickets show up here."
                         : "Completed conversations will appear here."}
@@ -898,16 +944,29 @@ export default function InboxPage() {
                   {selectedTicket.messages.map((message, index, all) => {
                     // "Seen" under our latest reply once the requester has
                     // had it on screen.
+                    const isReply = (author: string) =>
+                      author === "agent" || author === "bot";
                     const seen =
-                      message.author !== "requester" &&
-                      !all
-                        .slice(index + 1)
-                        .some((later) => later.author !== "requester") &&
+                      isReply(message.author) &&
+                      !all.slice(index + 1).some((later) => isReply(later.author)) &&
                       !!selectedTicket.requesterLastReadAt &&
                       !!message.createdAt &&
                       Date.parse(selectedTicket.requesterLastReadAt) >=
                         Date.parse(message.createdAt);
                     const isRequester = message.author === "requester";
+                    if (message.author === "system") {
+                      return (
+                        <p
+                          key={message.messageId}
+                          className="text-center text-xs text-muted-foreground"
+                        >
+                          {plainText(message.content)}
+                          {message.createdAt
+                            ? ` · ${new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                            : ""}
+                        </p>
+                      );
+                    }
                     return (
                       <div
                         key={message.messageId}
@@ -1011,89 +1070,110 @@ export default function InboxPage() {
               </div>
             </div>
 
-            <div className="shrink-0 border-t bg-background p-4">
-              {pendingFiles.length > 0 && (
-                <div className="mx-auto mb-2 flex max-w-4xl flex-wrap gap-2">
-                  {pendingFiles.map((file) => (
-                    <span
-                      key={file.attachmentId}
-                      className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-1 text-xs"
-                    >
-                      <Paperclip className="size-3" />
-                      <span className="max-w-40 truncate">{file.fileName}</span>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${file.fileName}`}
-                        onClick={() =>
-                          setPendingFiles((current) =>
-                            current.filter(
-                              (item) => item.attachmentId !== file.attachmentId,
-                            ),
-                          )
-                        }
-                      >
-                        <X className="size-3" />
-                      </button>
-                    </span>
-                  ))}
+            {aiHandling ? (
+              <div className="shrink-0 border-t bg-background p-4">
+                <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3">
+                  <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Bot className="size-4 shrink-0" aria-hidden />
+                    {assistantName} is answering this conversation.
+                  </p>
+                  <Button
+                    size="md"
+                    disabled={takingOver}
+                    onClick={() => void takeOver()}
+                  >
+                    {takingOver && <Loader2 className="size-4 animate-spin" />}
+                    Take over
+                  </Button>
                 </div>
-              )}
-              <div className="mx-auto flex max-w-4xl items-end gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={(event) => void attachInboxFiles(event.target.files)}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="md"
-                  className="size-11 rounded-xl"
-                  disabled={sending || attaching}
-                  onClick={() => fileInputRef.current?.click()}
-                  aria-label="Attach a file"
-                >
-                  {attaching ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Paperclip className="size-4" />
-                  )}
-                </Button>
-                <textarea
-                  value={reply}
-                  onChange={(event) => setReply(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault();
-                      void sendReply();
-                    }
-                  }}
-                  rows={1}
-                  placeholder={`Reply to ${requesterLabel(selectedTicket)}…`}
-                  className="max-h-32 min-h-11 flex-1 resize-none rounded-xl border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
-                />
-                <Button
-                  size="md"
-                  className="size-11 rounded-xl"
-                  disabled={
-                    sending || attaching || (!reply.trim() && pendingFiles.length === 0)
-                  }
-                  onClick={() => void sendReply()}
-                  aria-label="Send reply"
-                >
-                  {sending ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Send className="size-4" />
-                  )}
-                </Button>
               </div>
-              <p className="mx-auto mt-2 max-w-4xl text-xs text-muted-foreground pointer-coarse:hidden">
-                Press Enter to send · Shift+Enter for a new line
-              </p>
-            </div>
+            ) : (
+              <div className="shrink-0 border-t bg-background p-4">
+                {pendingFiles.length > 0 && (
+                  <div className="mx-auto mb-2 flex max-w-4xl flex-wrap gap-2">
+                    {pendingFiles.map((file) => (
+                      <span
+                        key={file.attachmentId}
+                        className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-1 text-xs"
+                      >
+                        <Paperclip className="size-3" />
+                        <span className="max-w-40 truncate">{file.fileName}</span>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${file.fileName}`}
+                          onClick={() =>
+                            setPendingFiles((current) =>
+                              current.filter(
+                                (item) => item.attachmentId !== file.attachmentId,
+                              ),
+                            )
+                          }
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="mx-auto flex max-w-4xl items-end gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(event) => void attachInboxFiles(event.target.files)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="md"
+                    className="size-11 rounded-xl"
+                    disabled={sending || attaching}
+                    onClick={() => fileInputRef.current?.click()}
+                    aria-label="Attach a file"
+                  >
+                    {attaching ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Paperclip className="size-4" />
+                    )}
+                  </Button>
+                  <textarea
+                    value={reply}
+                    onChange={(event) => setReply(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        void sendReply();
+                      }
+                    }}
+                    rows={1}
+                    placeholder={`Reply to ${requesterLabel(selectedTicket)}…`}
+                    className="max-h-32 min-h-11 flex-1 resize-none rounded-xl border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-ring/40"
+                  />
+                  <Button
+                    size="md"
+                    className="size-11 rounded-xl"
+                    disabled={
+                      sending ||
+                      attaching ||
+                      (!reply.trim() && pendingFiles.length === 0)
+                    }
+                    onClick={() => void sendReply()}
+                    aria-label="Send reply"
+                  >
+                    {sending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Send className="size-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="mx-auto mt-2 max-w-4xl text-xs text-muted-foreground pointer-coarse:hidden">
+                  Press Enter to send · Shift+Enter for a new line
+                </p>
+              </div>
+            )}
           </>
         ) : null}
       </section>

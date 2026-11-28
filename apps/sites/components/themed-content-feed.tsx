@@ -10,6 +10,7 @@ import {
   Text2,
 } from "@frontlit/page-builder/primitives/server";
 import { getTeamThemeStyle } from "@/lib/team-theme";
+import { getSiteHosts } from "@/lib/api";
 import { changelogDate, publicContentPath } from "@frontlit/api-contract";
 import { Link as LinkIcon } from "lucide-react";
 import type { ThemeStyle } from "@frontlit/page-builder/models";
@@ -155,7 +156,10 @@ export async function ThemedProductUpdatesFeed({
     meta: { releaseDate?: string | null };
   }>;
 }) {
-  const theme = await getTeamThemeStyle(teamId);
+  const [theme, siteHosts] = await Promise.all([
+    getTeamThemeStyle(teamId),
+    getSiteHosts(teamId),
+  ]);
   return (
     <div className="flex flex-col gap-10">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />
@@ -194,7 +198,11 @@ export async function ThemedProductUpdatesFeed({
                 </Link>
                 {entry.content && (
                   <div className="mt-3">
-                    <TextRenderer json={entry.content} theme={theme} />
+                    <TextRenderer
+                      json={entry.content}
+                      theme={theme}
+                      siteHosts={siteHosts}
+                    />
                   </div>
                 )}
               </li>
