@@ -161,6 +161,7 @@ import {
   publicCreateTicketBodySchema,
   publicCreateTicketResponseSchema,
   publicMarkTicketReadBodySchema,
+  publicEscalateTicketBodySchema,
   publicReplyToTicketBodySchema,
   publicTicketThreadQuerySchema,
   completeTicketAttachmentBodySchema,
@@ -1373,6 +1374,20 @@ const publicContract = c.router(
       summary: "Mark a ticket thread read by the requester",
       description:
         "The chat calls this while the conversation is on screen. Replies after this time count as unread.",
+    },
+    escalateTicket: {
+      method: "POST",
+      path: "/public/:teamId/tickets/:ticketId/escalate",
+      body: publicEscalateTicketBodySchema,
+      responses: {
+        204: z.null(),
+        401: errorSchema,
+        404: errorSchema,
+        429: errorSchema,
+      },
+      summary: "Hand a chat to the team (Talk to a human)",
+      description:
+        "Stops the assistant and alerts the team, the same outcome as the assistant handing off. Does nothing if a person already has the conversation.",
     },
     replyToTicketThread: {
       method: "POST",

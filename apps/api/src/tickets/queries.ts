@@ -23,6 +23,7 @@ import {
 import { enqueueInboxAiRun, ticketsChannelForSource } from "../inbox-ai/schedule";
 import { enqueueTicketMail } from "../inbox-ai/mail";
 import { enqueueNeedsReplyPush } from "../push/send";
+import { HANDOFF_COPY } from "../inbox-ai/config";
 
 function ticketContactSourcePath(source: TicketSource): string {
   if (source === "chatbot") return "/chat";
@@ -346,6 +347,44 @@ export async function markRequesterRead(
     .set({ requesterLastReadAt: new Date() })
     .where(eq(tickets.id, ticket.id));
   publishInboxUpdate(teamId, ticket.ticketId);
+}
+
+/**
+ * "Talk to a human" (docs/embedded-support.md §6.6): stops the assistant
+ * and alerts the team, the same outcome as an AI handoff for a visitor
+ * request, without asking the AI. Bumping `aiGeneration` discards any answer
+ * still being generated. Does nothing once a person has the conversation.
+ */
+export async function escalateByRequester(
+  teamId: string,
+  ticket: typeof tickets.$inferSelect,
+) {
+  if (ticket.aiState === "escalated" || ticket.aiState === "taken_over") return;
+  await db
+    .update(tickets)
+    .set({
+      status: "open",
+      aiState: "escalated",
+      aiStopReason: "visitor_request",
+      aiStoppedAt: new Date(),
+      aiGeneration: ticket.aiGeneration + 1,
+      updatedAt: new Date(),
+    })
+    .where(eq(tickets.id, ticket.id));
+  await addTicketMessage({
+    teamId,
+    ticketDbId: ticket.id,
+    author: "bot",
+    content: textTicketMessage(HANDOFF_COPY),
+  });
+  const latest = await db.query.ticketMessages.findFirst({
+    where: and(
+      eq(ticketMessages.ticketId, ticket.id),
+      eq(ticketMessages.author, "requester"),
+    ),
+    orderBy: desc(ticketMessages.createdAt),
+  });
+  if (latest) await notifyUnanswered(teamId, ticket.id, latest.id);
 }
 
 /**

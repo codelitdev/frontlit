@@ -144,6 +144,9 @@ export function useVisitorChat({
     [apiBaseUrl, teamId],
   );
   const sessionToken = useMemo(() => sessionTokenFromHash(), []);
+  /** A person has the conversation, so "Talk to a human" is no longer offered. */
+  const [humanHandling, setHumanHandling] = useState(false);
+  const [escalating, setEscalating] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
 
   /** Remembers the conversation: localStorage for anonymous chats, memory
@@ -265,6 +268,7 @@ export function useVisitorChat({
       const response = await fetch(url, { cache: "no-store" });
       if (response.status === 401 || response.status === 404) {
         rememberConversation(null);
+        setHumanHandling(false);
         setMessages(
           greeting
             ? [
@@ -284,7 +288,9 @@ export function useVisitorChat({
       const thread = (await response.json()) as {
         messages: ThreadMessage[];
         requesterLastReadAt?: string | null;
+        humanHandling?: boolean;
       };
+      setHumanHandling(Boolean(thread.humanHandling));
       const next: ChatMessage[] = thread.messages.map((message) => ({
         id: message.messageId,
         role: (message.author === "requester" ? "user" : "assistant") as
@@ -569,6 +575,31 @@ export function useVisitorChat({
     }
   };
 
+  /** "Talk to a human": hands the chat to the team without asking the AI. */
+  const talkToHuman = async () => {
+    if (!conversation || escalating) return;
+    setEscalating(true);
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/public/${teamId}/tickets/${conversation.id}/escalate`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ token: conversation.token }),
+        },
+      );
+      if (res.ok) {
+        setHumanHandling(true);
+        stickToBottomRef.current = true;
+        await loadConversation(conversation);
+      }
+    } catch {
+      // Network error: the button stays, so the visitor can try again.
+    } finally {
+      setEscalating(false);
+    }
+  };
+
   const onInputChange = (value: string) => {
     setInput(value);
     const el = inputRef.current;
@@ -628,6 +659,10 @@ export function useVisitorChat({
     canSend,
     hasThread,
     conversation,
+    /** Offer "Talk to a human" once there is a conversation to hand over. */
+    canTalkToHuman: Boolean(conversation) && !humanHandling && !isSending,
+    escalating,
+    talkToHuman,
     pendingFiles,
     attaching,
     attachFiles,
