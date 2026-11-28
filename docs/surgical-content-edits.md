@@ -1,6 +1,6 @@
 # Surgical Content Edits — PRD
 
-Status: Proposed, 2026-11-28. Not implemented.
+Status: Code merged to `main` (#262, #263, #267, #269, #271; skills in codelitdev/frontlit-skills#23, held until the production deploy). **Not done:** waiting for a QA deploy and QA smoke test. Local end-to-end smoke tests passed, 2026-11-28. See §11 for where the build differs from this plan.
 Scope: Small, targeted edits to rich-text content (articles, product updates, documentation pages) and page-builder pages, for coding agents over MCP. Also stale-save protection, so an open dashboard editor or builder can't overwrite those edits. The edit engine lives in `@frontlit/text-editor` and `@frontlit/page-builder`, so CourseLit and any other host can reuse it.
 
 ## 1. Problem
@@ -329,3 +329,17 @@ One PR at a time, each tested and smoke-tested before the next.
   - `edit_site` for `site.json`, with stale-save protection for the header/footer/theme saves.
   - Edits to email broadcasts via `editContent`.
   - REST edit endpoints, if a non-MCP client needs them.
+
+## 11. Implementation notes
+
+What shipped, where it differs from the decisions above:
+
+- **Server-safe profiles.** The API needs `defaultProfile` (articles, product updates) without React. It now ships from `@frontlit/text-editor/profiles`. The legacy `codeMirror` node only needs `@tiptap/core`.
+- **Two `ContentError` classes.** `@frontlit/text-editor/blocks` and `/docs` are separate bundles, so `asDocsError` doesn't recognize errors thrown by `editContent`. The document edit tools convert them explicitly (`editBody` in `apps/api/src/mcp/tools/documents.ts`).
+- **Raw-block safety.** A `tiptap` fence missing its closing line is refused rather than read as code. The byte limit applies to the whole editable text. A code block labelled `tiptap` is written raw, so it reads back as code.
+- **`edit_page` writes the draft directly** (`editPageDraft`). It doesn't go through `updatePage`, because the page file excludes the shared header/footer and `updatePage` would re-split them. Bookkeeping is rebuilt with `revisionDraftLayout` and then `repairStoredLayout`, which keeps a dynamic page's content feed.
+- **`INVALID_STORED_DRAFT`.** A stored page draft that no longer matches the block schemas has no page file. `get_page` and `edit_page` report it with the diagnostics; `get_page` also returns the stored layout, so it can be repaired with `update_page`.
+- **Focus check timing.** On returning to the tab, the editor waits 1.5 s before checking for a newer draft, so typing still in a debounce reaches the save queue first.
+- **Slug-only page saves** are version-checked once, before a slug move commits, and skip the final compare-and-swap.
+- **Not verified:** which content block MCP clients show the model (D7). Both the JSON and the raw text block are present.
+

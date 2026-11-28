@@ -408,8 +408,8 @@ export function registerDocumentTools(
     {
       description:
         kind === "doc"
-          ? `Updates a ${humanLabel}'s draft title, slug, body (Markdown via \`markdown\`, or TipTap JSON via \`content\`, never both), excerpt, featured image, and/or type-specific metadata. Writes only the draft state — call publish_${label} to make changes live.${featuredImageHelp}`
-          : `Updates a ${humanLabel}'s draft title, body (Markdown via \`markdown\`, or TipTap JSON via \`content\`, never both), excerpt, featured image, type-specific metadata, and/or slug. Content fields write only the draft state — call publish_${label} to make them live. \`slug\` is the exception: it changes the public URL immediately, and changing \`title\` never changes the slug.${featuredImageHelp}`,
+          ? `Updates a ${humanLabel}'s draft title, slug, body (Markdown via \`markdown\`, or TipTap JSON via \`content\`, never both), excerpt, featured image, and/or type-specific metadata. Writes only the draft state — call publish_${label} to make changes live. A body sent here replaces the whole draft body: to change part of it, use edit_${label} instead.${featuredImageHelp}`
+          : `Updates a ${humanLabel}'s draft title, body (Markdown via \`markdown\`, or TipTap JSON via \`content\`, never both), excerpt, featured image, type-specific metadata, and/or slug. Content fields write only the draft state — call publish_${label} to make them live. \`slug\` is the exception: it changes the public URL immediately, and changing \`title\` never changes the slug. A body sent here replaces the whole draft body: to change part of it, use edit_${label} instead.${featuredImageHelp}`,
       inputSchema:
         kind === "doc"
           ? {
