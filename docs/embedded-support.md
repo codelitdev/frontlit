@@ -408,19 +408,22 @@ The AI's reply is a head start, not a gate the user has to get past.
 
 ### 6.7 Reply delivery: widget if they're there, email if they're away
 
-- `ticket_messages.seenAt` (nullable). The widget marks agent and bot
-  messages seen only when the chat panel is open **and**
-  `document.visibilityState === "visible"`.
-- When an agent replies (or the AI replies on a ticket with a
-  `requesterEmail`), queue a `reply` mail in `ticket_mail_outbox` with
+- Read state is `tickets.requesterLastReadAt`, set by the widget only when
+  the chat panel is open **and** `document.visibilityState === "visible"`.
+  Agent and bot messages after it are unread.
+- When an agent or the AI replies on a chatbot ticket with a
+  `requesterEmail` (`addTicketMessage`), queue a `reply` mail in
+  `ticket_mail_outbox` with `payload.digest` and
   `nextAttemptAt = now + 2 minutes`. No new scheduler: the existing mail
-  worker already picks up rows by `nextAttemptAt`.
-- When the worker picks it up: all replies seen → mark the row done without
-  sending. Any unseen → send one email with all unseen replies and a magic
-  link back to the conversation. If a pending row already exists for the
-  ticket, don't queue another, so a burst of replies becomes one email.
-- Agent replies send no email today (only AI replies on the `tickets`
-  channel do), so this adds that for chatbot tickets.
+  worker already picks up rows by `nextAttemptAt`. If a digest row is
+  already pending for the ticket, don't queue another, so a burst of replies
+  becomes one email.
+- When the worker picks it up: no unread replies → mark the row sent with
+  `skipped: "read"`. Otherwise send one email with every unread reply (after
+  `requesterLastReadAt` and after the previous digest's `coveredUntil`), a
+  fresh magic link and the reply-by-email address, and store `coveredUntil`.
+- Chatbot tickets no longer email agent replies immediately; form, email and
+  API tickets still do, since email is their channel.
 - Anonymous chats have no email address, so their replies only show up in
   the widget.
 

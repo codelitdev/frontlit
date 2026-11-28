@@ -212,7 +212,8 @@ export function registerHelpdeskTools(server: McpToolRegistrar): void {
           content: args.content,
         });
 
-        if (ticket.requesterEmail) {
+        // Chat replies are emailed later, only if unread (addTicketMessage).
+        if (ticket.requesterEmail && ticket.source !== "chatbot") {
           const token = await reissueTicketAccessToken(teamId, ticket.id);
           notifyRequesterOfReply({
             teamId,
