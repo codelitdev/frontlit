@@ -1032,6 +1032,7 @@ run on the machine.
 | `frontlit-api`   | `apps/api/Dockerfile`         | `SENDLIT_API_URL=http://sendlit-api:3001`, scoped SendLit organization key, MediaLit + embeddings keys                                        |
 | `frontlit-web`   | `apps/web/Dockerfile`         | authenticated workspace                                                                                                                       |
 | `frontlit-sites` | `apps/sites/Dockerfile`       | public sites (§12.2)                                                                                                                          |
+| `frontlit-redis` | `redis:7-alpine`              | live-event backplane for API replicas (§10.6); optional with one replica                                                                     |
 
 Provisioning, contact sync and broadcasts then work out of the box against
 the local SendLit exactly as they do against the hosted one. The compose
@@ -1128,6 +1129,32 @@ but throughput does not scale with replica count the way a
 embeddings, domain verification, or ticket mail, promote it to a generic
 `jobs` table with `FOR UPDATE SKIP LOCKED` and a workspace-visible dead
 letter — do not grow the `type` enum ad hoc without that.
+
+### 10.6 Live events (WebSocket + Redis backplane)
+
+Agents and chat visitors get pushed **signals**, not data; clients refetch
+over REST when one arrives (`apps/api/src/tickets/live.ts`,
+`live-server.ts`).
+
+- `/inbox/stream?teamId=` (admin app, `apps/web/lib/use-inbox-live.ts`):
+  trusted origin + session cookie + team membership, checked on upgrade.
+  Receives `inbox.updated` (`requesterMessage` set when a message needs a
+  human, so the app chimes).
+- `/public/stream?teamId=&ticketId=` (chat widget): any origin. The ticket
+  access token is **not** in the URL (URLs land in proxy and access logs).
+  The first message must be `{"type":"auth","token":"..."}`; the server
+  checks it like the REST thread endpoints, then follows that ticket.
+  Other messages before auth are ignored; a bad token, or no auth within
+  5s, closes the socket with code 4401. Receives `ticket.updated`.
+- Each API process keeps its sockets in memory by room (team / ticket).
+  With `REDIS_URL` set, every publish is also sent on the Redis pub/sub
+  channel `frontlit:live` as `{origin, room, key, payload}` and every
+  process delivers messages from other origins to its own sockets (the
+  Socket.IO Redis adapter / ActionCable pattern). Local sockets are served
+  directly, so a Redis outage only stops cross-replica delivery; it never
+  fails a request. Without `REDIS_URL` (one replica) nothing changes.
+- A missed signal only delays a refresh: the widget also polls every 30s
+  and reloads when its tab becomes visible.
 
 ---
 

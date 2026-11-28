@@ -413,22 +413,24 @@ export function useVisitorChat({
       if (!cancelled) setIsHydrating(false);
     })();
     // Replies arrive over a WebSocket, which keeps working in background
-    // tabs. A slow poll covers a dropped connection.
+    // tabs. A slow poll covers a dropped connection. The token goes in the
+    // first message, not the URL, so it stays out of proxy and access logs.
     const streamUrl = new URL(`${apiBaseUrl.replace(/^http/, "ws")}/public/stream`);
     streamUrl.searchParams.set("teamId", teamId);
     streamUrl.searchParams.set("ticketId", conversation.id);
-    streamUrl.searchParams.set("token", conversation.token);
     let socket: WebSocket | null = null;
     let retryMs = 1_000;
     let retry: ReturnType<typeof setTimeout> | undefined;
     const connect = () => {
       if (cancelled) return;
-      socket = new WebSocket(streamUrl);
-      socket.onopen = () => {
+      const ws = new WebSocket(streamUrl);
+      socket = ws;
+      ws.onopen = () => {
         retryMs = 1_000;
+        ws.send(JSON.stringify({ type: "auth", token: conversation.token }));
       };
-      socket.onmessage = () => void loadConversation(conversation);
-      socket.onclose = () => {
+      ws.onmessage = () => void loadConversation(conversation);
+      ws.onclose = () => {
         if (cancelled) return;
         retry = setTimeout(connect, retryMs);
         retryMs = Math.min(retryMs * 2, 30_000);
