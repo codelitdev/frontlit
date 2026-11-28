@@ -20,6 +20,7 @@ function post(
     slug,
     status,
     draftTitle: title,
+    draftVersion: 1,
     draftContent: { type: "doc", content: [] },
     draftMeta: { tags },
     meta: { tags: [] },

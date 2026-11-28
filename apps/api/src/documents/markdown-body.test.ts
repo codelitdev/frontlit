@@ -148,6 +148,7 @@ describe("Markdown bodies for articles and product updates", () => {
 
     const invalid = await send("PATCH", `/content/articles/${article.documentId}`, {
       markdown: "Intro\n\n<script>bad()</script>\n",
+      expectedDraftVersion: article.draftVersion,
     });
     expect(invalid.status).toBe(422);
     expect(

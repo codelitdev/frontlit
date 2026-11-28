@@ -33,7 +33,8 @@ import { Banner } from "@/components/workspace/banner";
 import { Button } from "@/components/ui/codelit/button";
 import { Input } from "@/components/ui/codelit/input";
 import { toast } from "sonner";
-import { ApiError } from "@/lib/api-client";
+import { DraftSaveBanner } from "@/components/workspace/draft-save-banner";
+import { useDraftAutosave } from "@/hooks/use-draft-autosave";
 
 import { DocumentationTools } from "@/components/content/documentation-tools";
 import { DocumentationProposals } from "@/components/content/documentation-proposals";
@@ -56,14 +57,7 @@ export default function DocumentationEditor({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [gitSourcePath, setGitSourcePath] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const pendingUpdatesRef = useRef<Parameters<typeof updateDocumentationPage>[1]>({});
   const docRef = useRef<DocumentationPage | null>(null);
-  const savingRef = useRef(false);
-  const drainRef = useRef<Promise<boolean> | null>(null);
-  const pausedRef = useRef(false);
-  const [conflict, setConflict] = useState(false);
   const [comparison, setComparison] = useState<DocumentationPage | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const canManage = Boolean(
@@ -72,7 +66,6 @@ export default function DocumentationEditor({
   );
   const [publishing, setPublishing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [resetKey, setResetKey] = useState(0);
   const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const descriptionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flushContentRef = useRef<() => void>(() => {});
@@ -80,16 +73,54 @@ export default function DocumentationEditor({
     flushContentRef.current = flush;
   }, []);
 
+  function showDoc(next: DocumentationPage) {
+    docRef.current = next;
+    setDoc(next);
+  }
+
+  /** Replaces the editor's state with `loaded` and remounts the body editor. */
+  function resetTo(loaded: DocumentationPage) {
+    if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
+    if (descriptionDebounceRef.current) clearTimeout(descriptionDebounceRef.current);
+    showDoc(loaded);
+    setTitle(loaded.draftTitle);
+    setDescription(loaded.draftExcerpt ?? "");
+    setGitSourcePath(loaded.draftGitSource?.sourcePath ?? "");
+    setComparison(null);
+  }
+
+  const autosave = useDraftAutosave<
+    DocumentationPage,
+    Parameters<typeof updateDocumentationPage>[1]
+  >({
+    save: (patch, expectedDraftVersion) =>
+      updateDocumentationPage(documentId, patch, expectedDraftVersion),
+    load: () => getDocumentationPage(documentId),
+    onSaved: showDoc,
+    onReset: resetTo,
+  });
+  const {
+    save: saveDraft,
+    adopt,
+    reset,
+    isCurrent,
+    resetKey,
+    saving,
+    saveError,
+    conflict,
+  } = autosave;
+
   useEffect(() => {
     setSettingsOpen(window.matchMedia("(min-width: 768px)").matches);
     getDocumentationPage(documentId).then((loaded) => {
-      docRef.current = loaded;
-      setDoc(loaded);
+      adopt(loaded);
+      showDoc(loaded);
       setTitle(loaded.draftTitle);
       setDescription(loaded.draftExcerpt ?? "");
       setGitSourcePath(loaded.draftGitSource?.sourcePath ?? "");
     });
     listDocumentationSections().then(({ items }) => setSections(items));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once per document
   }, [documentId]);
 
   useEffect(() => {
@@ -113,69 +144,6 @@ export default function DocumentationEditor({
     },
     [],
   );
-
-  async function saveDraft(patch: Parameters<typeof updateDocumentationPage>[1]) {
-    pendingUpdatesRef.current = {
-      ...pendingUpdatesRef.current,
-      ...patch,
-      ...(patch.meta
-        ? { meta: { ...pendingUpdatesRef.current.meta, ...patch.meta } }
-        : {}),
-    };
-    if (savingRef.current) return drainRef.current;
-    if (pausedRef.current || !docRef.current) return false;
-    const run = async () => {
-      savingRef.current = true;
-      setSaving(true);
-      try {
-        while (Object.keys(pendingUpdatesRef.current).length) {
-          const updates = pendingUpdatesRef.current;
-          const saved = await updateDocumentationPage(
-            documentId,
-            updates,
-            docRef.current!.draftVersion,
-          );
-          docRef.current = saved;
-          setDoc(saved);
-          const remaining = { ...pendingUpdatesRef.current };
-          for (const key of Object.keys(updates) as Array<keyof typeof updates>)
-            if (remaining[key] === updates[key]) delete remaining[key];
-          pendingUpdatesRef.current = remaining;
-        }
-        setSaveError(null);
-        return true;
-      } catch (error) {
-        if (error instanceof ApiError && error.code === "STALE_DOCS_DRAFT") {
-          pausedRef.current = true;
-          setConflict(true);
-        }
-        setSaveError(error instanceof Error ? error.message : "Request failed.");
-        return false;
-      } finally {
-        savingRef.current = false;
-        setSaving(false);
-      }
-    };
-    const drain = run();
-    drainRef.current = drain;
-    return drain;
-  }
-  async function reloadDraft() {
-    if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
-    if (descriptionDebounceRef.current) clearTimeout(descriptionDebounceRef.current);
-    const loaded = await getDocumentationPage(documentId);
-    docRef.current = loaded;
-    setDoc(loaded);
-    setTitle(loaded.draftTitle);
-    setDescription(loaded.draftExcerpt ?? "");
-    setGitSourcePath(loaded.draftGitSource?.sourcePath ?? "");
-    pendingUpdatesRef.current = {};
-    pausedRef.current = false;
-    setConflict(false);
-    setComparison(null);
-    setSaveError(null);
-    setResetKey((x) => x + 1);
-  }
 
   async function handleSectionChange(sectionId: string) {
     await saveDraft({
@@ -248,14 +216,7 @@ export default function DocumentationEditor({
         documentId,
         docRef.current!.draftVersion,
       );
-      docRef.current = reverted;
-      setDoc(reverted);
-      setTitle(reverted.draftTitle);
-      setDescription(reverted.draftExcerpt ?? "");
-      setGitSourcePath(reverted.draftGitSource?.sourcePath ?? "");
-      setResetKey((key) => key + 1);
-      pendingUpdatesRef.current = {};
-      setSaveError(null);
+      reset(reverted);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Discard failed.");
     } finally {
@@ -278,7 +239,7 @@ export default function DocumentationEditor({
       },
       docRef.current!.draftVersion,
     );
-    await reloadDraft();
+    await autosave.reload();
   }
 
   async function handleIndexableChange(indexable: boolean) {
@@ -358,10 +319,7 @@ export default function DocumentationEditor({
           onRestoreVersion={handleRestoreVersion}
           onChanged={async () => {
             const fresh = await getDocumentationPage(documentId);
-            if (!savingRef.current && !Object.keys(pendingUpdatesRef.current).length) {
-              docRef.current = fresh;
-              setDoc(fresh);
-            }
+            if (autosave.adoptIfIdle(fresh)) showDoc(fresh);
           }}
         />
       }
@@ -460,53 +418,33 @@ export default function DocumentationEditor({
         </div>
       }
     >
-      {saveError && (
-        <div role="alert" className="m-6">
-          <Banner>
-            Your changes could not be saved. Keep this page open and retry.
-            <p className="mt-1">{saveError}</p>
-            <Button
-              className="mt-2"
-              size="sm"
-              disabled={saving || publishing || conflict}
-              onClick={() => void saveDraft({})}
-            >
-              Retry save
-            </Button>
-          </Banner>
-        </div>
+      <DraftSaveBanner autosave={autosave} className="m-6">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => void getDocumentationPage(documentId).then(setComparison)}
+        >
+          Compare with saved draft
+        </Button>
+      </DraftSaveBanner>
+      {conflict && comparison && (
+        <pre className="m-6 max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-xs">
+          {JSON.stringify(
+            {
+              title: comparison.draftTitle,
+              description: comparison.draftExcerpt,
+              slug: comparison.draftSlug,
+              content: comparison.draftContent,
+            },
+            null,
+            2,
+          )}
+        </pre>
       )}
       {doc.source === "git" && (
         <Banner className="m-6">
           Edits save as drafts. Create a pull request to review them in GitHub; valid
           merged changes update your documentation site.
-        </Banner>
-      )}
-      {conflict && (
-        <Banner className="m-6">
-          <p>Autosave is paused. Your local edits are retained in this editor.</p>
-          <Button
-            onClick={() => void getDocumentationPage(documentId).then(setComparison)}
-          >
-            Compare with saved draft
-          </Button>
-          <Button onClick={() => void reloadDraft()}>
-            Reload saved draft and discard local edits
-          </Button>
-          {comparison && (
-            <pre className="max-h-64 overflow-auto whitespace-pre-wrap">
-              {JSON.stringify(
-                {
-                  title: comparison.draftTitle,
-                  description: comparison.draftExcerpt,
-                  slug: comparison.draftSlug,
-                  content: comparison.draftContent,
-                },
-                null,
-                2,
-              )}
-            </pre>
-          )}
         </Banner>
       )}
       {doc.diagnostics && doc.diagnostics.length > 0 && (
@@ -540,7 +478,10 @@ export default function DocumentationEditor({
           profile="documentation"
           key={resetKey}
           initialContent={doc.draftContent}
-          onChange={handleContentChange}
+          onChange={(json) => {
+            if (isCurrent(resetKey))
+              void handleContentChange(json as TextEditorContent);
+          }}
           onFlushChangeReady={registerContentFlush}
           placeholder="Write the doc… use headings to organize it."
           className="h-full min-h-0 gap-0 overflow-x-hidden overflow-y-auto border-0"

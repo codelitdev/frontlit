@@ -1,6 +1,7 @@
 import { gitSiteFolders, gitSiteRoot } from "@frontlit/api-contract";
 import path from "node:path/posix";
 import { and, eq } from "drizzle-orm";
+import { nextDraftVersion } from "../utils/draft-version";
 import {
   parsePageFile,
   parseSiteFile,
@@ -604,7 +605,7 @@ export async function createPagesRelease(
         ? changed
           ? await tx
               .update(pages)
-              .set(draft)
+              .set({ ...draft, draftVersion: nextDraftVersion(pages.draftVersion) })
               .where(eq(pages.id, existing.id))
               .returning()
           : [existing]

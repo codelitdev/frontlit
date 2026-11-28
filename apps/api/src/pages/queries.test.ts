@@ -28,6 +28,7 @@ import { activateRelease, getActiveRelease, listReleases } from "./releases";
 import { getTeamSettings } from "../settings/queries";
 import { InvalidPageLayoutError } from "./shared-widgets";
 import { InvalidSlugError, SlugConflictError } from "../utils/slug";
+import { StaleDraftError } from "../utils/draft-version";
 import { listMedia } from "../media/queries";
 
 function pageLayout(
@@ -233,6 +234,51 @@ describe("pages draft/publish", () => {
     });
 
     expect(edited?.status).toBe("published_with_changes");
+  });
+
+  it("increments draftVersion on draft writes and refuses stale saves", async () => {
+    const created = await createPage({ teamId, name: "Pricing" });
+    const row = await getPageByPageId(created.pageId);
+    expect(row?.draftVersion).toBe(1);
+
+    const saved = await updatePage(teamId, created.pageId, {
+      title: "Agent title",
+      expectedDraftVersion: 1,
+    });
+    expect(saved?.draftVersion).toBe(2);
+
+    const renamed = await updatePage(teamId, created.pageId, { name: "Plans" });
+    expect(renamed?.draftVersion).toBe(2);
+
+    const stale = updatePage(teamId, created.pageId, {
+      title: "Builder autosave",
+      slug: "plans",
+      expectedDraftVersion: 1,
+    });
+    await expect(stale).rejects.toBeInstanceOf(StaleDraftError);
+    await expect(stale).rejects.toMatchObject({ draftVersion: 2 });
+    const unchanged = await getPageByPageId(created.pageId);
+    expect(unchanged?.draftTitle).toBe("Agent title");
+    expect(unchanged?.slug).toBe(created.slug);
+
+    await publishPage(teamId, created.pageId);
+    expect((await getPageByPageId(created.pageId))?.draftVersion).toBe(2);
+    await updatePage(teamId, created.pageId, { title: "Unpublished" });
+    const discarded = await discardPageDraft(teamId, created.pageId);
+    expect(discarded?.draftVersion).toBe(4);
+  });
+
+  it("lets only one of two concurrent page saves from the same version win", async () => {
+    const created = await createPage({ teamId, name: "Race" });
+    const results = await Promise.allSettled(
+      ["A", "B"].map((title) =>
+        updatePage(teamId, created.pageId, { title, expectedDraftVersion: 1 }),
+      ),
+    );
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(
+      (results.find((r) => r.status === "rejected") as PromiseRejectedResult).reason,
+    ).toBeInstanceOf(StaleDraftError);
   });
 
   it("discard-draft resets the draft back to the published state", async () => {
