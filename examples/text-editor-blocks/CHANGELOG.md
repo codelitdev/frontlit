@@ -1,5 +1,13 @@
 # @frontlit/text-editor-blocks-example
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies [3ab4bd3]
+- Updated dependencies [0c857a6]
+  - @frontlit/text-editor@0.3.0
+
 ## 0.1.2
 
 ### Patch Changes

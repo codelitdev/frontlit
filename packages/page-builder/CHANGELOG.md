@@ -1,5 +1,17 @@
 # @frontlit/page-builder
 
+## 0.4.0
+
+### Minor Changes
+
+- 0c857a6: Add surgical edits: `applyTextEdits` (exact-match `str_replace` edits), `toEditableMarkdown` / `fromEditableMarkdown` (Markdown that round-trips any content exactly, with blocks Markdown can't express kept as fenced `tiptap` JSON) and `editContent` in `@frontlit/text-editor/blocks`, and `editPageDocument` (edits through the canonical page file) in `@frontlit/page-builder/schema`.
+
+### Patch Changes
+
+- Updated dependencies [3ab4bd3]
+- Updated dependencies [0c857a6]
+  - @frontlit/text-editor@0.3.0
+
 ## 0.3.0
 
 ### Minor Changes
