@@ -95,6 +95,7 @@ const toolScopes = {
   get_page: MCP_SCOPES.pagesRead,
   create_page: MCP_SCOPES.pagesWrite,
   update_page: MCP_SCOPES.pagesWrite,
+  edit_page: MCP_SCOPES.pagesWrite,
   delete_page: MCP_SCOPES.pagesWrite,
   publish_page: MCP_SCOPES.pagesWrite,
   discard_page_draft: MCP_SCOPES.pagesWrite,
