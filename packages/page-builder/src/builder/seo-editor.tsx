@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { mediaFromSelection } from "../models/media";
 import { ImageIcon } from "lucide-react";
 import { ImageUploadDialog } from "@frontlit/media-uploader";
 import type { PageSeo } from "../models";
@@ -56,23 +57,7 @@ export function SeoEditor({
                 title="Change social card image"
                 description="Upload an image or pick one from your library."
                 onSelect={(selected) => {
-                  const selMedia = selected.media as
-                    | Record<string, unknown>
-                    | undefined;
-                  const mediaLitId =
-                    (selMedia?.mediaLitId as string) ??
-                    (selMedia?.mediaId as string) ??
-                    undefined;
-                  update({
-                    socialImage: {
-                      ...(mediaLitId ? { mediaId: mediaLitId, mediaLitId } : {}),
-                      url: selected.src,
-                      file: selected.src,
-                      thumbnailUrl: (selMedia?.thumbnailUrl as string) ?? selected.src,
-                      thumbnail: (selMedia?.thumbnailUrl as string) ?? selected.src,
-                      alt: selected.alt,
-                    },
-                  });
+                  update({ socialImage: mediaFromSelection(selected) });
                 }}
               >
                 <button
@@ -97,21 +82,7 @@ export function SeoEditor({
             title="Choose social card image"
             description="Upload an image or pick one from your library."
             onSelect={(selected) => {
-              const selMedia = selected.media as Record<string, unknown> | undefined;
-              const mediaLitId =
-                (selMedia?.mediaLitId as string) ??
-                (selMedia?.mediaId as string) ??
-                undefined;
-              update({
-                socialImage: {
-                  ...(mediaLitId ? { mediaId: mediaLitId, mediaLitId } : {}),
-                  url: selected.src,
-                  file: selected.src,
-                  thumbnailUrl: (selMedia?.thumbnailUrl as string) ?? selected.src,
-                  thumbnail: (selMedia?.thumbnailUrl as string) ?? selected.src,
-                  alt: selected.alt,
-                },
-              });
+              update({ socialImage: mediaFromSelection(selected) });
             }}
           >
             <button

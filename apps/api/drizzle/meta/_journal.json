@@ -155,6 +155,20 @@
       "when": 1795864385050,
       "tag": "0021_page_draft_version",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1795870756240,
+      "tag": "0022_featured_image_shape",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795870757669,
+      "tag": "0023_team_delete_cascades",
+      "breakpoints": true
     }
   ]
 }

@@ -6,6 +6,7 @@ import {
   createApiKeyBodySchema,
   createArticleBodySchema,
   createDocumentationBodySchema,
+  createProductUpdateBodySchema,
   createDocumentationSectionBodySchema,
   createMediaBodySchema,
   createPageBodySchema,
@@ -180,6 +181,19 @@ describe("API input validation schemas", () => {
       }).success,
     ).toBe(true);
 
+    for (const createSchema of [
+      createArticleBodySchema,
+      createDocumentationBodySchema,
+      createProductUpdateBodySchema,
+    ]) {
+      expect(createSchema.parse({ title: "Hello", excerpt: "Summary" })).toMatchObject({
+        excerpt: "Summary",
+      });
+      expect(createSchema.safeParse({ title: "Hello", excerpt: 42 }).success).toBe(
+        false,
+      );
+    }
+
     for (const updateSchema of [
       updateArticleBodySchema,
       updateDocumentationBodySchema,
@@ -203,6 +217,22 @@ describe("API input validation schemas", () => {
           alt: "Cover",
         },
       });
+      expect(
+        updateSchema.parse({ ...version, featuredImage: "med_abc123" }),
+      ).toMatchObject({ featuredImage: "med_abc123" });
+      for (const featuredImage of [
+        {
+          mediaId: "med_1",
+          url: "https://example.com/img.png",
+          thumbnail: "x",
+        },
+        { mediaId: "_VLxGal6abc" },
+        { alt: "Cover" },
+        "cover.png",
+      ])
+        expect(updateSchema.safeParse({ ...version, featuredImage }).success).toBe(
+          false,
+        );
       expect(updateSchema.parse({ ...version, featuredImage: null })).toMatchObject({
         featuredImage: null,
       });

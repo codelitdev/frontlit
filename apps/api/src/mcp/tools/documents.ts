@@ -11,6 +11,9 @@ import {
   createDocumentationBodySchema,
   updateDocumentationBodySchema,
   documentationValidationErrorSchema,
+  EXCERPT_DESCRIPTION,
+  featuredImageInputSchema,
+  featuredImageSchema,
 } from "@frontlit/api-contract";
 import type { DocumentKind } from "../../db/schema";
 import {
@@ -165,12 +168,12 @@ export function registerDocumentTools(
     title: z.string().nullable().optional(),
     content: textEditorContentSchema.nullable().optional(),
     excerpt: z.string().nullable().optional(),
-    featuredImage: z.record(z.any()).nullable().optional(),
+    featuredImage: featuredImageSchema.nullable().optional(),
     meta: metaSchema,
     draftTitle: z.string(),
     draftContent: textEditorContentSchema,
     draftExcerpt: z.string().nullable().optional(),
-    draftFeaturedImage: z.record(z.any()).nullable().optional(),
+    draftFeaturedImage: featuredImageSchema.nullable().optional(),
     draftMeta: metaSchema,
     draftVersion: z.number().int(),
     createdAt: z.string().nullable(),
@@ -214,6 +217,8 @@ export function registerDocumentTools(
       .describe("Body as TipTap JSON. Send content or markdown, never both."),
     markdown: markdownField,
   };
+  const featuredImageHelp =
+    ' `featuredImage` takes a media library id from register_media ("med_…"), an absolute image URL, or { mediaId?, url?, thumbnailUrl?, alt? }, e.g. { "mediaId": "med_abc123", "alt": "Product screenshot" }; with a mediaId the url and thumbnail come from the library. Other shapes and unknown ids are rejected.';
   const handleError = (error: unknown) => {
     if (error instanceof DocsContentError)
       return { ...jsonResult(documentationErrorBody(error)), isError: true };
@@ -229,15 +234,16 @@ export function registerDocumentTools(
     {
       description:
         kind === "doc"
-          ? `Creates a new ${humanLabel} (draft only) for the current team.`
-          : `Creates a new ${humanLabel} (draft only) for the current team. Pass the body as Markdown (\`markdown\`) or TipTap JSON (\`content\`), or omit both for an empty draft. Invalid Markdown returns structured diagnostics with line numbers.`,
+          ? `Creates a new ${humanLabel} (draft only) for the current team.${featuredImageHelp}`
+          : `Creates a new ${humanLabel} (draft only) for the current team. Pass the body as Markdown (\`markdown\`) or TipTap JSON (\`content\`), or omit both for an empty draft. Set \`excerpt\` here too: it is the published page's meta description and social card text. Invalid Markdown returns structured diagnostics with line numbers.${featuredImageHelp}`,
       inputSchema:
         kind === "doc"
           ? { ...createDocumentationBodySchema.shape, markdown: markdownField }
           : {
               title: z.string().min(1),
               ...bodyFields,
-              featuredImage: z.union([z.string(), z.record(z.any())]).optional(),
+              excerpt: z.string().optional().describe(EXCERPT_DESCRIPTION),
+              featuredImage: featuredImageInputSchema.optional(),
               meta: metaSchema.optional(),
               expectedDraftVersion: z
                 .number()
@@ -402,8 +408,8 @@ export function registerDocumentTools(
     {
       description:
         kind === "doc"
-          ? `Updates a ${humanLabel}'s draft title, slug, body (Markdown via \`markdown\`, or TipTap JSON via \`content\`, never both), excerpt, featured image, and/or type-specific metadata. Writes only the draft state — call publish_${label} to make changes live. A body sent here replaces the whole draft body: to change part of it, use edit_${label} instead.`
-          : `Updates a ${humanLabel}'s draft title, body (Markdown via \`markdown\`, or TipTap JSON via \`content\`, never both), excerpt, featured image, type-specific metadata, and/or slug. Content fields write only the draft state — call publish_${label} to make them live. \`slug\` is the exception: it changes the public URL immediately, and changing \`title\` never changes the slug. A body sent here replaces the whole draft body: to change part of it, use edit_${label} instead.`,
+          ? `Updates a ${humanLabel}'s draft title, slug, body (Markdown via \`markdown\`, or TipTap JSON via \`content\`, never both), excerpt, featured image, and/or type-specific metadata. Writes only the draft state — call publish_${label} to make changes live. A body sent here replaces the whole draft body: to change part of it, use edit_${label} instead.${featuredImageHelp}`
+          : `Updates a ${humanLabel}'s draft title, body (Markdown via \`markdown\`, or TipTap JSON via \`content\`, never both), excerpt, featured image, type-specific metadata, and/or slug. Content fields write only the draft state — call publish_${label} to make them live. \`slug\` is the exception: it changes the public URL immediately, and changing \`title\` never changes the slug. A body sent here replaces the whole draft body: to change part of it, use edit_${label} instead.${featuredImageHelp}`,
       inputSchema:
         kind === "doc"
           ? {
@@ -423,11 +429,8 @@ export function registerDocumentTools(
                 ),
               title: z.string().optional(),
               ...bodyFields,
-              excerpt: z.string().optional(),
-              featuredImage: z
-                .union([z.string(), z.record(z.any())])
-                .nullable()
-                .optional(),
+              excerpt: z.string().optional().describe(EXCERPT_DESCRIPTION),
+              featuredImage: featuredImageInputSchema.nullable().optional(),
               meta: metaSchema.optional(),
               expectedDraftVersion: z
                 .number()

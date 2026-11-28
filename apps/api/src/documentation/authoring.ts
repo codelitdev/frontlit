@@ -36,7 +36,7 @@ import {
   validateDocumentationFeaturedImage,
   requireCompleteMarkdownBlocks,
 } from "./content-validation";
-import { normalizeFeaturedImage } from "../documents/queries";
+import { resolveFeaturedImage } from "../documents/featured-image";
 import { slugify, uniqueSlug } from "../utils/slug";
 
 export class DraftConflict extends DocsContentError {
@@ -176,7 +176,7 @@ function proposed(existing: any, patch: any) {
   );
   const featured =
     patch.featuredImage !== undefined
-      ? normalizeFeaturedImage(patch.featuredImage)
+      ? patch.featuredImage
       : (existing?.draftFeaturedImage ?? null);
   validateDocumentationFeaturedImage(featured);
   return {
@@ -365,6 +365,8 @@ export async function saveDocumentation(
   )
     return null;
   const patch = parseInput(raw, !documentId);
+  if (patch.featuredImage !== undefined)
+    patch.featuredImage = await resolveFeaturedImage(teamId, patch.featuredImage);
   return withDbTransaction(async (tx) => {
     const settings = await lockSettings(tx, teamId);
     const existing = documentId
@@ -467,11 +469,13 @@ export async function validateDocumentation(
       ? await db.query.documents.findFirst({ where: scope(teamId, input.documentId) })
       : null;
     if (input.documentId && !existing) return null;
-    return draftReport(
-      teamId,
-      proposed(existing, parseInput({ expectedDraftVersion: 1, ...input.draft })),
-      { documentId: input.documentId, publicationId: settings.activePublicationId },
-    );
+    const patch = parseInput({ expectedDraftVersion: 1, ...input.draft });
+    if (patch.featuredImage !== undefined)
+      patch.featuredImage = await resolveFeaturedImage(teamId, patch.featuredImage);
+    return draftReport(teamId, proposed(existing, patch), {
+      documentId: input.documentId,
+      publicationId: settings.activePublicationId,
+    });
   }
   const rows = await db.query.documents.findMany({
     where: and(eq(documents.teamId, teamId), eq(documents.kind, "doc")),

@@ -29,10 +29,7 @@ import {
   type PageDocument,
 } from "@frontlit/page-builder/schema";
 import { applyTextEdits, type TextEdit } from "@frontlit/text-editor/blocks";
-import {
-  normalizeFeaturedImage,
-  syncFeaturedImageToMediaLibrary,
-} from "../documents/queries";
+import { normalizeSocialImage } from "./social-image";
 import { getPagesGitBinding, pageGitInfo, PageOwnedByGitError } from "./git-pr";
 import {
   assertDraftVersion,
@@ -240,13 +237,9 @@ export async function updatePage(
   const normalizedSocialImage =
     socialImage !== undefined
       ? socialImage
-        ? normalizeFeaturedImage(socialImage)
+        ? normalizeSocialImage(socialImage)
         : null
       : undefined;
-
-  if (normalizedSocialImage) {
-    await syncFeaturedImageToMediaLibrary(teamId, normalizedSocialImage);
-  }
 
   let slug: string | undefined;
   if (
@@ -432,9 +425,6 @@ export async function publishPage(teamId: string, pageId: string) {
   if (!existing || existing.teamId !== teamId) return null;
   if (await getPagesGitBinding(teamId)) throw new PageOwnedByGitError();
 
-  if (existing.draftSocialImage) {
-    await syncFeaturedImageToMediaLibrary(teamId, existing.draftSocialImage);
-  }
   const summary = `Published ${existing.name}`;
   await publishBuilderRelease(
     teamId,

@@ -1,4 +1,5 @@
-import type { PublicSettings } from "./api";
+import type { Metadata } from "next";
+import type { PublicPage, PublicSettings } from "./api";
 
 export interface SeoInput {
   /** Page/entity title override, description override, image, robots —
@@ -53,4 +54,62 @@ export function resolveSeo(
  * `generateMetadata` `parent` chaining. */
 export function titleTemplate(site: PublicSettings | null, siteName: string): string {
   return site?.title || siteName;
+}
+
+/**
+ * Metadata for a route backed by a page record: a builder/Git page, or a
+ * standard feed index (/blog, /docs, /changelog), whose page record carries
+ * the listing's SEO. `robotsAllowed: false` on the page renders
+ * `noindex, follow`; a site hidden from search renders `noindex, nofollow`. `page` is null when the feed index has no
+ * published page; `fallbackName` names it then.
+ */
+export function pageMetadata({
+  page,
+  settings,
+  siteName,
+  url,
+  fallbackName,
+}: {
+  page: Pick<
+    PublicPage,
+    "slug" | "name" | "title" | "description" | "socialImage" | "robotsAllowed"
+  > | null;
+  settings: PublicSettings | null;
+  siteName: string;
+  url: string;
+  fallbackName?: string;
+}): Metadata {
+  const isHomepage = page?.slug === "";
+  const seo = resolveSeo(
+    {
+      title: page?.title,
+      description: page?.description,
+      image: page?.socialImage,
+      robotsAllowed: page?.robotsAllowed,
+      // The homepage falls back to the site title, not "Homepage".
+      fallbackName: isHomepage ? undefined : (page?.name ?? fallbackName),
+    },
+    settings,
+    siteName,
+  );
+  const hidden = Boolean(settings?.hideFromSearch);
+  const index = seo.robotsIndex && !hidden;
+  return {
+    // The layout's template appends the site title; the homepage is the
+    // site itself, so its title stands alone.
+    title: isHomepage ? { absolute: seo.title } : seo.title,
+    description: seo.description ?? undefined,
+    alternates: { canonical: url },
+    openGraph: {
+      url,
+      type: "website",
+      title: seo.title,
+      description: seo.description ?? undefined,
+      images: seo.imageUrl ? [{ url: seo.imageUrl }] : undefined,
+    },
+    // A page that opts out stays out of results but its links are still
+    // followed, so a noindex /blog doesn't hide the articles it lists. A
+    // site hidden from search is nofollow too.
+    robots: { index, follow: !hidden },
+  };
 }

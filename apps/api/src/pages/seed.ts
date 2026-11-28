@@ -7,10 +7,7 @@ import {
   createRequiredPageLayout,
   repairStoredLayout,
 } from "./shared-widgets";
-import {
-  normalizeFeaturedImage,
-  syncFeaturedImageToMediaLibrary,
-} from "../documents/queries";
+import { normalizeSocialImage } from "./social-image";
 
 /** TipTap JSON the page-builder widgets expect for rich-text fields.
  * Hand-built here so apps/api never imports `@frontlit/page-builder`
@@ -346,10 +343,7 @@ export async function seedStandardPages(
 
     const rawSocialImage =
       isObject && "socialImage" in item ? item.socialImage : undefined;
-    const socialImage = rawSocialImage ? normalizeFeaturedImage(rawSocialImage) : null;
-    if (socialImage) {
-      await syncFeaturedImageToMediaLibrary(teamId, socialImage);
-    }
+    const socialImage = rawSocialImage ? normalizeSocialImage(rawSocialImage) : null;
 
     values.push({
       teamId,

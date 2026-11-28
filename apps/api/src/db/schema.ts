@@ -897,7 +897,7 @@ export const siteReleasePages = pgTable(
     name: text("name").notNull(),
     revisionId: text("revision_id")
       .notNull()
-      .references(() => pageRevisions.id),
+      .references(() => pageRevisions.id, { onDelete: "cascade" }),
   },
   (table) => [
     uniqueIndex("site_release_pages_slug_idx").on(table.releaseId, table.slug),
@@ -2231,7 +2231,7 @@ export const documentationGitMigrationPrs = pgTable(
       .references(() => teams.id, { onDelete: "cascade" }),
     setupId: text("setup_id")
       .notNull()
-      .references(() => documentationGitSetups.setupId),
+      .references(() => documentationGitSetups.setupId, { onDelete: "cascade" }),
     actorCredential: jsonb("actor_credential")
       .$type<import("../documentation/github/publisher").GitPublisherCredential>()
       .notNull(),

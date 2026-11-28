@@ -716,10 +716,10 @@ describe("pages draft/publish", () => {
 
       expect(updated?.draftSocialImage).toMatchObject({
         url: "https://medialit.example/card.png",
-        thumbnailUrl: "https://medialit.example/thumb.png",
-        mediaLitId: "ml_page_123",
         alt: "Pricing Social Card",
       });
+      // A supplied mediaId is never copied into mediaLitId.
+      expect(updated?.draftSocialImage).not.toHaveProperty("mediaLitId");
 
       const published = await publishPage(teamId, page.pageId);
       // Revision content is canonical: only url and alt are published.

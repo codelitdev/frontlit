@@ -33,8 +33,7 @@ import {
 import { teamIndexesKind } from "../documentation/index-policy";
 import { requestSearchIndex } from "../search/requests";
 
-import { isUnsplashUrl, registerMedia } from "../media/queries";
-import { logger } from "../services/log";
+import { resolveFeaturedImage } from "./featured-image";
 import { invalidateSiteCache, siteTags } from "../services/site-cache";
 
 export type DocumentStatus = "draft" | "published" | "published_with_changes";
@@ -70,120 +69,6 @@ export function withPublishReport<T extends Record<string, unknown>>(row: T) {
   if (row.kind === "doc" || "publishable" in row) return row;
   const diagnostics = incompleteDocsBlocks(row.draftContent);
   return { ...row, publishable: diagnostics.length === 0, diagnostics };
-}
-
-export function normalizeFeaturedImage(input: unknown): Record<string, unknown> | null {
-  if (!input) return null;
-  if (typeof input === "string") {
-    const trimmed = input.trim();
-    return trimmed.length > 0 ? { url: trimmed } : null;
-  }
-  if (typeof input === "object" && input !== null) {
-    const obj = input as Record<string, unknown>;
-    const url =
-      typeof obj.url === "string"
-        ? obj.url.trim()
-        : typeof obj.file === "string"
-          ? obj.file.trim()
-          : typeof obj.src === "string"
-            ? obj.src.trim()
-            : undefined;
-
-    const thumbnailUrl =
-      typeof obj.thumbnailUrl === "string"
-        ? obj.thumbnailUrl.trim()
-        : typeof obj.thumbnail === "string"
-          ? obj.thumbnail.trim()
-          : typeof obj.thumbUrl === "string"
-            ? obj.thumbUrl.trim()
-            : undefined;
-
-    const rawMediaLitId =
-      typeof obj.mediaLitId === "string"
-        ? obj.mediaLitId.trim()
-        : typeof obj.mediaId === "string"
-          ? obj.mediaId.trim()
-          : undefined;
-
-    const mediaLitId =
-      rawMediaLitId &&
-      !rawMediaLitId.startsWith("http://") &&
-      !rawMediaLitId.startsWith("https://") &&
-      !isUnsplashUrl(rawMediaLitId)
-        ? rawMediaLitId
-        : undefined;
-
-    const fileName =
-      typeof obj.fileName === "string"
-        ? obj.fileName.trim()
-        : typeof obj.originalFileName === "string"
-          ? obj.originalFileName.trim()
-          : undefined;
-
-    const alt =
-      typeof obj.alt === "string"
-        ? obj.alt
-        : typeof obj.caption === "string"
-          ? obj.caption
-          : undefined;
-
-    const caption = typeof obj.caption === "string" ? obj.caption : undefined;
-    const mimeType = typeof obj.mimeType === "string" ? obj.mimeType : undefined;
-    const size = typeof obj.size === "number" ? obj.size : undefined;
-
-    if (!url && !mediaLitId) return null;
-
-    return {
-      ...obj,
-      ...(url ? { url } : {}),
-      ...(thumbnailUrl ? { thumbnailUrl } : {}),
-      ...(mediaLitId ? { mediaLitId } : {}),
-      ...(fileName ? { fileName } : {}),
-      ...(mimeType ? { mimeType } : {}),
-      ...(size !== undefined ? { size } : {}),
-      ...(alt ? { alt } : {}),
-      ...(caption ? { caption } : {}),
-    };
-  }
-  return null;
-}
-
-export async function syncFeaturedImageToMediaLibrary(
-  teamId: string,
-  imageInput: unknown,
-): Promise<void> {
-  const normalized = normalizeFeaturedImage(imageInput);
-  if (!normalized) return;
-
-  const url = typeof normalized.url === "string" ? normalized.url : undefined;
-  if (isUnsplashUrl(url)) {
-    // Files selected via Unsplash tab should never become part of the user's media library.
-    return;
-  }
-
-  const mediaLitId =
-    typeof normalized.mediaLitId === "string"
-      ? normalized.mediaLitId
-      : typeof normalized.mediaId === "string"
-        ? (normalized.mediaId as string)
-        : undefined;
-
-  // Media library is exclusive to uploads performed on the team and are backed by MediaLit integration.
-  if (!mediaLitId) return;
-
-  try {
-    await registerMedia({
-      teamId,
-      mediaLitId,
-      alt: typeof normalized.alt === "string" ? normalized.alt : undefined,
-      caption: typeof normalized.caption === "string" ? normalized.caption : undefined,
-    });
-  } catch (err) {
-    logger.warn(
-      { error: (err as Error).message, teamId },
-      "Failed to sync featured image to media library",
-    );
-  }
 }
 
 export function deriveDocumentStatus(doc: {
@@ -244,6 +129,7 @@ export async function createDocument(
     markdown?: string;
     gitSourcePath?: string;
     authorAccountId?: string;
+    excerpt?: string | null;
     featuredImage?: unknown;
     meta?: Record<string, unknown>;
   },
@@ -257,7 +143,7 @@ export async function createDocument(
     slugTaken(input.teamId, kind, candidate),
   );
 
-  const normalizedFeaturedImage = normalizeFeaturedImage(input.featuredImage);
+  const featuredImage = await resolveFeaturedImage(input.teamId, input.featuredImage);
 
   const [doc] = await db
     .insert(documents)
@@ -268,14 +154,11 @@ export async function createDocument(
       slug,
       draftTitle: input.title,
       draftContent: content,
-      draftFeaturedImage: normalizedFeaturedImage,
+      draftExcerpt: input.excerpt ?? null,
+      draftFeaturedImage: featuredImage,
       draftMeta: input.meta ?? {},
     })
     .returning();
-
-  if (normalizedFeaturedImage) {
-    await syncFeaturedImageToMediaLibrary(input.teamId, normalizedFeaturedImage);
-  }
 
   return doc;
 }
@@ -408,8 +291,10 @@ export async function updateDocument(
     Boolean(existing.publishedAt) &&
     (await teamIndexesKind(teamId, kind));
 
-  const normalizedFeaturedImage =
-    featuredImage !== undefined ? normalizeFeaturedImage(featuredImage) : undefined;
+  const resolvedFeaturedImage =
+    featuredImage !== undefined
+      ? await resolveFeaturedImage(teamId, featuredImage)
+      : undefined;
 
   const changesDraft =
     title !== undefined ||
@@ -430,7 +315,7 @@ export async function updateDocument(
         ...(normalizedContent !== undefined ? { draftContent: normalizedContent } : {}),
         ...(excerpt !== undefined ? { draftExcerpt: excerpt } : {}),
         ...(featuredImage !== undefined
-          ? { draftFeaturedImage: normalizedFeaturedImage }
+          ? { draftFeaturedImage: resolvedFeaturedImage }
           : {}),
         ...(nextDraftMeta !== undefined ? { draftMeta: nextDraftMeta } : {}),
         ...(indexableToggled
@@ -456,10 +341,6 @@ export async function updateDocument(
       const current = await getDocumentByDocumentId(kind, documentId);
       if (!current) return null;
       throw new StaleDraftError(current.draftVersion);
-    }
-
-    if (normalizedFeaturedImage) {
-      await syncFeaturedImageToMediaLibrary(teamId, normalizedFeaturedImage);
     }
 
     const slugMoved = slug !== undefined && slug !== existing.slug;
@@ -512,8 +393,6 @@ export async function publishDocument(
     })
     .where(eq(documents.id, existing.id))
     .returning();
-  if (doc?.featuredImage)
-    await syncFeaturedImageToMediaLibrary(teamId, doc.featuredImage);
   if (doc) await requestSearchIndex(teamId);
   if (doc) await invalidateFeed(kind, teamId);
   return doc;

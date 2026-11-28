@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveSeo, titleTemplate } from "./seo";
+import { pageMetadata, resolveSeo, titleTemplate } from "./seo";
 
 describe("resolveSeo", () => {
   it("falls all the way through to the deployment's site name when nothing is set", () => {
@@ -66,5 +66,63 @@ describe("titleTemplate", () => {
   it("uses the site's branded title, falling back to the deployment name", () => {
     expect(titleTemplate({ title: "Acme" } as any, "FrontLit")).toBe("Acme");
     expect(titleTemplate(null, "FrontLit")).toBe("FrontLit");
+  });
+});
+
+describe("pageMetadata", () => {
+  const blogPage = {
+    slug: "blog",
+    name: "Blog",
+    title: "Engineering blog",
+    description: "What we ship",
+    socialImage: null,
+    robotsAllowed: false,
+  };
+  const url = "https://acme.example/blog";
+
+  it("renders noindex for a feed index page that disallows robots", () => {
+    const metadata = pageMetadata({
+      page: blogPage,
+      settings: null,
+      siteName: "Acme",
+      url,
+    });
+    // Links stay followed so the listed articles are still discovered.
+    expect(metadata.robots).toEqual({ index: false, follow: true });
+    expect(metadata.title).toBe("Engineering blog");
+    expect(metadata.description).toBe("What we ship");
+    expect(metadata.alternates).toEqual({ canonical: url });
+  });
+
+  it("indexes pages by default and names an unpublished feed index", () => {
+    const metadata = pageMetadata({
+      page: null,
+      settings: null,
+      siteName: "Acme",
+      url,
+      fallbackName: "Blog",
+    });
+    expect(metadata.robots).toEqual({ index: true, follow: true });
+    expect(metadata.title).toBe("Blog");
+  });
+
+  it("renders noindex when the site is hidden from search", () => {
+    const metadata = pageMetadata({
+      page: { ...blogPage, robotsAllowed: true },
+      settings: { hideFromSearch: true } as any,
+      siteName: "Acme",
+      url,
+    });
+    expect(metadata.robots).toEqual({ index: false, follow: false });
+  });
+
+  it("gives the homepage an absolute title", () => {
+    const metadata = pageMetadata({
+      page: { ...blogPage, slug: "", title: null, robotsAllowed: true },
+      settings: { title: "Acme" } as any,
+      siteName: "FrontLit",
+      url: "https://acme.example/",
+    });
+    expect(metadata.title).toEqual({ absolute: "Acme" });
   });
 });

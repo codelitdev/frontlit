@@ -176,9 +176,10 @@ export default function PageEditorPage({
         layout: state.layout,
         title: state.seo.title,
         description: state.seo.description,
-        socialImage: state.seo.socialImage as unknown as
-          | Record<string, unknown>
-          | undefined,
+        // null, not undefined, so removing the image reaches the API.
+        socialImage:
+          (state.seo.socialImage as unknown as Record<string, unknown> | undefined) ??
+          null,
         robotsAllowed: state.seo.robotsAllowed,
       });
       if (!saved) {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { expectedDraftVersionSchema } from "./common";
+import { featuredImageInputSchema, featuredImageSchema } from "./featured-image";
 
 /** Blog posts, help docs and changelog entries share one engine
  * (architecture.md §5) and differ only in kind-specific `meta`. */
@@ -36,13 +37,13 @@ export function makeDocumentSchema<M extends z.ZodTypeAny>(metaSchema: M) {
     title: z.string().nullable().optional(),
     content: textEditorContentSchema.nullable().optional(),
     excerpt: z.string().nullable().optional(),
-    featuredImage: z.record(z.any()).nullable().optional(),
+    featuredImage: featuredImageSchema.nullable().optional(),
     meta: metaSchema,
     // Draft fields — what the dashboard editor reads and writes.
     draftTitle: z.string(),
     draftContent: textEditorContentSchema,
     draftExcerpt: z.string().nullable().optional(),
-    draftFeaturedImage: z.record(z.any()).nullable().optional(),
+    draftFeaturedImage: featuredImageSchema.nullable().optional(),
     draftMeta: metaSchema,
     /** Increments on every draft write; send it back as `expectedDraftVersion`. */
     draftVersion: z.number().int(),
@@ -63,15 +64,19 @@ const markdownBodySchema = z
     "Body as Markdown (CommonMark/GFM plus rich blocks such as <Callout>, <Tabs>, <Button> and <H5P>), converted to TipTap JSON. Send markdown or content, never both. Every block, prop and limit: https://frontlit.app/schema/content.v1.json",
   );
 
+/** Short summary: the published page's meta description and social card
+ * text, and the listing blurb. */
+export const EXCERPT_DESCRIPTION =
+  "Short summary used as the published page's meta description, social card text and listing blurb.";
+const excerptSchema = z.string().describe(EXCERPT_DESCRIPTION);
+
 export function makeCreateDocumentBodySchema<M extends z.ZodTypeAny>(metaSchema: M) {
   return z.object({
     title: z.string().min(1),
     content: textEditorContentSchema.optional(),
     markdown: markdownBodySchema,
-    featuredImage: z
-      .union([z.string(), z.record(z.any())])
-      .nullable()
-      .optional(),
+    excerpt: excerptSchema.optional(),
+    featuredImage: featuredImageInputSchema.nullable().optional(),
     // `.default({})` (not `.optional()`): when the caller omits `meta`
     // entirely, this still runs `{}` through `metaSchema` so its own
     // per-field defaults (e.g. `labels: []`, `tags: []`, `order: 0`)
@@ -89,11 +94,8 @@ export function makeUpdateDocumentBodySchema<M extends z.ZodTypeAny>(metaSchema:
     title: z.string().optional(),
     content: textEditorContentSchema.optional(),
     markdown: markdownBodySchema,
-    excerpt: z.string().optional(),
-    featuredImage: z
-      .union([z.string(), z.record(z.any())])
-      .nullable()
-      .optional(),
+    excerpt: excerptSchema.optional(),
+    featuredImage: featuredImageInputSchema.nullable().optional(),
     meta: metaSchema.optional(),
     expectedDraftVersion: expectedDraftVersionSchema,
   });

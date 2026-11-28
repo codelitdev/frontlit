@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useId } from "react";
+import { mediaFromSelection } from "../../models/media";
 import { ImageIcon, Plus } from "lucide-react";
 import { ImageUploadDialog } from "@frontlit/media-uploader";
 import { Editor, emptyDoc } from "@frontlit/text-editor";
@@ -459,19 +460,7 @@ export function ImageField({
               title={`Choose ${label.toLowerCase()}`}
               description="Upload an image or select one from your library."
               onSelect={(selected) => {
-                const selMedia = selected.media as Record<string, unknown> | undefined;
-                const mediaLitId =
-                  (selMedia?.mediaLitId as string) ??
-                  (selMedia?.mediaId as string) ??
-                  undefined;
-                onChange({
-                  ...(mediaLitId ? { mediaId: mediaLitId, mediaLitId } : {}),
-                  url: selected.src,
-                  file: selected.src,
-                  thumbnailUrl: (selMedia?.thumbnailUrl as string) ?? selected.src,
-                  thumbnail: (selMedia?.thumbnailUrl as string) ?? selected.src,
-                  alt: selected.alt,
-                });
+                onChange(mediaFromSelection(selected));
               }}
             >
               <button
@@ -496,19 +485,7 @@ export function ImageField({
           title={`Choose ${label.toLowerCase()}`}
           description="Upload an image or select one from your library."
           onSelect={(selected) => {
-            const selMedia = selected.media as Record<string, unknown> | undefined;
-            const mediaLitId =
-              (selMedia?.mediaLitId as string) ??
-              (selMedia?.mediaId as string) ??
-              undefined;
-            onChange({
-              ...(mediaLitId ? { mediaId: mediaLitId, mediaLitId } : {}),
-              url: selected.src,
-              file: selected.src,
-              thumbnailUrl: (selMedia?.thumbnailUrl as string) ?? selected.src,
-              thumbnail: (selMedia?.thumbnailUrl as string) ?? selected.src,
-              alt: selected.alt,
-            });
+            onChange(mediaFromSelection(selected));
           }}
         >
           <button
