@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/server-auth";
 import { AppSidebar } from "@/components/workspace/app-sidebar";
 import { BreadcrumbProvider } from "@/components/workspace/breadcrumb-context";
 import { WorkspaceBreadcrumb } from "@/components/workspace/workspace-breadcrumb";
-import { InboxAlerts, InboxAlertsMenu } from "@/components/workspace/inbox-alerts";
+import { InboxAlerts } from "@/components/workspace/inbox-alerts";
 import {
   WorkspaceAccessGate,
   WorkspaceAccessProvider,
@@ -36,9 +36,6 @@ export default async function AuthenticatedLayout({
                     className="mr-2 data-vertical:h-4 data-vertical:self-auto"
                   />
                   <WorkspaceBreadcrumb />
-                  <div className="ml-auto">
-                    <InboxAlertsMenu />
-                  </div>
                   <InboxAlerts />
                 </header>
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">

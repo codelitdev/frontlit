@@ -28,7 +28,9 @@ export async function enqueueNeedsReplyPush(
 }
 
 /** Outbox handler: sends the push to every subscribed agent. Subscriptions
- * the push service says are gone (404/410) are deleted. Throws, so the
+ * the push service says are gone (404/410), or rejects for our key (403,
+ * e.g. made before the VAPID keys changed), are deleted; the browser
+ * subscribes again with the current key the next time FrontLit opens. Throws, so the
  * outbox retries, only when a push service failed in a way that may pass;
  * the shared `tag` keeps a retried push from stacking up on devices that
  * already got it. */
@@ -65,7 +67,7 @@ export async function processWebPush(teamId: string, payload: Record<string, unk
         );
       } catch (error) {
         const status = error instanceof WebPushError ? error.statusCode : undefined;
-        if (status === 404 || status === 410) {
+        if (status === 404 || status === 410 || status === 403) {
           gone.push(subscription.endpoint);
         } else if (status === undefined || status === 429 || status >= 500) {
           retryable = error instanceof Error ? error.message : String(error);

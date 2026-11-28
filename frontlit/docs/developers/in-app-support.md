@@ -159,8 +159,9 @@ when a customer message needs a person. Messages the assistant answers don't
 alert anyone.
 
 To get notifications on a phone or computer, even with FrontLit closed, open
-the bell in the header and turn on **Notify me on this device**, then allow
-notifications when the browser asks. Do this once on each device. Clicking a
+your account menu (your name at the bottom of the sidebar), choose
+**Notifications** and turn on **Notify me on this device**, then allow
+notifications when the browser asks. The sound is in the same place. Do this once on each device. Clicking a
 notification opens the conversation.
 
 - **Android and desktop browsers:** works in the browser. You can also
@@ -171,8 +172,9 @@ notification opens the conversation.
 
 You need access to read the help desk to get these notifications. Logging out
 turns them off for that device. On a self-hosted FrontLit, they need Web Push
-keys (see [Self-hosting](/docs/self-hosting)); without them, the bell offers
-notifications only while a FrontLit tab is open.
+keys (see [Self-hosting](/docs/self-hosting)); without them, **Notifications**
+offers them only while a FrontLit tab is open. Changing the keys needs nothing
+from your team: each device subscribes again the next time it opens FrontLit.
 
 ## What your team sees
 

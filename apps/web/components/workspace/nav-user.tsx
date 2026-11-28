@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BadgeCheck, ChevronsUpDown, LogOut } from "lucide-react";
+import { BadgeCheck, Bell, ChevronsUpDown, LogOut } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +20,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { turnOffPush } from "@/lib/web-push";
+import { NotificationSettingsDialog } from "@/components/workspace/inbox-alerts";
 
 interface CurrentAccount {
   email: string;
@@ -33,6 +35,7 @@ function initialsFor(account: CurrentAccount | null) {
 export function NavUser({ account }: { account: CurrentAccount | null }) {
   const { isMobile } = useSidebar();
   const router = useRouter();
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   return (
     <SidebarMenu>
@@ -86,6 +89,10 @@ export function NavUser({ account }: { account: CurrentAccount | null }) {
                   Account
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setNotificationsOpen(true)}>
+                <Bell />
+                Notifications
+              </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -103,6 +110,10 @@ export function NavUser({ account }: { account: CurrentAccount | null }) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <NotificationSettingsDialog
+          open={notificationsOpen}
+          onOpenChange={setNotificationsOpen}
+        />
       </SidebarMenuItem>
     </SidebarMenu>
   );
