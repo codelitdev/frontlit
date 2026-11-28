@@ -131,6 +131,13 @@ export async function getCanonicalHost(teamId: string): Promise<string> {
   return (await getSettings(teamId))?.canonicalHost ?? "localhost";
 }
 
+/** Hosts rich-text links count as the site's own: absolute links to them
+ * render like relative ones (same tab, no `rel`). Other site hosts 301 to
+ * the canonical one, so it is the one authors link to. */
+export async function getSiteHosts(teamId: string): Promise<string[]> {
+  return [await getCanonicalHost(teamId)];
+}
+
 export interface PublicPage {
   pageId: string;
   name: string;

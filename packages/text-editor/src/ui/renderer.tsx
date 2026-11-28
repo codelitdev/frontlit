@@ -16,7 +16,7 @@ import { RenderedCodeBlock } from "../components/rendered-code-block";
 import { extractDocsHeadings } from "../core/headings";
 import { createProfileExtensions, getProfileSchema } from "../core/extensions";
 import type { Profile } from "../core/types";
-import { isSafeUrl } from "../core/urls";
+import { isSafeUrl, linkAttributes } from "../core/urls";
 import { mediaBlockRenderers, textBlockRenderers } from "./block-renderers";
 import type { BlockRenderer, ResolveMedia } from "./types";
 import {
@@ -37,6 +37,11 @@ export interface ContentRendererProps {
   resolveMedia?: ResolveMedia;
   /** Translations of built-in text (copy buttons, fallback titles), laid over the English defaults. */
   labels?: Partial<TextEditorLabels>;
+  /**
+   * The site's own host names. Absolute links to them render like relative
+   * ones (same tab, no `rel`); other `http(s)` links open in a new tab.
+   */
+  siteHosts?: readonly string[];
 }
 
 const typographyClasses = (typography?: {
@@ -111,9 +116,10 @@ export function libraryRenderers(
   profile: Profile,
   resolveMedia?: ResolveMedia,
   labels: TextEditorLabels = defaultTextEditorLabels,
+  siteHosts?: readonly string[],
 ) {
   const all: Record<string, unknown> = {
-    ...textBlockRenderers(labels),
+    ...textBlockRenderers(labels, siteHosts),
     ...mediaBlockRenderers(resolveMedia, labels),
   };
   // Images stored only by URL keep Tiptap's own markup.
@@ -136,6 +142,7 @@ export function ContentRenderer({
   blocks,
   resolveMedia,
   labels: labelsInput,
+  siteHosts,
 }: ContentRendererProps) {
   const labels = resolveTextEditorLabels(labelsInput);
   const extensions = extensionsFor(profile);
@@ -238,7 +245,7 @@ export function ContentRenderer({
             </Tag>
           );
         },
-        ...(libraryRenderers(profile, resolveMedia, labels) as object),
+        ...(libraryRenderers(profile, resolveMedia, labels, siteHosts) as object),
         codeBlock: ({ node, children }) => (
           <RenderedCodeBlock
             node={node}
@@ -279,8 +286,8 @@ export function ContentRenderer({
           return (
             <a
               href={href}
-              target="_blank"
-              rel="noopener noreferrer"
+              // Decided from the URL; stored `target`/`rel` are ignored.
+              {...linkAttributes(href, siteHosts)}
               className={classes}
               style={{ textShadow: linkStyle?.textShadow || undefined }}
             >

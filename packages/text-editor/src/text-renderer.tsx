@@ -23,6 +23,8 @@ export interface TextRendererProps {
    * defaults.
    */
   labels?: Partial<TextEditorLabels>;
+  /** The site's own host names: absolute links to them stay in the same tab. */
+  siteHosts?: readonly string[];
 }
 
 /**
@@ -39,6 +41,7 @@ export function TextRenderer({
   blocks,
   resolveMedia,
   labels: labelsInput,
+  siteHosts,
 }: TextRendererProps) {
   const resolved = resolveProfile(profile);
   const docsBlocks = Object.fromEntries(
@@ -55,6 +58,7 @@ export function TextRenderer({
       blocks={{ ...(docsBlocks as Record<string, never>), ...blocks }}
       resolveMedia={resolveMedia}
       labels={labelsInput}
+      siteHosts={siteHosts}
     />
   );
 }

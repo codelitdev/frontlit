@@ -15,6 +15,7 @@ import {
   Text2,
 } from "@frontlit/page-builder/primitives/server";
 import { getTeamThemeStyle } from "@/lib/team-theme";
+import { getSiteHosts } from "@/lib/api";
 import type { ThemeStyle } from "@frontlit/page-builder/models";
 import { DocsSearch } from "@/components/docs-search";
 import { collectionHref, type DocsCollection, type DocsNavItem } from "@/lib/docs-tree";
@@ -394,7 +395,10 @@ export async function ThemedDocArticle({
   teamId: string;
   publicApiBaseUrl?: string;
 }) {
-  const theme = await getTeamThemeStyle(teamId);
+  const [theme, siteHosts] = await Promise.all([
+    getTeamThemeStyle(teamId),
+    getSiteHosts(teamId),
+  ]);
   const imageUrl =
     typeof featuredImage?.url === "string"
       ? featuredImage.url
@@ -464,7 +468,12 @@ export async function ThemedDocArticle({
             )}
             <Header1 theme={theme}>{title}</Header1>
             {content && (
-              <TextRenderer json={content} theme={theme} profile="documentation" />
+              <TextRenderer
+                json={content}
+                theme={theme}
+                profile="documentation"
+                siteHosts={siteHosts}
+              />
             )}
           </article>
           {headings.length > 0 ? (

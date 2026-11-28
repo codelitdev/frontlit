@@ -7,6 +7,7 @@ import {
   Section,
 } from "@frontlit/page-builder/primitives/server";
 import { getTeamThemeStyle } from "@/lib/team-theme";
+import { getSiteHosts } from "@/lib/api";
 
 export async function ThemedBlogPost({
   teamId,
@@ -21,7 +22,10 @@ export async function ThemedBlogPost({
   content: TextEditorContent | null;
   featuredImage?: Record<string, unknown> | null;
 }) {
-  const theme = await getTeamThemeStyle(teamId);
+  const [theme, siteHosts] = await Promise.all([
+    getTeamThemeStyle(teamId),
+    getSiteHosts(teamId),
+  ]);
   const imageUrl =
     typeof featuredImage?.url === "string"
       ? featuredImage.url
@@ -68,7 +72,7 @@ export async function ThemedBlogPost({
             </Caption>
           )}
         </div>
-        {content && <TextRenderer json={content} theme={theme} />}
+        {content && <TextRenderer json={content} theme={theme} siteHosts={siteHosts} />}
       </article>
     </Section>
   );
