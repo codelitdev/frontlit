@@ -1169,7 +1169,7 @@ export default function InboxPage() {
                     )}
                   </Button>
                 </div>
-                <p className="mx-auto mt-2 max-w-4xl text-xs text-muted-foreground">
+                <p className="mx-auto mt-2 max-w-4xl text-xs text-muted-foreground pointer-coarse:hidden">
                   Press Enter to send · Shift+Enter for a new line
                 </p>
               </div>

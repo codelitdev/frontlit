@@ -94,3 +94,16 @@ html,
 body {
   height: 100%;
 }
+
+/* iOS zooms the page when a text field under 16px gets focus, which pushes
+   the layout off screen. Touch devices get 16px fields; desktop keeps the
+   compact size. Outside any layer so it beats utility classes like text-sm. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+    [type="file"]
+  ):not([type="color"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

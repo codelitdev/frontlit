@@ -578,7 +578,8 @@ export function ChatPanel({
               )}
             </button>
           </div>
-          <p className="mt-1.5 px-0.5 text-[11px] text-muted-foreground">
+          {/* Keyboard shortcuts mean nothing on a touch keyboard. */}
+          <p className="mt-1.5 px-0.5 text-[11px] text-muted-foreground pointer-coarse:hidden">
             <kbd className="rounded border border-border bg-muted px-1">Enter</kbd> to
             send ·{" "}
             <kbd className="rounded border border-border bg-muted px-1">Shift</kbd>+
