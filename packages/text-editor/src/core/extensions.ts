@@ -175,6 +175,10 @@ export function createProfileExtensions(
       // end joins it, so a link never ends); keep autolink, end links there.
       Link.extend({ inclusive: false }).configure({
         openOnClick: false,
+        // Tiptap defaults every link to `target="_blank"` and
+        // `rel="noopener noreferrer nofollow"`, internal ones included. Store
+        // neither: the renderer decides both from the URL (`linkAttributes`).
+        HTMLAttributes: { target: null, rel: null },
         autolink: true,
         linkOnPaste: true,
         isAllowedUri: (url) =>

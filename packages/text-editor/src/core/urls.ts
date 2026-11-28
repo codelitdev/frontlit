@@ -37,9 +37,39 @@ export function isSafeUrl(value: unknown, image = false): value is string {
   }
 }
 
-/** True for absolute `http(s)` links, which the renderer opens in a new tab. */
-export function isExternalUrl(value: string): boolean {
-  return /^https?:\/\//i.test(value);
+const bareHost = (host: string) => host.toLowerCase().replace(/^www\./, "");
+
+/**
+ * True for absolute `http(s)` links that leave the site. Relative paths,
+ * fragments, `mailto:` and links to one of `siteHosts` (host names, matched
+ * ignoring `www.` and any port) stay on the site.
+ */
+export function isExternalUrl(
+  value: string,
+  siteHosts: readonly string[] = [],
+): boolean {
+  if (!/^https?:\/\//i.test(value)) return false;
+  let host: string;
+  try {
+    host = bareHost(new URL(value).hostname);
+  } catch {
+    return true;
+  }
+  return !siteHosts.some((site) => bareHost(site.replace(/:\d+$/, "")) === host);
+}
+
+/**
+ * `target`/`rel` for a rendered link, decided from its URL alone (stored
+ * mark attributes are ignored): external links open in a new tab without
+ * leaking the opener or referrer; site links get neither. No `nofollow`.
+ */
+export function linkAttributes(
+  href: string,
+  siteHosts?: readonly string[],
+): { target?: "_blank"; rel?: "noopener noreferrer" } {
+  return isExternalUrl(href, siteHosts)
+    ? { target: "_blank", rel: "noopener noreferrer" }
+    : {};
 }
 
 /** `https` and, when `hosts` is given, one of those host names exactly. */

@@ -82,12 +82,14 @@ export function Accordion({ node, children }: BlockProps) {
 /** Renderers of the library's text blocks. */
 export const textBlockRenderers = (
   labels: TextEditorLabels = defaultTextEditorLabels,
+  siteHosts?: readonly string[],
 ) => ({
   button: ({ node }: BlockProps) => (
     <LinkButton
       href={node.attrs.href}
       label={node.attrs.label}
       variant={node.attrs.variant}
+      siteHosts={siteHosts}
     />
   ),
   webPreview: ({ node }: BlockProps) => (
@@ -96,6 +98,7 @@ export const textBlockRenderers = (
       title={node.attrs.title}
       description={node.attrs.description}
       image={node.attrs.image}
+      siteHosts={siteHosts}
     />
   ),
   h5p: ({ node }: BlockProps) => (

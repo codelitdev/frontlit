@@ -9,7 +9,7 @@ import {
 import { getTeamThemeStyle } from "@/lib/team-theme";
 import { CitationList } from "@/components/citation-list";
 import { TicketReplyForm } from "@/components/ticket-reply-form";
-import type { TicketMessage } from "@/lib/api";
+import { getSiteHosts, type TicketMessage } from "@/lib/api";
 
 export async function ThemedTicketThread({
   subject,
@@ -28,7 +28,10 @@ export async function ThemedTicketThread({
   ticketId: string;
   token: string;
 }) {
-  const theme = await getTeamThemeStyle(teamId);
+  const [theme, siteHosts] = await Promise.all([
+    getTeamThemeStyle(teamId),
+    getSiteHosts(teamId),
+  ]);
   return (
     <Section theme={theme}>
       <div className="flex flex-col gap-8">
@@ -44,7 +47,11 @@ export async function ThemedTicketThread({
                   <Caption theme={theme}>
                     {message.author === "requester" ? "You" : "Support"}
                   </Caption>
-                  <TextRenderer json={message.content} theme={theme} />
+                  <TextRenderer
+                    json={message.content}
+                    theme={theme}
+                    siteHosts={siteHosts}
+                  />
                   {message.author === "bot" && (
                     <CitationList sources={message.sources} />
                   )}
