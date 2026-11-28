@@ -12,6 +12,7 @@ export default defineConfig({
     docs: "src/docs.ts",
     headings: "src/docs/headings.ts",
     blocks: "src/core/index.ts",
+    profiles: "src/profiles.ts",
   },
   format: ["esm"],
   dts: true,

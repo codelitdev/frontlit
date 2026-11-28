@@ -35,6 +35,11 @@
       "import": "./dist/blocks.js",
       "default": "./dist/blocks.js"
     },
+    "./profiles": {
+      "types": "./dist/profiles.d.ts",
+      "import": "./dist/profiles.js",
+      "default": "./dist/profiles.js"
+    },
     "./headings": {
       "types": "./dist/headings.d.ts",
       "import": "./dist/headings.js",

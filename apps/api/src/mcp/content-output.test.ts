@@ -228,6 +228,145 @@ describe("typed content tools through the MCP SDK", () => {
     },
   );
 
+  it.each(["article", "documentation_page", "product_update"])(
+    "reads a %s body as editable Markdown in its own text block",
+    async (label) => {
+      const client = await connect();
+      const { data } = await call(client, `create_${label}`, {
+        title: "Guide",
+        markdown: '# Setup\n\nRun the "installer" first.\n',
+      });
+      const read = await client.callTool({
+        name: `get_${label}`,
+        arguments: { documentId: data.documentId },
+      });
+      expect(read.isError, JSON.stringify(read.content)).not.toBe(true);
+      const [meta, body] = read.content as Array<{ type: string; text: string }>;
+      expect(body).toEqual({
+        type: "text",
+        text: '# Setup\n\nRun the "installer" first.\n',
+      });
+      expect(JSON.parse(meta.text)).not.toHaveProperty("draftContent");
+      expect(JSON.parse(meta.text)).not.toHaveProperty("content");
+      expect(read.structuredContent).toMatchObject({
+        draftMarkdown: body.text,
+        draftVersion: expect.any(Number),
+      });
+    },
+  );
+
+  it.each(["article", "documentation_page", "product_update"])(
+    "edits part of a %s body with a small request and reply",
+    async (label) => {
+      const client = await connect();
+      const long = Array.from(
+        { length: 300 },
+        (_, i) => `Paragraph ${i} of the guide.`,
+      ).join("\n\n");
+      const { data } = await call(client, `create_${label}`, {
+        title: "Guide",
+        markdown: `Fix the tpyo here.\n\n${long}\n`,
+      });
+      const args = {
+        documentId: data.documentId,
+        edits: [{ old_str: "tpyo", new_str: "typo" }],
+      };
+      expect(JSON.stringify(args).length).toBeLessThan(1_000);
+      const edited = await call(client, `edit_${label}`, args);
+      expect(edited.text.length).toBeLessThan(1_000);
+      expect(edited.data).toMatchObject({
+        documentId: data.documentId,
+        status: "draft",
+        draftVersion: data.draftVersion + 1,
+      });
+      const read = await call(client, `get_${label}`, { documentId: data.documentId });
+      expect(read.data.draftMarkdown).toBe(`Fix the typo here.\n\n${long}\n`);
+    },
+  );
+
+  it.each(["article", "documentation_page", "product_update"])(
+    "refuses a %s edit that doesn't match or leaves invalid content",
+    async (label) => {
+      const client = await connect();
+      const { data } = await call(client, `create_${label}`, {
+        title: "Guide",
+        markdown: "Same line.\n\nSame line.\n",
+      });
+      const missing = await client.callTool({
+        name: `edit_${label}`,
+        arguments: {
+          documentId: data.documentId,
+          edits: [{ old_str: "Nope", new_str: "x" }],
+        },
+      });
+      expect(missing.isError).toBe(true);
+      expect(missing.structuredContent).toMatchObject({
+        code: "EDIT_NOT_FOUND",
+        index: 0,
+      });
+      const ambiguous = await client.callTool({
+        name: `edit_${label}`,
+        arguments: {
+          documentId: data.documentId,
+          edits: [{ old_str: "Same line.", new_str: "Other line." }],
+        },
+      });
+      expect(ambiguous.structuredContent).toMatchObject({
+        code: "EDIT_AMBIGUOUS",
+        matches: 2,
+      });
+      const invalid = await client.callTool({
+        name: `edit_${label}`,
+        arguments: {
+          documentId: data.documentId,
+          edits: [
+            {
+              old_str: "Same line.\n\nSame",
+              new_str: "Same line.\n\n<script>x</script>\n\nSame",
+            },
+          ],
+        },
+      });
+      expect(invalid.isError, JSON.stringify(invalid.content)).toBe(true);
+      expect(invalid.structuredContent).toMatchObject({
+        diagnostics: [expect.objectContaining({ line: 3 })],
+      });
+      const read = await call(client, `get_${label}`, { documentId: data.documentId });
+      expect(read.data.draftMarkdown).toBe("Same line.\n\nSame line.\n");
+      expect(read.data.draftVersion).toBe(data.draftVersion);
+    },
+  );
+
+  it("edits an article around a block Markdown can't express", async () => {
+    const client = await connect();
+    const content = {
+      type: "doc",
+      content: [
+        { type: "paragraph", content: [{ type: "text", text: "Fix the tpyo." }] },
+        {
+          type: "image",
+          attrs: { src: "https://example.com/team.png", alt: "Team", width: 320 },
+        },
+      ],
+    };
+    const { data } = await call(client, "create_article", { title: "Team", content });
+    const read = await call(client, "get_article", { documentId: data.documentId });
+    expect(read.data.draftMarkdown).toContain("```tiptap\n");
+    await call(client, "edit_article", {
+      documentId: data.documentId,
+      edits: [
+        { old_str: "tpyo", new_str: "typo" },
+        { old_str: '"alt":"Team"', new_str: '"alt":"Our team"' },
+      ],
+    });
+    const after = await call(client, "get_article", { documentId: data.documentId });
+    expect(after.data.draftMarkdown).toBe(
+      read.data.draftMarkdown
+        .replace("tpyo", "typo")
+        .replace('"alt":"Team"', '"alt":"Our team"'),
+    );
+  });
+
   it("publishes a documentation page with schema-valid output", async () => {
     const client = await connect();
     const created = await client.callTool({

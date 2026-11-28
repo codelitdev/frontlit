@@ -1,3 +1,4 @@
+/** Server-safe built-in profiles (`@frontlit/text-editor/profiles`). No React. */
 import { defineProfile, isProfile } from "./core/profile";
 import {
   accordion,
