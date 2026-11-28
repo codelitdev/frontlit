@@ -8,6 +8,9 @@ import {
   type DraftSaveState,
 } from "@/lib/draft-save-queue";
 
+/** Longer than any editor's typing debounce (the text editor waits 1s). */
+const EDITOR_DEBOUNCE_GRACE_MS = 1500;
+
 export interface DraftAutosaveOptions<
   D extends { draftVersion: number },
   P extends DraftPatch,
@@ -109,9 +112,12 @@ export function useDraftAutosave<
 
   // Returning to the tab: show a draft someone changed meanwhile, unless
   // there are unsaved edits (their next save reports the conflict instead).
+  // Editors debounce typing (up to a second) before queuing it, so wait for
+  // those edits to reach the queue before deciding it is idle.
   useEffect(() => {
-    const onVisibilityChange = async () => {
-      if (document.visibilityState !== "visible" || !queue.isIdle()) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refreshIfIdle = async () => {
+      if (!queue.isIdle()) return;
       const seen = queue.draftVersion;
       let draft: D;
       try {
@@ -124,8 +130,16 @@ export function useDraftAutosave<
       reset(draft);
       toast("Updated with changes made elsewhere.");
     };
+    const onVisibilityChange = () => {
+      clearTimeout(timer);
+      if (document.visibilityState === "visible")
+        timer = setTimeout(() => void refreshIfIdle(), EDITOR_DEBOUNCE_GRACE_MS);
+    };
     document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [queue, reset]);
 
   return {

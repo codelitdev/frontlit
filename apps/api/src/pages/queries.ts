@@ -330,7 +330,9 @@ export async function updatePage(
         .where(
           and(
             eq(pages.id, existing.id),
-            expectedDraftVersion !== undefined
+            // Only a draft change is compared here: a slug-only save already
+            // passed the check above, and a slug move has committed by now.
+            changesDraft && expectedDraftVersion !== undefined
               ? eq(pages.draftVersion, expectedDraftVersion)
               : undefined,
           ),
